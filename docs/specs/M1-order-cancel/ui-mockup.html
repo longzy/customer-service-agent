@@ -6,14 +6,15 @@
 <title>M1 Web Chat 结构参考稿</title>
 <style>
   :root {
-    --bg: #f6f7f9;
+    /* 中性灰骨架：zinc 系，不走蓝灰也不走暖米 */
+    --bg: #fafafa;
     --surface: #ffffff;
-    --surface-2: #f1f5f9;
-    --border: #e3e8ef;
-    --border-strong: #cbd5e1;
-    --text: #0f172a;
-    --text-2: #475569;
-    --text-3: #94a3b8;
+    --surface-2: #f4f4f5;
+    --border: #e8e8ec;
+    --border-strong: #d6d6dd;
+    --text: #18181b;
+    --text-2: #52525b;
+    --text-3: #a1a1aa;
     --accent: #2563eb;
     --accent-soft: #eff6ff;
     --success: #059669;
@@ -45,6 +46,20 @@
     font-variant-numeric: tabular-nums;
   }
   .sw { width: 14px; height: 14px; border-radius: 4px; border: 1px solid var(--border); }
+
+  /* 背景候选对照 */
+  .candidates { display: flex; flex-wrap: wrap; gap: 14px; margin: 4px 0 8px; }
+  .cand { width: 190px; }
+  .cand-box { border: 1px solid; border-radius: 10px; padding: 10px; }
+  .cand-card {
+    background: #fff; border: 1px solid; border-radius: 7px; padding: 9px 11px;
+    display: flex; flex-direction: column; gap: 1px; font-size: 12px;
+  }
+  .cand-card span:first-child { font-size: 13px; font-weight: 650; }
+  .cand-card span:last-child { font-size: 11.5px; }
+  .cand-name { font-size: 11.5px; color: var(--text-2); margin-top: 7px; }
+  .cand-name span { color: var(--text-3); }
+  .cand.chosen .cand-name { color: var(--text); font-weight: 600; }
 
   /* ---------- 整页 ---------- */
   .page {
@@ -132,7 +147,7 @@
   }
   .confirm .cap {
     display: flex; align-items: center; gap: 9px;
-    padding: 13px 16px; border-bottom: 1px solid var(--border); background: #fcfcfd;
+    padding: 13px 16px; border-bottom: 1px solid var(--border); background: var(--bg);
   }
   .confirm .cap .ico { width: 26px; height: 26px; border-radius: 7px; background: var(--surface-2); display: grid; place-items: center; color: var(--text-2); }
   .confirm .cap b { font-size: 13px; font-weight: 650; }
@@ -227,16 +242,37 @@
   </p>
 
   <div class="tokens">
-    <span class="token"><span class="sw" style="background:#f6f7f9"></span>bg #F6F7F9</span>
+    <span class="token"><span class="sw" style="background:#fafafa"></span>bg #FAFAFA</span>
     <span class="token"><span class="sw" style="background:#ffffff"></span>surface #FFFFFF</span>
-    <span class="token"><span class="sw" style="background:#f1f5f9"></span>fill #F1F5F9</span>
-    <span class="token"><span class="sw" style="background:#e3e8ef"></span>border #E3E8EF</span>
-    <span class="token"><span class="sw" style="background:#0f172a"></span>text #0F172A</span>
-    <span class="token"><span class="sw" style="background:#475569"></span>muted #475569</span>
+    <span class="token"><span class="sw" style="background:#f4f4f5"></span>fill #F4F4F5</span>
+    <span class="token"><span class="sw" style="background:#e8e8ec"></span>border #E8E8EC</span>
+    <span class="token"><span class="sw" style="background:#18181b"></span>text #18181B</span>
+    <span class="token"><span class="sw" style="background:#52525b"></span>muted #52525B</span>
     <span class="token"><span class="sw" style="background:#2563eb"></span>accent #2563EB</span>
     <span class="token"><span class="sw" style="background:#059669"></span>success #059669</span>
     <span class="token"><span class="sw" style="background:#b45309"></span>warning #B45309</span>
     <span class="token"><span class="sw" style="background:#dc2626"></span>danger #DC2626</span>
+  </div>
+
+  <div class="candidates">
+    <div class="cand">
+      <div class="cand-box" style="background:#f6f7f9;border-color:#e3e8ef">
+        <div class="cand-card" style="border-color:#e3e8ef"><span style="color:#0f172a">Aa</span><span style="color:#475569">次要文字</span></div>
+      </div>
+      <div class="cand-name">A 冷灰 <span>偏技术感，略蓝</span></div>
+    </div>
+    <div class="cand chosen">
+      <div class="cand-box" style="background:#fafafa;border-color:#e8e8ec">
+        <div class="cand-card" style="border-color:#e8e8ec"><span style="color:#18181b">Aa</span><span style="color:#52525b">次要文字</span></div>
+      </div>
+      <div class="cand-name">B 中性灰 <span>当前采用，最安静</span></div>
+    </div>
+    <div class="cand">
+      <div class="cand-box" style="background:#fbfaf7;border-color:#eae7e0">
+        <div class="cand-card" style="border-color:#eae7e0"><span style="color:#1c1917">Aa</span><span style="color:#57534e">次要文字</span></div>
+      </div>
+      <div class="cand-name">C 暖白 <span>偏纸感，接近传统电商</span></div>
+    </div>
   </div>
 
   <h2 class="sec">完整页面</h2>
