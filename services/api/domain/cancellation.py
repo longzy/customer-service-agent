@@ -2,6 +2,8 @@
 
 from enum import StrEnum
 
+from pydantic import BaseModel, ConfigDict, Field
+
 
 class CancellationState(StrEnum):
     COLLECTING = "COLLECTING"
@@ -33,3 +35,13 @@ EXPRESSIONS: dict[CancellationState, str] = {
 def state_expression(state: CancellationState) -> str:
     """返回该状态允许对用户展示的表达；缺少映射直接失败，不返回兜底文案。"""
     return EXPRESSIONS[state]
+
+
+class CancelEligibility(BaseModel):
+    """取消资格结果由 Policy Engine 产出，Agent 只能转述。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    eligible: bool
+    reason_code: str = Field(min_length=1)
+    requires_confirmation: bool

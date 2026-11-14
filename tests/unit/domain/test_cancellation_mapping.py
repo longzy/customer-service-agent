@@ -3,7 +3,7 @@
 from services.api.domain.cancellation import CancellationState, state_expression
 
 
-def test_已取消状态表达为已取消() -> None:
+def test_已取消状态表达为已取消_AC_16() -> None:
     assert state_expression(CancellationState.CANCELLED) == "已取消"
 
 
@@ -21,7 +21,7 @@ EXPECTED = {
 }
 
 
-def test_十个取消状态与对外表达一一对应() -> None:
+def test_十个取消状态与对外表达一一对应_AC_16() -> None:
     assert {s.value for s in CancellationState} == set(EXPECTED)
     for state in CancellationState:
         assert state_expression(state) == EXPECTED[state.value]

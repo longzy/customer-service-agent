@@ -2,8 +2,7 @@
 
 跨模块接口的唯一定义来源。
 
-- OpenAPI 由后端自动生成，T-03 落地后导出到本目录。
-- 前端类型由 OpenAPI 生成，不手写。
-- JSON Schema 只用于 Tool 输入校验。
-
-当前为空占位，随 T-03（Tool 与 Mock OMS 契约）填充。
+- `schemas/domain.json`：M1 领域契约，包含 OrderSummary、OrderDetail、OrderItem、CancelEligibility 与三个枚举（订单状态、取消状态、错误码）。
+- 金额统一为整数分；时间为带 `Z` 的 ISO 8601 UTC 字符串；未知字段一律拒绝。
+- Python 类型位于 `services/api/domain/`，由契约测试保证与 Schema 对齐。
+- OpenAPI 由后端自动生成，T-03 落地后导出到本目录；前端类型由 OpenAPI 生成，不手写。

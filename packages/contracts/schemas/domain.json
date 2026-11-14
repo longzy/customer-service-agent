@@ -40,6 +40,34 @@
         "INTERNAL_ERROR"
       ]
     },
+    "OrderItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sku",
+        "name",
+        "quantity",
+        "unit_amount_cents"
+      ],
+      "properties": {
+        "sku": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "quantity": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "unit_amount_cents": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
     "OrderSummary": {
       "type": "object",
       "additionalProperties": false,
@@ -77,37 +105,37 @@
         },
         "created_at": {
           "type": "string",
-          "format": "date-time"
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
         }
-      }
-    },
-    "OrderItem": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "sku",
-        "name",
-        "quantity",
-        "unit_amount_cents"
-      ],
-      "properties": {
-        "sku": {
-          "type": "string",
-          "minLength": 1
-        },
-        "name": {
-          "type": "string",
-          "minLength": 1
-        },
-        "quantity": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "unit_amount_cents": {
-          "type": "integer",
-          "minimum": 0
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "order_status": {
+                "const": "PAID_UNFULFILLED"
+              }
+            },
+            "required": [
+              "order_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "cancelable": {
+                "const": true
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "cancelable": {
+                "const": false
+              }
+            }
+          }
         }
-      }
+      ]
     },
     "OrderDetail": {
       "type": "object",
@@ -120,7 +148,9 @@
         "amount_cents",
         "currency",
         "created_at",
-        "items"
+        "items",
+        "paid_at",
+        "shipped_at"
       ],
       "properties": {
         "order_id": {
@@ -147,7 +177,7 @@
         },
         "created_at": {
           "type": "string",
-          "format": "date-time"
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
         },
         "items": {
           "type": "array",
@@ -156,20 +186,56 @@
           }
         },
         "paid_at": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "format": "date-time"
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+            },
+            {
+              "type": "null"
+            }
+          ]
         },
         "shipped_at": {
-          "type": [
-            "string",
-            "null"
-          ],
-          "format": "date-time"
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "order_status": {
+                "const": "PAID_UNFULFILLED"
+              }
+            },
+            "required": [
+              "order_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "cancelable": {
+                "const": true
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "cancelable": {
+                "const": false
+              }
+            }
+          }
+        }
+      ]
     },
     "CancelEligibility": {
       "type": "object",
