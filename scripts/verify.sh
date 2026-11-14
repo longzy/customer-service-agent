@@ -3,8 +3,11 @@
 set -e
 cd "$(git rev-parse --show-toplevel)"
 
-echo "== ruff =="
+echo "== ruff check =="
 UV_CACHE_DIR=./.uv-cache uv run ruff check .
+
+echo "== ruff format =="
+UV_CACHE_DIR=./.uv-cache uv run ruff format --check .
 
 echo "== mypy =="
 UV_CACHE_DIR=./.uv-cache uv run mypy services
@@ -17,6 +20,9 @@ python3 scripts/check-docs.py
 
 echo "== web lint =="
 pnpm -C apps/web lint
+
+echo "== web format =="
+pnpm -C apps/web exec prettier --check .
 
 echo "== web typecheck =="
 pnpm -C apps/web typecheck

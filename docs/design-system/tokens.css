@@ -1,0 +1,27 @@
+/*
+ * M1 设计令牌（单一来源）。
+ * 取值与用途见 docs/design-system/ui-spec.md 第 2 节。
+ * 参考稿与组件页都引用本文件，不要在页面内重复定义。
+ */
+:root {
+  /* 中性骨架：zinc 系，不走蓝灰也不走暖米 */
+  --bg: #fafafa;
+  --surface: #ffffff;
+  --surface-2: #f4f4f5;
+  --border: #e8e8ec;
+  --border-strong: #d6d6dd;
+  --input-border: #e4e4e7;
+
+  /* 文字 */
+  --text: #18181b;
+  --text-2: #52525b;
+  --text-3: #71717a;
+
+  /* 强调与语义色 */
+  --accent: #2563eb;
+  --accent-soft: #eff6ff;
+  --success: #059669;
+  --warning: #b45309;
+  --danger: #dc2626;
+  --danger-soft: #fef2f2;
+}

@@ -19,18 +19,40 @@ TASKS_ROOT = os.path.join(ROOT, "docs", "tasks")
 SKIP_DIRS = {".git", ".venv", "node_modules", ".next", ".uv-cache", ".pnpm-store", "coverage"}
 
 STATUS_WORDS = {
-    "未开始", "草案", "拟议", "等待评审", "已批准",
-    "进行中", "阻塞", "已完成", "已暂停",
-    "已关闭", "已清零", "待确认", "待开工许可",
+    "未开始",
+    "草案",
+    "拟议",
+    "等待评审",
+    "已批准",
+    "进行中",
+    "阻塞",
+    "已完成",
+    "已暂停",
+    "已关闭",
+    "已清零",
+    "待确认",
+    "待开工许可",
 }
 
 CURRENT_REQUIRED_FIELDS = [
-    "更新日期", "项目阶段", "当前状态", "当前 Milestone",
-    "最近验证", "已完成", "进行中", "阻塞", "下一步", "待确认决策",
+    "更新日期",
+    "项目阶段",
+    "当前状态",
+    "当前 Milestone",
+    "最近验证",
+    "已完成",
+    "进行中",
+    "阻塞",
+    "下一步",
+    "待确认决策",
 ]
 
 SPEC_REQUIRED_FILES = [
-    "requirements.md", "design.md", "acceptance.md", "tasks.md", "clarifications.md",
+    "requirements.md",
+    "design.md",
+    "acceptance.md",
+    "tasks.md",
+    "clarifications.md",
 ]
 
 GATE_OPEN_STATUSES = ("待开工许可", "已确认")
@@ -38,7 +60,7 @@ SPEC_DIR_PATTERN = re.compile(r"^\d{3}-[a-z0-9-]+$")
 CARD_PATTERN = re.compile(r"^T-\d{2}\.md$")
 
 errors = []
-checked = {"links": 0, "files": 0, "acs": 0, "cards": 0, "specs": 0}
+checked = {"links": 0, "files": 0, "acs": 0, "cards": 0, "specs": 0, "skipped": 0}
 
 
 def rel(path):
@@ -113,9 +135,7 @@ def spec_dirs():
                 continue
             number = name.split("-")[0]
             if number in numbers:
-                errors.append(
-                    f"{milestone}：编号 {number} 重复（{numbers[number]} 与 {name}）"
-                )
+                errors.append(f"{milestone}：编号 {number} 重复（{numbers[number]} 与 {name}）")
             numbers[number] = name
             found.append((milestone, name, path))
     return found
@@ -163,6 +183,29 @@ def check_task_dirs(specs):
                 errors.append(f"{rel(os.path.join(path, card))}：执行卡命名应为 T-XX.md")
 
 
+PATH_PREFIXES = ("docs/", "services/", "packages/", "tests/", "scripts/", "apps/", "migrations/")
+PATH_TOKEN = re.compile(r"`([^`\n]+)`")
+
+
+def check_card_paths():
+    """执行卡里以反引号写出的仓库路径必须真实存在。"""
+    if not os.path.isdir(TASKS_ROOT):
+        return
+    for base, _dirs, names in os.walk(TASKS_ROOT):
+        for card in sorted(names):
+            if not CARD_PATTERN.match(card):
+                continue
+            card_path = os.path.join(base, card)
+            for token in PATH_TOKEN.findall(read(card_path)):
+                if not token.startswith(PATH_PREFIXES):
+                    continue
+                if "<" in token or "*" in token or " " in token:
+                    continue
+                if os.path.exists(os.path.join(ROOT, token.rstrip("/"))):
+                    continue
+                errors.append(f"{rel(card_path)}：引用的路径不存在 {token}")
+
+
 def resolve_reference(card_path, ref):
     """依次在仓库根、执行卡所在目录及其各级上级目录中解析相对引用。"""
     candidates = [os.path.join(ROOT, ref)]
@@ -189,6 +232,8 @@ def check_design_card_gate():
             card_path = os.path.join(base, card)
             status = doc_status(card_path)
             if not status.startswith(GATE_OPEN_STATUSES):
+                checked["skipped"] += 1
+                print(f"跳过执行卡 {rel(card_path)}：状态为 {status or '未声明'}")
                 continue
             checked["cards"] += 1
             for line in read(card_path).splitlines():
@@ -216,6 +261,7 @@ def main():
     check_spec_structure(specs)
     check_ac_coverage(specs)
     check_task_dirs(specs)
+    check_card_paths()
     check_design_card_gate()
 
     if errors:
@@ -226,7 +272,8 @@ def main():
 
     print(
         f"文档检查通过：{checked['files']} 个文件、{checked['links']} 条链接、"
-        f"{checked['specs']} 个规格目录、{checked['acs']} 条 AC、{checked['cards']} 张执行卡。"
+        f"{checked['specs']} 个规格目录、{checked['acs']} 条 AC、"
+        f"{checked['cards']} 张执行卡已检查、{checked['skipped']} 张跳过。"
     )
     return 0
 

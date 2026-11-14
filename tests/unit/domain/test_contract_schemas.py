@@ -122,9 +122,7 @@ def test摘要必填字段与模型一致_AC_04() -> None:
         name for name, field in OrderSummary.model_fields.items() if field.is_required()
     }
     assert schema_required == model_required
-    assert set(DOCUMENT["$defs"]["OrderSummary"]["properties"]) == set(
-        OrderSummary.model_fields
-    )
+    assert set(DOCUMENT["$defs"]["OrderSummary"]["properties"]) == set(OrderSummary.model_fields)
 
 
 def test详情必填字段与模型一致_AC_04() -> None:

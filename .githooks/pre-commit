@@ -1,3 +1,9 @@
 #!/bin/sh
-# 提交前执行文档一致性检查；失败则阻断提交。
-exec python3 "$(git rev-parse --show-toplevel)/scripts/check-docs.py"
+# 提交前执行快检查：格式、静态检查、文档一致性。失败即阻断。
+set -e
+cd "$(git rev-parse --show-toplevel)"
+
+export UV_CACHE_DIR=./.uv-cache
+uv run ruff check . --quiet
+uv run ruff format --check . --quiet
+python3 scripts/check-docs.py
