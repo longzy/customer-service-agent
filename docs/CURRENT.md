@@ -7,7 +7,7 @@
 - 版本控制：Git 已初始化，`main` 分支；全部文档已提交，工作区干净
 - 当前 Milestone：M1 订单查询与未发货订单取消（规格已批准：`docs/specs/M1/001-order-cancel/`）
 - 当前工作：T-02 已完成，待独立评审
-- 最近验证：`./scripts/verify.sh` 七项全绿——ruff All checks passed、mypy 12 个文件无问题、pytest 28 passed、文档检查 33 个文件 19 条 AC、前端 lint/typecheck/test 通过
+- 最近验证：`./scripts/verify.sh` 七项全绿——ruff All checks passed、mypy 12 个文件无问题、pytest 76 passed、文档检查 33 个文件 19 条 AC、前端 lint/typecheck/test 通过
 
 ## 本阶段目标
 
@@ -48,7 +48,7 @@
 - 引入 Spec 开发规范：新增 `docs/process/sdd.md`，固定路径与门禁；目录迁移为 `docs/specs/M1/001-order-cancel/`、`docs/tasks/001-order-cancel/`、`docs/design-system/`、`docs/process/`；检查器扩展为结构校验并完成反向验证。
 - 引入 TDD 规范：新增 `docs/process/tdd.md`，约定 seam、红-绿循环与突变检查范围；任务模板与 T-02 执行卡已加入红-绿证据与突变分数要求。
 - `docs/process/sdd.md` 与 `docs/process/tdd.md` 已批准（2026-11-14）。
-- T-02 完成：领域契约 `packages/contracts/schemas/domain.json`、Python 领域类型、10 个取消状态映射、7 个错误码；按红-绿推进，28 个后端测试通过。
+- T-02 完成：领域契约 `packages/contracts/schemas/domain.json`、Python 领域类型、10 个取消状态映射、7 个错误码；按红-绿推进，76 个后端测试通过。
 
 ## 进行中
 

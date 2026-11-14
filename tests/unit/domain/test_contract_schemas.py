@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from jsonschema import Draft202012Validator
+from jsonschema import Draft202012Validator, FormatChecker
 from pydantic import ValidationError
 
 from services.api.domain.cancellation import CancelEligibility, CancellationState
@@ -14,7 +14,7 @@ from services.api.domain.orders import OrderDetail, OrderStatus, OrderSummary
 
 SCHEMA_PATH = Path("packages/contracts/schemas/domain.json")
 DOCUMENT = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))
-_VALIDATOR = Draft202012Validator(DOCUMENT)
+_VALIDATOR = Draft202012Validator(DOCUMENT, format_checker=FormatChecker())
 
 
 def validate(def_name: str, instance: Any) -> None:
@@ -62,6 +62,8 @@ def test_合法订单摘要通过_AC_04() -> None:
         {"created_at": "2026-11-14"},
         {"created_at": "not-a-date"},
         {"created_at": "2026-11-14T14:02:00+08:00"},
+        {"created_at": "2026-02-30T06:02:00Z"},
+        {"created_at": "2026-99-99T99:99:99Z"},
         {"unexpected": "x"},
     ],
 )
@@ -86,9 +88,10 @@ def test_订单详情缺商品明细被拒绝_AC_04() -> None:
         validate("OrderDetail", data)
 
 
-def test_订单详情缺时间字段被拒绝_AC_04() -> None:
+@pytest.mark.parametrize("field", ["paid_at", "shipped_at"])
+def test_订单详情缺时间字段被拒绝_AC_04(field: str) -> None:
     data = detail_payload()
-    data.pop("paid_at")
+    data.pop(field)
     with pytest.raises(AssertionError):
         validate("OrderDetail", data)
 
@@ -133,8 +136,42 @@ def test详情必填字段与模型一致_AC_04() -> None:
 
 
 def test资格结果字段与模型一致_AC_04() -> None:
-    schema_props = set(DOCUMENT["$defs"]["CancelEligibility"]["properties"])
-    assert schema_props == set(CancelEligibility.model_fields)
+    schema = DOCUMENT["$defs"]["CancelEligibility"]
+    assert set(schema["properties"]) == set(CancelEligibility.model_fields)
+    model_required = {
+        name for name, field in CancelEligibility.model_fields.items() if field.is_required()
+    }
+    assert set(schema["required"]) == model_required
+
+
+def test详情属性集合与模型一致_AC_04() -> None:
+    schema = DOCUMENT["$defs"]["OrderDetail"]
+    assert set(schema["properties"]) == set(OrderDetail.model_fields)
+
+
+def test_详情拒绝可取消标记矛盾_AC_07() -> None:
+    with pytest.raises(AssertionError):
+        validate("OrderDetail", detail_payload(order_status="SHIPPED", cancelable=True))
+
+
+def test_所有对象都拒绝额外字段_AC_04() -> None:
+    with pytest.raises(AssertionError):
+        validate("OrderDetail", detail_payload(unexpected="x"))
+    with pytest.raises(AssertionError):
+        validate(
+            "OrderItem",
+            {"sku": "S", "name": "n", "quantity": 1, "unit_amount_cents": 1, "unexpected": "x"},
+        )
+    with pytest.raises(AssertionError):
+        validate(
+            "CancelEligibility",
+            {
+                "eligible": True,
+                "reason_code": "R",
+                "requires_confirmation": True,
+                "unexpected": "x",
+            },
+        )
 
 
 def test_模型与schema都拒绝额外字段_AC_04() -> None:

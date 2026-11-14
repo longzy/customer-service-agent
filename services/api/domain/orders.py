@@ -4,7 +4,15 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Any, Self
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    StrictBool,
+    StrictInt,
+    field_validator,
+    model_validator,
+)
 
 UTC_ISO_PATTERN = r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$"
 
@@ -43,7 +51,7 @@ class _OrderBase(BaseModel):
     order_id: str = Field(min_length=1)
     item_summary: str = Field(min_length=1)
     order_status: OrderStatus
-    cancelable: bool
+    cancelable: StrictBool
     amount_cents: int = Field(ge=0)
     currency: str = Field(pattern=r"^[A-Z]{3}$")
     created_at: datetime
@@ -79,7 +87,7 @@ class OrderItem(BaseModel):
 
     sku: str = Field(min_length=1)
     name: str = Field(min_length=1)
-    quantity: int = Field(ge=1)
+    quantity: StrictInt = Field(ge=1)
     unit_amount_cents: int = Field(ge=0)
 
     @field_validator("unit_amount_cents", mode="before")

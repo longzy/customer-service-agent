@@ -54,8 +54,9 @@ def test_订单详情必须包含商品明细_AC_04() -> None:
         OrderDetail(**data)
 
 
-def test_订单详情的时间字段必须存在且可为空_AC_04() -> None:
+@pytest.mark.parametrize("field", ["paid_at", "shipped_at"])
+def test_订单详情的时间字段必须存在且可为空_AC_04(field: str) -> None:
     data = detail()
-    data.pop("paid_at")
+    data.pop(field)
     with pytest.raises(ValidationError):
         OrderDetail(**data)

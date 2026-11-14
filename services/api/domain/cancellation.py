@@ -2,7 +2,7 @@
 
 from enum import StrEnum
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StrictBool
 
 
 class CancellationState(StrEnum):
@@ -42,6 +42,6 @@ class CancelEligibility(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    eligible: bool
+    eligible: StrictBool
     reason_code: str = Field(min_length=1)
-    requires_confirmation: bool
+    requires_confirmation: StrictBool
