@@ -45,6 +45,7 @@
 - `CURRENT.md` 字段已按规范第 5 节对齐：补齐"当前 Milestone"，统一"项目阶段""当前状态"命名。
 - ADR-0001、ADR-0002、ADR-0003 已确认为已批准（2026-11-14，无保留意见）。
 - M1 四个阻塞问题已决策并回写四份文档：资格以 Policy Engine 为唯一权威；取消任务在表达意图时创建并允许转入 `ABANDONED`；补齐 `SUBMITTING`/`SUBMIT_UNKNOWN` 的"已提交"表达；技术清单与业务清单分层维护。同步新增 AC-19。
+- 架构基线补充第 10 节术语表，定义 OMS、Mock OMS、Tool、Tool Gateway、Workflow、Agent Runtime、幂等键和租户。
 
 ## 进行中
 
