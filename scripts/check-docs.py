@@ -42,9 +42,12 @@ def rel(path):
     return os.path.relpath(path, ROOT)
 
 
+SKIP_DIRS = {".git", ".venv", "node_modules", ".next", ".uv-cache", ".pnpm-store", "coverage"}
+
+
 def md_files():
     for base, dirs, names in os.walk(ROOT):
-        dirs[:] = [d for d in dirs if d != ".git"]
+        dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
         for name in names:
             if name.endswith(".md"):
                 yield os.path.join(base, name)
@@ -64,7 +67,7 @@ def check_links(files):
             checked["links"] += 1
             resolved = os.path.normpath(os.path.join(os.path.dirname(path), target))
             if not os.path.exists(resolved):
-                errors.append("%s：链接目标不存在 %s" % (rel(path), target))
+                errors.append(f"{rel(path)}：链接目标不存在 {target}")
 
 
 def check_status_words(files):
@@ -75,7 +78,7 @@ def check_status_words(files):
         for value in status.findall(header):
             token = re.split(r"[（(，,、\s]", value.strip())[0]
             if token and token not in STATUS_WORDS:
-                errors.append("%s：状态词不在允许集合内：%s" % (rel(path), token))
+                errors.append(f"{rel(path)}：状态词不在允许集合内：{token}")
 
 
 def check_current_fields():
@@ -83,7 +86,7 @@ def check_current_fields():
     text = read(path)
     for field in CURRENT_REQUIRED_FIELDS:
         if field not in text:
-            errors.append("docs/CURRENT.md：缺少规范第 5 节要求的字段 %s" % field)
+            errors.append(f"docs/CURRENT.md：缺少规范第 5 节要求的字段 {field}")
 
 
 def check_ac_coverage():
@@ -96,7 +99,7 @@ def check_ac_coverage():
     checked["acs"] = len(acs)
     for ac in acs:
         if ac not in tasks_text:
-            errors.append("docs/specs/M1-order-cancel/tasks.md：缺少对 %s 的引用" % ac)
+            errors.append(f"docs/specs/M1-order-cancel/tasks.md：缺少对 {ac} 的引用")
 
 
 def doc_status(path):
@@ -133,12 +136,11 @@ def check_design_card_gate():
             for ref in re.findall(r"`([^`]+\.md)`", line):
                 target = resolve_reference(card, ref)
                 if target is None:
-                    errors.append("%s：依据文档不存在 %s" % (rel(card), ref))
+                    errors.append(f"{rel(card)}：依据文档不存在 {ref}")
                     continue
                 if not doc_status(target).startswith(("已批准", "已清零")):
                     errors.append(
-                        "%s：状态为 %s，但依据文档 %s 尚未批准"
-                        % (rel(card), status, rel(target))
+                        f"{rel(card)}：状态为 {status}，但依据文档 {rel(target)} 尚未批准"
                     )
 
 
@@ -152,14 +154,14 @@ def main():
     check_design_card_gate()
 
     if errors:
-        print("文档检查失败，%d 个问题：" % len(errors))
+        print(f"文档检查失败，{len(errors)} 个问题：")
         for item in errors:
             print("  - " + item)
         return 1
 
     print(
-        "文档检查通过：%d 个文件、%d 条链接、%d 条 AC、%d 张设计卡。"
-        % (checked["files"], checked["links"], checked["acs"], checked["cards"])
+        f"文档检查通过：{checked['files']} 个文件、{checked['links']} 条链接、"
+        f"{checked['acs']} 条 AC、{checked['cards']} 张设计卡。"
     )
     return 0
 

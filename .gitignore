@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+.next/
+coverage/
+
+# 环境与本地文件
+.env
+.DS_Store
+
+# uv 与 pnpm 的本地缓存
+.uv-cache/
+.pnpm-store/

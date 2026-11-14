@@ -52,5 +52,31 @@
 
 ## 本地运行
 
-工程骨架尚未建立。后续加入真实脚手架时，应在此处和 `AGENTS.md` 中同步安装、运行、测试、Lint 和评测命令。
+环境：Python 3.12（`.python-version`）、Node 22、pnpm 10、PostgreSQL 17（本机服务，库名 `customer_service`）。
+
+```bash
+# 依赖
+UV_CACHE_DIR=./.uv-cache uv sync
+pnpm -C apps/web install
+
+# 一键验证：ruff、mypy、pytest、文档检查、前端 lint / typecheck / test
+./scripts/verify.sh
+
+# 单独运行
+UV_CACHE_DIR=./.uv-cache uv run ruff check .
+UV_CACHE_DIR=./.uv-cache uv run mypy services
+UV_CACHE_DIR=./.uv-cache uv run pytest
+python3 scripts/check-docs.py
+pnpm -C apps/web lint
+pnpm -C apps/web typecheck
+pnpm -C apps/web test
+
+# 启动开发服务器
+UV_CACHE_DIR=./.uv-cache uv run uvicorn services.api.main:app --reload
+pnpm -C apps/web dev
+```
+
+数据库：`createdb customer_service`；连接串默认 `postgresql+asyncpg://ba@127.0.0.1:5432/customer_service`，可用 `.env` 覆盖（见 `.env.example`）。
+
+迁移：`uv run alembic revision --autogenerate -m "..."`，首个业务迁移随 T-02 落地。
 

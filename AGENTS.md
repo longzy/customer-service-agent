@@ -32,8 +32,9 @@
 ## 当前仓库状态
 
 - 阶段、当前 Milestone、进行中、阻塞与下一步以 `docs/CURRENT.md` 为准，本文件不重复维护。
-- 在工程骨架加入之前，不存在的构建、测试和运行命令不得凭空编造。
-- 添加脚手架后，必须在本文件和 `README.md` 中补齐真实命令。
+- 一键验证：`./scripts/verify.sh`（ruff、mypy、pytest、文档检查、前端 lint/typecheck/test）。
+- 后端依赖 `UV_CACHE_DIR=./.uv-cache uv sync`；前端依赖 `pnpm -C apps/web install`。
+- 命令以实际跑通为准；新增或变更构建、测试、Lint 命令时必须同步更新本文件与 `README.md`。
 
 ## 工程约束
 
