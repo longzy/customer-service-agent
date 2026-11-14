@@ -44,3 +44,7 @@ testpaths = ["tests"]
 asyncio_mode = "auto"
 addopts = "-q"
 asyncio_default_fixture_loop_scope = "function"
+# 依赖库的弃用警告升级为错误，避免带着弃用继续开发；无关的第三方警告不拦截
+filterwarnings = [
+    "error::starlette.exceptions.StarletteDeprecationWarning",
+]

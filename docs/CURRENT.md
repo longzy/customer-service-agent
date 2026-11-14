@@ -50,6 +50,7 @@
 - `docs/process/sdd.md` 与 `docs/process/tdd.md` 已批准（2026-11-14）。
 - 环境改进（retro）：门禁分两级（提交快检查、推送完整验证）；pre-commit 接入 ruff 格式与静态检查；`verify.sh` 补格式检查；新增测试命名元测试；执行卡引用路径纳入检查；设计令牌抽为 `docs/design-system/tokens.css`；流程规范补非实现者速览。
 - 依赖修正：Starlette 1.10 的 TestClient 改用 `httpx2`，dev 依赖由 `httpx` 换成 `httpx2`，测试输出无警告。
+- 弃用警告升级为失败：`filterwarnings` 拦截 `StarletteDeprecationWarning`，已反向验证。
 - T-02 完成：领域契约 `packages/contracts/schemas/domain.json`、Python 领域类型、10 个取消状态映射、7 个错误码；按红-绿推进，76 个后端测试通过。
 
 ## 进行中
