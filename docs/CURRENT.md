@@ -51,18 +51,19 @@
 
 ## 进行中
 
-- `docs/adr/0004-engineering-baseline.md` 与 `docs/specs/M1-order-cancel/ui.md` 已起草，等待确认后启动 T-01。
-- `tasks.md` 的 T-01 已改写为带产出清单和完成标准的任务，先前"关联：全部"不可判定的问题已消除。
+- M1 澄清清单 `docs/specs/M1-order-cancel/clarifications.md` 已建立，共 12 条待答复。
+- 已完成 AI Coding 人机协作流程调研，见 `docs/research/ai-coding-dev-collaboration-2026-11-14.md`。
 
 ## 阻塞
 
-- ADR-0004 与 ui.md 未确认之前，T-01 缺少可执行依据（技术栈、目录、编码规范、界面结构）。
+- 澄清清单 12 条未关闭之前，T-01 不具备开工条件。
+- 本地环境与 ADR-0004 记载不符：仅有 PostgreSQL 14.13（2026-11-12 已到期），未安装 Docker。
 
 ## 下一步
 
-1. 确认 `docs/adr/0004-engineering-baseline.md`。
-2. 确认 `docs/specs/M1-order-cancel/ui.md`。
-3. 按改写后的 T-01 建立工程骨架，并记录真实命令输出。之后进入 T-02。
+1. 答复澄清清单 C-01 至 C-12，并把答案写回规格或 ADR。
+2. 按答案修订 ADR-0004（数据库版本、本地运行方式）与 T-01 完成标准。
+3. 澄清清零后启动 T-01。
 
 ## 待确认决策
 
