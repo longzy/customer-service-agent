@@ -1,4 +1,8 @@
-"""pydantic 必须与 Schema 一样拒绝宽松类型转换（AC-11、AC-14）。"""
+"""模型层的严格类型边界（AC-11、AC-14）。
+
+与 Schema 的关系：bool 与字符串强转两侧都拒绝；整数浮点表示（如 1.0）Schema 按
+JSON Schema 语义接受，模型有意更严格，见 T-02 执行卡 7.4。
+"""
 
 from typing import Any
 
