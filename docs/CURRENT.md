@@ -62,16 +62,17 @@
 - `AGENTS.md` 与 `README.md` 不再重复维护阶段状态，统一以本文件为唯一来源。
 - `ui-mockup.html` 已迭代为整页版：左侧窄栏 + 单列对话 + 图标化控件 + 六个状态变体；`ui.md` 第 2、9、10 节同步更新。
 - 新增 `docs/design/ui-spec.md` 与 `ui-components.html`：设计令牌、字号与间距刻度、10 个组件契约与状态矩阵；`ui.md` 第 10 节改为指针，避免取值重复。
+- `ADR-0004`、`ui.md`、`ui-spec.md` 已批准；辅助文字色按实测对比度修正为 `#71717A`。
 
 ## 阻塞
 
-- `docs/adr/0004-engineering-baseline.md` 仍为拟议、`ui.md` 仍为草案，T-01 设计卡因此保持待确认；检查脚本已能拦截这类状态。
+- 无。
 
 ## 下一步
 
-1. 批准 `docs/adr/0004-engineering-baseline.md` 与 `docs/specs/M1-order-cancel/ui.md`。
-2. 将 T-01 设计卡状态改为待开工许可，并跑通 `python3 scripts/check-docs.py`。
-3. 执行 T-01，记录六条验证命令的真实输出，并交由独立评审。
+1. 执行 T-01：按设计卡建立工程骨架，跑通六条验证命令并记录真实输出。
+2. T-01 交由未参与实现的上下文评审。
+3. 评审通过后，按建议把 T-06（Mock OMS 与故障注入）提前，优先验证幂等与超时恢复。
 
 ## 待确认决策
 

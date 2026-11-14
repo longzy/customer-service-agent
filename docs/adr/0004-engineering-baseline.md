@@ -1,6 +1,7 @@
 # ADR-0004：M1 工程基线与技术栈
 
-- 状态：拟议
+- 状态：已批准
+- 批准：2026-11-14（本次会话由用户确认）
 - 日期：2026-11-14
 - 关联：`docs/architecture/overview.md`、`docs/specs/M1-order-cancel/design.md`
 

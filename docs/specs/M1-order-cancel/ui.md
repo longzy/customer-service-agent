@@ -1,6 +1,7 @@
 # M1 界面规格：Web Chat
 
-- 状态：草案
+- 状态：已批准
+- 批准：2026-11-14（本次会话由用户确认）
 - 关联：`requirements.md`、`design.md`、`acceptance.md`
 - 视觉与组件：`docs/design/ui-spec.md`、`docs/design/ui-components.html`
 - 设计档位：功能完整的简洁界面。结构参考稿见 `ui-mockup.html`；不做像素级视觉规范，也不做主题与多语言。

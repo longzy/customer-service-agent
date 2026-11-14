@@ -1,6 +1,7 @@
 # UI 规范与组件规范
 
-- 状态：草案
+- 状态：已批准
+- 批准：2026-11-14（本次会话由用户确认）
 - 日期：2026-11-14
 - 适用：M1 及后续里程碑的前端实现
 - 关联：`docs/specs/M1-order-cancel/ui.md`（页面与交互规则）、`docs/specs/M1-order-cancel/ui-mockup.html`（结构参考稿）
