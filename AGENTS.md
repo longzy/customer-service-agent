@@ -7,7 +7,7 @@
 
 ## 每次开工必须执行
 
-1. 阅读 `docs/ai-coding/README.md` 和 `docs/CURRENT.md`。
+1. 阅读 `docs/process/README.md` 和 `docs/CURRENT.md`。
 2. 在回复中复述当前阶段、已完成项、进行中项、阻塞项和下一步。
 3. 根据任务继续读取：
    - 产品范围：`docs/product/charter.md`。
@@ -42,7 +42,7 @@
 
 ## 执行工作流
 
-按 `docs/ai-coding/README.md` 中的任务闭环执行。每次有意义的任务结束前，更新 `docs/CURRENT.md`；发生接管、长暂停或架构变化时，按规范创建 handoff。
+按 `docs/process/README.md` 中的任务闭环与 `docs/process/sdd.md` 的固定路径执行。每次有意义的任务结束前，更新 `docs/CURRENT.md`；发生接管、长暂停或架构变化时，按规范创建 handoff。
 
 ## 需要停止并请求决策的情况
 

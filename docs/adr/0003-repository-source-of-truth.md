@@ -18,7 +18,7 @@ AI Coding 会话可能被新建、切换工具、压缩上下文或由不同成�
 
 - `AGENTS.md`：每次开工的简短路由和硬约束入口。
 - `docs/CURRENT.md`：实时阶段、进度、阻塞和下一步。
-- `docs/ai-coding/README.md`：跨工具协作规范。
+- `docs/process/README.md`：跨工具协作规范。
 - `docs/product/`、`docs/architecture/`、`docs/adr/`、`docs/specs/`：产品、架构、决策和当前规格。
 - `docs/handoffs/`：跨会话或跨工具接管时需要的详细交接记录。
 

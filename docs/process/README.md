@@ -20,9 +20,11 @@
 | `docs/product/charter.md` | 产品定位、范围和非目标 | 产品范围批准后 |
 | `docs/architecture/` | 总体架构和不变量 | 架构约束变化时 |
 | `docs/adr/` | 架构上重要的决策及后果 | 做出长期决策时 |
-| `docs/specs/` | 当前 Milestone 的可执行规格 | 里程碑需求或设计变化时 |
-| `docs/specs/<M>/design-cards/` | 任务级设计卡，开工前必须确认 | 每个任务开始时 |
-| `docs/design/` | 设计令牌与组件契约，实现与评审的共同基准 | 视觉或组件变化时 |
+| `docs/process/sdd.md` | 规格开发规范：固定路径、必需文件、阶段门禁 | 流程或目录规则变化时 |
+| `docs/specs/<M>/<NNN>-<slug>/` | 一个变更的规格、设计、验收与任务地图 | 变更的需求或设计变化时 |
+| `docs/tasks/<NNN>-<slug>/T-XX.md` | 任务执行卡，开工前必须确认 | 每个任务开始时 |
+| `docs/design-system/` | 设计令牌与组件契约，实现与评审的共同基准 | 视觉或组件变化时 |
+| `docs/research/` | 调研记录与一手资料结论 | 完成一次调研时 |
 | `docs/handoffs/` | 跨会话、跨工具的详细接管记录 | 长暂停、切换工具或任务复杂时 |
 | `docs/templates/` | 可复制的模板，如任务设计卡 | 模板变化时 |
 | `docs/reviews/` | 历史评审和当时依据 | 原则上不修改 |
@@ -36,7 +38,7 @@
 读取：
 
 1. `AGENTS.md`。
-2. `docs/ai-coding/README.md`。
+2. `docs/process/README.md`。
 3. `docs/CURRENT.md`。
 
 完成标准：已知道项目阶段、当前 Milestone、允许范围、完成项、进行中项、阻塞项和下一步。
@@ -217,7 +219,7 @@ handoff 是某次接管的快照；实时状态始终以 `CURRENT.md` 为准。
 如果工具不会自动读取任何项目指令，在首次消息中使用：
 
 ```text
-请先读取仓库中的 AGENTS.md、docs/ai-coding/README.md 和 docs/CURRENT.md。
+请先读取仓库中的 AGENTS.md、docs/process/README.md 和 docs/CURRENT.md。
 在修改任何文件前，用五项摘要确认：当前阶段、已完成、进行中、阻塞、下一步。
 如果仓库状态与本次请求冲突，先指出冲突并等待确认。
 ```

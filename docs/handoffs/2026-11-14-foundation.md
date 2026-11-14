@@ -17,7 +17,7 @@
 - 建立产品宪章、总体架构、不变量和路线图草案。
 - 建立 M1 订单取消需求、设计、任务和验收草案。
 - 将 ADR 统一到 `docs/adr/`。
-- 建立 `AGENTS.md`、`docs/ai-coding/README.md`、`CLAUDE.md` 和 `GEMINI.md` 的可移植入口。
+- 建立 `AGENTS.md`、`docs/process/README.md`、`CLAUDE.md` 和 `GEMINI.md` 的可移植入口。
 - 将实时项目状态集中在 `docs/CURRENT.md`。
 
 ## 未完成
@@ -45,7 +45,7 @@
 
 ## 下一位 Agent 的下一步
 
-1. 阅读 `AGENTS.md`、`docs/ai-coding/README.md` 和 `docs/CURRENT.md`。
+1. 阅读 `AGENTS.md`、`docs/process/README.md` 和 `docs/CURRENT.md`。
 2. 核对本 handoff 与 `CURRENT.md` 是否一致。
 3. 按用户指令审阅 AI Coding 规范；不要自行恢复 M1 开发。
 
@@ -54,8 +54,8 @@
 - `AGENTS.md`
 - `CLAUDE.md`
 - `GEMINI.md`
-- `docs/ai-coding/README.md`
+- `docs/process/README.md`
 - `docs/CURRENT.md`
 - `docs/adr/`
-- `docs/specs/M1-order-cancel/`
+- `docs/specs/M1/001-order-cancel/`
 

@@ -1,16 +1,10 @@
 #!/usr/bin/env python3
-"""文档一致性检查。
+"""文档一致性与 Spec 结构检查。
 
 用法：
     python3 scripts/check-docs.py
 
-检查项：
-1. Markdown 内部链接是否都能解析。
-2. 文档状态词是否在允许集合内。
-3. docs/CURRENT.md 是否包含协作规范第 5 节要求的全部字段。
-4. acceptance.md 中每条 AC 是否被 tasks.md 引用。
-5. 设计卡标记为"待开工许可"或"已确认"时，其依据文档必须已批准。
-
+检查项见 docs/process/sdd.md 第 6 节。
 退出码：0 全部通过；1 存在错误。
 """
 
@@ -19,7 +13,10 @@ import re
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SPECS_DIR = os.path.join(ROOT, "docs", "specs")
+SPECS_ROOT = os.path.join(ROOT, "docs", "specs")
+TASKS_ROOT = os.path.join(ROOT, "docs", "tasks")
+
+SKIP_DIRS = {".git", ".venv", "node_modules", ".next", ".uv-cache", ".pnpm-store", "coverage"}
 
 STATUS_WORDS = {
     "未开始", "草案", "拟议", "等待评审", "已批准",
@@ -32,17 +29,20 @@ CURRENT_REQUIRED_FIELDS = [
     "最近验证", "已完成", "进行中", "阻塞", "下一步", "待确认决策",
 ]
 
+SPEC_REQUIRED_FILES = [
+    "requirements.md", "design.md", "acceptance.md", "tasks.md", "clarifications.md",
+]
+
 GATE_OPEN_STATUSES = ("待开工许可", "已确认")
+SPEC_DIR_PATTERN = re.compile(r"^\d{3}-[a-z0-9-]+$")
+CARD_PATTERN = re.compile(r"^T-\d{2}\.md$")
 
 errors = []
-checked = {"links": 0, "files": 0, "acs": 0, "cards": 0}
+checked = {"links": 0, "files": 0, "acs": 0, "cards": 0, "specs": 0}
 
 
 def rel(path):
     return os.path.relpath(path, ROOT)
-
-
-SKIP_DIRS = {".git", ".venv", "node_modules", ".next", ".uv-cache", ".pnpm-store", "coverage"}
 
 
 def md_files():
@@ -58,6 +58,12 @@ def read(path):
         return handle.read()
 
 
+def doc_status(path):
+    header = "\n".join(read(path).splitlines()[:15])
+    match = re.search(r"^- 状态：(.+)$", header, re.M)
+    return match.group(1).strip() if match else ""
+
+
 def check_links(files):
     pattern = re.compile(r"\[[^\]]*\]\(([^)#]+?)(?:#[^)]*)?\)")
     for path in files:
@@ -71,7 +77,7 @@ def check_links(files):
 
 
 def check_status_words(files):
-    """只检查文件头部（前 15 行）的文档状态，避免与组件状态清单混淆。"""
+    """只检查文件头部的文档状态，避免与组件状态清单混淆。"""
     status = re.compile(r"^- 状态：(.+)$", re.M)
     for path in files:
         header = "\n".join(read(path).splitlines()[:15])
@@ -82,33 +88,83 @@ def check_status_words(files):
 
 
 def check_current_fields():
-    path = os.path.join(ROOT, "docs", "CURRENT.md")
-    text = read(path)
+    text = read(os.path.join(ROOT, "docs", "CURRENT.md"))
     for field in CURRENT_REQUIRED_FIELDS:
         if field not in text:
             errors.append(f"docs/CURRENT.md：缺少规范第 5 节要求的字段 {field}")
 
 
-def check_ac_coverage():
-    acceptance = os.path.join(SPECS_DIR, "M1-order-cancel", "acceptance.md")
-    tasks = os.path.join(SPECS_DIR, "M1-order-cancel", "tasks.md")
-    if not (os.path.exists(acceptance) and os.path.exists(tasks)):
+def spec_dirs():
+    """返回 (里程碑, 规格目录名, 绝对路径)，并校验命名与编号唯一。"""
+    found = []
+    if not os.path.isdir(SPECS_ROOT):
+        return found
+    for milestone in sorted(os.listdir(SPECS_ROOT)):
+        milestone_path = os.path.join(SPECS_ROOT, milestone)
+        if not os.path.isdir(milestone_path):
+            continue
+        numbers = {}
+        for name in sorted(os.listdir(milestone_path)):
+            path = os.path.join(milestone_path, name)
+            if not os.path.isdir(path):
+                continue
+            if not SPEC_DIR_PATTERN.match(name):
+                errors.append(f"{rel(path)}：规格目录名不符合 NNN-slug 约定")
+                continue
+            number = name.split("-")[0]
+            if number in numbers:
+                errors.append(
+                    f"{milestone}：编号 {number} 重复（{numbers[number]} 与 {name}）"
+                )
+            numbers[number] = name
+            found.append((milestone, name, path))
+    return found
+
+
+def check_spec_structure(specs):
+    for milestone, name, path in specs:
+        checked["specs"] += 1
+        for required in SPEC_REQUIRED_FILES:
+            if not os.path.exists(os.path.join(path, required)):
+                errors.append(f"docs/specs/{milestone}/{name}：缺少必需文件 {required}")
+
+
+def check_ac_coverage(specs):
+    for milestone, name, path in specs:
+        acceptance = os.path.join(path, "acceptance.md")
+        tasks = os.path.join(path, "tasks.md")
+        if not (os.path.exists(acceptance) and os.path.exists(tasks)):
+            continue
+        acs = sorted(set(re.findall(r"\bAC-\d{2}\b", read(acceptance))))
+        tasks_text = read(tasks)
+        checked["acs"] += len(acs)
+        for ac in acs:
+            if ac not in tasks_text:
+                errors.append(f"docs/specs/{milestone}/{name}/tasks.md：缺少对 {ac} 的引用")
+
+
+def check_task_dirs(specs):
+    spec_names = {name for _, name, _ in specs}
+    if not os.path.isdir(TASKS_ROOT):
         return
-    acs = sorted(set(re.findall(r"\bAC-\d{2}\b", read(acceptance))))
-    tasks_text = read(tasks)
-    checked["acs"] = len(acs)
-    for ac in acs:
-        if ac not in tasks_text:
-            errors.append(f"docs/specs/M1-order-cancel/tasks.md：缺少对 {ac} 的引用")
-
-
-def doc_status(path):
-    match = re.search(r"^- 状态：(.+)$", read(path), re.M)
-    return match.group(1).strip() if match else ""
+    for name in sorted(os.listdir(TASKS_ROOT)):
+        path = os.path.join(TASKS_ROOT, name)
+        if not os.path.isdir(path):
+            continue
+        if not SPEC_DIR_PATTERN.match(name):
+            errors.append(f"{rel(path)}：执行卡目录名不符合 NNN-slug 约定")
+            continue
+        if name not in spec_names:
+            errors.append(f"{rel(path)}：没有同名规格目录 docs/specs/*/{name}")
+        for card in sorted(os.listdir(path)):
+            if not card.endswith(".md"):
+                continue
+            if not CARD_PATTERN.match(card):
+                errors.append(f"{rel(os.path.join(path, card))}：执行卡命名应为 T-XX.md")
 
 
 def resolve_reference(card_path, ref):
-    """依次在仓库根、设计卡所在目录及其各级上级目录中解析相对引用。"""
+    """依次在仓库根、执行卡所在目录及其各级上级目录中解析相对引用。"""
     candidates = [os.path.join(ROOT, ref)]
     directory = os.path.dirname(card_path)
     while True:
@@ -124,33 +180,42 @@ def resolve_reference(card_path, ref):
 
 
 def check_design_card_gate():
-    cards = [p for p in md_files() if os.sep + "design-cards" + os.sep in p]
-    for card in cards:
-        status = doc_status(card)
-        if not status.startswith(GATE_OPEN_STATUSES):
-            continue
-        checked["cards"] += 1
-        for line in read(card).splitlines():
-            if not line.startswith("- 依据："):
+    if not os.path.isdir(TASKS_ROOT):
+        return
+    for base, _dirs, names in os.walk(TASKS_ROOT):
+        for card in sorted(names):
+            if not CARD_PATTERN.match(card):
                 continue
-            for ref in re.findall(r"`([^`]+\.md)`", line):
-                target = resolve_reference(card, ref)
-                if target is None:
-                    errors.append(f"{rel(card)}：依据文档不存在 {ref}")
+            card_path = os.path.join(base, card)
+            status = doc_status(card_path)
+            if not status.startswith(GATE_OPEN_STATUSES):
+                continue
+            checked["cards"] += 1
+            for line in read(card_path).splitlines():
+                if not line.startswith("- 依据："):
                     continue
-                if not doc_status(target).startswith(("已批准", "已清零")):
-                    errors.append(
-                        f"{rel(card)}：状态为 {status}，但依据文档 {rel(target)} 尚未批准"
-                    )
+                for ref in re.findall(r"`([^`]+\.md)`", line):
+                    target = resolve_reference(card_path, ref)
+                    if target is None:
+                        errors.append(f"{rel(card_path)}：依据文档不存在 {ref}")
+                        continue
+                    if not doc_status(target).startswith(("已批准", "已清零")):
+                        errors.append(
+                            f"{rel(card_path)}：状态为 {status}，但依据文档 {rel(target)} 尚未批准"
+                        )
 
 
 def main():
     files = sorted(md_files())
     checked["files"] = len(files)
+    specs = spec_dirs()
+
     check_links(files)
     check_status_words(files)
     check_current_fields()
-    check_ac_coverage()
+    check_spec_structure(specs)
+    check_ac_coverage(specs)
+    check_task_dirs(specs)
     check_design_card_gate()
 
     if errors:
@@ -161,7 +226,7 @@ def main():
 
     print(
         f"文档检查通过：{checked['files']} 个文件、{checked['links']} 条链接、"
-        f"{checked['acs']} 条 AC、{checked['cards']} 张设计卡。"
+        f"{checked['specs']} 个规格目录、{checked['acs']} 条 AC、{checked['cards']} 张执行卡。"
     )
     return 0
 

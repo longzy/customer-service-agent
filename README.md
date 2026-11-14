@@ -19,16 +19,17 @@
 - [总体架构](docs/architecture/overview.md)
 - [架构不变量](docs/architecture/invariants.md)
 - [路线图](docs/roadmap.md)
-- [AI Coding 协作规范](docs/ai-coding/README.md)
+- [AI Coding 协作规范](docs/process/README.md)
+- [Spec 开发规范](docs/process/sdd.md)
 - [初始技术评审](docs/reviews/2026-11-14-initial-architecture-review.md)
 - [AI Coding 调研](docs/research/ai-coding-new-project-practices-2026-11-14.md)
-- [M1 订单取消规格](docs/specs/M1-order-cancel/requirements.md)
-- [M1 界面规格](docs/specs/M1-order-cancel/ui.md)
-- [UI 规范与组件规范](docs/design/ui-spec.md)
-- [UI 组件参考](docs/design/ui-components.html)
+- [M1 订单取消规格](docs/specs/M1/001-order-cancel/requirements.md)
+- [M1 界面规格](docs/specs/M1/001-order-cancel/ui.md)
+- [UI 规范与组件规范](docs/design-system/ui-spec.md)
+- [UI 组件参考](docs/design-system/ui-components.html)
 - [M1 工程基线](docs/adr/0004-engineering-baseline.md)
-- [M1 澄清清单](docs/specs/M1-order-cancel/clarifications.md)
-- [T-01 任务设计卡](docs/specs/M1-order-cancel/design-cards/T-01.md)
+- [M1 澄清清单](docs/specs/M1/001-order-cancel/clarifications.md)
+- [T-01 任务设计卡](docs/tasks/001-order-cancel/T-01.md)
 - [任务设计卡模板](docs/templates/task-design-card.md)
 
 ## 项目原则
@@ -46,7 +47,7 @@
 如果工具不会自动读取项目文件，在首次消息中发送：
 
 ```text
-请先读取 AGENTS.md、docs/ai-coding/README.md 和 docs/CURRENT.md。
+请先读取 AGENTS.md、docs/process/README.md 和 docs/CURRENT.md。
 在修改任何文件前，用五项摘要确认：当前阶段、已完成、进行中、阻塞、下一步。
 ```
 

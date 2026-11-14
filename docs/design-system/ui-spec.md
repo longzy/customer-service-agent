@@ -4,7 +4,7 @@
 - 批准：2026-11-14（本次会话由用户确认）
 - 日期：2026-11-14
 - 适用：M1 及后续里程碑的前端实现
-- 关联：`docs/specs/M1-order-cancel/ui.md`（页面与交互规则）、`docs/specs/M1-order-cancel/ui-mockup.html`（结构参考稿）
+- 关联：`docs/specs/M1/001-order-cancel/ui.md`（页面与交互规则）、`docs/specs/M1/001-order-cancel/ui-mockup.html`（结构参考稿）
 
 ## 1. 范围与原则
 

@@ -3,7 +3,7 @@
 - 状态：已批准
 - 批准：2026-11-14（本次会话由用户确认）
 - 关联：`requirements.md`、`design.md`、`acceptance.md`
-- 视觉与组件：`docs/design/ui-spec.md`、`docs/design/ui-components.html`
+- 视觉与组件：`docs/design-system/ui-spec.md`、`docs/design-system/ui-components.html`
 - 设计档位：功能完整的简洁界面。结构参考稿见 `ui-mockup.html`；不做像素级视觉规范，也不做主题与多语言。
 
 ## 1. 范围
@@ -96,11 +96,11 @@ M1 只有一个入口：单页面 Web Chat，一次只处理一个会话。
 - 不是：视觉设计规范，也不规定颜色、字号、间距。
 - 冲突处理：参考稿与本文第 2 至 4 节冲突时，以本文为准。
 
-直接用浏览器打开即可查看：`open docs/specs/M1-order-cancel/ui-mockup.html`。
+直接用浏览器打开即可查看：`open docs/specs/M1/001-order-cancel/ui-mockup.html`。
 
 ## 10. 视觉与组件规范
 
-视觉令牌与组件契约统一维护在 `docs/design/ui-spec.md`，组件状态参考 `docs/design/ui-components.html`。本节不再重复取值，避免两处漂移。
+视觉令牌与组件契约统一维护在 `docs/design-system/ui-spec.md`，组件状态参考 `docs/design-system/ui-components.html`。本节不再重复取值，避免两处漂移。
 
 页面级约束：
 
