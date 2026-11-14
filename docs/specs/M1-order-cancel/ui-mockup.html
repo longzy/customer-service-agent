@@ -6,7 +6,6 @@
 <title>M1 Web Chat 结构参考稿</title>
 <style>
   :root {
-    /* 中性骨架：冷灰，占界面 80% 以上 */
     --bg: #f8fafc;
     --surface: #ffffff;
     --surface-2: #f1f5f9;
@@ -15,36 +14,27 @@
     --text: #0f172a;
     --text-2: #475569;
     --text-3: #94a3b8;
-
-    /* 强调色：只用于可交互与当前状态 */
     --accent: #2563eb;
-    --accent-strong: #1d4ed8;
     --accent-soft: #eff6ff;
-
-    /* 语义色：各自独立色阶，不混用 */
     --success: #059669;
-    --success-soft: #ecfdf5;
     --warning: #b45309;
-    --warning-soft: #fffbeb;
     --danger: #dc2626;
-    --danger-soft: #fef2f2;
   }
   * { box-sizing: border-box; }
   html, body { background: var(--bg); }
   body {
-    margin: 0;
-    padding: 40px 32px 64px;
-    color: var(--text);
+    margin: 0; padding: 40px 32px 72px; color: var(--text);
     font: 14px/1.6 -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Helvetica Neue", Arial, sans-serif;
     -webkit-font-smoothing: antialiased;
   }
-  .wrap { max-width: 1200px; margin: 0 auto; }
-
+  .wrap { max-width: 1240px; margin: 0 auto; }
   h1 { font-size: 22px; font-weight: 650; letter-spacing: -0.02em; margin: 0 0 6px; }
-  .lead { margin: 0; color: var(--text-2); max-width: 780px; font-size: 13.5px; }
-  .lead code { font-size: 12.5px; background: var(--surface-2); padding: 1px 5px; border-radius: 4px; color: var(--text); }
+  h2.sec { font-size: 15px; font-weight: 650; letter-spacing: -0.01em; margin: 44px 0 4px; }
+  .sec-note { margin: 0 0 16px; color: var(--text-2); font-size: 13px; }
+  .lead { margin: 0; color: var(--text-2); max-width: 820px; font-size: 13.5px; }
+  code { font-size: 12.5px; background: var(--surface-2); padding: 1px 5px; border-radius: 4px; color: var(--text); }
 
-  .tokens { display: flex; flex-wrap: wrap; gap: 10px; margin: 22px 0 34px; }
+  .tokens { display: flex; flex-wrap: wrap; gap: 10px; margin: 22px 0 8px; }
   .token {
     display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--text-2);
     background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px;
@@ -52,63 +42,50 @@
   }
   .sw { width: 14px; height: 14px; border-radius: 4px; border: 1px solid var(--border); }
 
-  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(352px, 1fr)); gap: 30px; }
-  .panel-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px; }
-  .panel-head .no { font-size: 11px; color: var(--text-3); font-variant-numeric: tabular-nums; }
-  .panel-head h2 { font-size: 13.5px; font-weight: 650; margin: 0; letter-spacing: -0.01em; }
-  .chip {
-    margin-left: auto; font-size: 10.5px; color: var(--text-2); background: var(--surface);
-    border: 1px solid var(--border); border-radius: 999px; padding: 2px 8px; white-space: nowrap;
+  /* ---------- 整页框架 ---------- */
+  .page {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    box-shadow: 0 1px 2px rgba(15,23,42,.05), 0 24px 48px -32px rgba(15,23,42,.28);
+    overflow: hidden; display: flex; flex-direction: column; height: 760px;
   }
-  .note { font-size: 12px; color: var(--text-3); margin: 10px 2px 0; }
-
-  .app {
-    height: 424px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
-    box-shadow: 0 1px 2px rgba(15,23,42,.04);
-    display: flex; flex-direction: column; overflow: hidden;
+  .globalbar {
+    display: flex; align-items: center; gap: 12px;
+    padding: 0 20px; height: 56px; border-bottom: 1px solid var(--border); flex: 0 0 auto;
   }
-  .topbar { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
-  .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--success); }
-  .topbar .name { font-size: 13px; font-weight: 600; letter-spacing: -0.01em; }
-  .topbar .spacer { flex: 1; }
+  .brand { font-size: 14px; font-weight: 650; letter-spacing: -0.01em; }
+  .brand span { color: var(--text-3); font-weight: 400; margin-left: 8px; font-size: 12.5px; }
+  .grow { flex: 1; }
+  .who { font-size: 12.5px; color: var(--text-2); }
+  .avatar {
+    width: 26px; height: 26px; border-radius: 50%; background: var(--surface-2);
+    border: 1px solid var(--border); display: grid; place-items: center;
+    font-size: 11px; color: var(--text-2); font-weight: 600;
+  }
   .ghost {
-    font-size: 12px; color: var(--text-2); background: var(--surface);
-    border: 1px solid var(--border-strong); border-radius: 8px; padding: 4px 11px;
-  }
-
-  .log { flex: 1; overflow-y: auto; padding: 18px 16px; display: flex; flex-direction: column; gap: 14px; }
-  .msg { max-width: 88%; font-size: 13.5px; line-height: 1.65; }
-  .msg.sys { align-self: flex-start; color: var(--text); }
-  .msg.user {
-    align-self: flex-end; background: var(--surface-2); color: var(--text);
-    padding: 8px 12px; border-radius: 12px 12px 4px 12px;
-  }
-  .hints { display: flex; flex-wrap: wrap; gap: 8px; }
-  .hints span {
     font-size: 12.5px; color: var(--text-2); background: var(--surface);
-    border: 1px solid var(--border-strong); border-radius: 999px; padding: 5px 12px;
+    border: 1px solid var(--border-strong); border-radius: 8px; padding: 5px 12px;
   }
 
-  .confirm {
-    border: 1px solid var(--border); border-radius: 12px; padding: 14px; background: var(--surface);
-    box-shadow: 0 1px 2px rgba(15,23,42,.05), 0 12px 24px -12px rgba(15,23,42,.18);
+  .stage { flex: 1; display: flex; min-height: 0; background: var(--bg); }
+  .column { width: 100%; max-width: 780px; margin: 0 auto; display: flex; flex-direction: column; min-height: 0; background: var(--surface); border-left: 1px solid var(--border); border-right: 1px solid var(--border); }
+  .convhead {
+    display: flex; align-items: center; gap: 10px; padding: 14px 24px;
+    border-bottom: 1px solid var(--border); flex: 0 0 auto;
   }
-  .eyebrow { font-size: 10.5px; font-weight: 600; letter-spacing: .08em; color: var(--text-3); text-transform: uppercase; margin-bottom: 10px; }
-  .kv { display: grid; grid-template-columns: 62px 1fr; gap: 6px 10px; margin: 0 0 14px; }
-  .kv dt { font-size: 12.5px; color: var(--text-3); }
-  .kv dd { margin: 0; font-size: 13px; color: var(--text); font-variant-numeric: tabular-nums; }
-  .kv dd.warn { color: var(--danger); }
-  .actions { display: flex; gap: 8px; padding-top: 12px; border-top: 1px solid var(--border); }
-  .btn { flex: 1; font-size: 13px; font-weight: 500; padding: 8px 12px; border-radius: 8px; border: 1px solid transparent; }
-  .btn.primary { background: var(--danger); color: #fff; }
-  .btn.secondary { background: var(--surface); border-color: var(--border-strong); color: var(--text-2); }
-  .btn.confirm-accent { background: var(--accent); color: #fff; }
-  .btn[disabled] { opacity: .4; }
+  .convhead h3 { font-size: 13.5px; font-weight: 650; margin: 0; letter-spacing: -0.01em; }
+  .chip {
+    font-size: 10.5px; color: var(--text-2); background: var(--surface);
+    border: 1px solid var(--border); border-radius: 999px; padding: 2px 9px; white-space: nowrap;
+  }
+  .chip.live { color: var(--success); border-color: #a7f3d0; background: #ecfdf5; }
 
-  .status {
-    align-self: flex-start; max-width: 88%; display: flex; gap: 8px;
-    font-size: 13.5px; line-height: 1.65; color: var(--text-2);
-  }
+  .log { flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+  .msg { max-width: 82%; font-size: 14px; line-height: 1.7; }
+  .msg.sys { align-self: flex-start; color: var(--text); }
+  .msg.user { align-self: flex-end; background: var(--surface-2); padding: 9px 13px; border-radius: 12px 12px 4px 12px; }
+  .time { font-size: 11px; color: var(--text-3); align-self: center; margin: 2px 0; }
+
+  .status { align-self: flex-start; max-width: 82%; display: flex; gap: 8px; font-size: 14px; line-height: 1.7; color: var(--text-2); }
   .status .sdot { width: 6px; height: 6px; border-radius: 50%; margin-top: 8px; flex: 0 0 auto; background: var(--border-strong); }
   .status b { color: var(--text); font-weight: 600; }
   .status.info .sdot { background: var(--accent); }
@@ -116,18 +93,60 @@
   .status.warn .sdot { background: var(--warning); }
   .status.bad .sdot { background: var(--danger); }
 
-  .composer { display: flex; gap: 8px; align-items: center; padding: 12px 16px; border-top: 1px solid var(--border); }
-  .field {
-    flex: 1; font-size: 13px; color: var(--text-3); background: var(--surface);
-    border: 1px solid var(--border); border-radius: 9px; padding: 8px 12px;
+  .confirm {
+    border: 1px solid var(--border); border-radius: 12px; padding: 16px; background: var(--surface);
+    box-shadow: 0 1px 2px rgba(15,23,42,.05), 0 12px 24px -16px rgba(15,23,42,.22);
+    align-self: flex-start; width: 100%; max-width: 460px;
   }
-  .field[data-disabled] { background: var(--surface-2); color: var(--text-3); }
-  .send { font-size: 13px; font-weight: 500; color: #fff; background: var(--accent); border: 0; border-radius: 9px; padding: 9px 16px; }
-  .send[disabled] { background: var(--border-strong); }
+  .eyebrow { font-size: 10.5px; font-weight: 600; letter-spacing: .08em; color: var(--text-3); text-transform: uppercase; margin-bottom: 12px; }
+  .kv { display: grid; grid-template-columns: 64px 1fr; gap: 7px 12px; margin: 0 0 16px; }
+  .kv dt { font-size: 12.5px; color: var(--text-3); }
+  .kv dd { margin: 0; font-size: 13.5px; font-variant-numeric: tabular-nums; }
+  .kv dd.warn { color: var(--danger); }
+  .actions { display: flex; gap: 8px; padding-top: 14px; border-top: 1px solid var(--border); }
+  .btn { flex: 1; font-size: 13.5px; font-weight: 500; padding: 9px 14px; border-radius: 8px; border: 1px solid transparent; }
+  .btn.primary { background: var(--danger); color: #fff; }
+  .btn.secondary { background: var(--surface); border-color: var(--border-strong); color: var(--text-2); }
+  .btn.accent { background: var(--accent); color: #fff; }
 
+  .composer { display: flex; gap: 10px; align-items: center; padding: 16px 24px; border-top: 1px solid var(--border); flex: 0 0 auto; }
+  .field { flex: 1; font-size: 13.5px; color: var(--text-3); border: 1px solid var(--border); border-radius: 10px; padding: 10px 14px; background: var(--surface); }
+  .send { font-size: 13.5px; font-weight: 500; color: #fff; background: var(--accent); border: 0; border-radius: 10px; padding: 11px 20px; }
+  .hints { display: flex; flex-wrap: wrap; gap: 8px; }
+  .hints span { font-size: 13px; color: var(--text-2); border: 1px solid var(--border-strong); border-radius: 999px; padding: 6px 14px; background: var(--surface); }
+
+  /* 右栏：仅在方案 B 出现 */
+  .aside {
+    width: 300px; flex: 0 0 auto; border-left: 1px solid var(--border);
+    background: var(--surface); padding: 18px; display: flex; flex-direction: column; gap: 14px;
+  }
+  .aside h4 { font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--text-3); margin: 0 0 8px; }
+  .card { border: 1px solid var(--border); border-radius: 10px; padding: 12px; }
+  .card .row { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--text-2); padding: 3px 0; }
+  .card .row b { color: var(--text); font-weight: 600; }
+  .steps { margin: 0; padding: 0; list-style: none; font-size: 12.5px; color: var(--text-3); }
+  .steps li { padding: 4px 0 4px 16px; position: relative; }
+  .steps li::before { content: ""; position: absolute; left: 0; top: 11px; width: 5px; height: 5px; border-radius: 50%; background: var(--border-strong); }
+  .steps li.done { color: var(--text-2); }
+  .steps li.done::before { background: var(--success); }
+  .steps li.now { color: var(--text); font-weight: 600; }
+  .steps li.now::before { background: var(--accent); }
+
+  /* 缩略状态 */
+  .thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 26px; }
+  .thumb .panel-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px; }
+  .thumb .no { font-size: 11px; color: var(--text-3); font-variant-numeric: tabular-nums; }
+  .thumb h5 { font-size: 13.5px; font-weight: 650; margin: 0; letter-spacing: -0.01em; }
+  .mini { height: 300px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; display: flex; flex-direction: column; overflow: hidden; }
+  .mini .log { padding: 14px; gap: 10px; }
+  .mini .msg, .mini .status { font-size: 12.5px; }
+  .mini .composer { padding: 10px 12px; }
+  .mini .field { padding: 6px 10px; font-size: 12.5px; }
+  .mini .send { padding: 7px 12px; font-size: 12.5px; }
+  .note { font-size: 12px; color: var(--text-3); margin: 10px 2px 0; }
   .dots::after { content: "…"; animation: blink 1.4s infinite steps(2, start); }
   @keyframes blink { 0%, 100% { content: "…"; } 50% { content: ""; } }
-  @media (prefers-reduced-motion: reduce) { .dots::after { animation: none; content: "…"; } }
+  @media (prefers-reduced-motion: reduce) { .dots::after { animation: none; } }
 </style>
 </head>
 <body>
@@ -135,8 +154,8 @@
 
   <h1>M1 Web Chat 结构参考稿</h1>
   <p class="lead">
-    用途：确认<strong>结构与状态</strong>，不是视觉规范。文案取自 <code>requirements.md</code> 第 6 节；
-    区域与交互规则以 <code>ui.md</code> 为准，冲突时以文字为准。
+    用途：确认页面结构与状态，不是视觉规范。文案取自 <code>requirements.md</code> 第 6 节；
+    交互规则以 <code>ui.md</code> 为准，冲突时以文字为准。
   </p>
 
   <div class="tokens">
@@ -152,43 +171,32 @@
     <span class="token"><span class="sw" style="background:#dc2626"></span>danger #DC2626</span>
   </div>
 
-  <div class="grid">
+  <h2 class="sec">方案 A：完整页面（严格按当前 M1 范围）</h2>
+  <p class="sec-note">
+    单入口、单会话。全局顶栏 + 居中会话列，没有会话列表、没有坐席后台——这些在路线图 M4。
+  </p>
 
-    <!-- 01 -->
-    <section>
-      <div class="panel-head"><span class="no">01</span><h2>空白态</h2><span class="chip">无消息</span></div>
-      <div class="app">
-        <div class="topbar"><span class="dot"></span><span class="name">客服中心</span><span class="spacer"></span><button class="ghost">转人工</button></div>
+  <div class="page">
+    <div class="globalbar">
+      <div class="brand">客服中心<span>在线</span></div>
+      <div class="grow"></div>
+      <span class="who">ba</span>
+      <div class="avatar">B</div>
+      <button class="ghost">转人工</button>
+    </div>
+    <div class="stage">
+      <div class="column">
+        <div class="convhead">
+          <h3>订单与取消咨询</h3>
+          <span class="chip live">进行中</span>
+          <span class="grow"></span>
+          <span class="chip">会话 #C-2041</span>
+        </div>
         <div class="log">
+          <div class="time">14:02</div>
           <div class="msg sys">您好，我可以帮您查询订单，或取消未发货的订单。</div>
           <div class="hints"><span>查询订单</span><span>取消订单</span></div>
-        </div>
-        <div class="composer"><div class="field">输入消息</div><button class="send">发送</button></div>
-      </div>
-      <p class="note">顶部栏常驻“转人工”；建议入口只做引导，不代替输入。</p>
-    </section>
-
-    <!-- 02 -->
-    <section>
-      <div class="panel-head"><span class="no">02</span><h2>等待响应</h2><span class="chip">已发送</span></div>
-      <div class="app">
-        <div class="topbar"><span class="dot"></span><span class="name">客服中心</span><span class="spacer"></span><button class="ghost">转人工</button></div>
-        <div class="log">
-          <div class="msg user">我想取消订单</div>
-          <div class="msg sys dots" style="color:var(--text-3);font-size:12.5px">正在处理</div>
-        </div>
-        <div class="composer"><div class="field" data-disabled>输入消息</div><button class="send" disabled>发送</button></div>
-      </div>
-      <p class="note">输入区禁用，避免并发发送打乱任务状态。</p>
-    </section>
-
-    <!-- 03 -->
-    <section>
-      <div class="panel-head"><span class="no">03</span><h2>等待确认</h2><span class="chip">AWAITING_CONFIRMATION</span></div>
-      <div class="app">
-        <div class="topbar"><span class="dot"></span><span class="name">客服中心</span><span class="spacer"></span><button class="ghost">转人工</button></div>
-        <div class="log">
-          <div class="msg user">取消订单 ORD-10001</div>
+          <div class="msg user">帮我取消 ORD-10001</div>
           <div class="msg sys">这个订单可以取消，取消后不可恢复。</div>
           <div class="confirm">
             <div class="eyebrow">确认取消</div>
@@ -206,67 +214,161 @@
         </div>
         <div class="composer"><div class="field">输入消息</div><button class="send">发送</button></div>
       </div>
-      <p class="note">危险操作用红色主按钮，影响说明同色强调；口头“好的”不作为确认。</p>
-    </section>
+    </div>
+  </div>
 
-    <!-- 04 -->
-    <section>
-      <div class="panel-head"><span class="no">04</span><h2>已提交、核实中</h2><span class="chip">SUBMITTING / SUBMIT_UNKNOWN</span></div>
-      <div class="app">
-        <div class="topbar"><span class="dot"></span><span class="name">客服中心</span><span class="spacer"></span><button class="ghost">转人工</button></div>
+  <h2 class="sec">方案 B：增加右侧任务面板（需扩大 M1 范围）</h2>
+  <p class="sec-note">
+    同样单会话，但右侧常驻当前任务与订单上下文。更像一个工作台，但需要修改 <code>ui.md</code> 并增加一个只读查询接口。
+  </p>
+
+  <div class="page">
+    <div class="globalbar">
+      <div class="brand">客服中心<span>在线</span></div>
+      <div class="grow"></div>
+      <span class="who">ba</span>
+      <div class="avatar">B</div>
+      <button class="ghost">转人工</button>
+    </div>
+    <div class="stage">
+      <div class="column">
+        <div class="convhead">
+          <h3>订单与取消咨询</h3>
+          <span class="chip live">进行中</span>
+          <span class="grow"></span>
+          <span class="chip">会话 #C-2041</span>
+        </div>
         <div class="log">
-          <div class="msg user">取消订单 ORD-10001</div>
-          <div class="status info"><span class="sdot"></span><span><b>已提交</b>，正在核实受理结果。</span></div>
+          <div class="msg user">帮我取消 ORD-10001</div>
+          <div class="msg sys">这个订单可以取消，取消后不可恢复。</div>
           <div class="confirm">
             <div class="eyebrow">确认取消</div>
             <dl class="kv">
               <dt>订单号</dt><dd>ORD-10001</dd>
+              <dt>商品</dt><dd>无线耳机 × 1</dd>
               <dt>状态</dt><dd>已支付，未发货</dd>
+              <dt>影响</dt><dd class="warn">提交后不可撤销，退款按支付渠道处理</dd>
             </dl>
             <div class="actions">
-              <button class="btn primary" disabled>确认取消</button>
-              <button class="btn secondary" disabled>不取消</button>
+              <button class="btn primary">确认取消</button>
+              <button class="btn secondary">不取消</button>
             </div>
           </div>
         </div>
-        <div class="composer"><div class="field" data-disabled>输入消息</div><button class="send" disabled>发送</button></div>
+        <div class="composer"><div class="field">输入消息</div><button class="send">发送</button></div>
       </div>
-      <p class="note">按钮立即禁用，防止重复提交；此时不得说“已受理”或“已取消”。</p>
+      <aside class="aside">
+        <div>
+          <h4>当前任务</h4>
+          <div class="card">
+            <div class="row"><span>类型</span><b>取消订单</b></div>
+            <div class="row"><span>状态</span><b>等待确认</b></div>
+            <div class="row"><span>开始</span><b>14:02</b></div>
+          </div>
+        </div>
+        <div>
+          <h4>订单</h4>
+          <div class="card">
+            <div class="row"><span>订单号</span><b>ORD-10001</b></div>
+            <div class="row"><span>金额</span><b>¥ 399.00</b></div>
+            <div class="row"><span>状态</span><b>未发货</b></div>
+          </div>
+        </div>
+        <div>
+          <h4>进度</h4>
+          <div class="card">
+            <ul class="steps">
+              <li class="done">识别意图</li>
+              <li class="done">查询订单</li>
+              <li class="done">判断资格</li>
+              <li class="now">等待用户确认</li>
+              <li>提交取消</li>
+            </ul>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <h2 class="sec">状态变体</h2>
+  <p class="sec-note">同一个会话列在不同任务状态下的样子，用于确认措辞与控件可用性。</p>
+
+  <div class="thumbs">
+    <section class="thumb">
+      <div class="panel-head"><span class="no">01</span><h5>空白态</h5></div>
+      <div class="mini">
+        <div class="log">
+          <div class="msg sys">您好，我可以帮您查询订单，或取消未发货的订单。</div>
+          <div class="hints"><span>查询订单</span><span>取消订单</span></div>
+        </div>
+        <div class="composer"><div class="field">输入消息</div><button class="send">发送</button></div>
+      </div>
+      <p class="note">建议入口只做引导，不代替输入。</p>
     </section>
 
-    <!-- 05 -->
-    <section>
-      <div class="panel-head"><span class="no">05</span><h2>已受理</h2><span class="chip">ACCEPTED</span></div>
-      <div class="app">
-        <div class="topbar"><span class="dot"></span><span class="name">客服中心</span><span class="spacer"></span><button class="ghost">转人工</button></div>
+    <section class="thumb">
+      <div class="panel-head"><span class="no">02</span><h5>等待响应</h5></div>
+      <div class="mini">
+        <div class="log">
+          <div class="msg user">我想取消订单</div>
+          <div class="msg sys dots" style="color:var(--text-3);font-size:12px">正在处理</div>
+        </div>
+        <div class="composer"><div class="field" style="background:var(--surface-2)">输入消息</div><button class="send" style="background:var(--border-strong)">发送</button></div>
+      </div>
+      <p class="note">输入区禁用，避免并发发送打乱状态。</p>
+    </section>
+
+    <section class="thumb">
+      <div class="panel-head"><span class="no">03</span><h5>已提交、核实中</h5></div>
+      <div class="mini">
+        <div class="log">
+          <div class="msg user">取消订单 ORD-10001</div>
+          <div class="status info"><span class="sdot"></span><span><b>已提交</b>，正在核实受理结果。</span></div>
+          <div class="status" style="color:var(--text-3);font-size:12px">确认按钮已禁用</div>
+        </div>
+        <div class="composer"><div class="field" style="background:var(--surface-2)">输入消息</div><button class="send" style="background:var(--border-strong)">发送</button></div>
+      </div>
+      <p class="note">不得说“已受理”或“已取消”。</p>
+    </section>
+
+    <section class="thumb">
+      <div class="panel-head"><span class="no">04</span><h5>已受理</h5></div>
+      <div class="mini">
         <div class="log">
           <div class="msg user">取消订单 ORD-10001</div>
           <div class="status info"><span class="sdot"></span><span><b>已受理</b>，等待最终取消结果。结果确认后我会通知您。</span></div>
         </div>
         <div class="composer"><div class="field">输入消息</div><button class="send">发送</button></div>
       </div>
-      <p class="note">“已受理”与“已取消”是两种表达，不能混用。</p>
+      <p class="note">“已受理”与“已取消”不能混用。</p>
     </section>
 
-    <!-- 06 -->
-    <section>
-      <div class="panel-head"><span class="no">06</span><h2>终态</h2><span class="chip">CANCELLED / REJECTED / MANUAL_REVIEW</span></div>
-      <div class="app">
-        <div class="topbar"><span class="dot" style="background:var(--text-3)"></span><span class="name">客服中心</span><span class="spacer"></span><button class="ghost">转人工</button></div>
+    <section class="thumb">
+      <div class="panel-head"><span class="no">05</span><h5>终态</h5></div>
+      <div class="mini">
         <div class="log">
-          <div class="msg user">取消订单 ORD-10002</div>
           <div class="status ok"><span class="sdot"></span><span><b>已取消</b>。退款按支付渠道处理。</span></div>
           <div class="msg user">那 ORD-10003 呢</div>
           <div class="status bad"><span class="sdot"></span><span><b>不能取消</b>：该订单已发货。需要拒收或申请售后吗？</span></div>
+        </div>
+        <div class="composer"><div class="field">输入消息</div><button class="send">发送</button></div>
+      </div>
+      <p class="note">终态后不再出现确认按钮。</p>
+    </section>
+
+    <section class="thumb">
+      <div class="panel-head"><span class="no">06</span><h5>转人工</h5></div>
+      <div class="mini">
+        <div class="log">
           <div class="msg user">转人工</div>
           <div class="status warn"><span class="sdot"></span><span><b>已转人工</b>。人工会看到本次对话与订单上下文。</span></div>
         </div>
-        <div class="composer"><div class="field" data-disabled>人工接入中</div><button class="send" disabled>发送</button></div>
+        <div class="composer"><div class="field" style="background:var(--surface-2)">人工接入中</div><button class="send" style="background:var(--border-strong)">发送</button></div>
       </div>
-      <p class="note">终态后不再出现确认按钮；转人工时停止自动回复，避免两边同时说话。</p>
+      <p class="note">转人工后停止自动回复，避免两边同时说话。</p>
     </section>
-
   </div>
+
 </div>
 </body>
 </html>
