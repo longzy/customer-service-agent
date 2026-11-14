@@ -1,6 +1,7 @@
 # Tasks: 订单查询与未发货订单取消
 
-- 状态：等待评审
+- 状态：已批准
+- 批准：2026-11-14（用户确认，按 SDD 规范重写后的版本）
 - **Input**：`docs/specs/001-order-cancel/requirements.md`、`design.md`
 - **Prerequisites**：需求与设计均已批准；任务按用户故事分组，每个故事可独立实现与测试
 - **Tests**：按 `docs/process/tdd.md`，测试与实现同属一个任务，先红后绿；不为测试单列任务
