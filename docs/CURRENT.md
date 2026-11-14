@@ -3,11 +3,11 @@
 - 更新日期：2026-11-14
 - 项目阶段：M1 订单查询与未发货订单取消（M0 出口条件已满足）
 - 当前状态：进行中
-- 应用代码：尚未开始
+- 应用代码：已建立工程骨架（T-01），尚无业务逻辑
 - 版本控制：Git 已初始化，`main` 分支；全部文档已提交，工作区干净
 - 当前 Milestone：M1 订单查询与未发货订单取消（规格已批准：`docs/specs/M1-order-cancel/`）
-- 当前工作：工程基线文档（ADR-0004、ui.md）已起草，待确认后启动 T-01
-- 最近验证：PostgreSQL 17.12 `pg_isready` 接受连接、`select version()` 返回 17.12；Markdown 内部链接检查 25 个文件、缺失 0；`git status --porcelain` 提交后无输出
+- 当前工作：T-01 收口，评审问题已修复
+- 最近验证：`./scripts/verify.sh` 七项全绿——ruff All checks passed、mypy 8 个文件无问题、pytest 4 passed、前端 lint/typecheck/test 通过、文档检查 30 个文件 19 条 AC
 
 ## 本阶段目标
 
@@ -34,41 +34,18 @@
 
 ## 已完成
 
-- 原始架构评审已原样归档。
-- 产品宪章、架构基线、不变量和路线图草案已建立。
-- M1 订单取消需求、设计、任务和验收草案已建立。
-- ADR 已统一到 `docs/adr/`。
-- 跨工具 AI Coding 协作规范和 handoff 机制已建立。
-- M0 文档基线已纳入 Git 版本控制（此前仅 `README.md` 被跟踪，其余文件处于未跟踪状态）。
-- AI Coding 规范 4.6 补充提交要求：`CURRENT.md` 的更新与本次变更须进入同一次提交。
-- `docs/ai-coding/README.md` 已确认并标为已批准（2026-11-14）。
-- `CURRENT.md` 字段已按规范第 5 节对齐：补齐"当前 Milestone"，统一"项目阶段""当前状态"命名。
-- ADR-0001、ADR-0002、ADR-0003 已确认为已批准（2026-11-14，无保留意见）。
-- M1 四个阻塞问题已决策并回写四份文档：资格以 Policy Engine 为唯一权威；取消任务在表达意图时创建并允许转入 `ABANDONED`；补齐 `SUBMITTING`/`SUBMIT_UNKNOWN` 的"已提交"表达；技术清单与业务清单分层维护。同步新增 AC-19。
-- 架构基线补充第 10 节术语表，定义 OMS、Mock OMS、Tool、Tool Gateway、Workflow、Agent Runtime、幂等键和租户。
-- M1 需求、设计、任务、验收四份文档已标为已批准（2026-11-14）；AC-02 收紧为"不调用 OMS，统一返回查无此单"。
-- M0 出口条件已满足：规格与 19 条验收用例全部确认。
+- M0 基线：原始评审归档、产品宪章、架构基线、不变量、路线图和 AI Coding 规范已建立。
+- ADR-0001 至 ADR-0004 均已批准；M1 四份规格与 19 条验收用例已批准。
+- M1 澄清清单 12 条全部关闭；四个阻塞问题已决策并回写四份文档。
+- 架构基线补充术语表；`AGENTS.md` 与 `README.md` 不再重复维护阶段状态。
+- PostgreSQL 17.12 已安装并运行；PostgreSQL 14 及其数据目录已删除。
+- 文档检查脚本与 pre-commit hook 生效；`CURRENT.md` 字段已按规范第 5 节对齐。
+- UI 规范、组件参考与结构参考稿已建立并批准。
+- T-01 工程骨架完成：后端 uv + FastAPI + Alembic，前端 Next.js + TypeScript strict，七项检查全绿；独立评审的 7 项问题已修复 6 项，余 1 项转待确认。
 
 ## 进行中
 
-- M1 澄清清单 `docs/specs/M1-order-cancel/clarifications.md` 已建立，共 12 条待答复。
-- 已完成 AI Coding 人机协作流程调研，见 `docs/research/ai-coding-dev-collaboration-2026-11-14.md`。
-- 已采纳 4 项流程门禁：任务设计卡（`docs/templates/task-design-card.md`）、独立评审、T-01 加三项可执行检查、澄清清零后才开工。
-- PostgreSQL 17.12 已安装并以 Homebrew 服务运行，连接验证通过；PostgreSQL 14 及其数据目录已删除。
-
-- 澄清清单 12 条已全部关闭，答复与写回位置逐条记录在 `docs/specs/M1-order-cancel/clarifications.md`。
-- T-01 任务设计卡已产出：`docs/specs/M1-order-cancel/design-cards/T-01.md`，含 4 个待答问题。
-- 新增 `scripts/check-docs.py` 与 `.githooks/pre-commit`：自动检查链接、状态词、CURRENT 字段、AC 覆盖与设计卡门禁。
-- `AGENTS.md` 与 `README.md` 不再重复维护阶段状态，统一以本文件为唯一来源。
-- `ui-mockup.html` 已迭代为整页版：左侧窄栏 + 单列对话 + 图标化控件 + 六个状态变体；`ui.md` 第 2、9、10 节同步更新。
-- 新增 `docs/design/ui-spec.md` 与 `ui-components.html`：设计令牌、字号与间距刻度、10 个组件契约与状态矩阵；`ui.md` 第 10 节改为指针，避免取值重复。
-- `ADR-0004`、`ui.md`、`ui-spec.md` 已批准；辅助文字色按实测对比度修正为 `#71717A`。
-
-- T-01 已完成：后端与前端骨架、六条验证命令全绿，详见 `docs/specs/M1-order-cancel/design-cards/T-01.md` 第 7 节执行记录。
-
-## 进行中
-
-- T-01 独立评审进行中。
+- 无。
 
 ## 阻塞
 
@@ -76,14 +53,19 @@
 
 ## 下一步
 
-1. 由未参与实现的上下文完成 T-01 评审，修复影响正确性的缺口。
-2. 评审通过后，按建议把 T-06（Mock OMS 与故障注入）提到 T-04 之前，优先验证幂等与超时恢复。
-3. 确认 T-01 未达成事项的处理方式（网关拒绝测试移至 T-05、不变量测试移至 T-13）。
+1. 确认 T-01 完成标准中“Tool Gateway 越权拒绝测试”的归属，建议移交 T-05，并同步 `tasks.md`。
+2. 确认是否把 T-06（Mock OMS 与故障注入）提到 T-04 之前，以尽早验证 AC-09 至 AC-12。
+3. 开始 T-02：定义统一领域类型与错误码。
 
 ## 待确认决策
 
-业务与范围待确认项只在本节维护；技术选型见 `docs/specs/M1-order-cancel/design.md` 第 10 节。
+业务与范围：
 
 - 首个交互入口使用简单 Web Chat，不接第三方渠道。
 - 模拟 OMS 作为唯一业务系统，真实集成放到后续阶段。
+
+流程与任务：
+
+- T-01 的“Tool Gateway 越权拒绝测试”移交 T-05。
+- T-06 是否提前到 T-04 之前。
 

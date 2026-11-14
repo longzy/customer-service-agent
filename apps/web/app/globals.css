@@ -99,12 +99,28 @@ body {
   gap: 8px;
 }
 
-.hints span {
+.hints button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font: inherit;
   font-size: 12.5px;
   color: var(--text-2);
+  background: var(--surface);
   border: 1px solid var(--border-strong);
   border-radius: 999px;
   padding: 5px 12px;
+  cursor: pointer;
+}
+
+.hints .ic {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .composer {
@@ -139,13 +155,18 @@ body {
   gap: 10px;
 }
 
-.composer .hint {
+.composer .hint-text,
+.composer .count {
   font-size: 11px;
   color: var(--text-3);
 }
 
-.composer .send {
+.composer .count {
   margin-left: auto;
+  font-variant-numeric: tabular-nums;
+}
+
+.composer .send {
   font-size: 13px;
   color: #fff;
   background: var(--accent);
