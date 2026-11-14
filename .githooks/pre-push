@@ -1,0 +1,8 @@
+#!/bin/sh
+# 推送前执行完整验证：提交只做快检查，推送必须全绿。
+# 紧急情况可用 git push --no-verify 绕过，并应在 PR 说明原因。
+set -e
+cd "$(git rev-parse --show-toplevel)"
+
+echo "== pre-push：执行完整验证 =="
+./scripts/verify.sh

@@ -61,7 +61,7 @@
 UV_CACHE_DIR=./.uv-cache uv sync
 pnpm -C apps/web install
 
-# 一键验证：ruff、mypy、pytest、文档检查、前端 lint / typecheck / test
+# 一键验证：ruff check/format、mypy、pytest、文档检查、前端 lint/format/typecheck/test
 ./scripts/verify.sh
 
 # 单独运行
@@ -80,5 +80,12 @@ pnpm -C apps/web dev
 
 数据库：`createdb customer_service`；连接串默认 `postgresql+asyncpg://ba@127.0.0.1:5432/customer_service`，可用 `.env` 覆盖（见 `.env.example`）。
 
-迁移：`uv run alembic revision --autogenerate -m "..."`，首个业务迁移随 T-02 落地。
+迁移：`uv run alembic revision --autogenerate -m "..."`；表结构随后续任务落地。
+
+提交与推送的门禁由 `.githooks/` 提供，仓库已设置 `core.hooksPath=.githooks`：
+
+- `pre-commit`：格式、静态检查、文档检查，约 0.1 秒。
+- `pre-push`：执行完整 `verify.sh`，含全部测试，约 7 秒。
+
+紧急情况可 `git push --no-verify`，但必须在提交说明或 PR 中写明原因。
 
