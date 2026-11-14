@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>M1 Web Chat 结构参考稿</title>
+<style>
+  :root {
+    --line: #d8dee9;
+    --bg: #f7f8fa;
+    --ink: #1f2933;
+    --muted: #6b7280;
+    --accent: #2563eb;
+    --danger: #b91c1c;
+    --warn: #b45309;
+    --ok: #047857;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    padding: 32px;
+    background: var(--bg);
+    color: var(--ink);
+    font: 14px/1.6 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  .lead { color: var(--muted); margin: 0 0 28px; max-width: 720px; }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 24px;
+  }
+  .state { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+  .state > h2 { font-size: 14px; margin: 0 0 2px; }
+  .state > .tag {
+    display: inline-block; font-size: 11px; color: var(--muted);
+    border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px; margin-bottom: 12px;
+  }
+  .note { font-size: 12px; color: var(--muted); margin: 12px 0 0; }
+  .app {
+    height: 380px; border: 1px solid var(--line); border-radius: 8px;
+    display: flex; flex-direction: column; overflow: hidden; background: #fff;
+  }
+  .bar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 12px; border-bottom: 1px solid var(--line); background: #fbfbfc;
+    font-size: 13px; font-weight: 600;
+  }
+  .bar button { font-size: 12px; color: var(--muted); background: none; border: 1px solid var(--line); border-radius: 6px; padding: 2px 8px; }
+  .msgs { flex: 1; padding: 12px; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; }
+  .bubble { max-width: 82%; padding: 8px 11px; border-radius: 10px; font-size: 13px; }
+  .sys { align-self: flex-start; background: #f0f2f5; border-top-left-radius: 2px; }
+  .user { align-self: flex-end; background: #e4edff; border-top-right-radius: 2px; }
+  .input {
+    display: flex; gap: 8px; padding: 10px 12px; border-top: 1px solid var(--line); background: #fbfbfc;
+  }
+  .input .field { flex: 1; border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; color: var(--muted); font-size: 13px; }
+  .input .send { background: var(--accent); color: #fff; border: 0; border-radius: 8px; padding: 6px 14px; font-size: 13px; }
+  .input .send[disabled], .input .field[data-disabled] { opacity: .45; }
+  .typing { align-self: flex-start; color: var(--muted); font-size: 12px; padding: 4px 2px; }
+  .card { border: 1px solid var(--line); border-radius: 10px; padding: 12px; background: #fcfcfd; }
+  .card h3 { font-size: 13px; margin: 0 0 8px; }
+  .kv { display: grid; grid-template-columns: 72px 1fr; gap: 4px 8px; font-size: 12.5px; margin-bottom: 10px; }
+  .kv dt { color: var(--muted); }
+  .kv dd { margin: 0; }
+  .actions { display: flex; gap: 8px; }
+  .actions button { flex: 1; padding: 6px 10px; font-size: 13px; border-radius: 8px; border: 1px solid var(--line); background: #fff; }
+  .actions .danger { border-color: var(--danger); color: var(--danger); font-weight: 600; }
+  .actions button[disabled] { opacity: .45; }
+  .banner { border-radius: 8px; padding: 8px 10px; font-size: 12.5px; border: 1px solid; }
+  .banner.info { border-color: #bfdbfe; background: #eff6ff; color: #1e40af; }
+  .banner.ok { border-color: #a7f3d0; background: #ecfdf5; color: var(--ok); }
+  .banner.warn { border-color: #fde68a; background: #fffbeb; color: var(--warn); }
+  .banner.bad { border-color: #fecaca; background: #fef2f2; color: var(--danger); }
+  .hint { color: var(--muted); font-size: 12px; text-align: center; margin-top: 8px; }
+</style>
+</head>
+<body>
+
+<h1>M1 Web Chat 结构参考稿</h1>
+<p class="lead">
+  用途：确认界面的<strong>结构与状态</strong>，不是视觉设计。所有文案取自
+  <code>requirements.md</code> 第 6 节的“内部状态与用户可见表达”表。
+  区域划分与交互规则以 <code>ui.md</code> 为准；本稿与文字冲突时以文字为准。
+</p>
+
+<div class="grid">
+
+  <!-- 1 空白态 -->
+  <section class="state">
+    <h2>1. 空白态</h2>
+    <span class="tag">无消息</span>
+    <div class="app">
+      <div class="bar"><span>在线客服</span><button>转人工</button></div>
+      <div class="msgs">
+        <div class="bubble sys">您好，我可以帮您查询订单或取消未发货订单。您可以发订单号，也可以直接说“我想取消订单”。</div>
+        <div class="hint">示例：帮我看看 ORD-10001 到哪了</div>
+      </div>
+      <div class="input"><div class="field">输入消息…</div><button class="send">发送</button></div>
+    </div>
+    <p class="note">顶部栏的“转人工”在任何状态下都可用。</p>
+  </section>
+
+  <!-- 2 等待响应 -->
+  <section class="state">
+    <h2>2. 等待响应</h2>
+    <span class="tag">已发送</span>
+    <div class="app">
+      <div class="bar"><span>在线客服</span><button>转人工</button></div>
+      <div class="msgs">
+        <div class="bubble user">我想取消订单</div>
+        <div class="typing">正在处理…</div>
+      </div>
+      <div class="input"><div class="field" data-disabled>输入消息…</div><button class="send" disabled>发送</button></div>
+    </div>
+    <p class="note">输入区禁用，避免并发发送打乱任务状态。</p>
+  </section>
+
+  <!-- 3 等待确认 -->
+  <section class="state">
+    <h2>3. 等待确认</h2>
+    <span class="tag">AWAITING_CONFIRMATION</span>
+    <div class="app">
+      <div class="bar"><span>在线客服</span><button>转人工</button></div>
+      <div class="msgs">
+        <div class="bubble user">取消订单 ORD-10001</div>
+        <div class="bubble sys">这个订单可以取消，取消后不可恢复。请确认：</div>
+        <div class="card">
+          <h3>确认取消</h3>
+          <dl class="kv">
+            <dt>订单号</dt><dd>ORD-10001</dd>
+            <dt>商品</dt><dd>无线耳机 × 1</dd>
+            <dt>状态</dt><dd>已支付，未发货</dd>
+            <dt>影响</dt><dd>提交后不可撤销，退款按支付渠道处理</dd>
+          </dl>
+          <div class="actions">
+            <button class="danger">确认取消</button>
+            <button>不取消</button>
+          </div>
+        </div>
+      </div>
+      <div class="input"><div class="field">输入消息…</div><button class="send">发送</button></div>
+    </div>
+    <p class="note">四项必填内容缺一不可；口头“好的”不算确认，由 Agent 引导到按钮。</p>
+  </section>
+
+  <!-- 4 已提交 -->
+  <section class="state">
+    <h2>4. 已提交、核实中</h2>
+    <span class="tag">SUBMITTING / SUBMIT_UNKNOWN</span>
+    <div class="app">
+      <div class="bar"><span>在线客服</span><button>转人工</button></div>
+      <div class="msgs">
+        <div class="bubble user">取消订单 ORD-10001</div>
+        <div class="banner info">已提交，正在核实受理结果…</div>
+        <div class="card">
+          <h3>确认取消</h3>
+          <dl class="kv">
+            <dt>订单号</dt><dd>ORD-10001</dd>
+            <dt>状态</dt><dd>已支付，未发货</dd>
+          </dl>
+          <div class="actions">
+            <button class="danger" disabled>确认取消</button>
+            <button disabled>不取消</button>
+          </div>
+        </div>
+      </div>
+      <div class="input"><div class="field" data-disabled>输入消息…</div><button class="send" disabled>发送</button></div>
+    </div>
+    <p class="note">按钮立即禁用，防止重复提交；此时不得说“已受理”或“已取消”。</p>
+  </section>
+
+  <!-- 5 已受理 -->
+  <section class="state">
+    <h2>5. 已受理</h2>
+    <span class="tag">ACCEPTED</span>
+    <div class="app">
+      <div class="bar"><span>在线客服</span><button>转人工</button></div>
+      <div class="msgs">
+        <div class="bubble user">取消订单 ORD-10001</div>
+        <div class="banner info">已受理，等待最终取消结果。结果确认后我会通知您。</div>
+      </div>
+      <div class="input"><div class="field">输入消息…</div><button class="send">发送</button></div>
+    </div>
+    <p class="note">“已受理”与“已取消”是两种表达，不能混用。</p>
+  </section>
+
+  <!-- 6 终态 -->
+  <section class="state">
+    <h2>6. 终态（已取消 / 不可取消 / 转人工）</h2>
+    <span class="tag">CANCELLED / ELIGIBILITY_REJECTED / MANUAL_REVIEW</span>
+    <div class="app">
+      <div class="bar"><span>在线客服</span><button>转人工</button></div>
+      <div class="msgs">
+        <div class="bubble user">取消订单 ORD-10002</div>
+        <div class="banner ok">订单已取消。</div>
+        <div class="bubble user">那 ORD-10003 呢</div>
+        <div class="banner bad">该订单已发货，不能取消。需要拒收或申请售后吗？</div>
+        <div class="bubble user">转人工</div>
+        <div class="banner warn">已转人工，请稍候。人工会看到本次对话与订单上下文。</div>
+      </div>
+      <div class="input"><div class="field" data-disabled>人工接入中…</div><button class="send" disabled>发送</button></div>
+    </div>
+    <p class="note">终态后确认按钮不再出现；转人工时停止自动回复，避免两边同时说话。</p>
+  </section>
+
+</div>
+
+</body>
+</html>
