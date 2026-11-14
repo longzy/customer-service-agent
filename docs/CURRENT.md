@@ -6,7 +6,7 @@
 - 应用代码：尚未开始
 - 版本控制：Git 已初始化，`main` 分支；全部文档已提交，工作区干净
 - 当前 Milestone：M1 订单查询与未发货订单取消（规格已批准：`docs/specs/M1-order-cancel/`）
-- 当前工作：T-01 工程骨架尚未启动
+- 当前工作：工程基线文档（ADR-0004、ui.md）已起草，待确认后启动 T-01
 - 最近验证：ADR 引用检查通过；Markdown 内部链接检查 20 个文件、缺失 0；原始评审副本 `cmp` 结果为 0；`git status --porcelain` 提交后无输出；`git log --oneline` 可追溯到基线提交
 
 ## 本阶段目标
@@ -51,17 +51,18 @@
 
 ## 进行中
 
-- M1 Phase 0 尚未开工；下一项为 T-01 工程骨架。
+- `docs/adr/0004-engineering-baseline.md` 与 `docs/specs/M1-order-cancel/ui.md` 已起草，等待确认后启动 T-01。
+- `tasks.md` 的 T-01 已改写为带产出清单和完成标准的任务，先前"关联：全部"不可判定的问题已消除。
 
 ## 阻塞
 
-- 无。
+- ADR-0004 与 ui.md 未确认之前，T-01 缺少可执行依据（技术栈、目录、编码规范、界面结构）。
 
 ## 下一步
 
-1. T-01：建立后端、前端、契约与评测目录，配置 Lint、类型检查和测试命令，并同步更新 `AGENTS.md`、`README.md`。
-2. T-02：定义统一领域类型和错误码（含 `ABANDONED` 与状态表达映射）。
-3. T-03：定义 Tool 与 Mock OMS 契约（资格 Tool 由 Policy Engine 提供）。
+1. 确认 `docs/adr/0004-engineering-baseline.md`。
+2. 确认 `docs/specs/M1-order-cancel/ui.md`。
+3. 按改写后的 T-01 建立工程骨架，并记录真实命令输出。之后进入 T-02。
 
 ## 待确认决策
 

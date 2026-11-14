@@ -23,6 +23,8 @@
 - [初始技术评审](docs/reviews/2026-11-14-initial-architecture-review.md)
 - [AI Coding 调研](docs/research/ai-coding-new-project-practices-2026-11-14.md)
 - [M1 订单取消规格](docs/specs/M1-order-cancel/requirements.md)
+- [M1 界面规格](docs/specs/M1-order-cancel/ui.md)
+- [M1 工程基线](docs/adr/0004-engineering-baseline.md)
 
 ## 项目原则
 

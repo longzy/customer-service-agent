@@ -8,10 +8,23 @@
 
 ### T-01 创建工程骨架
 
-- 建立后端、前端、契约和评测目录。
-- 添加强制 Lint、类型检查和测试命令。
-- 更新 `AGENTS.md`、`README.md` 和 `CURRENT.md`。
-- 关联：全部。
+依据：`docs/adr/0004-engineering-baseline.md`（技术栈、目录与编码规范）、`ui.md`（界面结构）。
+
+产出：
+
+- 根目录 `pyproject.toml` + `uv.lock`，以及 `services/{api,agent_runtime,tools,workflows,mock_oms}`、`apps/web`、`packages/contracts`、`evals/`、`tests/unit`、`tests/integration`。
+- 工具链配置：ruff、mypy、pytest；eslint、prettier、tsc、vitest。
+- `docker-compose.yml`（本地 PostgreSQL 16）、`.env.example`、`.gitignore`。
+- 后端与前端各一个 smoke 测试，保证测试命令不会因空集合而误判通过。
+- `apps/web` 只实现 `ui.md` 的空白态与输入区空壳；消息与确认逻辑留给 T-10。
+
+完成标准（必须记录真实命令与输出，禁止照抄模板）：
+
+- `uv run ruff check .`、`uv run mypy services`、`uv run pytest` 退出码均为 0。
+- `pnpm -C apps/web lint`、`pnpm -C apps/web typecheck`、`pnpm -C apps/web test` 退出码均为 0。
+- `AGENTS.md` 与 `README.md` 写入上述真实命令；`CURRENT.md` 记录验证结果。
+
+关联：不直接对应 AC，为全部 AC 提供可运行基座。
 
 ### T-02 定义统一领域类型和错误码
 

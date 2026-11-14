@@ -285,8 +285,11 @@ conversation.turn
 
 技术选型只在本节维护；业务与范围待确认项见 `docs/CURRENT.md`，两处不重复列同一件事。
 
-- 后端目录结构与依赖版本；首个实现基线为 Python/FastAPI + 关系型数据库。
+已由 `docs/adr/0004-engineering-baseline.md` 关闭：目录结构、依赖管理与版本策略、前端框架、编码与检查规范。
+Web Chat 的界面结构、状态与确认交互由 `ui.md` 规定。
+
+仍待确认：
+
 - 模型供应商选型、结构化输出方案与 API 契约；供应商保持可替换，不允许把业务状态寄存在 Agent 框架内。
-- 前端框架版本与 Web Chat 交互细节。
-- Trace 本地存储与导出方式。
+- Trace 的本地存储与导出方式。
 
