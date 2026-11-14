@@ -1,6 +1,7 @@
 # M1 需求：订单查询与未发货订单取消
 
-- 状态：草案
+- 状态：已批准
+- 批准：2026-11-14（本次会话由用户确认）
 - 渠道：Web Chat
 - 业务系统：Mock OMS
 - 关联架构：`docs/architecture/overview.md`
