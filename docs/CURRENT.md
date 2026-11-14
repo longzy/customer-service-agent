@@ -53,11 +53,12 @@
 
 - M1 澄清清单 `docs/specs/M1-order-cancel/clarifications.md` 已建立，共 12 条待答复。
 - 已完成 AI Coding 人机协作流程调研，见 `docs/research/ai-coding-dev-collaboration-2026-11-14.md`。
+- 已采纳 4 项流程门禁：任务设计卡（`docs/templates/task-design-card.md`）、独立评审、T-01 加三项可执行检查、澄清清零后才开工。
 
 ## 阻塞
 
 - 澄清清单 12 条未关闭之前，T-01 不具备开工条件。
-- 本地环境与 ADR-0004 记载不符：仅有 PostgreSQL 14.13（2026-11-12 已到期），未安装 Docker。
+- 本地尚无可用 PostgreSQL：14 已按用户要求卸载并删除数据，17 待用户手动安装。
 
 ## 下一步
 

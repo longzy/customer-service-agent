@@ -23,6 +23,7 @@
 - `uv run ruff check .`、`uv run mypy services`、`uv run pytest` 退出码均为 0。
 - `pnpm -C apps/web lint`、`pnpm -C apps/web typecheck`、`pnpm -C apps/web test` 退出码均为 0。
 - `AGENTS.md` 与 `README.md` 写入上述真实命令；`CURRENT.md` 记录验证结果。
+- 下列三项必须做成可执行检查（CI 暂缺时至少是一个可重复运行的本地脚本加一条命令）：AC 引用完整性、`invariants.md` 中可测条目的自动化测试、Tool Gateway 对越权与未知字段的拒绝测试。
 
 关联：不直接对应 AC，为全部 AC 提供可运行基座。
 
