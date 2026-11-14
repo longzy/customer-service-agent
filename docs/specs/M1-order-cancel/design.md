@@ -1,0 +1,280 @@
+# M1 技术设计：订单查询与未发货订单取消
+
+- 状态：草案
+- 关联需求：`requirements.md`
+
+## 1. 设计原则
+
+- Agent Runtime 不直接访问 OMS 或数据库业务表。
+- 取消资格由 Policy Engine 决定。
+- 取消提交由 Cancellation Workflow 驱动。
+- Tool Gateway 负责鉴权、Schema、超时、错误归一化和审计。
+- Mock OMS 模拟真实系统的状态、延迟和故障。
+
+## 2. 逻辑组件
+
+### Conversation API
+
+接收 Web Chat 消息，建立认证上下文，将消息持久化后交给 Agent Runtime。
+
+### Agent Runtime
+
+- 构建最小必要上下文。
+- 识别查询、取消、澄清、确认和人工请求。
+- 在允许的 Tool 列表中选择查询 Tool。
+- 输出结构化动作建议，不直接执行写操作。
+
+### Tool Gateway
+
+- 根据租户和用户上下文执行授权。
+- 校验 Tool 输入 Schema。
+- 注入可信的 `tenant_id`、`user_id`、`trace_id`。
+- 应用超时、有限重试、结果归一化和审计。
+
+### Policy Engine
+
+输入订单和用户权限上下文，输出：
+
+- 是否允许取消。
+- 原因码和用户可理解说明。
+- 是否需要额外确认或人工审批。
+
+M1 不调用模型做资格判断。
+
+### Cancellation Workflow
+
+管理：
+
+```text
+COLLECTING
+  -> AWAITING_CONFIRMATION
+  -> SUBMITTING
+  -> ACCEPTED
+  -> CANCELLED
+```
+
+异常分支：
+
+```text
+ELIGIBILITY_REJECTED
+REJECTED
+SUBMIT_UNKNOWN -> query result -> ACCEPTED/CANCELLED/REJECTED
+SUBMIT_UNKNOWN -> retries exhausted -> MANUAL_REVIEW
+```
+
+### Mock OMS
+
+提供可控 API：
+
+- 查询单个订单。
+- 列出最近订单。
+- 查询取消资格。
+- 幂等提交取消。
+- 按幂等键查询取消结果。
+- 故障注入：延迟、超时、重复响应、格式错误和后端已成功但响应丢失。
+
+## 3. Tool 契约草案
+
+### `list_recent_orders`
+
+```json
+{
+  "limit": 5
+}
+```
+
+服务端自动注入身份字段。返回订单摘要列表，不向模型暴露无权访问订单。
+
+### `get_order`
+
+```json
+{
+  "order_id": "ORD-10001"
+}
+```
+
+错误分类：
+
+- `NOT_FOUND_OR_UNAUTHORIZED`
+- `DEPENDENCY_UNAVAILABLE`
+- `INVALID_RESPONSE`
+
+### `get_cancel_eligibility`
+
+```json
+{
+  "order_id": "ORD-10001"
+}
+```
+
+返回：
+
+```json
+{
+  "eligible": true,
+  "reason_code": "UNFULFILLED",
+  "requires_confirmation": true
+}
+```
+
+### `submit_cancel`
+
+```json
+{
+  "order_id": "ORD-10001",
+  "idempotency_key": "opaque-key"
+}
+```
+
+该 Tool 不由 Agent 自由调用，只允许 Cancellation Workflow 在确认状态后调用。
+
+### `get_cancel_result`
+
+```json
+{
+  "idempotency_key": "opaque-key"
+}
+```
+
+返回受理、取消、拒绝或未知状态。
+
+## 4. Workflow 与幂等
+
+- 确认操作时创建持久化取消任务。
+- 幂等键在任务创建时生成，后续重试复用。
+- 数据库对 `(tenant_id, idempotency_key)` 建唯一约束。
+- 如果写调用超时，Workflow 进入 `SUBMIT_UNKNOWN`。
+- 恢复器按幂等键调用 `get_cancel_result`。
+- 仅当 OMS 返回明确状态时推进 Workflow。
+- 重试耗尽后进入 `MANUAL_REVIEW`。
+
+## 5. 数据模型草案
+
+### `conversations`
+
+- `id`
+- `tenant_id`
+- `user_id`
+- `channel`
+- `created_at`
+- `updated_at`
+
+### `messages`
+
+- `id`
+- `conversation_id`
+- `role`
+- `content`
+- `trace_id`
+- `created_at`
+
+### `cancellation_requests`
+
+- `id`
+- `tenant_id`
+- `user_id`
+- `conversation_id`
+- `order_id`
+- `idempotency_key`
+- `state`
+- `last_error_code`
+- `oms_request_id`
+- `version`
+- `created_at`
+- `updated_at`
+
+### `tool_executions`
+
+- `id`
+- `trace_id`
+- `tool_name`
+- `tenant_id`
+- `user_id`
+- `input_digest`
+- `result_status`
+- `latency_ms`
+- `error_code`
+- `created_at`
+
+### `audit_events`
+
+- `id`
+- `trace_id`
+- `tenant_id`
+- `actor_type`
+- `actor_id`
+- `event_type`
+- `entity_type`
+- `entity_id`
+- `metadata_redacted`
+- `created_at`
+
+## 6. Runtime 决策输出
+
+Agent 输出建议使用结构化动作，例如：
+
+```json
+{
+  "type": "tool_call",
+  "tool": "get_order",
+  "arguments": {
+    "order_id": "ORD-10001"
+  }
+}
+```
+
+或：
+
+```json
+{
+  "type": "clarify",
+  "question": "请确认是哪一个订单？",
+  "candidates": ["ORD-10001", "ORD-10002"]
+}
+```
+
+写操作不直接作为 Agent 的普通 Tool 输出，而由 Workflow 在确认后触发。
+
+## 7. 回复结果校验
+
+最终回复生成前，Result Validator 将模型输出与权威业务结果对照：
+
+- 不得把 `ACCEPTED` 表述为 `CANCELLED`。
+- 不得把 `SUBMIT_UNKNOWN` 表述为失败或成功。
+- 不得声称已退款。
+- 必须包含下一步或人工路径。
+
+## 8. 可观测性
+
+建议 Span：
+
+```text
+conversation.turn
+  intent.classify
+  context.build
+  model.generate
+  tool.call
+    authorization.check
+    oms.request
+  workflow.transition
+  response.validate
+```
+
+日志只记录必要的 ID、状态和错误码，不记录完整敏感输入。
+
+## 9. 测试策略
+
+- Contract tests：Tool 输入输出与 Mock OMS。
+- Unit tests：资格规则、状态机、幂等键和结果校验。
+- Integration tests：API + Workflow + Mock OMS。
+- Adversarial tests：越权订单号、Prompt 注入、非法 Tool 参数。
+- Fault injection：超时、后端已成功但响应丢失、格式异常。
+- Scenario evals：模型完成多轮澄清和 Tool 选择。
+
+## 10. 待确认技术决策
+
+- 精确的后端目录和依赖版本。
+- 模型供应商及结构化输出方案。
+- 前端框架版本与 Web Chat 交互细节。
+- Trace 本地存储与导出方式。
+
