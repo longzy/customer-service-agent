@@ -6,8 +6,8 @@
 - 应用代码：已建立工程骨架（T-01），尚无业务逻辑
 - 版本控制：Git 已初始化，`main` 分支；全部文档已提交，工作区干净
 - 当前 Milestone：M1 订单查询与未发货订单取消（规格已批准：`docs/specs/M1/001-order-cancel/`）
-- 当前工作：T-02 待开工（流程规范已批准）
-- 最近验证：`./scripts/verify.sh` 七项全绿；结构检查器通过（32 个文件、1 个规格目录、19 条 AC、1 张执行卡），并完成 4 组反向验证（缺必需文件、编号重复、执行卡无对应规格、链接失效均能拦截）
+- 当前工作：T-02 已完成，待独立评审
+- 最近验证：`./scripts/verify.sh` 七项全绿——ruff All checks passed、mypy 12 个文件无问题、pytest 28 passed、文档检查 33 个文件 19 条 AC、前端 lint/typecheck/test 通过
 
 ## 本阶段目标
 
@@ -48,6 +48,7 @@
 - 引入 Spec 开发规范：新增 `docs/process/sdd.md`，固定路径与门禁；目录迁移为 `docs/specs/M1/001-order-cancel/`、`docs/tasks/001-order-cancel/`、`docs/design-system/`、`docs/process/`；检查器扩展为结构校验并完成反向验证。
 - 引入 TDD 规范：新增 `docs/process/tdd.md`，约定 seam、红-绿循环与突变检查范围；任务模板与 T-02 执行卡已加入红-绿证据与突变分数要求。
 - `docs/process/sdd.md` 与 `docs/process/tdd.md` 已批准（2026-11-14）。
+- T-02 完成：领域契约 `packages/contracts/schemas/domain.json`、Python 领域类型、10 个取消状态映射、7 个错误码；按红-绿推进，28 个后端测试通过。
 
 ## 进行中
 
@@ -59,8 +60,8 @@
 
 ## 下一步
 
-1. 执行 T-02：按红-绿循环定义 JSON Schema、Python 领域类型、状态枚举、对外表达映射与错误码分类。
-2. 记录至少一组红-绿证据与映射一致性测试结果。
+1. 由未参与实现的上下文完成 T-02 独立评审，修复影响正确性的缺口。
+2. 评审通过后进入 T-03 契约，随后建立 T-06 的故障注入能力。
 3. T-02 完成后进入 T-03 契约，随后提前建立 T-06 的故障注入能力。
 4. 突变检查自 T-07 起生效，届时建立 `scripts/mutation.sh`。
 

@@ -1,0 +1,196 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/contracts/domain.json",
+  "title": "M1 领域契约",
+  "$defs": {
+    "OrderStatus": {
+      "type": "string",
+      "enum": [
+        "PAID_UNFULFILLED",
+        "FULFILLING",
+        "SHIPPED",
+        "DELIVERED",
+        "CANCELLED"
+      ]
+    },
+    "CancellationState": {
+      "type": "string",
+      "enum": [
+        "COLLECTING",
+        "AWAITING_CONFIRMATION",
+        "ELIGIBILITY_REJECTED",
+        "SUBMITTING",
+        "SUBMIT_UNKNOWN",
+        "ACCEPTED",
+        "CANCELLED",
+        "REJECTED",
+        "MANUAL_REVIEW",
+        "ABANDONED"
+      ]
+    },
+    "ErrorCode": {
+      "type": "string",
+      "enum": [
+        "ELIGIBILITY_REJECTED",
+        "OMS_REJECTED",
+        "NOT_FOUND_OR_UNAUTHORIZED",
+        "DEPENDENCY_UNAVAILABLE",
+        "DEPENDENCY_TIMEOUT",
+        "INVALID_RESPONSE",
+        "INTERNAL_ERROR"
+      ]
+    },
+    "OrderSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "order_id",
+        "item_summary",
+        "order_status",
+        "cancelable",
+        "amount_cents",
+        "currency",
+        "created_at"
+      ],
+      "properties": {
+        "order_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "item_summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "order_status": {
+          "$ref": "#/$defs/OrderStatus"
+        },
+        "cancelable": {
+          "type": "boolean"
+        },
+        "amount_cents": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "OrderItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sku",
+        "name",
+        "quantity",
+        "unit_amount_cents"
+      ],
+      "properties": {
+        "sku": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "quantity": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "unit_amount_cents": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "OrderDetail": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "order_id",
+        "item_summary",
+        "order_status",
+        "cancelable",
+        "amount_cents",
+        "currency",
+        "created_at",
+        "items"
+      ],
+      "properties": {
+        "order_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "item_summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "order_status": {
+          "$ref": "#/$defs/OrderStatus"
+        },
+        "cancelable": {
+          "type": "boolean"
+        },
+        "amount_cents": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "created_at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OrderItem"
+          }
+        },
+        "paid_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        },
+        "shipped_at": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date-time"
+        }
+      }
+    },
+    "CancelEligibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "eligible",
+        "reason_code",
+        "requires_confirmation"
+      ],
+      "properties": {
+        "eligible": {
+          "type": "boolean"
+        },
+        "reason_code": {
+          "type": "string",
+          "minLength": 1
+        },
+        "requires_confirmation": {
+          "type": "boolean"
+        }
+      }
+    }
+  }
+}
