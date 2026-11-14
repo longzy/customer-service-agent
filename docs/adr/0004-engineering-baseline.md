@@ -58,6 +58,7 @@ tests/integration/
 - TypeScript：`eslint` + `prettier` + `tsc --noEmit`。
 - 命名：Python 用 `snake_case`；TypeScript 变量用 `camelCase`、组件用 `PascalCase`。
 - 测试：`tests/unit` 不得依赖数据库，`tests/integration` 可使用 PostgreSQL。
+- 数据库迁移使用 Alembic，种子数据由独立脚本提供。
 - 新增模块必须同时具备 lint、类型检查和至少一个测试入口，否则视为未完成。
 
 ## 后果

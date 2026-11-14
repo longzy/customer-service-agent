@@ -56,15 +56,18 @@
 - 已采纳 4 项流程门禁：任务设计卡（`docs/templates/task-design-card.md`）、独立评审、T-01 加三项可执行检查、澄清清零后才开工。
 - PostgreSQL 17.12 已安装并以 Homebrew 服务运行，连接验证通过；PostgreSQL 14 及其数据目录已删除。
 
+- 澄清清单 12 条已全部关闭，答复与写回位置逐条记录在 `docs/specs/M1-order-cancel/clarifications.md`。
+- T-01 任务设计卡已产出：`docs/specs/M1-order-cancel/design-cards/T-01.md`，含 4 个待答问题。
+
 ## 阻塞
 
-- 澄清清单仍有 11 条未关闭（C-02 至 C-12），T-01 暂不启动。
+- T-01 设计卡的 Q-1 至 Q-4 未确认，T-01 暂不启动。
 
 ## 下一步
 
-1. 答复澄清清单剩余 C-02 至 C-12 共 11 条，并把答案写回规格或 ADR。
-2. 澄清清零后，按 `docs/templates/task-design-card.md` 产出 T-01 任务设计卡并确认。
-3. 设计卡确认后启动 T-01。
+1. 确认 `design-cards/T-01.md` 的 4 个未决问题。
+2. 设计卡确认后执行 T-01，记录六条验证命令的真实输出。
+3. T-01 通过独立评审后进入 T-02。
 
 ## 待确认决策
 

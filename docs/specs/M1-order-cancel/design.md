@@ -18,6 +18,12 @@
 
 接收 Web Chat 消息，建立认证上下文，将消息持久化后交给 Agent Runtime。
 
+### 身份与租户
+
+- 开发期使用固定测试账号与会话 Cookie，M1 不实现注册与登录。
+- 存在两个租户，每租户两个用户；身份由服务端会话解析，请求体不得携带或覆盖 `tenant_id`、`user_id`。
+- 跨租户用例必须命中真实存在的第二租户数据，不接受仅靠参数非法来模拟。
+
 ### Agent Runtime
 
 - 构建最小必要上下文。
@@ -77,6 +83,8 @@ COLLECTING / AWAITING_CONFIRMATION -> 超时或用户放弃 -> ABANDONED
 - 幂等提交取消。
 - 按幂等键查询取消结果。
 - 故障注入：延迟、超时、重复响应、格式错误和后端已成功但响应丢失。
+
+预置夹具：每个租户 4 单，分别覆盖 `PAID_UNFULFILLED`、`FULFILLING`、`SHIPPED`、`CANCELLED`；每租户另有 1 单属于同租户其他用户，用于越权用例。
 
 ## 3. Tool 契约草案
 
@@ -150,7 +158,9 @@ COLLECTING / AWAITING_CONFIRMATION -> 超时或用户放弃 -> ABANDONED
 - 用户表达取消意图时创建持久化取消任务，初始状态为 `COLLECTING`。
 - 只有用户明确确认后才允许进入 `SUBMITTING`；确认前一律不得调用 OMS 写接口。
 - 幂等键在任务创建时生成，后续重试复用。
-- `COLLECTING` 或 `AWAITING_CONFIRMATION` 超过可配置时长未推进，转入 `ABANDONED`。
+- `COLLECTING` 或 `AWAITING_CONFIRMATION` 超过确认超时未推进，转入 `ABANDONED`；默认 30 分钟，可由环境变量覆盖，测试中设为 1 秒。
+- OMS 单次调用超时 2 秒。
+- 失败重试最多 3 次，间隔 1s / 2s / 4s，耗尽后进入 `MANUAL_REVIEW`。
 - 数据库对 `(tenant_id, idempotency_key)` 建唯一约束。
 - 如果写调用超时，Workflow 进入 `SUBMIT_UNKNOWN`。
 - 恢复器按幂等键调用 `get_cancel_result`。
@@ -270,7 +280,7 @@ conversation.turn
   response.validate
 ```
 
-日志只记录必要的 ID、状态和错误码，不记录完整敏感输入。
+日志与审计只记录必要的 ID、状态和错误码。禁止记录：令牌、密码、完整卡号、完整手机号、完整地址；允许记录：订单号、用户 ID、状态、错误码。
 
 ## 9. 测试策略
 
@@ -288,8 +298,10 @@ conversation.turn
 已由 `docs/adr/0004-engineering-baseline.md` 关闭：目录结构、依赖管理与版本策略、前端框架、编码与检查规范。
 Web Chat 的界面结构、状态与确认交互由 `ui.md` 规定。
 
-仍待确认：
+已关闭：
 
-- 模型供应商选型、结构化输出方案与 API 契约；供应商保持可替换，不允许把业务状态寄存在 Agent 框架内。
-- Trace 的本地存储与导出方式。
+- 模型接入：定义可替换的模型调用接口，M1 只实现一个供应商；具体供应商与结构化输出方案在 T-09 任务设计卡中选定。
+- Trace：M1 只要求 `trace_id` 贯穿结构化日志，导出后端在 T-12 决定。
+
+本节已无未决事项。
 
