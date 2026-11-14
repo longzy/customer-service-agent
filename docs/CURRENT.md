@@ -61,6 +61,7 @@
 - 新增 `scripts/check-docs.py` 与 `.githooks/pre-commit`：自动检查链接、状态词、CURRENT 字段、AC 覆盖与设计卡门禁。
 - `AGENTS.md` 与 `README.md` 不再重复维护阶段状态，统一以本文件为唯一来源。
 - `ui-mockup.html` 已迭代为整页版：左侧窄栏 + 单列对话 + 图标化控件 + 六个状态变体；`ui.md` 第 2、9、10 节同步更新。
+- 新增 `docs/design/ui-spec.md` 与 `ui-components.html`：设计令牌、字号与间距刻度、10 个组件契约与状态矩阵；`ui.md` 第 10 节改为指针，避免取值重复。
 
 ## 阻塞
 

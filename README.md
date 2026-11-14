@@ -24,6 +24,8 @@
 - [AI Coding 调研](docs/research/ai-coding-new-project-practices-2026-11-14.md)
 - [M1 订单取消规格](docs/specs/M1-order-cancel/requirements.md)
 - [M1 界面规格](docs/specs/M1-order-cancel/ui.md)
+- [UI 规范与组件规范](docs/design/ui-spec.md)
+- [UI 组件参考](docs/design/ui-components.html)
 - [M1 工程基线](docs/adr/0004-engineering-baseline.md)
 - [M1 澄清清单](docs/specs/M1-order-cancel/clarifications.md)
 - [T-01 任务设计卡](docs/specs/M1-order-cancel/design-cards/T-01.md)

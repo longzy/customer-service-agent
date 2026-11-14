@@ -68,9 +68,11 @@ def check_links(files):
 
 
 def check_status_words(files):
+    """只检查文件头部（前 15 行）的文档状态，避免与组件状态清单混淆。"""
     status = re.compile(r"^- 状态：(.+)$", re.M)
     for path in files:
-        for value in status.findall(read(path)):
+        header = "\n".join(read(path).splitlines()[:15])
+        for value in status.findall(header):
             token = re.split(r"[（(，,、\s]", value.strip())[0]
             if token and token not in STATUS_WORDS:
                 errors.append("%s：状态词不在允许集合内：%s" % (rel(path), token))
