@@ -8,7 +8,7 @@
 
 ## 给非实现者的速览
 
-- **一个变更一个目录**：M1 的订单取消在 `docs/specs/M1/001-order-cancel/`；以后每个新功能一个编号目录。
+- **一个变更一个目录**：M1 的订单取消在 `docs/specs/001-order-cancel/`；以后每个新功能一个编号目录。
 - **门禁**：需求没批准不写设计，设计没批准不排任务，任务没写清不写代码。
 - **检查器**：提交前自动跑 `scripts/check-docs.py`，缺文件、编号重复、依据未批准都会直接失败。
 
@@ -29,15 +29,12 @@ docs/
   product/charter.md              产品定位与范围
   architecture/                   总体架构与不变量
   adr/                            架构决策记录
-  specs/<M>/<NNN>-<slug>/         一个变更一个目录
-    requirements.md               需求与用户故事（必需）
-    design.md                     技术设计（必需）
-    acceptance.md                 验收用例（必需）
-    tasks.md                      任务地图（必需）
-    clarifications.md             澄清清单，可为空但必须存在（必需）
-    ui.md                         界面与交互（涉及界面时必需）
-    ui-mockup.html                结构参考稿（可选）
-  tasks/<NNN>-<slug>/T-XX.md      任务执行卡，与 spec 目录同名
+  specs/<NNN>-<slug>/             一个变更一个目录，编号递增且不复用
+    requirements.md               需求：故事、验收标准、EARS、状态、澄清（必需）
+    design.md                     设计：架构、时序、契约、数据、错误、测试、界面（必需）
+    tasks.md                      任务：离散任务、依赖与状态（必需）
+    assets/                       参考稿等附件（可选）
+  tasks/<NNN>-<slug>/T-XX.md      任务执行卡（本仓库扩展），与 spec 目录同名
   design-system/                  设计令牌与组件契约
   process/                        协作流程与本文
   research/ handoffs/ reviews/ templates/ CURRENT.md
@@ -45,8 +42,7 @@ docs/
 
 命名规则：
 
-- `<M>` 为里程碑标识，例如 `M1`。
-- `<NNN>` 为三位递增编号，在同一里程碑内唯一且不复用。
+- `<NNN>` 为三位递增编号，全仓库唯一且不复用；里程碑在需求文档头部记录。
 - `<slug>` 为小写英文短语，用连字符分隔，与变更名对应。
 - 执行卡编号 `T-XX` 与 `tasks.md` 中的任务编号一致。
 
@@ -54,8 +50,8 @@ docs/
 
 | 阶段 | 产物 | 门禁 |
 |---|---|---|
-| 需求 | `requirements.md` + `clarifications.md` | 澄清条目清零，需求才可批准 |
-| 设计 | `design.md`、`ui.md`、`docs/design-system/` | 需求已批准，且设计中的未决项全部关闭 |
+| 需求 | `requirements.md` + `requirements.md` 第 11 节 | 澄清条目清零，需求才可批准 |
+| 设计 | `design.md`、`design.md` 第 12 节、`docs/design-system/` | 需求已批准，且设计中的未决项全部关闭 |
 | 任务地图 | `tasks.md` | 设计已批准；每个任务可追溯到 AC 或声明基座豁免 |
 | 执行卡 | `docs/tasks/<spec>/T-XX.md` | 依据文档已批准；4.1 需人类决策为空或已答复；seam 已写明 |
 | 实现 | 代码、测试 | 按 `docs/process/tdd.md` 红-绿推进；执行卡完成标准逐条满足，验证输出留痕 |
@@ -98,6 +94,6 @@ docs/
 
 ## 8. 变更控制
 
-- 规格范围变化：更新 `requirements.md` 与 `acceptance.md`，重新评审。
+- 规格范围变化：更新 `requirements.md` 与 `requirements.md` 第 10 节，重新评审。
 - 架构取舍变化：新增 ADR，保留旧决策与替代原因。
 - 目录或命名规则变化：先改本文，再改检查器，最后迁移文件；三者顺序不得颠倒。

@@ -48,13 +48,7 @@ CURRENT_REQUIRED_FIELDS = [
     "待确认决策",
 ]
 
-SPEC_REQUIRED_FILES = [
-    "requirements.md",
-    "design.md",
-    "acceptance.md",
-    "tasks.md",
-    "clarifications.md",
-]
+SPEC_REQUIRED_FILES = ["requirements.md", "design.md", "tasks.md"]
 
 GATE_OPEN_STATUSES = ("待开工许可", "已确认")
 SPEC_DIR_PATTERN = re.compile(r"^\d{3}-[a-z0-9-]+$")
@@ -118,54 +112,50 @@ def check_current_fields():
 
 
 def spec_dirs():
-    """返回 (里程碑, 规格目录名, 绝对路径)，并校验命名与编号唯一。"""
+    """返回 (规格目录名, 绝对路径)，并校验命名与编号唯一。"""
     found = []
     if not os.path.isdir(SPECS_ROOT):
         return found
-    for milestone in sorted(os.listdir(SPECS_ROOT)):
-        milestone_path = os.path.join(SPECS_ROOT, milestone)
-        if not os.path.isdir(milestone_path):
+    numbers = {}
+    for name in sorted(os.listdir(SPECS_ROOT)):
+        path = os.path.join(SPECS_ROOT, name)
+        if not os.path.isdir(path):
             continue
-        numbers = {}
-        for name in sorted(os.listdir(milestone_path)):
-            path = os.path.join(milestone_path, name)
-            if not os.path.isdir(path):
-                continue
-            if not SPEC_DIR_PATTERN.match(name):
-                errors.append(f"{rel(path)}：规格目录名不符合 NNN-slug 约定")
-                continue
-            number = name.split("-")[0]
-            if number in numbers:
-                errors.append(f"{milestone}：编号 {number} 重复（{numbers[number]} 与 {name}）")
-            numbers[number] = name
-            found.append((milestone, name, path))
+        if not SPEC_DIR_PATTERN.match(name):
+            errors.append(f"{rel(path)}：规格目录名不符合 NNN-slug 约定")
+            continue
+        number = name.split("-")[0]
+        if number in numbers:
+            errors.append(f"规格编号 {number} 重复（{numbers[number]} 与 {name}）")
+        numbers[number] = name
+        found.append((name, path))
     return found
 
 
 def check_spec_structure(specs):
-    for milestone, name, path in specs:
+    for name, path in specs:
         checked["specs"] += 1
         for required in SPEC_REQUIRED_FILES:
             if not os.path.exists(os.path.join(path, required)):
-                errors.append(f"docs/specs/{milestone}/{name}：缺少必需文件 {required}")
+                errors.append(f"docs/specs/{name}：缺少必需文件 {required}")
 
 
 def check_ac_coverage(specs):
-    for milestone, name, path in specs:
-        acceptance = os.path.join(path, "acceptance.md")
+    for name, path in specs:
+        requirements = os.path.join(path, "requirements.md")
         tasks = os.path.join(path, "tasks.md")
-        if not (os.path.exists(acceptance) and os.path.exists(tasks)):
+        if not (os.path.exists(requirements) and os.path.exists(tasks)):
             continue
-        acs = sorted(set(re.findall(r"\bAC-\d{2}\b", read(acceptance))))
+        acs = sorted(set(re.findall(r"\bAC-\d{2}\b", read(requirements))))
         tasks_text = read(tasks)
         checked["acs"] += len(acs)
         for ac in acs:
             if ac not in tasks_text:
-                errors.append(f"docs/specs/{milestone}/{name}/tasks.md：缺少对 {ac} 的引用")
+                errors.append(f"docs/specs/{name}/tasks.md：缺少对 {ac} 的引用")
 
 
 def check_task_dirs(specs):
-    spec_names = {name for _, name, _ in specs}
+    spec_names = {name for name, _ in specs}
     if not os.path.isdir(TASKS_ROOT):
         return
     for name in sorted(os.listdir(TASKS_ROOT)):

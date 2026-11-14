@@ -3,7 +3,7 @@
 - 状态：已批准
 - 批准：2026-11-14（本次会话由用户确认）
 - 日期：2026-11-14
-- 关联：`docs/architecture/overview.md`、`docs/specs/M1/001-order-cancel/design.md`
+- 关联：`docs/architecture/overview.md`、`docs/specs/001-order-cancel/design.md`
 
 ## 背景
 

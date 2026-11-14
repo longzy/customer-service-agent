@@ -13,10 +13,10 @@ from pathlib import Path
 from services.api.domain.cancellation import EXPRESSIONS, CancellationState
 from services.api.domain.orders import OrderStatus
 
-SPEC_DIR = Path("docs/specs/M1/001-order-cancel")
+SPEC_DIR = Path("docs/specs/001-order-cancel")
 REQUIREMENTS = (SPEC_DIR / "requirements.md").read_text(encoding="utf-8")
-UI = (SPEC_DIR / "ui.md").read_text(encoding="utf-8")
-ACCEPTANCE = (SPEC_DIR / "acceptance.md").read_text(encoding="utf-8")
+UI = (SPEC_DIR / "design.md").read_text(encoding="utf-8")
+ACCEPTANCE = (SPEC_DIR / "requirements.md").read_text(encoding="utf-8")
 
 
 def section(text: str, start: str, end: str) -> str:

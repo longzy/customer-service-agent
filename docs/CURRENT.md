@@ -5,7 +5,7 @@
 - 当前状态：进行中
 - 应用代码：已建立工程骨架（T-01），尚无业务逻辑
 - 版本控制：Git 已初始化，`main` 分支；全部文档已提交，工作区干净
-- 当前 Milestone：M1 订单查询与未发货订单取消（规格已批准：`docs/specs/M1/001-order-cancel/`）
+- 当前 Milestone：M1 订单查询与未发货订单取消（规格已批准：`docs/specs/001-order-cancel/`）
 - 当前工作：M1 规格按 SDD 规范改写，待重新评审
 - 最近验证：`./scripts/verify.sh` 七项全绿——ruff All checks passed、mypy 12 个文件无问题、pytest 76 passed、文档检查 33 个文件 19 条 AC、前端 lint/typecheck/test 通过
 
@@ -45,21 +45,21 @@
 - 任务清单已修订：T-02 扩写为可执行任务，T-06 提前，网关拒绝测试移交 T-05。
 - 流程改进：`ai-coding` 规范新增“定界与就绪”检查；`tasks.md` 明确为任务地图，执行契约以设计卡为准。
 - T-02 设计卡已产出，四项需人类决策均已确认（金额整数分、时间存 UTC、状态映射归后端、越权统一错误码）。
-- 引入 Spec 开发规范：新增 `docs/process/sdd.md`，固定路径与门禁；目录迁移为 `docs/specs/M1/001-order-cancel/`、`docs/tasks/001-order-cancel/`、`docs/design-system/`、`docs/process/`；检查器扩展为结构校验并完成反向验证。
+- 引入 Spec 开发规范：新增 `docs/process/sdd.md`，固定路径与门禁；目录迁移为 `docs/specs/001-order-cancel/`、`docs/tasks/001-order-cancel/`、`docs/design-system/`、`docs/process/`；检查器扩展为结构校验并完成反向验证。
 - 引入 TDD 规范：新增 `docs/process/tdd.md`，约定 seam、红-绿循环与突变检查范围；任务模板与 T-02 执行卡已加入红-绿证据与突变分数要求。
 - `docs/process/sdd.md` 与 `docs/process/tdd.md` 已批准（2026-11-14）。
 - 环境改进（retro）：门禁分两级（提交快检查、推送完整验证）；pre-commit 接入 ruff 格式与静态检查；`verify.sh` 补格式检查；新增测试命名元测试；执行卡引用路径纳入检查；设计令牌抽为 `docs/design-system/tokens.css`；流程规范补非实现者速览。
 - 依赖修正：Starlette 1.10 的 TestClient 改用 `httpx2`，dev 依赖由 `httpx` 换成 `httpx2`，测试输出无警告。
-- 规格规范化：`requirements.md` 改为 EARS 与用户故事结构（优先级、独立测试、Given/When/Then），补成功标准、关键实体、假设；`acceptance.md` 增加“关联 FR”列；`design.md` 增加两张时序图；`tasks.md` 增加状态总览并细化 T-03 至 T-05。新增 3 条内容检查。
+- 规格规范化：`requirements.md` 改为 EARS 与用户故事结构（优先级、独立测试、Given/When/Then），补成功标准、关键实体、假设；`requirements.md` 第 10 节 增加“关联 FR”列；`design.md` 增加两张时序图；`tasks.md` 增加状态总览并细化 T-03 至 T-05。新增 3 条内容检查。
 - 评审留痕门禁：执行卡标记完成时必须有 `docs/reviews/<spec>/T-XX.md`，已为 T-01、T-02 补记录并反向验证。
-- 内容审计：新增 `tests/unit/test_spec_doc_consistency.py`，把需求状态/表达表/ui 覆盖/AC 编号与代码对齐；补齐 ui.md 的 `COLLECTING` 承接与 design.md 的契约约定。
+- 内容审计：新增 `tests/unit/test_spec_doc_consistency.py`，把需求状态/表达表/ui 覆盖/AC 编号与代码对齐；补齐界面设计的 `COLLECTING` 承接与 design.md 的契约约定。
 - 前端格式检查加 `.prettierignore`，`verify.sh` 从超时恢复到约 5 秒。
 - 弃用警告升级为失败：`filterwarnings` 拦截 `StarletteDeprecationWarning`，已反向验证。
 - T-02 完成：领域契约 `packages/contracts/schemas/domain.json`、Python 领域类型、10 个取消状态映射、7 个错误码；按红-绿推进，76 个后端测试通过。
 
 ## 进行中
 
-- M1 规格规范化改写完成，`requirements.md`、`acceptance.md`、`design.md`、`tasks.md` 均为等待评审。
+- M1 规格规范化改写完成，`requirements.md`、`requirements.md` 第 10 节、`design.md`、`tasks.md` 均为等待评审。
 
 ## 阻塞
 

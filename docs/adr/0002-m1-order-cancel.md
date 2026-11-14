@@ -3,7 +3,7 @@
 - 状态：已批准
 - 日期：2026-11-14
 - 批准：2026-11-14（本次会话由用户确认，无保留意见）
-- 关联规格：`docs/specs/M1/001-order-cancel/requirements.md`
+- 关联规格：`docs/specs/001-order-cancel/requirements.md`
 
 ## 背景
 

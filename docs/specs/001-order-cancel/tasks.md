@@ -21,7 +21,7 @@
 
 ### T-01 创建工程骨架
 
-依据：`docs/adr/0004-engineering-baseline.md`（技术栈、目录与编码规范）、`ui.md`（界面结构）。
+依据：`docs/adr/0004-engineering-baseline.md`（技术栈、目录与编码规范）、`design.md` 第 12 节（界面结构）。
 
 产出：
 
@@ -29,7 +29,7 @@
 - 工具链配置：ruff、mypy、pytest；eslint、prettier、tsc、vitest。
 - `.env.example`、`.gitignore`；数据库使用本机 PostgreSQL 17.12（见 ADR-0004），不引入容器文件。
 - 后端与前端各一个 smoke 测试，保证测试命令不会因空集合而误判通过。
-- `apps/web` 只实现 `ui.md` 的空白态与输入区空壳；消息与确认逻辑留给 T-10。
+- `apps/web` 只实现 `design.md` 第 12 节 的空白态与输入区空壳；消息与确认逻辑留给 T-10。
 
 完成标准（必须记录真实命令与输出，禁止照抄模板）：
 
@@ -42,7 +42,7 @@
 
 ### T-02 定义统一领域类型和错误码
 
-依据：`requirements.md` 第 9 节、`design.md` 第 3 与第 5 节、`ui.md` 第 3 节。
+依据：`requirements.md` 第 9 节、`design.md` 第 3 与第 5 节、`design.md` 第 12 节 第 3 节。
 
 产出：
 
