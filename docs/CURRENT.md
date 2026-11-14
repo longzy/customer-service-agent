@@ -60,7 +60,7 @@
 - T-01 任务设计卡已产出：`docs/specs/M1-order-cancel/design-cards/T-01.md`，含 4 个待答问题。
 - 新增 `scripts/check-docs.py` 与 `.githooks/pre-commit`：自动检查链接、状态词、CURRENT 字段、AC 覆盖与设计卡门禁。
 - `AGENTS.md` 与 `README.md` 不再重复维护阶段状态，统一以本文件为唯一来源。
-- 新增 `ui-mockup.html` 结构参考稿，画出六个界面状态；`ui.md` 增加第 9 节说明其用途与冲突处理。
+- `ui-mockup.html` 已迭代为整页版：左侧窄栏 + 单列对话 + 图标化控件 + 六个状态变体；`ui.md` 第 2、9、10 节同步更新。
 
 ## 阻塞
 
