@@ -179,7 +179,7 @@ PATH_TOKEN = re.compile(r"`([^`\n]+)`")
 
 
 def check_card_paths():
-    """执行卡里以反引号写出的仓库路径必须真实存在。"""
+    """已完成的执行卡里引用的仓库路径必须真实存在；进行中的卡可引用待创建路径。"""
     if not os.path.isdir(TASKS_ROOT):
         return
     for base, _dirs, names in os.walk(TASKS_ROOT):
@@ -187,6 +187,8 @@ def check_card_paths():
             if not CARD_PATTERN.match(card):
                 continue
             card_path = os.path.join(base, card)
+            if not doc_status(card_path).startswith("已完成"):
+                continue
             for token in PATH_TOKEN.findall(read(card_path)):
                 if not token.startswith(PATH_PREFIXES):
                     continue

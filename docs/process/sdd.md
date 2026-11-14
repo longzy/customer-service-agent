@@ -34,7 +34,7 @@ docs/
     design.md                     设计：架构、时序、契约、数据、错误、测试、界面（必需）
     tasks.md                      任务：离散任务、依赖与状态（必需）
     assets/                       参考稿等附件（可选）
-  tasks/<NNN>-<slug>/T-XX.md      任务执行卡（本仓库扩展），与 spec 目录同名
+  tasks/<NNN>-<slug>/T-XX.md      任务执行卡（本仓库扩展，不含接口设计）
   design-system/                  设计令牌与组件契约
   process/                        协作流程与本文
   research/ handoffs/ reviews/ templates/ CURRENT.md
@@ -53,7 +53,7 @@ docs/
 | 需求 | `requirements.md` + `requirements.md` 第 11 节 | 澄清条目清零，需求才可批准 |
 | 设计 | `design.md`、`design.md` 第 12 节、`docs/design-system/` | 需求已批准，且设计中的未决项全部关闭 |
 | 任务地图 | `tasks.md` | 设计已批准；每个任务可追溯到 AC 或声明基座豁免 |
-| 执行卡 | `docs/tasks/<spec>/T-XX.md` | 依据文档已批准；4.1 需人类决策为空或已答复；seam 已写明 |
+| 执行卡（扩展） | `docs/tasks/<spec>/T-XX.md` | 依据文档已批准；2.1 需人类决策为空或已答复；只记录决策与证据，接口以 `design.md` 为准 |
 | 实现 | 代码、测试 | 按 `docs/process/tdd.md` 红-绿推进；执行卡完成标准逐条满足，验证输出留痕 |
 | 评审 | `docs/reviews/<spec>/T-XX.md` | 由未参与实现的上下文执行；执行卡标记完成前必须有评审记录 |
 | 记录 | `CURRENT.md` | 与本次变更同一次提交 |
@@ -106,6 +106,13 @@ docs/
 - 每条 AC 至少被 `tasks.md` 引用一次。
 - 执行卡目录与规格目录同名；状态开放时其依据文档必须已批准或已清零。
 - 标记为已完成的执行卡必须有评审记录 `docs/reviews/<spec>/T-XX.md`，且记录包含结论。
+
+## 6.1 本仓库扩展的两处
+
+标准（Kiro、Spec Kit）只有 `requirements.md`、`design.md`、`tasks.md` 三份产物。本仓库额外保留两样，原因是 AI 会话没有人类开发者的默认上下文：
+
+- **任务执行卡** `docs/tasks/<spec>/T-XX.md`：只记录任务级决策（需人类拍板的与实现者自定的）、验证命令与证据、评审链接。**接口、字段与失败路径写在 `design.md`**，卡不重复。
+- **评审记录** `docs/reviews/<spec>/T-XX.md`：由未参与实现的上下文产出，含结论与问题处理；执行卡标记完成前必须存在。
 
 ## 7. 与外部工具的关系
 
