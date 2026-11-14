@@ -1,199 +1,127 @@
-# M1 任务：订单查询与未发货订单取消
+# Tasks: 订单查询与未发货订单取消
 
 - 状态：等待评审
-- 变更说明：2026-11-14 按用户故事切片重排，13 个任务全部细化；原“未细化，临近展开”撤销。
-- 性质：本文件是任务地图，负责顺序、依赖与 AC 追溯；每个任务的执行契约见 `docs/tasks/001-order-cancel/`。
-- 原则：每个任务完成时必须提供测试与验收证据；任务按故事切片，尽量让单个故事可独立演示。
+- **Input**：`docs/specs/001-order-cancel/requirements.md`、`design.md`
+- **Prerequisites**：需求与设计均已批准；任务按用户故事分组，每个故事可独立实现与测试
+- **Tests**：按 `docs/process/tdd.md`，测试与实现同属一个任务，先红后绿；不为测试单列任务
+- **执行卡与评审**：任务开工前产出 `docs/tasks/001-order-cancel/T-XX.md`；完成后评审记录写入 `docs/reviews/001-order-cancel/T-XX.md`
 
-## 任务状态总览
+## Format: `[ID] [P?] [Story] Description`
 
-| 任务 | 所属切片 | 状态 | 执行卡 |
-|---|---|---|---|
-| T-01 工程骨架 | 基础设施 | 已完成 | `docs/tasks/001-order-cancel/T-01.md` |
-| T-02 领域类型与错误码 | 基础设施 | 已完成 | `docs/tasks/001-order-cancel/T-02.md` |
-| T-03 Tool 与 Mock OMS 契约 | 基础设施 | 待出卡 | 待创建 |
-| T-04 认证与租户上下文 | 基础设施 | 待出卡 | 待创建 |
-| T-05 授权 Tool Gateway | 基础设施 | 待出卡 | 待创建 |
-| T-06 Mock OMS（含故障注入） | 基础设施 | 待出卡 | 待创建 |
-| T-09 Agent Runtime（查询意图） | 查询切片 | 待出卡 | 待创建 |
-| T-10 Web Chat（查询展示） | 查询切片 | 待出卡 | 待创建 |
-| T-07 取消资格 Policy Engine | 取消切片 | 待出卡 | 待创建 |
-| T-08 Cancellation Workflow | 取消切片 | 待出卡 | 待创建 |
-| T-14 取消确认与终态界面 | 取消切片 | 待出卡 | 待创建 |
-| T-11 结果校验与用户回复 | 取消切片 | 待出卡 | 待创建 |
-| T-12 Trace 与审计 | 横切质量 | 待出卡 | 待创建 |
-| T-13 场景评测 | 横切质量 | 待出卡 | 待创建 |
+- **[P]**：可与同阶段其他任务并行（不同文件、无依赖）
+- **[Story]**：任务所属用户故事，如 `[US1]`
+- 描述包含精确文件路径；`_验收:` 行标注对应 AC
 
-## Phase 0：基础设施（跨故事复用）
+## Phase 1: Setup
 
-以下任务不直接交付用户价值，但每个故事切片都依赖它们。
+**Purpose**：工程初始化与基本结构
 
-### T-01 创建工程骨架
+- [x] T01 创建工程骨架（`pyproject.toml`、`services/`、`apps/web/`、`tests/`、`scripts/`）— 已完成，见 `docs/tasks/001-order-cancel/T-01.md`
+- [x] T02 定义领域类型与 JSON Schema（`services/api/domain/`、`packages/contracts/schemas/`）— 已完成，见 `docs/tasks/001-order-cancel/T-02.md`
+  - _验收: AC-02、AC-04、AC-07、AC-11、AC-16_
 
-依据：`docs/adr/0004-engineering-baseline.md`（技术栈、目录与编码规范）、`docs/specs/001-order-cancel/design.md` 第 12 节（界面结构）。
+## Phase 2: Foundational（阻塞所有故事）
 
-产出：
+**Purpose**：任何用户故事开工前必须完成的基础设施
 
-- 根目录 `pyproject.toml` + `uv.lock`，以及 `services/{api,agent_runtime,tools,workflows,mock_oms}`、`apps/web`、`packages/contracts`、`evals/`、`tests/unit`、`tests/integration`。
-- 工具链配置：ruff、mypy、pytest；eslint、prettier、tsc、vitest。
-- `.env.example`、`.gitignore`；数据库使用本机 PostgreSQL 17.12（见 ADR-0004），不引入容器文件。
-- 后端与前端各一个 smoke 测试，保证测试命令不会因空集合而误判通过。
-- `apps/web` 只实现 `design.md` 第 12 节的空白态与输入区空壳；消息与确认逻辑留给 T-10 与 T-14。
+- [ ] T03 定义 5 个 Tool 契约（`packages/contracts/tools/*.json`）
+  - _验收: AC-01、AC-02、AC-04、AC-05、AC-07、AC-09、AC-10、AC-11_
+- [ ] T04 [P] 实现认证与租户上下文（`services/api/auth.py`、`services/api/middleware.py`）
+  - _验收: AC-02、AC-03、AC-15_
+- [ ] T05 实现授权 Tool Gateway（`services/tools/gateway.py`）— depends on T03、T04
+  - _验收: AC-02、AC-03、AC-14、AC-15_
+- [ ] T06 实现 Mock OMS 与故障注入（`services/mock_oms/`）— depends on T03
+  - _验收: AC-01、AC-05、AC-09、AC-10、AC-11、AC-12_
 
-完成标准（必须记录真实命令与输出，禁止照抄模板）：
+**Checkpoint**：基础设施就绪，可以开始任一用户故事。
 
-- `uv run ruff check .`、`uv run mypy services`、`uv run pytest` 退出码均为 0。
-- `pnpm -C apps/web lint`、`pnpm -C apps/web typecheck`、`pnpm -C apps/web test` 退出码均为 0。
-- `AGENTS.md` 与 `README.md` 写入上述真实命令；`CURRENT.md` 记录验证结果。
-- 两项可执行检查在本任务落地：AC 引用完整性（`scripts/check-docs.py`）与包边界不变量（`tests/unit/test_package_boundaries.py`）。
+## Phase 3: US-01/02 查询订单与最近订单（P1、P2）
 
-关联：不直接对应 AC，为全部 AC 提供可运行基座。
-状态：已完成（独立评审通过）。
+**Goal**：用户能查询本人订单或最近订单，越权与非法参数被拒绝
+**Independent Test**：用夹具订单调用查询接口，验证返回、越权拒绝与零写操作
 
-### T-02 定义统一领域类型和错误码
+- [ ] T09 [P] [US1] 实现查询意图识别与订单澄清（`services/agent_runtime/intent.py`）— depends on T05
+  - _验收: AC-01、AC-08_
+- [ ] T10 [P] [US1] 实现查询结果展示与空态（`apps/web/components/QueryView.tsx`）— depends on T09
+  - _验收: AC-01_
 
-依据：`docs/specs/001-order-cancel/requirements.md` 第 9 节、`design.md` 第 3 与第 5 节、`docs/design-system/ui-spec.md`。
+**Checkpoint**：查询切片可独立演示。
 
-产出与完成标准见执行卡 `docs/tasks/001-order-cancel/T-02.md`。
+## Phase 4: US-03 取消未发货订单（P1）
 
-关联：AC-02、AC-04、AC-07、AC-11、AC-16。
-状态：已完成（独立评审通过）。
+**Goal**：用户确认后安全取消；重复提交为 0；超时能恢复
+**Independent Test**：对可取消订单走完“请求 → 确认 → 提交”，并注入超时验证恢复
 
-### T-03 定义 Tool 与 Mock OMS 契约
+- [ ] T07 [P] [US3] 实现取消资格 Policy Engine（`services/tools/policy.py`）— depends on T03
+  - _验收: AC-04、AC-07_
+- [ ] T08 [US3] 实现 Cancellation Workflow（`services/workflows/cancel.py`）— depends on T06、T07
+  - _验收: AC-04、AC-05、AC-06、AC-09、AC-10、AC-11、AC-12、AC-19_
+- [ ] T14 [P] [US3] 实现确认卡片与终态界面（`apps/web/components/ConfirmCard.tsx`）— depends on T10、T08
+  - _验收: AC-04、AC-05、AC-06、AC-13、AC-16、AC-19_
 
-- 目的：产出 5 个 Tool 的输入输出契约，使 T-05、T-06 与后续切片可以并行实现。
-- 依赖：T-02（领域类型）。
-- 产出：`packages/contracts/tools/` 下 5 个 JSON Schema、OpenAPI 片段、契约正反例测试。
-- 契约与验收的对应：
+**Checkpoint**：取消主流程可独立演示。
 
-  | Tool | 覆盖 AC |
-  |---|---|
-  | `list_recent_orders` | AC-01 |
-  | `get_order` | AC-01、AC-02 |
-  | `get_cancel_eligibility` | AC-04、AC-07 |
-  | `submit_cancel` | AC-05、AC-09、AC-10 |
-  | `get_cancel_result` | AC-10、AC-11 |
+## Phase 5: US-04、US-05、US-06 解释、恢复与人工（P2、P1、P2）
 
-- 完成标准：每个 Tool 有正例与反例；错误映射覆盖 7 个错误码；OpenAPI 可供前端生成类型。
-- 关联：AC-01、AC-02、AC-04、AC-05、AC-07、AC-09、AC-10、AC-11。
-- 状态：待出卡。
+**Goal**：不可取消有明确原因；未知状态可恢复；可转人工且上下文完整
+**Independent Test**：对已发货订单、注入超时、连续故障分别验证三类结果
 
-### T-04 实现认证和租户上下文
+- [ ] T11 [US5] 实现结果校验与用户回复（`services/agent_runtime/validator.py`）— depends on T08
+  - _验收: AC-10、AC-11、AC-16_
+- [ ] T15 [US6] 实现人工转接上下文（`services/api/handoff.py`）— depends on T08、T14
+  - _验收: AC-13_
 
-- 目的：让每个请求都携带可信的租户与用户身份，且不可被请求体覆盖。
-- 依赖：T-02。
-- 产出：会话解析中间件、固定测试账号夹具、两个租户各两个用户的种子数据、越权测试。
-- 完成标准：请求体携带 `tenant_id`/`user_id` 时被忽略；跨租户读取命中真实第二租户数据并被拒绝；提示词诱导越权不生效。
-- 关联：AC-02、AC-03、AC-15。
-- 状态：待出卡。
+**Checkpoint**：全部用户故事可独立验证。
 
-### T-05 实现授权 Tool Gateway
+## Phase 6: Polish & Cross-Cutting
 
-- 目的：所有 Tool 调用经统一入口执行鉴权、Schema 校验、身份注入、超时与错误归一化。
-- 依赖：T-03、T-04。
-- 产出：网关实现、Tool 白名单、错误映射、审计事件、拒绝路径测试。
-- 完成标准：越权订单号、未知字段、非法类型三类输入均被拒绝且无业务副作用；错误码与契约一致；每次调用产生审计记录。
-- 关联：AC-02、AC-03、AC-14、AC-15。
-- 状态：待出卡。
+**Purpose**：跨故事的横切质量
 
-### T-06 实现 Mock OMS
+- [ ] T12 [P] 加入 Trace 与审计（`services/api/observability.py`、`services/api/audit.py`）
+  - _验收: AC-17、AC-18_
+- [ ] T13 建立场景评测（`evals/`）— depends on T10、T14、T11、T15、T12
+  - _验收: AC-01 至 AC-19_
 
-- 目的：提供可控的订单系统，支持读、写与故障注入，使异常路径可测。
-- 依赖：T-03。
-- 产出：查询订单与最近订单、幂等提交取消、按幂等键查询结果；故障注入（延迟、超时、重复响应、格式错误、已成功但响应丢失）；预置夹具（每租户 4 单 + 1 单他人订单）。
-- 完成标准：五类故障可分别注入并复现；提交接口幂等；夹具覆盖四种订单状态与越权场景。
-- 关联：AC-01、AC-05、AC-09、AC-10、AC-11、AC-12。
-- 状态：待出卡。
+## Dependencies & Execution Order
 
-## Phase 1：查询切片（US-01、US-02）
+### Phase Dependencies
 
-完成后应能独立演示：查询本人订单、查看最近订单、拒绝越权与非法参数。
+- **Setup（T01、T02）**：已完成
+- **Foundational（T03 至 T06）**：依赖 Setup，**阻塞所有用户故事**
+- **User Stories（Phase 3 至 5）**：依赖 Foundational 完成
+  - US-01/02 查询与 US-03 取消可并行；US-05 依赖 US-03 的 Workflow
+  - US-06 人工转接依赖 US-03 的确认界面
+- **Polish（T12、T13）**：依赖全部故事完成
 
-### T-09 Agent Runtime（查询意图）
+### Within Each User Story
 
-- 目的：让 Agent 能识别查询意图并规划查询类 Tool，不涉及写操作。
-- 依赖：T-05（网关）。
-- 产出：意图分类、订单澄清、查询 Tool 规划；查询路径的最小上下文构建。
-- 完成标准：意图与订单歧义用例通过；澄清前不调用任何写 Tool；Query 路径有 trace。
-- 关联：AC-01、AC-08。
-- 状态：待出卡。
+- 契约与类型先于实现；实现先于界面
+- 每个任务先写失败测试，再写最小实现（见 `docs/process/tdd.md`）
+- 一个故事完成并独立验证后，再进入下一个优先级
 
-### T-10 Web Chat（查询展示）
+### Parallel Opportunities
 
-- 目的：交付查询结果的界面呈现，含空态、加载、错误与越权提示。
-- 依赖：T-05、T-09；设计规范 `docs/design-system/ui-spec.md`。
-- 产出：消息区、查询结果展示、空态建议入口、错误提示；复用 T-01 的输入区。
-- 完成标准：组件状态测试覆盖空态、加载、成功、错误；越权提示不泄露订单存在性；键盘可达。
-- 关联：AC-01。
-- 状态：待出卡。
+- T04 可与 T03 并行
+- T07 与 T09 可并行（不同文件）
+- T10 与 T12 可并行（前后端不同文件）
+- 同一故事内的模型与组件任务在无依赖时标 `[P]`
 
-## Phase 2：取消切片（US-03 至 US-06）
+## Implementation Strategy
 
-完成后应能独立演示：资格判断、确认、幂等提交、超时恢复、人工转接。
+### MVP First
 
-### T-07 实现取消资格 Policy Engine
+1. 完成 Setup 与 Foundational
+2. 完成 US-01/02 查询切片并独立验证
+3. 完成 US-03 取消切片并独立验证
+4. 补齐 US-04 至 US-06 的表达、恢复与人工路径
 
-- 目的：用确定性规则判定可取消性与原因码，不接受模型覆盖。
-- 依赖：T-02、T-03。
-- 产出：资格判定函数、原因码、与 `get_cancel_eligibility` 的对接。
-- 完成标准：仅未发货且未取消可取消；其余状态返回原因码；判定结果不可被上游修改。
-- 关联：AC-04、AC-07。
-- 状态：待出卡。
+### Incremental Delivery
 
-### T-08 实现 Cancellation Workflow
+每个切片完成后都能演示：查询可用 → 取消可用 → 异常可恢复 → 人工可接管 → 场景可回归。
 
-- 目的：驱动取消任务的状态迁移、幂等提交与未知状态恢复。
-- 依赖：T-06（故障注入）、T-07（资格）。
-- 产出：状态机实现、幂等键生成与持久化、超时重试与恢复、`ABANDONED` 过期处理、人工复核转移。
-- 完成标准：AC-09 至 AC-12 与 AC-19 的场景全部可复现；重复提交为 0；恢复路径可解释。
-- 关联：AC-04、AC-05、AC-06、AC-09、AC-10、AC-11、AC-12、AC-19。
-- 状态：待出卡。
+## Notes
 
-### T-14 取消确认与终态界面
-
-- 目的：交付确认卡片、提交中、终态与人工转接的界面行为。
-- 依赖：T-08（状态）、T-10（界面骨架）。
-- 产出：确认卡片、按钮禁用与幂等提示、五种结果的界面表达、转人工入口与状态。
-- 完成标准：确认只触发一次提交；五种表达与需求映射表一致；转人工后停止自动回复。
-- 关联：AC-04、AC-05、AC-06、AC-13、AC-16、AC-19。
-- 状态：待出卡。
-
-### T-11 实现结果校验和用户回复
-
-- 目的：在模型输出前对照权威业务结果校验，防止误报状态。
-- 依赖：T-08。
-- 产出：结果校验器、五种表达的映射、禁止表述清单。
-- 完成标准：`ACCEPTED` 不得表述为已取消；未知状态不得表述为成功或失败；校验失败时有兜底话术。
-- 关联：AC-10、AC-11、AC-16。
-- 状态：待出卡。
-
-## Phase 3：横切质量
-
-### T-12 加入 Trace 与审计
-
-- 目的：让一次执行可被完整还原，并确保日志不泄露敏感信息。
-- 依赖：T-09、T-11（查询与取消链路已存在）。
-- 产出：`trace_id` 贯穿、结构化日志、审计事件、脱敏规则。
-- 完成标准：可从 trace 还原输入、意图、Tool、业务响应与最终回复；日志不含令牌、卡号、完整手机号与地址。
-- 关联：AC-17、AC-18。
-- 状态：待出卡。
-
-### T-13 建立场景评测
-
-- 目的：以场景集回归全部验收用例，输出通过率与失败节点。
-- 依赖：T-10、T-14、T-12。
-- 产出：场景集、运行器、报告；覆盖 AC-01 至 AC-19。
-- 完成标准：场景级通过率与失败节点可输出；模型或 Prompt 变更后可一键重跑。
-- 关联：AC-01 至 AC-19。
-- 状态：待出卡。
-
-## 完成顺序
-
-```text
-T-01 -> T-02 -> T-03 -> T-04 -> T-05 -> T-06
-  -> T-09 -> T-10                      # 查询切片，可独立演示
-  -> T-07 -> T-08 -> T-14 -> T-11      # 取消切片，可独立演示
-  -> T-12 -> T-13                      # 横切质量
-```
-
-T-06 在 T-09 之前完成：故障注入越早可用，后续每个切片都能立即验证异常路径。AC-17 的完整链路要等取消切片完成，因此 T-12 排在最后。
+- `[P]` 表示不同文件、无依赖，可并行
+- `[USx]` 用于追溯任务与用户故事
+- 每个任务开工前必须有执行卡；完成的判定见 `docs/process/sdd.md` 第 3 节
+- 执行卡与评审记录分别位于 `docs/tasks/001-order-cancel/` 与 `docs/reviews/001-order-cancel/`
