@@ -1,6 +1,7 @@
 # Spec 开发规范
 
-- 状态：草案
+- 状态：已批准
+- 批准：2026-11-14（本次会话由用户确认）
 - 日期：2026-11-14
 - 适用：本仓库所有里程碑与变更
 - 关联：`docs/process/README.md`（任务闭环）、`docs/process/tdd.md`（测试先行与突变检查）、`docs/architecture/invariants.md`（硬约束）
