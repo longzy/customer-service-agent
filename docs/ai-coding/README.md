@@ -1,8 +1,9 @@
 # AI Coding 协作规范
 
-- 状态：草案
+- 状态：已批准
 - 适用对象：Codex、Claude Code、Gemini CLI、GitHub Copilot 及其他可读取仓库的 AI Coding 工具
 - 日期：2026-11-14
+- 批准：2026-11-14（本次会话由用户确认）
 
 ## 1. 核心原则
 
