@@ -14,7 +14,7 @@
 
 - 根目录 `pyproject.toml` + `uv.lock`，以及 `services/{api,agent_runtime,tools,workflows,mock_oms}`、`apps/web`、`packages/contracts`、`evals/`、`tests/unit`、`tests/integration`。
 - 工具链配置：ruff、mypy、pytest；eslint、prettier、tsc、vitest。
-- `docker-compose.yml`（本地 PostgreSQL 16）、`.env.example`、`.gitignore`。
+- `.env.example`、`.gitignore`；数据库使用本机 PostgreSQL 17.12（见 ADR-0004），不引入容器文件。
 - 后端与前端各一个 smoke 测试，保证测试命令不会因空集合而误判通过。
 - `apps/web` 只实现 `ui.md` 的空白态与输入区空壳；消息与确认逻辑留给 T-10。
 

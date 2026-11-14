@@ -7,7 +7,7 @@
 - 版本控制：Git 已初始化，`main` 分支；全部文档已提交，工作区干净
 - 当前 Milestone：M1 订单查询与未发货订单取消（规格已批准：`docs/specs/M1-order-cancel/`）
 - 当前工作：工程基线文档（ADR-0004、ui.md）已起草，待确认后启动 T-01
-- 最近验证：ADR 引用检查通过；Markdown 内部链接检查 20 个文件、缺失 0；原始评审副本 `cmp` 结果为 0；`git status --porcelain` 提交后无输出；`git log --oneline` 可追溯到基线提交
+- 最近验证：PostgreSQL 17.12 `pg_isready` 接受连接、`select version()` 返回 17.12；Markdown 内部链接检查 25 个文件、缺失 0；`git status --porcelain` 提交后无输出
 
 ## 本阶段目标
 
@@ -54,17 +54,17 @@
 - M1 澄清清单 `docs/specs/M1-order-cancel/clarifications.md` 已建立，共 12 条待答复。
 - 已完成 AI Coding 人机协作流程调研，见 `docs/research/ai-coding-dev-collaboration-2026-11-14.md`。
 - 已采纳 4 项流程门禁：任务设计卡（`docs/templates/task-design-card.md`）、独立评审、T-01 加三项可执行检查、澄清清零后才开工。
+- PostgreSQL 17.12 已安装并以 Homebrew 服务运行，连接验证通过；PostgreSQL 14 及其数据目录已删除。
 
 ## 阻塞
 
-- 澄清清单 12 条未关闭之前，T-01 不具备开工条件。
-- 本地尚无可用 PostgreSQL：14 已按用户要求卸载并删除数据，17 待用户手动安装。
+- 澄清清单仍有 11 条未关闭（C-02 至 C-12），T-01 暂不启动。
 
 ## 下一步
 
-1. 答复澄清清单 C-01 至 C-12，并把答案写回规格或 ADR。
-2. 按答案修订 ADR-0004（数据库版本、本地运行方式）与 T-01 完成标准。
-3. 澄清清零后启动 T-01。
+1. 答复澄清清单剩余 C-02 至 C-12 共 11 条，并把答案写回规格或 ADR。
+2. 澄清清零后，按 `docs/templates/task-design-card.md` 产出 T-01 任务设计卡并确认。
+3. 设计卡确认后启动 T-01。
 
 ## 待确认决策
 

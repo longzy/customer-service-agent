@@ -9,13 +9,10 @@
 
 ### C-01 本地数据库版本与运行方式
 
-- 问题：本机只有 PostgreSQL 14.13（Homebrew），且 14 的最终发布日为 2026-11-12，已到期；Docker 与 colima 均未安装。
-- 选项：
-  - A. 安装 `postgresql@17`，用 Homebrew 服务运行，放弃 `docker-compose.yml`。
-  - B. 安装 Docker 运行时，保留 `docker-compose.yml` 与 PostgreSQL 16。
-  - C. 沿用已过期的 14.13。
-- 建议：A。17 支持到 2029-11；本机已无 Docker，为本地开发额外装容器运行时收益不足。
-- 影响：ADR-0004、T-01 完成标准。
+- 状态：已关闭
+- 答复（2026-11-14）：采用 PostgreSQL 17.12，Homebrew 安装并以 `brew services start postgresql@17` 运行；`localhost:5432`，超级用户为 `ba`，不引入 Docker。已卸载并删除 PostgreSQL 14 及其数据目录。
+- 验证：`pg_isready` 返回接受连接；`select version()` 返回 `PostgreSQL 17.12 (Homebrew)`。
+- 影响：ADR-0004、T-01 完成标准（已同步移除 `docker-compose.yml`）。
 
 ### C-02 数据库迁移与种子数据方式
 

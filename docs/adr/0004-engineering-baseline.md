@@ -18,7 +18,7 @@ M1 规格已批准，但工程骨架缺少可执行依据：`overview.md` 第 7 
 |---|---|---|
 | 后端 | Python 3.12 + FastAPI | 异步 IO，OpenAPI 自动生成 |
 | 后端依赖 | `uv` | 单个 `pyproject.toml` + `uv.lock` |
-| 数据库 | PostgreSQL 16 | 本地由 Docker Compose 提供 |
+| 数据库 | PostgreSQL 17 | 本机 Homebrew 服务，`localhost:5432`，不引入容器 |
 | 前端 | Next.js（App Router）+ TypeScript strict | `apps/web`，包管理用 `pnpm` |
 | 契约 | OpenAPI 为唯一来源 | 前端类型由 OpenAPI 生成；JSON Schema 只用于 Tool 输入 |
 | 可观测 | 结构化日志 + `trace_id` 贯穿 | OpenTelemetry SDK 在 T-12 接入 |
@@ -65,6 +65,8 @@ tests/integration/
 - T-01 获得明确的产出清单和可验证的完成标准。
 - `design.md` 第 10 节关闭“目录结构与依赖版本”“前端框架版本”两项，遗留“模型供应商”与“Trace 导出”。
 - 单 Python 项目降低 M1 构建复杂度；后续若拆分多包，需要一次迁移并另立 ADR。
+- 数据库版本最终定为 17.12（Homebrew）。选择依据：本机为 macOS 13，Homebrew 已不再为该配置提供 PostgreSQL 16 的预编译包，而 14 的支持期已于 2026-11-12 结束。
+- 本地 `initdb` 使用 `trust` 认证，仅限本机开发；任何非本机环境必须改用密码或证书认证。
 
 ## 拒绝的方案
 
