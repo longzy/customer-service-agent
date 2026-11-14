@@ -1,7 +1,8 @@
 # ADR-0001：采用单主 Agent、领域 Tool 和显式 Workflow
 
-- 状态：拟议
+- 状态：已批准
 - 日期：2026-11-14
+- 批准：2026-11-14（本次会话由用户确认，无保留意见）
 - 关联架构：`docs/architecture/overview.md`
 
 ## 背景
