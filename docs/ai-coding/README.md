@@ -109,7 +109,7 @@
 
 ### 4.6 记录
 
-更新 `docs/CURRENT.md`。发生以下任一情况时创建 handoff：
+更新 `docs/CURRENT.md`，并在本次任务结束时提交；`CURRENT.md` 的更新与本次变更进入同一次提交，不单独留待下次。发生以下任一情况时创建 handoff：
 
 - 即将切换 AI Coding 工具。
 - 任务会跨多个较长会话。

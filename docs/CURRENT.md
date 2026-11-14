@@ -40,6 +40,7 @@
 - ADR 已统一到 `docs/adr/`。
 - 跨工具 AI Coding 协作规范和 handoff 机制已建立。
 - M0 文档基线已纳入 Git 版本控制（此前仅 `README.md` 被跟踪，其余文件处于未跟踪状态）。
+- AI Coding 规范 4.6 补充提交要求：`CURRENT.md` 的更新与本次变更须进入同一次提交。
 
 ## 进行中
 
