@@ -6,7 +6,7 @@
 - 应用代码：已建立工程骨架（T-01），尚无业务逻辑
 - 版本控制：Git 已初始化，`main` 分支；全部文档已提交，工作区干净
 - 当前 Milestone：M1 订单查询与未发货订单取消（规格已批准：`docs/specs/M1/001-order-cancel/`）
-- 当前工作：T-02 已完成并通过独立评审
+- 当前工作：M1 规格按 SDD 规范改写，待重新评审
 - 最近验证：`./scripts/verify.sh` 七项全绿——ruff All checks passed、mypy 12 个文件无问题、pytest 76 passed、文档检查 33 个文件 19 条 AC、前端 lint/typecheck/test 通过
 
 ## 本阶段目标
@@ -50,6 +50,7 @@
 - `docs/process/sdd.md` 与 `docs/process/tdd.md` 已批准（2026-11-14）。
 - 环境改进（retro）：门禁分两级（提交快检查、推送完整验证）；pre-commit 接入 ruff 格式与静态检查；`verify.sh` 补格式检查；新增测试命名元测试；执行卡引用路径纳入检查；设计令牌抽为 `docs/design-system/tokens.css`；流程规范补非实现者速览。
 - 依赖修正：Starlette 1.10 的 TestClient 改用 `httpx2`，dev 依赖由 `httpx` 换成 `httpx2`，测试输出无警告。
+- 规格规范化：`requirements.md` 改为 EARS 与用户故事结构（优先级、独立测试、Given/When/Then），补成功标准、关键实体、假设；`acceptance.md` 增加“关联 FR”列；`design.md` 增加两张时序图；`tasks.md` 增加状态总览并细化 T-03 至 T-05。新增 3 条内容检查。
 - 评审留痕门禁：执行卡标记完成时必须有 `docs/reviews/<spec>/T-XX.md`，已为 T-01、T-02 补记录并反向验证。
 - 内容审计：新增 `tests/unit/test_spec_doc_consistency.py`，把需求状态/表达表/ui 覆盖/AC 编号与代码对齐；补齐 ui.md 的 `COLLECTING` 承接与 design.md 的契约约定。
 - 前端格式检查加 `.prettierignore`，`verify.sh` 从超时恢复到约 5 秒。
@@ -58,16 +59,17 @@
 
 ## 进行中
 
-- 无。
+- M1 规格规范化改写完成，`requirements.md`、`acceptance.md`、`design.md`、`tasks.md` 均为等待评审。
 
 ## 阻塞
 
-- 无。
+- 上述四份规格未重新批准前，T-03 不开工。
 
 ## 下一步
 
-1. 进入 T-03：定义 Tool 与 Mock OMS 契约，并按 `docs/process/sdd.md` 先出执行卡。
-2. T-03 完成后提前建立 T-06 的故障注入能力，优先验证 AC-09 至 AC-12。
+1. 重新评审并批准四份规格文档。
+2. 批准后进入 T-03：按 `docs/process/sdd.md` 先出执行卡。
+3. T-03 完成后提前建立 T-06 的故障注入能力。
 3. T-02 完成后进入 T-03 契约，随后提前建立 T-06 的故障注入能力。
 4. 突变检查自 T-07 起生效，届时建立 `scripts/mutation.sh`。
 

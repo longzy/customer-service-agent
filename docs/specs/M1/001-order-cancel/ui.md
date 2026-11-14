@@ -48,7 +48,7 @@ M1 只有一个入口：单页面 Web Chat，一次只处理一个会话。
 | 已受理 | 任务进入 `ACCEPTED` | 提示条“已受理，等待最终取消结果” |
 | 终态 | `CANCELLED`、`REJECTED`、`ELIGIBILITY_REJECTED`、`ABANDONED` 或 `MANUAL_REVIEW` | 结果条，附下一步说明与人工入口 |
 
-对外文案必须取自 `requirements.md` 第 6 节的“内部状态与用户可见表达”表，界面不得自造措辞。
+对外文案必须取自 `requirements.md` 第 9 节的“内部状态与用户可见表达”表，界面不得自造措辞。
 
 任务处于 `COLLECTING` 时，界面停留在“等待响应”或“输出中”，只显示进行中指示，不展示确认控件；`COLLECTING` 不是独立界面状态，但必须被界面显式承接。
 

@@ -1,7 +1,7 @@
 # M1 技术设计：订单查询与未发货订单取消
 
-- 状态：已批准
-- 批准：2026-11-14（本次会话由用户确认）
+- 状态：等待评审
+- 变更说明：2026-11-14 增加取消主流程与超时恢复的时序图，并补 4.1 契约约定。
 - 关联需求：`requirements.md`
 
 ## 1. 设计原则
@@ -49,6 +49,63 @@
 M1 不调用模型做资格判断。
 
 资格判定以 Policy Engine 为唯一权威。Mock OMS 只提供订单事实（状态、归属、履约进度），不返回资格结论；`get_cancel_eligibility` 由 Policy Engine 实现，不代理 OMS。两者结论不一致的情况在设计上不存在，因为不存在第二个判定来源。
+
+### 取消主流程时序
+
+```mermaid
+sequenceDiagram
+    actor U as 用户
+    participant API as Conversation API
+    participant RT as Agent Runtime
+    participant GW as Tool Gateway
+    participant WF as Cancellation Workflow
+    participant PE as Policy Engine
+    participant OMS as Mock OMS
+
+    U->>API: 请求取消 ORD-10001
+    API->>RT: 构造上下文并识别意图
+    RT->>GW: get_order(order_id)
+    GW->>OMS: 查询订单
+    OMS-->>GW: 订单事实
+    GW-->>RT: OrderDetail
+    RT->>GW: get_cancel_eligibility(order_id)
+    GW->>PE: 判定资格
+    PE-->>GW: 可取消 + 原因码
+    GW-->>RT: CancelEligibility
+    RT-->>API: 建议动作（展示确认卡片）
+    API-->>U: 展示订单与取消影响
+    U->>API: 点击“确认取消”
+    API->>WF: confirm(task_id)
+    WF->>WF: AWAITING_CONFIRMATION -> SUBMITTING
+    WF->>OMS: submit_cancel(order_id, idempotency_key)
+    OMS-->>WF: ACCEPTED
+    WF->>WF: SUBMITTING -> ACCEPTED
+    API-->>U: 已受理，等待最终取消结果
+```
+
+### 超时与恢复时序
+
+```mermaid
+sequenceDiagram
+    participant WF as Cancellation Workflow
+    participant OMS as Mock OMS
+    participant AU as 审计
+
+    WF->>OMS: submit_cancel(idempotency_key)
+    Note over OMS: 已受理但响应丢失
+    OMS--xWF: 超时（2 秒）
+    WF->>WF: SUBMITTING -> SUBMIT_UNKNOWN
+    WF->>AU: 记录未知状态与幂等键摘要
+    loop 最多 3 次，退避 1s / 2s / 4s
+        WF->>OMS: get_cancel_result(idempotency_key)
+        OMS-->>WF: ACCEPTED / CANCELLED / REJECTED / 未知
+    end
+    alt 得到明确状态
+        WF->>WF: SUBMIT_UNKNOWN -> ACCEPTED / CANCELLED / REJECTED
+    else 重试耗尽
+        WF->>WF: SUBMIT_UNKNOWN -> MANUAL_REVIEW
+    end
+```
 
 ### Cancellation Workflow
 
