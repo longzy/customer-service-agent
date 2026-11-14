@@ -106,15 +106,15 @@
   .btn[disabled] { opacity: .4; }
 
   .status {
-    align-self: stretch; font-size: 13px; color: var(--text-2);
-    background: var(--surface-2); border: 1px solid var(--border); border-left: 3px solid var(--border-strong);
-    border-radius: 8px; padding: 10px 12px;
+    align-self: flex-start; max-width: 88%; display: flex; gap: 8px;
+    font-size: 13.5px; line-height: 1.65; color: var(--text-2);
   }
+  .status .sdot { width: 6px; height: 6px; border-radius: 50%; margin-top: 8px; flex: 0 0 auto; background: var(--border-strong); }
   .status b { color: var(--text); font-weight: 600; }
-  .status.info { background: var(--accent-soft); border-color: #dbeafe; border-left-color: var(--accent); }
-  .status.ok { background: var(--success-soft); border-color: #d1fae5; border-left-color: var(--success); }
-  .status.warn { background: var(--warning-soft); border-color: #fde68a; border-left-color: var(--warning); }
-  .status.bad { background: var(--danger-soft); border-color: #fecaca; border-left-color: var(--danger); }
+  .status.info .sdot { background: var(--accent); }
+  .status.ok .sdot { background: var(--success); }
+  .status.warn .sdot { background: var(--warning); }
+  .status.bad .sdot { background: var(--danger); }
 
   .composer { display: flex; gap: 8px; align-items: center; padding: 12px 16px; border-top: 1px solid var(--border); }
   .field {
@@ -216,7 +216,7 @@
         <div class="topbar"><span class="dot"></span><span class="name">客服中心</span><span class="spacer"></span><button class="ghost">转人工</button></div>
         <div class="log">
           <div class="msg user">取消订单 ORD-10001</div>
-          <div class="status info"><b>已提交</b>，正在核实受理结果。</div>
+          <div class="status info"><span class="sdot"></span><span><b>已提交</b>，正在核实受理结果。</span></div>
           <div class="confirm">
             <div class="eyebrow">确认取消</div>
             <dl class="kv">
@@ -241,7 +241,7 @@
         <div class="topbar"><span class="dot"></span><span class="name">客服中心</span><span class="spacer"></span><button class="ghost">转人工</button></div>
         <div class="log">
           <div class="msg user">取消订单 ORD-10001</div>
-          <div class="status info"><b>已受理</b>，等待最终取消结果。结果确认后我会通知您。</div>
+          <div class="status info"><span class="sdot"></span><span><b>已受理</b>，等待最终取消结果。结果确认后我会通知您。</span></div>
         </div>
         <div class="composer"><div class="field">输入消息</div><button class="send">发送</button></div>
       </div>
@@ -255,11 +255,11 @@
         <div class="topbar"><span class="dot" style="background:var(--text-3)"></span><span class="name">客服中心</span><span class="spacer"></span><button class="ghost">转人工</button></div>
         <div class="log">
           <div class="msg user">取消订单 ORD-10002</div>
-          <div class="status ok"><b>已取消</b>。退款按支付渠道处理。</div>
+          <div class="status ok"><span class="sdot"></span><span><b>已取消</b>。退款按支付渠道处理。</span></div>
           <div class="msg user">那 ORD-10003 呢</div>
-          <div class="status bad"><b>不能取消</b>：该订单已发货。需要拒收或申请售后吗？</div>
+          <div class="status bad"><span class="sdot"></span><span><b>不能取消</b>：该订单已发货。需要拒收或申请售后吗？</span></div>
           <div class="msg user">转人工</div>
-          <div class="status warn"><b>已转人工</b>。人工会看到本次对话与订单上下文。</div>
+          <div class="status warn"><span class="sdot"></span><span><b>已转人工</b>。人工会看到本次对话与订单上下文。</span></div>
         </div>
         <div class="composer"><div class="field" data-disabled>人工接入中</div><button class="send" disabled>发送</button></div>
       </div>
