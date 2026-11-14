@@ -167,6 +167,16 @@ COLLECTING / AWAITING_CONFIRMATION -> 超时或用户放弃 -> ABANDONED
 - 仅当 OMS 返回明确状态时推进 Workflow。
 - 重试耗尽后进入 `MANUAL_REVIEW`。
 
+## 4.1 契约约定
+
+跨模块传递的领域数据遵循以下约定，定义见 `packages/contracts/schemas/domain.json`：
+
+- 金额一律为整数分（`amount_cents`），禁止浮点；币种单独字段，三位大写字母。
+- 时间一律为带 `Z` 的 ISO 8601 UTC 字符串；偏移量形式与时间戳数字一律拒绝，展示层再转本地时区。
+- 订单摘要的 `cancelable` 必须由订单状态推导，不得由调用方随意传入。
+- 错误码的七类分类与“可重试 / 对用户可见”属性见 `services/api/domain/errors.py`；越权统一为 `NOT_FOUND_OR_UNAUTHORIZED`。
+- 字段级正反例由契约测试保证，见 `tests/unit/domain/test_contract_schemas.py`。
+
 ## 5. 数据模型草案
 
 ### `conversations`
