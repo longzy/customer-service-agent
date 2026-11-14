@@ -21,6 +21,7 @@
 - [路线图](docs/roadmap.md)
 - [AI Coding 协作规范](docs/process/README.md)
 - [Spec 开发规范](docs/process/sdd.md)
+- [TDD 与突变检查规范](docs/process/tdd.md)
 - [初始技术评审](docs/reviews/2026-11-14-initial-architecture-review.md)
 - [AI Coding 调研](docs/research/ai-coding-new-project-practices-2026-11-14.md)
 - [M1 订单取消规格](docs/specs/M1/001-order-cancel/requirements.md)

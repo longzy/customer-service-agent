@@ -42,7 +42,7 @@
 
 ## 执行工作流
 
-按 `docs/process/README.md` 中的任务闭环与 `docs/process/sdd.md` 的固定路径执行。每次有意义的任务结束前，更新 `docs/CURRENT.md`；发生接管、长暂停或架构变化时，按规范创建 handoff。
+按 `docs/process/README.md` 的任务闭环、`docs/process/sdd.md` 的固定路径和 `docs/process/tdd.md` 的测试先行执行。每次有意义的任务结束前，更新 `docs/CURRENT.md`；发生接管、长暂停或架构变化时，按规范创建 handoff。
 
 ## 需要停止并请求决策的情况
 
