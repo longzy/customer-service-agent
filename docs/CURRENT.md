@@ -58,16 +58,18 @@
 
 - 澄清清单 12 条已全部关闭，答复与写回位置逐条记录在 `docs/specs/M1-order-cancel/clarifications.md`。
 - T-01 任务设计卡已产出：`docs/specs/M1-order-cancel/design-cards/T-01.md`，含 4 个待答问题。
+- 新增 `scripts/check-docs.py` 与 `.githooks/pre-commit`：自动检查链接、状态词、CURRENT 字段、AC 覆盖与设计卡门禁。
+- `AGENTS.md` 与 `README.md` 不再重复维护阶段状态，统一以本文件为唯一来源。
 
 ## 阻塞
 
-- T-01 设计卡的 Q-1 至 Q-4 未确认，T-01 暂不启动。
+- `docs/adr/0004-engineering-baseline.md` 仍为拟议、`ui.md` 仍为草案，T-01 设计卡因此保持待确认；检查脚本已能拦截这类状态。
 
 ## 下一步
 
-1. 确认 `design-cards/T-01.md` 的 4 个未决问题。
-2. 设计卡确认后执行 T-01，记录六条验证命令的真实输出。
-3. T-01 通过独立评审后进入 T-02。
+1. 批准 `docs/adr/0004-engineering-baseline.md` 与 `docs/specs/M1-order-cancel/ui.md`。
+2. 将 T-01 设计卡状态改为待开工许可，并跑通 `python3 scripts/check-docs.py`。
+3. 执行 T-01，记录六条验证命令的真实输出，并交由独立评审。
 
 ## 待确认决策
 

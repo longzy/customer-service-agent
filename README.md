@@ -4,7 +4,7 @@
 
 ## 当前状态
 
-项目处于 **M1 订单查询与未发货订单取消**阶段。产品宪章、架构基线和 M1 规格（含 19 条验收用例）均已批准，应用代码尚未开始。
+项目阶段与当前进度以 [当前阶段](docs/CURRENT.md) 为准。
 
 首版目标是打通：
 
@@ -25,6 +25,9 @@
 - [M1 订单取消规格](docs/specs/M1-order-cancel/requirements.md)
 - [M1 界面规格](docs/specs/M1-order-cancel/ui.md)
 - [M1 工程基线](docs/adr/0004-engineering-baseline.md)
+- [M1 澄清清单](docs/specs/M1-order-cancel/clarifications.md)
+- [T-01 任务设计卡](docs/specs/M1-order-cancel/design-cards/T-01.md)
+- [任务设计卡模板](docs/templates/task-design-card.md)
 
 ## 项目原则
 
