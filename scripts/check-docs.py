@@ -15,6 +15,7 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SPECS_ROOT = os.path.join(ROOT, "docs", "specs")
 TASKS_ROOT = os.path.join(ROOT, "docs", "tasks")
+REVIEWS_ROOT = os.path.join(ROOT, "docs", "reviews")
 
 SKIP_DIRS = {".git", ".venv", "node_modules", ".next", ".uv-cache", ".pnpm-store", "coverage"}
 
@@ -60,7 +61,7 @@ SPEC_DIR_PATTERN = re.compile(r"^\d{3}-[a-z0-9-]+$")
 CARD_PATTERN = re.compile(r"^T-\d{2}\.md$")
 
 errors = []
-checked = {"links": 0, "files": 0, "acs": 0, "cards": 0, "specs": 0, "skipped": 0}
+checked = {"links": 0, "files": 0, "acs": 0, "cards": 0, "specs": 0, "skipped": 0, "reviews": 0}
 
 
 def rel(path):
@@ -206,6 +207,30 @@ def check_card_paths():
                 errors.append(f"{rel(card_path)}：引用的路径不存在 {token}")
 
 
+def check_completed_card_reviews():
+    """标记已完成的执行卡必须有评审记录，评审不能只存在于对话里。"""
+    if not os.path.isdir(TASKS_ROOT):
+        return
+    for base, _dirs, names in os.walk(TASKS_ROOT):
+        for card in sorted(names):
+            if not CARD_PATTERN.match(card):
+                continue
+            card_path = os.path.join(base, card)
+            status = doc_status(card_path)
+            if not status.startswith("已完成"):
+                continue
+            spec_name = os.path.basename(base)
+            review = os.path.join(REVIEWS_ROOT, spec_name, card)
+            if not os.path.exists(review):
+                expected = f"docs/reviews/{spec_name}/{card}"
+                errors.append(f"{rel(card_path)}：状态为 {status}，但缺少评审记录 {expected}")
+                continue
+            if "结论" not in read(review):
+                errors.append(f"{rel(review)}：评审记录缺少结论")
+                continue
+            checked["reviews"] += 1
+
+
 def resolve_reference(card_path, ref):
     """依次在仓库根、执行卡所在目录及其各级上级目录中解析相对引用。"""
     candidates = [os.path.join(ROOT, ref)]
@@ -263,6 +288,7 @@ def main():
     check_task_dirs(specs)
     check_card_paths()
     check_design_card_gate()
+    check_completed_card_reviews()
 
     if errors:
         print(f"文档检查失败，{len(errors)} 个问题：")
@@ -273,7 +299,8 @@ def main():
     print(
         f"文档检查通过：{checked['files']} 个文件、{checked['links']} 条链接、"
         f"{checked['specs']} 个规格目录、{checked['acs']} 条 AC、"
-        f"{checked['cards']} 张执行卡已检查、{checked['skipped']} 张跳过。"
+        f"{checked['cards']} 张执行卡已检查、{checked['skipped']} 张跳过、"
+        f"{checked['reviews']} 份评审记录已核对。"
     )
     return 0
 
