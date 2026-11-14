@@ -23,15 +23,29 @@
 - `uv run ruff check .`、`uv run mypy services`、`uv run pytest` 退出码均为 0。
 - `pnpm -C apps/web lint`、`pnpm -C apps/web typecheck`、`pnpm -C apps/web test` 退出码均为 0。
 - `AGENTS.md` 与 `README.md` 写入上述真实命令；`CURRENT.md` 记录验证结果。
-- 下列三项必须做成可执行检查（CI 暂缺时至少是一个可重复运行的本地脚本加一条命令）：AC 引用完整性、`invariants.md` 中可测条目的自动化测试、Tool Gateway 对越权与未知字段的拒绝测试。
+- 两项可执行检查在本任务落地：AC 引用完整性（`scripts/check-docs.py`）与包边界不变量（`tests/unit/test_package_boundaries.py`）。
 
 关联：不直接对应 AC，为全部 AC 提供可运行基座。
 
 ### T-02 定义统一领域类型和错误码
 
-- 订单摘要、订单详情、资格结果、取消状态。
-- 外部依赖错误分类。
-- 关联：AC-07、AC-11、AC-16。
+依据：`requirements.md` 第 6 节、`design.md` 第 3 与第 5 节、`ui.md` 第 3 节。
+
+产出：
+
+- `packages/contracts/schemas/`：OrderSummary、OrderDetail、CancelEligibility、CancellationState、ErrorCode 的 JSON Schema，作为唯一定义来源。
+- `services/api/domain/`：与 Schema 对应的 Python 类型，不手写重复定义；模块之间只传领域类型，不传裸 `dict`。
+- 状态枚举：5 个订单状态与 10 个取消任务状态；“内部状态 → 用户可见表达”的映射函数对应 `requirements.md` 第 6 节的对照表。
+- 错误码：至少区分“业务拒绝”“越权”“依赖不可用”“响应非法”“内部错误”五类；每个错误码标注是否可重试、是否对用户可见。
+- 契约测试：每个 Schema 一个正例与一个反例，非法输入必须被拒绝。
+
+完成标准：
+
+- `uv run pytest` 覆盖契约正反例并全部通过。
+- 状态枚举与映射表的条目一一对应，任何状态缺少映射时测试失败。
+- `uv run mypy services` 严格模式通过；跨模块调用不出现裸 `dict`。
+
+关联：AC-04、AC-07、AC-11、AC-16。
 
 ### T-03 定义 Tool 与 Mock OMS 契约
 
@@ -54,6 +68,7 @@
 
 - Tool 白名单、输入 Schema、租户和订单归属授权。
 - 统一错误与审计。
+- 必须包含可执行测试：越权订单号、未知字段、非法类型的拒绝路径，且断言无业务副作用。
 - 关联：AC-02、AC-03、AC-14、AC-15。
 
 ## Phase 2：业务确定性
@@ -119,11 +134,12 @@
 
 ```text
 T-01 -> T-02 -> T-03
+  -> T-06
   -> T-04 -> T-05
-  -> T-06 -> T-07 -> T-08
+  -> T-07 -> T-08
   -> T-09 -> T-10 -> T-11
   -> T-12 -> T-13
 ```
 
-T-06 之后的端到端测试可以提前建立失败用例，再逐步实现。
+T-06 提到 T-04 之前：Mock OMS 与故障注入只依赖 T-03 的契约，先建好它，后续每个业务任务都能立刻验证异常路径。AC-09 至 AC-12 的端到端验证仍在 T-08。
 
