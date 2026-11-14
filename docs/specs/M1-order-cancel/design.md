@@ -41,6 +41,8 @@
 
 M1 不调用模型做资格判断。
 
+资格判定以 Policy Engine 为唯一权威。Mock OMS 只提供订单事实（状态、归属、履约进度），不返回资格结论；`get_cancel_eligibility` 由 Policy Engine 实现，不代理 OMS。两者结论不一致的情况在设计上不存在，因为不存在第二个判定来源。
+
 ### Cancellation Workflow
 
 管理：
@@ -60,7 +62,10 @@ ELIGIBILITY_REJECTED
 REJECTED
 SUBMIT_UNKNOWN -> query result -> ACCEPTED/CANCELLED/REJECTED
 SUBMIT_UNKNOWN -> retries exhausted -> MANUAL_REVIEW
+COLLECTING / AWAITING_CONFIRMATION -> 超时或用户放弃 -> ABANDONED
 ```
+
+`COLLECTING` 与 `AWAITING_CONFIRMATION` 是已持久化的任务状态，不是会话内存状态；任务在用户表达取消意图时即创建，`ABANDONED` 为其未提交的终点，不产生任何 OMS 写调用。
 
 ### Mock OMS
 
@@ -68,7 +73,6 @@ SUBMIT_UNKNOWN -> retries exhausted -> MANUAL_REVIEW
 
 - 查询单个订单。
 - 列出最近订单。
-- 查询取消资格。
 - 幂等提交取消。
 - 按幂等键查询取消结果。
 - 故障注入：延迟、超时、重复响应、格式错误和后端已成功但响应丢失。
@@ -117,6 +121,8 @@ SUBMIT_UNKNOWN -> retries exhausted -> MANUAL_REVIEW
 }
 ```
 
+该 Tool 由 Policy Engine 提供，不查询 Mock OMS。`reason_code` 是唯一权威原因码，Agent 只能转述，不能改写或补写。
+
 ### `submit_cancel`
 
 ```json
@@ -140,8 +146,10 @@ SUBMIT_UNKNOWN -> retries exhausted -> MANUAL_REVIEW
 
 ## 4. Workflow 与幂等
 
-- 确认操作时创建持久化取消任务。
+- 用户表达取消意图时创建持久化取消任务，初始状态为 `COLLECTING`。
+- 只有用户明确确认后才允许进入 `SUBMITTING`；确认前一律不得调用 OMS 写接口。
 - 幂等键在任务创建时生成，后续重试复用。
+- `COLLECTING` 或 `AWAITING_CONFIRMATION` 超过可配置时长未推进，转入 `ABANDONED`。
 - 数据库对 `(tenant_id, idempotency_key)` 建唯一约束。
 - 如果写调用超时，Workflow 进入 `SUBMIT_UNKNOWN`。
 - 恢复器按幂等键调用 `get_cancel_result`。
@@ -241,6 +249,7 @@ Agent 输出建议使用结构化动作，例如：
 
 - 不得把 `ACCEPTED` 表述为 `CANCELLED`。
 - 不得把 `SUBMIT_UNKNOWN` 表述为失败或成功。
+- `SUBMITTING` 只能表述为“正在提交”；`SUBMIT_UNKNOWN` 只能表述为“已提交，正在核实受理结果”。二者均不得表述为已受理或已取消。
 - 不得声称已退款。
 - 必须包含下一步或人工路径。
 
@@ -273,8 +282,10 @@ conversation.turn
 
 ## 10. 待确认技术决策
 
-- 精确的后端目录和依赖版本。
-- 模型供应商及结构化输出方案。
+技术选型只在本节维护；业务与范围待确认项见 `docs/CURRENT.md`，两处不重复列同一件事。
+
+- 后端目录结构与依赖版本；首个实现基线为 Python/FastAPI + 关系型数据库。
+- 模型供应商选型、结构化输出方案与 API 契约；供应商保持可替换，不允许把业务状态寄存在 Agent 框架内。
 - 前端框架版本与 Web Chat 交互细节。
 - Trace 本地存储与导出方式。
 

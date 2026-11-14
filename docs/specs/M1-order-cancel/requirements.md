@@ -56,7 +56,7 @@
 
 ### FR-04 取消资格
 
-- 取消资格必须由服务端规则判断。
+- 取消资格由服务端 Policy Engine 唯一判定；Mock OMS 只提供订单事实，不返回资格结论。
 - M1 只有在订单存在、属于当前用户、未发货且未取消时允许取消。
 - Agent 不得自行覆盖或弱化资格结果。
 
@@ -133,6 +133,24 @@
 - `CANCELLED`：OMS 已确认订单取消。
 - `REJECTED`：OMS 拒绝取消。
 - `MANUAL_REVIEW`：超出自动处理边界。
+- `ABANDONED`：确认阶段超时或用户放弃，未提交，无 OMS 写调用。
+
+### 内部状态与用户可见表达
+
+同一状态只能有一种对外表达；Agent 不得自行创造表达，也不得把内部状态直接暴露给用户。
+
+| 内部状态 | 用户可见表达 |
+|---|---|
+| `COLLECTING` | 正在确认订单信息 |
+| `AWAITING_CONFIRMATION` | 等待您确认 |
+| `ELIGIBILITY_REJECTED` | 不可取消，并说明原因 |
+| `SUBMITTING` | 正在提交（过渡态，通常不单独展示） |
+| `SUBMIT_UNKNOWN` | 已提交，正在核实受理结果 |
+| `ACCEPTED` | 已受理，等待最终取消结果 |
+| `CANCELLED` | 已取消 |
+| `REJECTED` | 取消申请被拒绝 |
+| `MANUAL_REVIEW` | 已转人工处理 |
+| `ABANDONED` | 未提交（已放弃） |
 
 ## 7. 验收映射
 
