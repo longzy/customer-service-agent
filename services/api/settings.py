@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     database_url: str = "postgresql+asyncpg://ba@127.0.0.1:5432/customer_service"
+    environment: str = "development"
     confirm_timeout_minutes: int = 30
     oms_timeout_seconds: float = 2.0
     max_retries: int = 3
