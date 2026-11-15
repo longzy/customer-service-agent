@@ -1,6 +1,5 @@
 """取消任务接口：创建、确认与查询。"""
 
-from dataclasses import asdict
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -45,9 +44,14 @@ def _workflow(
 
 
 def _public(task: CancellationTask) -> dict[str, Any]:
-    body = asdict(task)
-    body.pop("metadata", None)
-    return body
+    """只暴露前端需要的字段；幂等键与身份信息不出接口。"""
+    return {
+        "id": task.id,
+        "order_id": task.order_id,
+        "state": task.state.value,
+        "reason_code": task.reason_code,
+        "expires_at": task.expires_at.isoformat(),
+    }
 
 
 @router.post("")
