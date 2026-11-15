@@ -17,7 +17,17 @@ SPECS_ROOT = os.path.join(ROOT, "docs", "specs")
 TASKS_ROOT = os.path.join(ROOT, "docs", "tasks")
 REVIEWS_ROOT = os.path.join(ROOT, "docs", "reviews")
 
-SKIP_DIRS = {".git", ".venv", "node_modules", ".next", ".uv-cache", ".pnpm-store", "coverage"}
+SKIP_DIRS = {
+    ".git",
+    ".venv",
+    "node_modules",
+    ".next",
+    ".uv-cache",
+    ".pnpm-store",
+    "coverage",
+    "mutants",
+    ".mutmut-cache",
+}
 
 STATUS_WORDS = {
     "未开始",
