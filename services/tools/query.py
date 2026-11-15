@@ -7,6 +7,21 @@ from services.api.auth import Identity
 from services.mock_oms.service import MockOms
 from services.tools.gateway import OwnershipIndex, ToolGateway, ToolSpec
 
+SUMMARY_FIELDS = (
+    "order_id",
+    "item_summary",
+    "order_status",
+    "cancelable",
+    "amount_cents",
+    "currency",
+    "created_at",
+)
+
+
+def _to_summary(order: dict[str, Any]) -> dict[str, Any]:
+    """按契约把订单详情投影为摘要，避免把 items 等字段透出。"""
+    return {field: order[field] for field in SUMMARY_FIELDS}
+
 
 def build_query_gateway(
     oms: MockOms,
@@ -20,7 +35,8 @@ def build_query_gateway(
         return oms.get_order(identity.tenant_id, identity.user_id, payload["order_id"])
 
     def list_recent_orders(payload: dict[str, Any], identity: Identity, trace_id: str) -> Any:
-        return oms.list_recent_orders(identity.tenant_id, identity.user_id, payload["limit"])
+        orders = oms.list_recent_orders(identity.tenant_id, identity.user_id, payload["limit"])
+        return [_to_summary(order) for order in orders]
 
     return ToolGateway(
         tools=[

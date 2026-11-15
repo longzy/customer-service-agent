@@ -6,9 +6,9 @@
 - 应用代码：骨架 + 领域契约 + 会话后端；尚无订单查询与取消逻辑
 - 版本控制：Git 已初始化，`main` 分支；全部文档已提交，工作区干净
 - 当前 Milestone：M1 订单查询与未发货订单取消（规格已批准：`docs/specs/001-order-cancel/`）
-- 当前工作：T-17 查询 Tool 完成，待评审；随后 T-09
+- 当前工作：T-17 查询 Tool 待复审；随后 T-09
 <!-- verify:start -->
-- 最近验证：`./scripts/verify.sh` 十项全绿——pytest 193 passed、mypy 22 个文件、文档检查通过（20 条 AC）、前端 lint/typecheck/test 通过
+- 最近验证：`./scripts/verify.sh` 十项全绿——pytest 202 passed、mypy 22 个文件、文档检查通过（20 条 AC）、前端 lint/typecheck/test 通过
 <!-- verify:end -->
 
 ## 本阶段目标
@@ -63,7 +63,7 @@
 
 - 新增测试账号登录页（US-00、AC-20）；三份规格已于 2026-11-15 批准。
 - T-06 Mock OMS 完成：JSON 夹具、读写接口、幂等提交、故障规则引擎与开发期管理接口；177 个测试通过。
-- T-17 查询 Tool 已实现（待评审）：`get_order`、`list_recent_orders` 接入网关，193 个测试通过。
+- T-17 查询 Tool 修复完成（待复审）：摘要投影、跨租户列表、不调用 OMS 与审计断言，202 个测试通过。
 - T-05、T-06、T-16 已完成；T-09/T-10 尚未开始。
 
 ## 阻塞

@@ -51,7 +51,7 @@
 **Goal**：用户能查询本人订单或最近订单，越权与非法参数被拒绝
 **Independent Test**：用夹具订单调用查询接口，验证返回、越权拒绝与零写操作
 
-- [ ] T17 [US1] 实现查询 Tool（`get_order`、`list_recent_orders`）并注册到网关（`services/tools/query.py`）— depends on T05、T06
+- [ ] T17 [US1/US2] 实现查询 Tool（`get_order`、`list_recent_orders`）并注册到网关（`services/tools/query.py`）— depends on T05、T06
   - _验收: AC-01、AC-02、AC-03_
 - [ ] T09 [P] [US1] 实现查询意图识别与订单澄清（`services/agent_runtime/intent.py`）— depends on T17
   - _验收: AC-01、AC-08_

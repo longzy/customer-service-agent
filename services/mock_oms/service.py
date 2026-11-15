@@ -6,6 +6,7 @@
 import copy
 import json
 import time
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +23,10 @@ FIXTURES = Path(__file__).resolve().parent / "fixtures" / "orders.json"
 
 SUBMITTABLE = {"PAID_UNFULFILLED"}
 OMS_STATES = {"ACCEPTED", "CANCELLED", "REJECTED", "UNKNOWN"}
+
+
+def _parse_time(value: str) -> datetime:
+    return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
 
 class MockOms:
@@ -46,6 +51,7 @@ class MockOms:
                 raise ValueError(f"夹具订单号重复：{order_id}")
             self._orders[order_id] = entry["order"]
             self._owners[order_id] = (tenant_id, user_id)
+        self.calls = {"get_order": 0, "list_recent_orders": 0}
         self._cancel_results: dict[tuple[str, str], tuple[str, str]] = {}
         self._accepted_orders: dict[str, str] = {}
         self.faults = FaultEngine()
@@ -71,6 +77,7 @@ class MockOms:
         return kind
 
     def get_order(self, tenant_id: str, user_id: str, order_id: str) -> dict[str, Any]:
+        self.calls["get_order"] += 1
         if self._inject("get_order", order_id) == "lost_response":
             raise TimeoutError("get_order")
         if not self.owns(order_id, tenant_id, user_id):
@@ -80,6 +87,7 @@ class MockOms:
     def list_recent_orders(
         self, tenant_id: str, user_id: str, limit: int = 5
     ) -> list[dict[str, Any]]:
+        self.calls["list_recent_orders"] += 1
         if self._inject("list_recent_orders") == "lost_response":
             raise TimeoutError("list_recent_orders")
         owned = [
@@ -87,7 +95,7 @@ class MockOms:
             for order_id, order in self._orders.items()
             if self.owns(order_id, tenant_id, user_id)
         ]
-        owned.sort(key=lambda order: order["created_at"], reverse=True)
+        owned.sort(key=lambda order: _parse_time(order["created_at"]), reverse=True)
         return [copy.deepcopy(order) for order in owned[:limit]]
 
     def submit_cancel(
