@@ -41,8 +41,12 @@ def _gateway_reply(error: GatewayError) -> str:
     return "系统暂时不可用，请稍后再试。"
 
 
+def _status_text(order: dict[str, Any]) -> str:
+    return ORDER_STATUS_TEXT[OrderStatus(order["order_status"])]
+
+
 def _summary_text(order: dict[str, Any]) -> str:
-    status = ORDER_STATUS_TEXT[OrderStatus(order["order_status"])]
+    status = _status_text(order)
     return (
         f"订单 {order['order_id']}：{order['item_summary']}，"
         f"状态 {status}，金额 {order['amount_cents'] / 100:.2f} 元。"
@@ -104,7 +108,12 @@ class ConversationService:
             reply = "我暂时没理解，请提供订单号，或说明要查询的订单。"
 
         await self._repository.add_message(conversation, "assistant", reply, trace_id)
-        return Reply(conversation_id=conversation, trace_id=trace_id, reply=reply, orders=orders)
+        return Reply(
+            conversation_id=conversation,
+            trace_id=trace_id,
+            reply=reply,
+            orders=[{**order, "status_text": _status_text(order)} for order in orders],
+        )
 
     @staticmethod
     def _clarify(candidates: list[str]) -> str:

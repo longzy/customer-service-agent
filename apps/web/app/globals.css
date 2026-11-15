@@ -271,3 +271,76 @@ body {
   opacity: 0.55;
   cursor: default;
 }
+
+.bubble {
+  max-width: 88%;
+  padding: 9px 12px;
+  border-radius: 11px;
+  font-size: 13.5px;
+  line-height: 1.6;
+}
+
+.bubble p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.bubble.user {
+  align-self: flex-end;
+  background: var(--accent);
+  color: #fff;
+}
+
+.bubble.assistant {
+  align-self: flex-start;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.orders {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.order-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: var(--surface-2);
+}
+
+.order-card header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.order-id {
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.pill {
+  font-size: 11.5px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-2);
+}
+
+.order-summary {
+  margin: 6px 0 2px;
+  font-size: 13px;
+  color: var(--text-2);
+}
+
+.order-amount {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
