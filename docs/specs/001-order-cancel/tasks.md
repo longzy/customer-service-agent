@@ -27,7 +27,7 @@
 
 - [x] T03 定义 5 个 Tool 契约（`packages/contracts/tools/*.json`）
   - _验收: AC-01、AC-02、AC-04、AC-05、AC-07、AC-09、AC-10、AC-11_
-- [ ] T04 [P] 实现认证与租户上下文（`services/api/auth.py`、`services/api/middleware.py`）
+- [x] T04 [P] 实现认证与租户上下文（`services/api/auth.py`、`services/api/middleware.py`）
   - _验收: AC-02、AC-03、AC-15_
 - [ ] T05 实现授权 Tool Gateway（`services/tools/gateway.py`）— depends on T03、T04
   - _验收: AC-02、AC-03、AC-14、AC-15_
