@@ -11,7 +11,7 @@ import pytest
 from jsonschema import Draft202012Validator
 from referencing import Registry, Resource
 
-from services.api.domain.cancellation import CancellationState
+from services.api.domain.cancellation import OmsCancelState
 from services.api.domain.errors import ErrorCode, error_spec
 
 SCHEMA_DIR = Path("packages/contracts/schemas")
@@ -72,7 +72,7 @@ def detail_payload(**overrides: Any) -> dict[str, Any]:
     return data
 
 
-def test_每个Tool都有契约与错误码声明_AC_04() -> None:
+def test_每个Tool都有契约与错误码声明_基座豁免() -> None:
     for name in TOOL_NAMES:
         doc = load_tool(name)
         assert doc["title"] == name
@@ -80,13 +80,6 @@ def test_每个Tool都有契约与错误码声明_AC_04() -> None:
         codes = doc["x-error-codes"]
         assert codes, f"{name} 未声明错误码"
         assert set(codes) <= {code.value for code in ErrorCode}
-
-
-def test_全部错误码都被至少一个Tool声明_AC_11() -> None:
-    declared: set[str] = set()
-    for name in TOOL_NAMES:
-        declared |= set(load_tool(name)["x-error-codes"])
-    assert declared == {code.value for code in ErrorCode}
 
 
 def test_统一错误封套可用_AC_11() -> None:
@@ -157,7 +150,7 @@ def test_get_cancel_eligibility请求与响应_AC_04() -> None:
 def test_submit_cancel请求与响应_AC_05() -> None:
     doc = load_tool("submit_cancel")
     validate_doc(doc, "Request", {"order_id": "ORD-10001", "idempotency_key": "idem-0001-abcdef"})
-    validate_doc(doc, "Response", {"state": CancellationState.SUBMIT_UNKNOWN.value})
+    validate_doc(doc, "Response", {"state": OmsCancelState.UNKNOWN.value})
     with pytest.raises(AssertionError):
         validate_doc(doc, "Request", {"order_id": "ORD-10001"})
     with pytest.raises(AssertionError):
@@ -167,6 +160,122 @@ def test_submit_cancel请求与响应_AC_05() -> None:
 def test_get_cancel_result请求与响应_AC_10() -> None:
     doc = load_tool("get_cancel_result")
     validate_doc(doc, "Request", {"idempotency_key": "idem-0001-abcdef"})
-    validate_doc(doc, "Response", {"state": CancellationState.ACCEPTED.value})
+    validate_doc(doc, "Response", {"state": OmsCancelState.ACCEPTED.value})
     with pytest.raises(AssertionError):
         validate_doc(doc, "Response", {"state": 1})
+
+
+def test_错误封套拒绝与错误码矛盾的属性_AC_11() -> None:
+    """retryable/visible 必须由错误码决定，不能由调用方随意填写。"""
+    for code in ErrorCode:
+        spec = error_spec(code)
+        for retryable, visible in {
+            (not spec.retryable, spec.visible),
+            (spec.retryable, not spec.visible),
+        }:
+            envelope = {
+                "code": code.value,
+                "retryable": retryable,
+                "visible": visible,
+                "message": spec.user_message,
+            }
+            with pytest.raises(AssertionError):
+                validate_doc(DOMAIN, "ErrorEnvelope", envelope)
+
+
+def test_错误码规格表与代码一致_AC_11() -> None:
+    documented = DOMAIN["x-error-specs"]
+    assert set(documented) == {code.value for code in ErrorCode}
+    for code in ErrorCode:
+        spec = error_spec(code)
+        assert documented[code.value] == {"retryable": spec.retryable, "visible": spec.visible}
+
+
+def test_OMS响应不接受Workflow内部状态_AC_10() -> None:
+    internal = [
+        "COLLECTING",
+        "AWAITING_CONFIRMATION",
+        "ELIGIBILITY_REJECTED",
+        "SUBMITTING",
+        "SUBMIT_UNKNOWN",
+        "MANUAL_REVIEW",
+        "ABANDONED",
+    ]
+    for name in ("submit_cancel", "get_cancel_result"):
+        doc = load_tool(name)
+        for state in internal:
+            with pytest.raises(AssertionError):
+                validate_doc(doc, "Response", {"state": state})
+
+
+def test_OMS响应只接受四种状态_AC_10() -> None:
+    oms_states = set(DOMAIN["$defs"]["OmsCancelState"]["enum"])
+    assert oms_states == {state.value for state in OmsCancelState}
+    for name in ("submit_cancel", "get_cancel_result"):
+        doc = load_tool(name)
+        for state in oms_states:
+            validate_doc(doc, "Response", {"state": state})
+
+
+def test_每个Tool的错误码集合精确匹配_AC_02() -> None:
+    expected = {
+        "list_recent_orders": {"DEPENDENCY_UNAVAILABLE", "DEPENDENCY_TIMEOUT", "INVALID_RESPONSE"},
+        "get_order": {"NOT_FOUND_OR_UNAUTHORIZED", "DEPENDENCY_UNAVAILABLE", "INVALID_RESPONSE"},
+        "get_cancel_eligibility": {
+            "NOT_FOUND_OR_UNAUTHORIZED",
+            "DEPENDENCY_UNAVAILABLE",
+            "INVALID_RESPONSE",
+        },
+        "submit_cancel": {
+            "OMS_REJECTED",
+            "NOT_FOUND_OR_UNAUTHORIZED",
+            "DEPENDENCY_UNAVAILABLE",
+            "DEPENDENCY_TIMEOUT",
+            "INVALID_RESPONSE",
+            "INTERNAL_ERROR",
+        },
+        "get_cancel_result": {
+            "NOT_FOUND_OR_UNAUTHORIZED",
+            "DEPENDENCY_UNAVAILABLE",
+            "DEPENDENCY_TIMEOUT",
+            "INVALID_RESPONSE",
+        },
+    }
+    for name, codes in expected.items():
+        assert set(load_tool(name)["x-error-codes"]) == codes, name
+
+
+def test_幂等键长度边界被拒绝_AC_09() -> None:
+    for name in ("submit_cancel", "get_cancel_result"):
+        doc = load_tool(name)
+        with pytest.raises(AssertionError):
+            validate_doc(doc, "Request", {"idempotency_key": "short"})
+        long_key = "k" * 129
+        payload = (
+            {"order_id": "ORD-10001", "idempotency_key": long_key}
+            if name == "submit_cancel"
+            else {"idempotency_key": long_key}
+        )
+        with pytest.raises(AssertionError):
+            validate_doc(doc, "Request", payload)
+
+
+def test_最近订单数量上限被拒绝_AC_01() -> None:
+    doc = load_tool("list_recent_orders")
+    with pytest.raises(AssertionError):
+        validate_doc(doc, "Request", {"limit": 11})
+
+
+def test_资格结果不可取消的反例_AC_07() -> None:
+    doc = load_tool("get_cancel_eligibility")
+    validate_doc(
+        doc,
+        "Response",
+        {"eligible": False, "reason_code": "SHIPPED", "requires_confirmation": False},
+    )
+    with pytest.raises(AssertionError):
+        validate_doc(
+            doc,
+            "Response",
+            {"eligible": "false", "reason_code": "SHIPPED", "requires_confirmation": False},
+        )

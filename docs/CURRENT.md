@@ -1,13 +1,13 @@
 # 当前项目状态
 
-- 更新日期：2026-11-14
+- 更新日期：2026-11-15
 - 项目阶段：M1 订单查询与未发货订单取消（M0 出口条件已满足）
 - 当前状态：进行中
 - 应用代码：已建立工程骨架（T-01），尚无业务逻辑
 - 版本控制：Git 已初始化，`main` 分支；全部文档已提交，工作区干净
 - 当前 Milestone：M1 订单查询与未发货订单取消（规格已批准：`docs/specs/001-order-cancel/`）
 - 当前工作：T-03 实现完成，待独立评审
-- 最近验证：`./scripts/verify.sh` 七项全绿——ruff All checks passed、mypy 12 个文件无问题、pytest 76 passed、文档检查 33 个文件 19 条 AC、前端 lint/typecheck/test 通过
+- 最近验证：`./scripts/verify.sh` 七项全绿——ruff All checks passed、mypy 12 个文件无问题、pytest 110 passed、文档检查 33 个文件 19 条 AC、前端 lint/typecheck/test 通过
 
 ## 本阶段目标
 
@@ -67,7 +67,7 @@
 
 ## 下一步
 
-1. 完成 T-03 独立评审并写评审记录。
+1. 完成 T-03 复审并写入评审记录，随后标记完成。
 2. 依次做 T-04（认证）、T-05（网关）、T-06（Mock OMS 与故障注入）。
 3. Foundational 完成后，查询切片（T-09、T-10）与取消切片（T-07、T-08、T-14）可并行。
 3. T-02 完成后进入 T-03 契约，随后提前建立 T-06 的故障注入能力。

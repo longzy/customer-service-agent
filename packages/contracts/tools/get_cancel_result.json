@@ -31,7 +31,7 @@
       ],
       "properties": {
         "state": {
-          "$ref": "https://example.local/contracts/domain.json#/$defs/CancellationState"
+          "$ref": "https://example.local/contracts/domain.json#/$defs/OmsCancelState"
         }
       }
     }

@@ -3,7 +3,6 @@
   "$id": "https://example.local/contracts/tools/submit_cancel.json",
   "title": "submit_cancel",
   "x-error-codes": [
-    "ELIGIBILITY_REJECTED",
     "OMS_REJECTED",
     "NOT_FOUND_OR_UNAUTHORIZED",
     "DEPENDENCY_UNAVAILABLE",
@@ -39,7 +38,7 @@
       ],
       "properties": {
         "state": {
-          "$ref": "https://example.local/contracts/domain.json#/$defs/CancellationState"
+          "$ref": "https://example.local/contracts/domain.json#/$defs/OmsCancelState"
         }
       }
     }

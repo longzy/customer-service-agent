@@ -18,6 +18,15 @@ class CancellationState(StrEnum):
     ABANDONED = "ABANDONED"
 
 
+class OmsCancelState(StrEnum):
+    """OMS 侧只暴露四种结果；Workflow 内部状态不外泄给下游契约。"""
+
+    ACCEPTED = "ACCEPTED"
+    CANCELLED = "CANCELLED"
+    REJECTED = "REJECTED"
+    UNKNOWN = "UNKNOWN"
+
+
 EXPRESSIONS: dict[CancellationState, str] = {
     CancellationState.COLLECTING: "正在确认订单信息",
     CancellationState.AWAITING_CONFIRMATION: "等待您确认",

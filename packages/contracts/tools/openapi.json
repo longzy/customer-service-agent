@@ -8,40 +8,30 @@
     "/tools/list_recent_orders": {
       "post": {
         "operationId": "list_recent_orders",
+        "summary": "调用 list_recent_orders",
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": false,
-                "required": [
-                  "limit"
-                ],
-                "properties": {
-                  "limit": {
-                    "type": "integer",
-                    "minimum": 1,
-                    "maximum": 10
-                  }
-                }
+                "$ref": "#/components/schemas/ListRecentOrdersRequest"
               }
             }
           }
         },
         "responses": {
           "200": {
+            "description": "成功响应",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "$ref": "#/components/schemas/OrderSummary"
-                  }
+                  "$ref": "#/components/schemas/ListRecentOrdersResponse"
                 }
               }
             }
           },
           "default": {
+            "description": "统一错误封套",
             "content": {
               "application/json": {
                 "schema": {
@@ -52,7 +42,6 @@
           }
         },
         "x-error-codes": [
-          "NOT_FOUND_OR_UNAUTHORIZED",
           "DEPENDENCY_UNAVAILABLE",
           "DEPENDENCY_TIMEOUT",
           "INVALID_RESPONSE"
@@ -62,36 +51,30 @@
     "/tools/get_order": {
       "post": {
         "operationId": "get_order",
+        "summary": "调用 get_order",
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": false,
-                "required": [
-                  "order_id"
-                ],
-                "properties": {
-                  "order_id": {
-                    "type": "string",
-                    "minLength": 1
-                  }
-                }
+                "$ref": "#/components/schemas/GetOrderRequest"
               }
             }
           }
         },
         "responses": {
           "200": {
+            "description": "成功响应",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/OrderDetail"
+                  "$ref": "#/components/schemas/GetOrderResponse"
                 }
               }
             }
           },
           "default": {
+            "description": "统一错误封套",
             "content": {
               "application/json": {
                 "schema": {
@@ -104,7 +87,6 @@
         "x-error-codes": [
           "NOT_FOUND_OR_UNAUTHORIZED",
           "DEPENDENCY_UNAVAILABLE",
-          "DEPENDENCY_TIMEOUT",
           "INVALID_RESPONSE"
         ]
       }
@@ -112,36 +94,30 @@
     "/tools/get_cancel_eligibility": {
       "post": {
         "operationId": "get_cancel_eligibility",
+        "summary": "调用 get_cancel_eligibility",
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": false,
-                "required": [
-                  "order_id"
-                ],
-                "properties": {
-                  "order_id": {
-                    "type": "string",
-                    "minLength": 1
-                  }
-                }
+                "$ref": "#/components/schemas/GetCancelEligibilityRequest"
               }
             }
           }
         },
         "responses": {
           "200": {
+            "description": "成功响应",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/CancelEligibility"
+                  "$ref": "#/components/schemas/GetCancelEligibilityResponse"
                 }
               }
             }
           },
           "default": {
+            "description": "统一错误封套",
             "content": {
               "application/json": {
                 "schema": {
@@ -161,51 +137,30 @@
     "/tools/submit_cancel": {
       "post": {
         "operationId": "submit_cancel",
+        "summary": "调用 submit_cancel",
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": false,
-                "required": [
-                  "order_id",
-                  "idempotency_key"
-                ],
-                "properties": {
-                  "order_id": {
-                    "type": "string",
-                    "minLength": 1
-                  },
-                  "idempotency_key": {
-                    "type": "string",
-                    "minLength": 8,
-                    "maxLength": 128
-                  }
-                }
+                "$ref": "#/components/schemas/SubmitCancelRequest"
               }
             }
           }
         },
         "responses": {
           "200": {
+            "description": "成功响应",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "required": [
-                    "state"
-                  ],
-                  "properties": {
-                    "state": {
-                      "$ref": "#/components/schemas/CancellationState"
-                    }
-                  }
+                  "$ref": "#/components/schemas/SubmitCancelResponse"
                 }
               }
             }
           },
           "default": {
+            "description": "统一错误封套",
             "content": {
               "application/json": {
                 "schema": {
@@ -216,7 +171,6 @@
           }
         },
         "x-error-codes": [
-          "ELIGIBILITY_REJECTED",
           "OMS_REJECTED",
           "NOT_FOUND_OR_UNAUTHORIZED",
           "DEPENDENCY_UNAVAILABLE",
@@ -229,46 +183,30 @@
     "/tools/get_cancel_result": {
       "post": {
         "operationId": "get_cancel_result",
+        "summary": "调用 get_cancel_result",
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "additionalProperties": false,
-                "required": [
-                  "idempotency_key"
-                ],
-                "properties": {
-                  "idempotency_key": {
-                    "type": "string",
-                    "minLength": 8,
-                    "maxLength": 128
-                  }
-                }
+                "$ref": "#/components/schemas/GetCancelResultRequest"
               }
             }
           }
         },
         "responses": {
           "200": {
+            "description": "成功响应",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": false,
-                  "required": [
-                    "state"
-                  ],
-                  "properties": {
-                    "state": {
-                      "$ref": "#/components/schemas/CancellationState"
-                    }
-                  }
+                  "$ref": "#/components/schemas/GetCancelResultResponse"
                 }
               }
             }
           },
           "default": {
+            "description": "统一错误封套",
             "content": {
               "application/json": {
                 "schema": {
@@ -297,21 +235,6 @@
           "SHIPPED",
           "DELIVERED",
           "CANCELLED"
-        ]
-      },
-      "CancellationState": {
-        "type": "string",
-        "enum": [
-          "COLLECTING",
-          "AWAITING_CONFIRMATION",
-          "ELIGIBILITY_REJECTED",
-          "SUBMITTING",
-          "SUBMIT_UNKNOWN",
-          "ACCEPTED",
-          "CANCELLED",
-          "REJECTED",
-          "MANUAL_REVIEW",
-          "ABANDONED"
         ]
       },
       "ErrorCode": {
@@ -570,7 +493,172 @@
             "type": "string",
             "minLength": 1
           }
-        }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "code": {
+                  "const": "ELIGIBILITY_REJECTED"
+                }
+              },
+              "required": [
+                "code"
+              ]
+            },
+            "then": {
+              "properties": {
+                "retryable": {
+                  "const": false
+                },
+                "visible": {
+                  "const": true
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "code": {
+                  "const": "OMS_REJECTED"
+                }
+              },
+              "required": [
+                "code"
+              ]
+            },
+            "then": {
+              "properties": {
+                "retryable": {
+                  "const": false
+                },
+                "visible": {
+                  "const": true
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "code": {
+                  "const": "NOT_FOUND_OR_UNAUTHORIZED"
+                }
+              },
+              "required": [
+                "code"
+              ]
+            },
+            "then": {
+              "properties": {
+                "retryable": {
+                  "const": false
+                },
+                "visible": {
+                  "const": true
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "code": {
+                  "const": "DEPENDENCY_UNAVAILABLE"
+                }
+              },
+              "required": [
+                "code"
+              ]
+            },
+            "then": {
+              "properties": {
+                "retryable": {
+                  "const": true
+                },
+                "visible": {
+                  "const": true
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "code": {
+                  "const": "DEPENDENCY_TIMEOUT"
+                }
+              },
+              "required": [
+                "code"
+              ]
+            },
+            "then": {
+              "properties": {
+                "retryable": {
+                  "const": true
+                },
+                "visible": {
+                  "const": true
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "code": {
+                  "const": "INVALID_RESPONSE"
+                }
+              },
+              "required": [
+                "code"
+              ]
+            },
+            "then": {
+              "properties": {
+                "retryable": {
+                  "const": true
+                },
+                "visible": {
+                  "const": true
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "code": {
+                  "const": "INTERNAL_ERROR"
+                }
+              },
+              "required": [
+                "code"
+              ]
+            },
+            "then": {
+              "properties": {
+                "retryable": {
+                  "const": false
+                },
+                "visible": {
+                  "const": false
+                }
+              }
+            }
+          }
+        ]
+      },
+      "OmsCancelState": {
+        "type": "string",
+        "enum": [
+          "ACCEPTED",
+          "CANCELLED",
+          "REJECTED",
+          "UNKNOWN"
+        ]
       },
       "ListRecentOrdersRequest": {
         "type": "object",
@@ -651,7 +739,7 @@
         ],
         "properties": {
           "state": {
-            "$ref": "#/components/schemas/CancellationState"
+            "$ref": "#/components/schemas/OmsCancelState"
           }
         }
       },
@@ -677,7 +765,7 @@
         ],
         "properties": {
           "state": {
-            "$ref": "#/components/schemas/CancellationState"
+            "$ref": "#/components/schemas/OmsCancelState"
           }
         }
       }

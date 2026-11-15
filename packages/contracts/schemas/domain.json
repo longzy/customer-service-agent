@@ -284,7 +284,202 @@
           "type": "string",
           "minLength": 1
         }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "const": "ELIGIBILITY_REJECTED"
+              }
+            },
+            "required": [
+              "code"
+            ]
+          },
+          "then": {
+            "properties": {
+              "retryable": {
+                "const": false
+              },
+              "visible": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "const": "OMS_REJECTED"
+              }
+            },
+            "required": [
+              "code"
+            ]
+          },
+          "then": {
+            "properties": {
+              "retryable": {
+                "const": false
+              },
+              "visible": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "const": "NOT_FOUND_OR_UNAUTHORIZED"
+              }
+            },
+            "required": [
+              "code"
+            ]
+          },
+          "then": {
+            "properties": {
+              "retryable": {
+                "const": false
+              },
+              "visible": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "const": "DEPENDENCY_UNAVAILABLE"
+              }
+            },
+            "required": [
+              "code"
+            ]
+          },
+          "then": {
+            "properties": {
+              "retryable": {
+                "const": true
+              },
+              "visible": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "const": "DEPENDENCY_TIMEOUT"
+              }
+            },
+            "required": [
+              "code"
+            ]
+          },
+          "then": {
+            "properties": {
+              "retryable": {
+                "const": true
+              },
+              "visible": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "const": "INVALID_RESPONSE"
+              }
+            },
+            "required": [
+              "code"
+            ]
+          },
+          "then": {
+            "properties": {
+              "retryable": {
+                "const": true
+              },
+              "visible": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "const": "INTERNAL_ERROR"
+              }
+            },
+            "required": [
+              "code"
+            ]
+          },
+          "then": {
+            "properties": {
+              "retryable": {
+                "const": false
+              },
+              "visible": {
+                "const": false
+              }
+            }
+          }
+        }
+      ]
+    },
+    "OmsCancelState": {
+      "type": "string",
+      "enum": [
+        "ACCEPTED",
+        "CANCELLED",
+        "REJECTED",
+        "UNKNOWN"
+      ]
+    }
+  },
+  "x-error-specs": {
+    "ELIGIBILITY_REJECTED": {
+      "retryable": false,
+      "visible": true
+    },
+    "OMS_REJECTED": {
+      "retryable": false,
+      "visible": true
+    },
+    "NOT_FOUND_OR_UNAUTHORIZED": {
+      "retryable": false,
+      "visible": true
+    },
+    "DEPENDENCY_UNAVAILABLE": {
+      "retryable": true,
+      "visible": true
+    },
+    "DEPENDENCY_TIMEOUT": {
+      "retryable": true,
+      "visible": true
+    },
+    "INVALID_RESPONSE": {
+      "retryable": true,
+      "visible": true
+    },
+    "INTERNAL_ERROR": {
+      "retryable": false,
+      "visible": false
     }
   }
 }

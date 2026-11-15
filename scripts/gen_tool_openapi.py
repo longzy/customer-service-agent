@@ -38,6 +38,37 @@ def rewrite_refs(node: Any) -> Any:
     return node
 
 
+def _collect_refs(node: Any) -> set[str]:
+    refs: set[str] = set()
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if key == "$ref" and isinstance(value, str):
+                refs.add(value.split("/")[-1])
+            else:
+                refs |= _collect_refs(value)
+    elif isinstance(node, list):
+        for item in node:
+            refs |= _collect_refs(item)
+    return refs
+
+
+def _prune_unreferenced(paths: dict[str, Any], components: dict[str, Any]) -> dict[str, Any]:
+    """只保留从 paths 可达的组件，避免生成孤立定义。"""
+    reachable: set[str] = set()
+    frontier = list(_collect_refs(paths))
+    while frontier:
+        name = frontier.pop()
+        if name in reachable or name not in components:
+            continue
+        reachable.add(name)
+        frontier.extend(_collect_refs(components[name]))
+    return {name: schema for name, schema in components.items() if name in reachable}
+
+
+def component_name(tool: str, kind: str) -> str:
+    return "".join(part.capitalize() for part in tool.split("_")) + kind
+
+
 def build() -> dict[str, Any]:
     domain = load(SCHEMAS / "domain.json")
     components: dict[str, Any] = {
@@ -47,28 +78,45 @@ def build() -> dict[str, Any]:
 
     for name in TOOL_NAMES:
         doc = load(TOOLS / f"{name}.json")
-        request = rewrite_refs(doc["$defs"]["Request"])
-        response = rewrite_refs(doc["$defs"]["Response"])
-        components[f"{name.replace('_', ' ').title().replace(' ', '')}Request"] = request
-        components[f"{name.replace('_', ' ').title().replace(' ', '')}Response"] = response
+        request_name = component_name(name, "Request")
+        response_name = component_name(name, "Response")
+        components[request_name] = rewrite_refs(doc["$defs"]["Request"])
+        components[response_name] = rewrite_refs(doc["$defs"]["Response"])
         paths[f"/tools/{name}"] = {
             "post": {
                 "operationId": name,
-                "requestBody": {"content": {"application/json": {"schema": request}}},
+                "summary": f"调用 {name}",
+                "requestBody": {
+                    "required": True,
+                    "content": {
+                        "application/json": {
+                            "schema": {"$ref": f"#/components/schemas/{request_name}"}
+                        }
+                    },
+                },
                 "responses": {
-                    "200": {"content": {"application/json": {"schema": response}}},
+                    "200": {
+                        "description": "成功响应",
+                        "content": {
+                            "application/json": {
+                                "schema": {"$ref": f"#/components/schemas/{response_name}"}
+                            }
+                        },
+                    },
                     "default": {
+                        "description": "统一错误封套",
                         "content": {
                             "application/json": {
                                 "schema": {"$ref": "#/components/schemas/ErrorEnvelope"}
                             }
-                        }
+                        },
                     },
                 },
                 "x-error-codes": doc["x-error-codes"],
             }
         }
 
+    components = _prune_unreferenced(paths, components)
     return {
         "openapi": "3.1.0",
         "info": {"title": "M1 Tool 契约", "version": "0.1.0"},

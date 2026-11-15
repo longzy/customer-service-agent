@@ -5,7 +5,6 @@
   "x-error-codes": [
     "NOT_FOUND_OR_UNAUTHORIZED",
     "DEPENDENCY_UNAVAILABLE",
-    "DEPENDENCY_TIMEOUT",
     "INVALID_RESPONSE"
   ],
   "$defs": {

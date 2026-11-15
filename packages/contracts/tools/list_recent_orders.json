@@ -3,7 +3,6 @@
   "$id": "https://example.local/contracts/tools/list_recent_orders.json",
   "title": "list_recent_orders",
   "x-error-codes": [
-    "NOT_FOUND_OR_UNAUTHORIZED",
     "DEPENDENCY_UNAVAILABLE",
     "DEPENDENCY_TIMEOUT",
     "INVALID_RESPONSE"
