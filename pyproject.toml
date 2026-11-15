@@ -10,6 +10,8 @@ dependencies = [
     "asyncpg>=0.30",
     "alembic>=1.14",
     "pydantic-settings>=2.6",
+    "jsonschema>=4.23",
+    "referencing>=0.35",
 ]
 
 [dependency-groups]

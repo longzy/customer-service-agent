@@ -47,7 +47,7 @@ class ToolSpec:
     """一个 Tool 的执行契约：参数以 contracts 下的 Schema 为准。"""
 
     name: str
-    handler: Callable[[dict[str, Any], Identity], Any]
+    handler: Callable[[dict[str, Any], Identity, str], Any]
     requires_order: bool = True
 
 
@@ -113,8 +113,14 @@ class ToolGateway:
         name: str,
         payload: dict[str, Any],
         identity: Identity,
-        trace_id: str | None = None,
+        trace_id: str,
     ) -> Any:
+        if not trace_id:
+            raise GatewayError(500, error_envelope(ErrorCode.INTERNAL_ERROR))
+        if not isinstance(payload, dict):
+            self._record(name, identity, None, "rejected", "INVALID_ARGUMENT", trace_id)
+            raise GatewayError(422, {"message": "参数非法"})
+
         tool = self._tools.get(name)
         if tool is None:
             self._record(name, identity, None, "rejected", "UNKNOWN_TOOL", trace_id)
@@ -141,7 +147,7 @@ class ToolGateway:
                 raise GatewayError(404, error_envelope(ErrorCode.NOT_FOUND_OR_UNAUTHORIZED))
 
         try:
-            result = tool.handler(dict(payload), identity)
+            result = tool.handler(dict(payload), identity, trace_id)
         except TimeoutError as error:
             code = self._timeout_code(name)
             self._record(name, identity, order_id, "failed", code.value, trace_id)
@@ -151,7 +157,7 @@ class ToolGateway:
             raise GatewayError(502, error_envelope(ErrorCode.INVALID_RESPONSE)) from error
         except Exception as error:  # noqa: BLE001 - 网关必须兜住未知异常
             self._record(name, identity, order_id, "failed", "INTERNAL_ERROR", trace_id)
-            raise GatewayError(500, {"message": "内部错误"}) from error
+            raise GatewayError(500, error_envelope(ErrorCode.INTERNAL_ERROR)) from error
 
         self._record(name, identity, order_id, "ok", None, trace_id)
         return result
