@@ -55,7 +55,9 @@
   - _验收: AC-01、AC-02、AC-03_
 - [x] T09 [P] [US1] 实现查询意图识别与订单澄清（`services/agent_runtime/intent.py`）— depends on T17
   - _验收: AC-01、AC-08_
-- [ ] T10 [P] [US1] 实现查询结果展示与空态（`apps/web/components/QueryView.tsx`）— depends on T09
+- [ ] T18 [US1] 实现 Conversation API 与消息持久化（`services/api/conversation_routes.py`、`services/api/models.py`）— depends on T09、T17
+  - _验收: AC-01、AC-08_
+- [ ] T10 [P] [US1] 实现查询结果展示与空态（`apps/web/components/QueryView.tsx`）— depends on T18
   - _验收: AC-01_
 
 **Checkpoint**：查询切片可独立演示。
@@ -101,7 +103,7 @@
 
 - **Setup（T01、T02）**：已完成
 - **Foundational（T03 至 T06）**：依赖 Setup，**阻塞所有用户故事**
-  - 说明：2026-11-15 补 T17，原任务地图遗漏“Tool handler 实现”；查询切片以 T17 为前置
+  - 说明：2026-11-15 补 T17（Tool handler）与 T18（Conversation API），原任务地图遗漏这两层；查询切片顺序为 T17 → T09 → T18 → T10
 - **User Stories（Phase 3 至 6）**：依赖 Foundational 完成
   - US-00 登录最先完成，为其他故事提供真实会话
   - US-01/02 查询与 US-03 取消可并行；US-05 依赖 US-03 的 Workflow

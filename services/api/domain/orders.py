@@ -25,6 +25,15 @@ class OrderStatus(StrEnum):
     CANCELLED = "CANCELLED"
 
 
+ORDER_STATUS_TEXT: dict[OrderStatus, str] = {
+    OrderStatus.PAID_UNFULFILLED: "待发货",
+    OrderStatus.FULFILLING: "备货中",
+    OrderStatus.SHIPPED: "已发货",
+    OrderStatus.DELIVERED: "已签收",
+    OrderStatus.CANCELLED: "已取消",
+}
+
+
 def is_cancelable(status: OrderStatus) -> bool:
     """M1 的取消资格只取决于订单状态；归属与租户由授权层负责。"""
     return status is OrderStatus.PAID_UNFULFILLED
