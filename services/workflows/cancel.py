@@ -1,6 +1,7 @@
 """Cancellation Workflow：状态机、确认、幂等提交、恢复重试与惰性超时。"""
 
 import asyncio
+import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -15,6 +16,8 @@ from services.api.auth import Identity
 from services.api.domain.cancellation import CancellationState, OmsCancelState
 from services.api.models import CancellationRequest as CancellationRow
 from services.tools.gateway import GatewayError, ToolGateway
+
+logger = logging.getLogger(__name__)
 
 ACTIVE_STATES = {CancellationState.COLLECTING, CancellationState.AWAITING_CONFIRMATION}
 RECOVERABLE_STATES = {CancellationState.SUBMITTING, CancellationState.SUBMIT_UNKNOWN}
@@ -290,6 +293,7 @@ class CancellationWorkflow:
             try:
                 await self._recover(identity, task, trace_id)
             except TaskConflict:
+                logger.warning("启动恢复遇到并发更新，跳过任务 %s", task.id)
                 continue
             recovered += 1
         return recovered
