@@ -271,3 +271,22 @@ def test_资格结果不可取消的反例_AC_07() -> None:
             "Response",
             {"eligible": "false", "reason_code": "SHIPPED", "requires_confirmation": False},
         )
+
+
+def test_每个错误码的四种属性组合只有正确值通过_AC_11() -> None:
+    """四种 (retryable, visible) 组合里，只有与错误码规格一致的一种通过。"""
+    for code in ErrorCode:
+        spec = error_spec(code)
+        for retryable in (False, True):
+            for visible in (False, True):
+                envelope = {
+                    "code": code.value,
+                    "retryable": retryable,
+                    "visible": visible,
+                    "message": "示例消息",
+                }
+                if (retryable, visible) == (spec.retryable, spec.visible):
+                    validate_doc(DOMAIN, "ErrorEnvelope", envelope)
+                else:
+                    with pytest.raises(AssertionError):
+                        validate_doc(DOMAIN, "ErrorEnvelope", envelope)

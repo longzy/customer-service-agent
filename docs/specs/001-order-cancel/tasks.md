@@ -25,7 +25,7 @@
 
 **Purpose**：任何用户故事开工前必须完成的基础设施
 
-- [ ] T03 定义 5 个 Tool 契约（`packages/contracts/tools/*.json`）
+- [x] T03 定义 5 个 Tool 契约（`packages/contracts/tools/*.json`）
   - _验收: AC-01、AC-02、AC-04、AC-05、AC-07、AC-09、AC-10、AC-11_
 - [ ] T04 [P] 实现认证与租户上下文（`services/api/auth.py`、`services/api/middleware.py`）
   - _验收: AC-02、AC-03、AC-15_
