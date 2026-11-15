@@ -6,9 +6,9 @@
 - 应用代码：骨架 + 领域契约 + 会话后端；尚无订单查询与取消逻辑
 - 版本控制：Git 已初始化，`main` 分支；全部文档已提交，工作区干净
 - 当前 Milestone：M1 订单查询与未发货订单取消（规格已批准：`docs/specs/001-order-cancel/`）
-- 当前工作：T-18 Conversation API 待评审；随后 T-10
+- 当前工作：T-18 已完成；下一步 T-10 查询结果展示
 <!-- verify:start -->
-- 最近验证：`./scripts/verify.sh` 十项全绿——pytest 236 passed、mypy 29 个文件、文档检查通过（20 条 AC）、前端 lint/typecheck/test 通过
+- 最近验证：`./scripts/verify.sh` 十项全绿——pytest 243 passed、mypy 29 个文件、文档检查通过（20 条 AC）、前端 lint/typecheck/test 通过
 <!-- verify:end -->
 
 ## 本阶段目标
@@ -65,7 +65,7 @@
 - T-06 Mock OMS 完成：JSON 夹具、读写接口、幂等提交、故障规则引擎与开发期管理接口；177 个测试通过。
 - T-17 已完成并通过两轮评审：查询 Tool 接入网关、摘要投影、隔离与审计断言，203 个测试通过。
 - T-05、T-06、T-16 已完成；T-09/T-10 尚未开始。
-- T-18 完成（待评审）：Conversation API、消息持久化与真实 DeepSeek 端到端，236 个测试通过。
+- T-18 已完成并通过评审：Conversation API、消息持久化、真实 DeepSeek 端到端；243 个测试通过。
 - 已接入真实 DeepSeek（密钥仅在本地 `.env`，未入库）。
 - 已知遗留：网关真实超时（`oms_timeout_seconds`）尚未接入，由 T-08 实现（T-17 登记）。
 

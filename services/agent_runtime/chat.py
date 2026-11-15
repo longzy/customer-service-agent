@@ -7,6 +7,7 @@ from uuid import uuid4
 from services.agent_runtime.intent import classify_message
 from services.agent_runtime.types import Intent
 from services.api.auth import Identity
+from services.api.domain.errors import ErrorCode
 from services.api.domain.orders import ORDER_STATUS_TEXT, OrderStatus
 from services.tools.gateway import GatewayError, ToolGateway
 
@@ -30,11 +31,21 @@ class Reply:
     clarification: list[str] = field(default_factory=list)
 
 
+def _gateway_reply(error: GatewayError) -> str:
+    """只展示对用户可见的错误；内部错误不暴露未发生的动作。"""
+    payload = error.payload
+    if payload.get("code") == ErrorCode.NOT_FOUND_OR_UNAUTHORIZED.value:
+        return "查无此单，或你没有权限查看该订单。"
+    if payload.get("visible") is True:
+        return str(payload.get("message", "操作未完成，请稍后再试。"))
+    return "系统暂时不可用，请稍后再试。"
+
+
 def _summary_text(order: dict[str, Any]) -> str:
+    status = ORDER_STATUS_TEXT[OrderStatus(order["order_status"])]
     return (
         f"订单 {order['order_id']}：{order['item_summary']}，"
-        f"状态 {ORDER_STATUS_TEXT[OrderStatus(order['order_status'])]}，"
-        f"金额 {order['amount_cents'] / 100:.2f} 元。"
+        f"状态 {status}，金额 {order['amount_cents'] / 100:.2f} 元。"
     )
 
 
@@ -52,6 +63,8 @@ class ConversationService:
         conversation = await self._repository.get_or_create(identity, conversation_id)
         trace_id = str(uuid4())
         await self._repository.add_message(conversation, "user", content, trace_id)
+        # 模型调用前先落用户消息，避免超时或失败时丢输入
+        await self._repository.commit()
 
         classification = await classify_message(content, self._model)
         if classification.needs_clarification:
@@ -65,26 +78,30 @@ class ConversationService:
             )
 
         orders: list[dict[str, Any]] = []
-        if classification.intent == Intent.QUERY_ORDER and classification.order_id:
-            try:
+        try:
+            if classification.intent == Intent.QUERY_ORDER and classification.order_id:
                 orders = [
                     self._gateway.invoke(
                         "get_order", {"order_id": classification.order_id}, identity, trace_id
                     )
                 ]
-            except GatewayError as error:
-                reply = str(error.payload.get("message", "查询失败"))
-                await self._repository.add_message(conversation, "assistant", reply, trace_id)
-                return Reply(conversation_id=conversation, trace_id=trace_id, reply=reply)
-        elif classification.intent == Intent.QUERY_RECENT:
-            orders = self._gateway.invoke("list_recent_orders", {"limit": 5}, identity, trace_id)
+            elif classification.intent == Intent.QUERY_RECENT:
+                orders = self._gateway.invoke(
+                    "list_recent_orders", {"limit": 5}, identity, trace_id
+                )
+        except GatewayError as error:
+            reply = _gateway_reply(error)
+            await self._repository.add_message(conversation, "assistant", reply, trace_id)
+            return Reply(conversation_id=conversation, trace_id=trace_id, reply=reply)
 
         if orders:
             reply = "\n".join(_summary_text(order) for order in orders)
         elif classification.intent == Intent.HUMAN_HANDOFF:
-            reply = "已为你转接人工客服。"
+            reply = "已记录转人工请求，人工转接功能将在后续版本开放。"
+        elif classification.intent in (Intent.CANCEL_ORDER, Intent.CONFIRM_CANCEL):
+            reply = "取消功能将在后续版本开放，当前可以先查询订单。"
         else:
-            reply = "没有找到相关订单，请提供订单号后再试。"
+            reply = "我暂时没理解，请提供订单号，或说明要查询的订单。"
 
         await self._repository.add_message(conversation, "assistant", reply, trace_id)
         return Reply(conversation_id=conversation, trace_id=trace_id, reply=reply, orders=orders)

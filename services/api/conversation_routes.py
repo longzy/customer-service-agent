@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.agent_runtime.chat import ConversationRepository, ConversationService
+from services.agent_runtime.intent import IntentError
 from services.agent_runtime.model import ModelError
 from services.api.auth import Identity, current_identity
 from services.api.db import get_session
@@ -88,7 +89,9 @@ async def send_message(
         reply = await service.handle(identity, payload.content, payload.conversation_id)
     except PermissionError as error:
         raise HTTPException(status_code=404, detail="会话不存在") from error
-    except ModelError as error:
+    except (ModelError, IntentError) as error:
+        # 用户消息已在编排开始前提交，这里再提交一次兜底
+        await repository.commit()
         raise HTTPException(status_code=503, detail="模型服务不可用") from error
     await repository.commit()
     return asdict(reply)

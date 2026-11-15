@@ -2,11 +2,16 @@
 
 from typing import Any
 
+import pytest
 from fastapi.testclient import TestClient
 
 from services.agent_runtime.model import FakeModelClient
 from services.api.conversation_routes import get_repository
 from services.api.main import create_app
+from services.tools.query import build_query_gateway
+from tests.integration.db_utils import db_available
+
+pytestmark = pytest.mark.skipif(not db_available(), reason="Postgres 不可用")
 
 
 class MemoryRepository:
@@ -26,7 +31,7 @@ class MemoryRepository:
         self.committed = True
 
 
-def test_未登录不能发消息_AC_01() -> None:
+def test_未登录不能发消息_AC_20() -> None:
     with TestClient(create_app()) as api:
         assert api.post("/message", json={"content": "查 ORD-10001"}).status_code == 401
 
@@ -63,7 +68,7 @@ def test_多候选返回澄清_AC_08() -> None:
         assert body["clarification"] == ["ORD-10001", "ORD-10002"]
 
 
-def test_模型不可用返回503且不写助手消息_AC_01() -> None:
+def test_模型不可用返回503且保留用户消息_基座豁免() -> None:
     repo = MemoryRepository()
     app = create_app()
 
@@ -80,3 +85,33 @@ def test_模型不可用返回503且不写助手消息_AC_01() -> None:
         response = api.post("/message", json={"content": "查 ORD-10001"})
         assert response.status_code == 503
         assert [role for _, role, _, _ in repo.messages] == ["user"]
+        assert repo.committed is True, "模型失败时也应保留用户消息"
+
+
+def test_非法模型输出返回503并保留用户消息_基座豁免() -> None:
+    repo = MemoryRepository()
+    app = create_app()
+    app.state.model_client = FakeModelClient({"查单": {"intent": "NOT_AN_INTENT"}})
+    app.dependency_overrides[get_repository] = lambda: repo
+    with TestClient(app) as api:
+        api.post("/session", json={"account_id": "zhang-ming"})
+        response = api.post("/message", json={"content": "查单"})
+        assert response.status_code == 503
+        assert [role for _, role, _, _ in repo.messages] == ["user"]
+        assert repo.committed is True
+
+
+def test_最近订单故障返回可见文案_AC_01() -> None:
+    from services.mock_oms.faults import FaultRule
+
+    repo = MemoryRepository()
+    app = create_app()
+    app.state.model_client = FakeModelClient({"我的订单": {"intent": "QUERY_RECENT"}})
+    app.state.query_gateway = build_query_gateway(app.state.oms)
+    app.state.oms.faults.add(FaultRule(kind="unavailable", tool="list_recent_orders"))
+    app.dependency_overrides[get_repository] = lambda: repo
+    with TestClient(app) as api:
+        api.post("/session", json={"account_id": "zhang-ming"})
+        body = api.post("/message", json={"content": "我的订单"}).json()
+        assert body["orders"] == []
+        assert "服务暂时不可用" in body["reply"]
