@@ -1,4 +1,4 @@
-"""运行期配置。默认值对应本机开发环境，部署时必须通过环境变量覆盖。"""
+"""运行期配置。默认按 production 运行；本机开发需在 .env 设置 ENVIRONMENT=development。"""
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 

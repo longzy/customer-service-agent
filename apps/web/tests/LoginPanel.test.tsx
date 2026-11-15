@@ -96,3 +96,27 @@ describe("LoginPanel 重复提交", () => {
     resolveLogin(new Response(JSON.stringify(accounts[0]), { status: 200 }));
   });
 });
+
+describe("LoginPanel 加载与重试", () => {
+  beforeEach(() => {
+    push.mockReset();
+    vi.restoreAllMocks();
+  });
+
+  it("加载中显示提示（AC-20）", () => {
+    vi.spyOn(global, "fetch").mockImplementation(() => new Promise(() => {}));
+    render(<LoginPanel />);
+    expect(screen.getByText("加载中…")).toBeInTheDocument();
+  });
+
+  it("失败后可点击重试重新拉取（AC-20）", async () => {
+    const fetchMock = vi
+      .spyOn(global, "fetch")
+      .mockResolvedValueOnce(new Response(JSON.stringify({ detail: "boom" }), { status: 500 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(accounts), { status: 200 }));
+    render(<LoginPanel />);
+    fireEvent.click(await screen.findByRole("button", { name: "重试" }));
+    expect(await screen.findByText("张明")).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+});

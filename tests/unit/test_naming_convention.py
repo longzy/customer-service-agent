@@ -51,7 +51,7 @@ def test_验收后缀写法一致() -> None:
     assert bad == [], f"验收后缀写法不规范：{bad}"
 
 
-def test_前端测试不使用连字符验收编号() -> None:
+def test_前端测试不使用连字符验收编号_基座豁免() -> None:
     forbidden = "_AC" + "-"
     offenders = [
         str(path)

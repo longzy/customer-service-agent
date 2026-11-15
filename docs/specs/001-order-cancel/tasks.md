@@ -41,7 +41,7 @@
 **Goal**：用户能选择测试账号进入系统，并在租户之间切换
 **Independent Test**：打开未登录页面，选择租户 A 的账号，验证会话与身份；再切换到租户 B，验证授权随之变化
 
-- [ ] T16 [P] [US0] 实现测试账号登录页（`apps/web/app/login/page.tsx`、`apps/web/components/LoginPanel.tsx`）— depends on T04
+- [x] T16 [P] [US0] 实现测试账号登录页（`apps/web/app/login/page.tsx`、`apps/web/components/LoginPanel.tsx`）— depends on T04
   - _验收: AC-20_
 
 **Checkpoint**：登录与账号切换可独立演示，后续展示均从真实会话开始。

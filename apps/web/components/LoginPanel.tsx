@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { getAccounts, login, type Account } from "@/lib/session";
@@ -13,15 +13,22 @@ export function LoginPanel() {
   const [busy, setBusy] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
-  useEffect(() => {
-    void getAccounts()
-      .then((items) => {
-        setAccounts(items);
-        setSelected(items[0]?.account_id ?? null);
-        setLoaded(true);
-      })
-      .catch((cause: Error) => setError(cause.message));
+  const load = useCallback(async () => {
+    setError(null);
+    setLoaded(false);
+    try {
+      const items = await getAccounts();
+      setAccounts(items);
+      setSelected(items[0]?.account_id ?? null);
+      setLoaded(true);
+    } catch (cause) {
+      setError((cause as Error).message);
+    }
   }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   const current = accounts.find((account) => account.account_id === selected);
 
@@ -46,9 +53,14 @@ export function LoginPanel() {
         <h1>客服中心</h1>
         <p className="login-note">开发期测试账号，请选择一个身份进入</p>
         {error ? (
-          <p className="login-error" role="alert">
-            {error}
-          </p>
+          <>
+            <p className="login-error" role="alert">
+              {error}
+            </p>
+            <button type="button" className="ghost" onClick={() => void load()}>
+              重试
+            </button>
+          </>
         ) : null}
         {!loaded && !error ? <p className="login-note">加载中…</p> : null}
         {loaded && accounts.length === 0 ? <p className="login-note">无可用账号</p> : null}

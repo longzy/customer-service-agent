@@ -49,7 +49,7 @@ def test_非开发环境禁止测试账号登录_AC_20(monkeypatch: pytest.Monke
         assert api.get("/accounts").status_code == 404
 
 
-def test_未设置环境变量时默认关闭测试账号(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_未设置环境变量时默认关闭测试账号_AC_20(monkeypatch: pytest.MonkeyPatch) -> None:
     from services.api.settings import Settings
 
     monkeypatch.delenv("ENVIRONMENT", raising=False)
