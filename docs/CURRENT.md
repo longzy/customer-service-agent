@@ -6,7 +6,7 @@
 - 应用代码：骨架 + 领域契约 + 会话后端；尚无订单查询与取消逻辑
 - 版本控制：Git 已初始化，`main` 分支；全部文档已提交，工作区干净
 - 当前 Milestone：M1 订单查询与未发货订单取消（规格已批准：`docs/specs/001-order-cancel/`）
-- 当前工作：T-05 已完成，下一步 T-06 Mock OMS
+- 当前工作：T-06 Mock OMS 执行卡已就绪
 - 最近验证：`./scripts/verify.sh` 九项全绿——ruff All checks passed、mypy 15 个文件无问题、pytest 148 passed、文档检查 37 个文件 20 条 AC、前端 lint/typecheck/test 通过
 
 ## 本阶段目标
@@ -68,7 +68,7 @@
 
 ## 下一步
 
-1. 执行 T-06：Mock OMS、故障注入与预置夹具。
+1. 执行 T-06：JSON 夹具、读写接口、幂等提交与故障规则引擎。
 2. 并行推进 T-16 登录页；两者完成后可开始查询切片 T-09/T-10。
 2. T-05 网关依赖 T-03/T-04；T-06 Mock OMS 可与 T-04 并行。
 3. Foundational 完成后，查询切片（T-09、T-10）与取消切片（T-07、T-08、T-14）可并行。
