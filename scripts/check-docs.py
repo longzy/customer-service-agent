@@ -33,6 +33,7 @@ STATUS_WORDS = {
     "已清零",
     "待确认",
     "待开工许可",
+    "待评审",
 }
 
 CURRENT_REQUIRED_FIELDS = [

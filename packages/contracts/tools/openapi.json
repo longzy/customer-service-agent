@@ -1,0 +1,686 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "M1 Tool 契约",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/tools/list_recent_orders": {
+      "post": {
+        "operationId": "list_recent_orders",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "limit"
+                ],
+                "properties": {
+                  "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/OrderSummary"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-error-codes": [
+          "NOT_FOUND_OR_UNAUTHORIZED",
+          "DEPENDENCY_UNAVAILABLE",
+          "DEPENDENCY_TIMEOUT",
+          "INVALID_RESPONSE"
+        ]
+      }
+    },
+    "/tools/get_order": {
+      "post": {
+        "operationId": "get_order",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "order_id"
+                ],
+                "properties": {
+                  "order_id": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrderDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-error-codes": [
+          "NOT_FOUND_OR_UNAUTHORIZED",
+          "DEPENDENCY_UNAVAILABLE",
+          "DEPENDENCY_TIMEOUT",
+          "INVALID_RESPONSE"
+        ]
+      }
+    },
+    "/tools/get_cancel_eligibility": {
+      "post": {
+        "operationId": "get_cancel_eligibility",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "order_id"
+                ],
+                "properties": {
+                  "order_id": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CancelEligibility"
+                }
+              }
+            }
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-error-codes": [
+          "NOT_FOUND_OR_UNAUTHORIZED",
+          "DEPENDENCY_UNAVAILABLE",
+          "INVALID_RESPONSE"
+        ]
+      }
+    },
+    "/tools/submit_cancel": {
+      "post": {
+        "operationId": "submit_cancel",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "order_id",
+                  "idempotency_key"
+                ],
+                "properties": {
+                  "order_id": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "idempotency_key": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 128
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "state"
+                  ],
+                  "properties": {
+                    "state": {
+                      "$ref": "#/components/schemas/CancellationState"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-error-codes": [
+          "ELIGIBILITY_REJECTED",
+          "OMS_REJECTED",
+          "NOT_FOUND_OR_UNAUTHORIZED",
+          "DEPENDENCY_UNAVAILABLE",
+          "DEPENDENCY_TIMEOUT",
+          "INVALID_RESPONSE",
+          "INTERNAL_ERROR"
+        ]
+      }
+    },
+    "/tools/get_cancel_result": {
+      "post": {
+        "operationId": "get_cancel_result",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "idempotency_key"
+                ],
+                "properties": {
+                  "idempotency_key": {
+                    "type": "string",
+                    "minLength": 8,
+                    "maxLength": 128
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "state"
+                  ],
+                  "properties": {
+                    "state": {
+                      "$ref": "#/components/schemas/CancellationState"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            }
+          }
+        },
+        "x-error-codes": [
+          "NOT_FOUND_OR_UNAUTHORIZED",
+          "DEPENDENCY_UNAVAILABLE",
+          "DEPENDENCY_TIMEOUT",
+          "INVALID_RESPONSE"
+        ]
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "OrderStatus": {
+        "type": "string",
+        "enum": [
+          "PAID_UNFULFILLED",
+          "FULFILLING",
+          "SHIPPED",
+          "DELIVERED",
+          "CANCELLED"
+        ]
+      },
+      "CancellationState": {
+        "type": "string",
+        "enum": [
+          "COLLECTING",
+          "AWAITING_CONFIRMATION",
+          "ELIGIBILITY_REJECTED",
+          "SUBMITTING",
+          "SUBMIT_UNKNOWN",
+          "ACCEPTED",
+          "CANCELLED",
+          "REJECTED",
+          "MANUAL_REVIEW",
+          "ABANDONED"
+        ]
+      },
+      "ErrorCode": {
+        "type": "string",
+        "enum": [
+          "ELIGIBILITY_REJECTED",
+          "OMS_REJECTED",
+          "NOT_FOUND_OR_UNAUTHORIZED",
+          "DEPENDENCY_UNAVAILABLE",
+          "DEPENDENCY_TIMEOUT",
+          "INVALID_RESPONSE",
+          "INTERNAL_ERROR"
+        ]
+      },
+      "OrderItem": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "sku",
+          "name",
+          "quantity",
+          "unit_amount_cents"
+        ],
+        "properties": {
+          "sku": {
+            "type": "string",
+            "minLength": 1
+          },
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "quantity": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "unit_amount_cents": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "OrderSummary": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "order_id",
+          "item_summary",
+          "order_status",
+          "cancelable",
+          "amount_cents",
+          "currency",
+          "created_at"
+        ],
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "item_summary": {
+            "type": "string",
+            "minLength": 1
+          },
+          "order_status": {
+            "$ref": "#/components/schemas/OrderStatus"
+          },
+          "cancelable": {
+            "type": "boolean"
+          },
+          "amount_cents": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "created_at": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$",
+            "format": "date-time"
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "order_status": {
+                  "const": "PAID_UNFULFILLED"
+                }
+              },
+              "required": [
+                "order_status"
+              ]
+            },
+            "then": {
+              "properties": {
+                "cancelable": {
+                  "const": true
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "cancelable": {
+                  "const": false
+                }
+              }
+            }
+          }
+        ]
+      },
+      "OrderDetail": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "order_id",
+          "item_summary",
+          "order_status",
+          "cancelable",
+          "amount_cents",
+          "currency",
+          "created_at",
+          "items",
+          "paid_at",
+          "shipped_at"
+        ],
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "item_summary": {
+            "type": "string",
+            "minLength": 1
+          },
+          "order_status": {
+            "$ref": "#/components/schemas/OrderStatus"
+          },
+          "cancelable": {
+            "type": "boolean"
+          },
+          "amount_cents": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "currency": {
+            "type": "string",
+            "pattern": "^[A-Z]{3}$"
+          },
+          "created_at": {
+            "type": "string",
+            "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderItem"
+            }
+          },
+          "paid_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "shipped_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "order_status": {
+                  "const": "PAID_UNFULFILLED"
+                }
+              },
+              "required": [
+                "order_status"
+              ]
+            },
+            "then": {
+              "properties": {
+                "cancelable": {
+                  "const": true
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "cancelable": {
+                  "const": false
+                }
+              }
+            }
+          }
+        ]
+      },
+      "CancelEligibility": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "eligible",
+          "reason_code",
+          "requires_confirmation"
+        ],
+        "properties": {
+          "eligible": {
+            "type": "boolean"
+          },
+          "reason_code": {
+            "type": "string",
+            "minLength": 1
+          },
+          "requires_confirmation": {
+            "type": "boolean"
+          }
+        }
+      },
+      "ErrorEnvelope": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "code",
+          "retryable",
+          "visible",
+          "message"
+        ],
+        "properties": {
+          "code": {
+            "$ref": "#/components/schemas/ErrorCode"
+          },
+          "retryable": {
+            "type": "boolean"
+          },
+          "visible": {
+            "type": "boolean"
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "ListRecentOrdersRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "limit"
+        ],
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10
+          }
+        }
+      },
+      "ListRecentOrdersResponse": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/OrderSummary"
+        }
+      },
+      "GetOrderRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "order_id"
+        ],
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "GetOrderResponse": {
+        "$ref": "#/components/schemas/OrderDetail"
+      },
+      "GetCancelEligibilityRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "order_id"
+        ],
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      },
+      "GetCancelEligibilityResponse": {
+        "$ref": "#/components/schemas/CancelEligibility"
+      },
+      "SubmitCancelRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "order_id",
+          "idempotency_key"
+        ],
+        "properties": {
+          "order_id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 128
+          }
+        }
+      },
+      "SubmitCancelResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "state"
+        ],
+        "properties": {
+          "state": {
+            "$ref": "#/components/schemas/CancellationState"
+          }
+        }
+      },
+      "GetCancelResultRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "idempotency_key"
+        ],
+        "properties": {
+          "idempotency_key": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 128
+          }
+        }
+      },
+      "GetCancelResultResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "state"
+        ],
+        "properties": {
+          "state": {
+            "$ref": "#/components/schemas/CancellationState"
+          }
+        }
+      }
+    }
+  }
+}

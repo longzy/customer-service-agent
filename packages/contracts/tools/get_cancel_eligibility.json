@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/contracts/tools/get_cancel_eligibility.json",
+  "title": "get_cancel_eligibility",
+  "x-error-codes": [
+    "NOT_FOUND_OR_UNAUTHORIZED",
+    "DEPENDENCY_UNAVAILABLE",
+    "INVALID_RESPONSE"
+  ],
+  "$defs": {
+    "Request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "order_id"
+      ],
+      "properties": {
+        "order_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "Response": {
+      "$ref": "https://example.local/contracts/domain.json#/$defs/CancelEligibility"
+    }
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/contracts/tools/get_cancel_result.json",
+  "title": "get_cancel_result",
+  "x-error-codes": [
+    "NOT_FOUND_OR_UNAUTHORIZED",
+    "DEPENDENCY_UNAVAILABLE",
+    "DEPENDENCY_TIMEOUT",
+    "INVALID_RESPONSE"
+  ],
+  "$defs": {
+    "Request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "idempotency_key"
+      ],
+      "properties": {
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 128
+        }
+      }
+    },
+    "Response": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state"
+      ],
+      "properties": {
+        "state": {
+          "$ref": "https://example.local/contracts/domain.json#/$defs/CancellationState"
+        }
+      }
+    }
+  }
+}

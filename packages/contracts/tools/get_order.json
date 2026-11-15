@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/contracts/tools/get_order.json",
+  "title": "get_order",
+  "x-error-codes": [
+    "NOT_FOUND_OR_UNAUTHORIZED",
+    "DEPENDENCY_UNAVAILABLE",
+    "DEPENDENCY_TIMEOUT",
+    "INVALID_RESPONSE"
+  ],
+  "$defs": {
+    "Request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "order_id"
+      ],
+      "properties": {
+        "order_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "Response": {
+      "$ref": "https://example.local/contracts/domain.json#/$defs/OrderDetail"
+    }
+  }
+}

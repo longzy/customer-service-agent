@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/contracts/tools/submit_cancel.json",
+  "title": "submit_cancel",
+  "x-error-codes": [
+    "ELIGIBILITY_REJECTED",
+    "OMS_REJECTED",
+    "NOT_FOUND_OR_UNAUTHORIZED",
+    "DEPENDENCY_UNAVAILABLE",
+    "DEPENDENCY_TIMEOUT",
+    "INVALID_RESPONSE",
+    "INTERNAL_ERROR"
+  ],
+  "$defs": {
+    "Request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "order_id",
+        "idempotency_key"
+      ],
+      "properties": {
+        "order_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "idempotency_key": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 128
+        }
+      }
+    },
+    "Response": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "state"
+      ],
+      "properties": {
+        "state": {
+          "$ref": "https://example.local/contracts/domain.json#/$defs/CancellationState"
+        }
+      }
+    }
+  }
+}

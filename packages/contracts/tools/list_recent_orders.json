@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/contracts/tools/list_recent_orders.json",
+  "title": "list_recent_orders",
+  "x-error-codes": [
+    "NOT_FOUND_OR_UNAUTHORIZED",
+    "DEPENDENCY_UNAVAILABLE",
+    "DEPENDENCY_TIMEOUT",
+    "INVALID_RESPONSE"
+  ],
+  "$defs": {
+    "Request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "limit"
+      ],
+      "properties": {
+        "limit": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 10
+        }
+      }
+    },
+    "Response": {
+      "type": "array",
+      "items": {
+        "$ref": "https://example.local/contracts/domain.json#/$defs/OrderSummary"
+      }
+    }
+  }
+}
