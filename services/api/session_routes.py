@@ -35,11 +35,13 @@ def _public(identity: Identity) -> dict[str, str]:
 
 
 @router.post("/session")
-def login(payload: SessionRequest, response: Response) -> dict[str, str]:
+def login(payload: SessionRequest, request: Request, response: Response) -> dict[str, str]:
     result = create_session(payload.account_id)
     if result is None:
         raise HTTPException(status_code=404, detail="账号不存在")
     sid, identity = result
+    # 切换账号时结束旧会话，避免旧 sid 继续可用
+    destroy_session(request.cookies.get(SESSION_COOKIE))
     response.set_cookie(
         SESSION_COOKIE,
         sid,

@@ -32,11 +32,6 @@ ACCOUNTS: dict[str, Identity] = {
 _sessions: dict[str, tuple[Identity, datetime]] = {}
 
 
-def reset_sessions() -> None:
-    """仅供测试：清空会话，避免用例之间互相污染。"""
-    _sessions.clear()
-
-
 def create_session(account_id: str) -> tuple[str, Identity] | None:
     identity = ACCOUNTS.get(account_id)
     if identity is None:

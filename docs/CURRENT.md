@@ -3,11 +3,11 @@
 - 更新日期：2026-11-15
 - 项目阶段：M1 订单查询与未发货订单取消（M0 出口条件已满足）
 - 当前状态：进行中
-- 应用代码：已建立工程骨架（T-01），尚无业务逻辑
+- 应用代码：骨架 + 领域契约 + 会话后端；尚无订单查询与取消逻辑
 - 版本控制：Git 已初始化，`main` 分支；全部文档已提交，工作区干净
 - 当前 Milestone：M1 订单查询与未发货订单取消（规格已批准：`docs/specs/001-order-cancel/`）
 - 当前工作：T-04 会话后端完成，待独立评审
-- 最近验证：`./scripts/verify.sh` 九项全绿——ruff All checks passed、mypy 12 个文件无问题、pytest 110 passed、文档检查 34 个文件 20 条 AC、前端 lint/typecheck/test 通过
+- 最近验证：`./scripts/verify.sh` 九项全绿——ruff All checks passed、mypy 14 个文件无问题、pytest 124 passed、文档检查 35 个文件 20 条 AC、前端 lint/typecheck/test 通过
 
 ## 本阶段目标
 
