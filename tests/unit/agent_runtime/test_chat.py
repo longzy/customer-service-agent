@@ -164,3 +164,22 @@ async def test_取消意图返回卡片数据_AC_04() -> None:
     assert reply.cancellation["state_text"] == "等待您确认"
     assert reply.cancellation["order"]["order_id"] == "ORD-10001"
     assert reply.cancellation["order"]["status_text"] == "待发货"
+
+
+async def test_取消路径网关错误返回文案_AC_04() -> None:
+    from services.api.domain.errors import ErrorCode
+    from services.tools.gateway import GatewayError, error_envelope
+
+    class FailingWorkflow:
+        async def request(self, identity, order_id, trace_id):
+            raise GatewayError(503, error_envelope(ErrorCode.DEPENDENCY_UNAVAILABLE))
+
+    chat = ConversationService(
+        MemoryRepository(),
+        FakeModelClient({"取消 ORD-10001": {"intent": "CANCEL_ORDER", "order_id": "ORD-10001"}}),
+        build_query_gateway(MockOms()),
+        cancellation=FailingWorkflow(),
+    )
+    reply = await chat.handle(IDENTITY, "取消 ORD-10001")
+    assert reply.cancellation is None
+    assert "服务暂时不可用" in reply.reply

@@ -15,6 +15,10 @@ type ChatMessage = {
   cancellation?: Cancellation;
 };
 
+type RetryAction =
+  | { kind: "message"; content: string }
+  | { kind: "act"; taskId: string; action: "confirm" | "abandon" };
+
 type Reply = {
   conversation_id: string;
   reply: string;
@@ -40,42 +44,58 @@ export function ChatShell({
   const [value, setValue] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<{ message: string; retry: string } | null>(null);
+  const [error, setError] = useState<{ message: string; retry: RetryAction } | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
 
-  async function act(messageId: string, card: Cancellation, action: "confirm" | "abandon") {
+  function updateCard(
+    taskId: string,
+    body: { state: string; state_text: string; reason_code: string | null },
+  ) {
+    setMessages((items) =>
+      items.map((item) =>
+        item.cancellation?.task_id === taskId
+          ? {
+              ...item,
+              cancellation: {
+                ...item.cancellation,
+                state: body.state,
+                state_text: body.state_text,
+                reason_code: body.reason_code,
+              },
+            }
+          : item,
+      ),
+    );
+  }
+
+  async function act(taskId: string, action: "confirm" | "abandon") {
     setBusy(true);
     setError(null);
+    const retry: RetryAction = { kind: "act", taskId, action };
     try {
-      const response = await fetch(`/api/cancellation-requests/${card.task_id}/${action}`, {
+      const response = await fetch(`/api/cancellation-requests/${taskId}/${action}`, {
         method: "POST",
       });
-      if (!response.ok) {
-        setError({ message: "请求未完成，请重试。", retry: "" });
+      if (response.status === 401) {
+        router.replace("/login");
         return;
       }
-      const body = (await response.json()) as {
-        state: string;
-        state_text: string;
-        reason_code: string | null;
-      };
-      setMessages((items) =>
-        items.map((item) =>
-          item.id === messageId && item.cancellation
-            ? {
-                ...item,
-                cancellation: {
-                  ...item.cancellation,
-                  state: body.state,
-                  state_text: body.state_text,
-                  reason_code: body.reason_code,
-                },
-              }
-            : item,
-        ),
-      );
+      if (response.status === 409) {
+        const current = await fetch(`/api/cancellation-requests/${taskId}`);
+        if (current.ok) {
+          updateCard(taskId, await current.json());
+          return;
+        }
+        setError({ message: "任务状态已变化，请稍后再试。", retry });
+        return;
+      }
+      if (!response.ok) {
+        setError({ message: "请求未完成，请重试。", retry });
+        return;
+      }
+      updateCard(taskId, await response.json());
     } catch {
-      setError({ message: "请求未完成，请重试。", retry: "" });
+      setError({ message: "请求未完成，请重试。", retry });
     } finally {
       setBusy(false);
     }
@@ -103,7 +123,7 @@ export function ChatShell({
         return;
       }
       if (!response.ok) {
-        setError({ message: "请求未完成，请重试。", retry: text });
+        setError({ message: "请求未完成，请重试。", retry: { kind: "message", content: text } });
         return;
       }
       const body = (await response.json()) as Reply;
@@ -120,7 +140,7 @@ export function ChatShell({
         },
       ]);
     } catch {
-      setError({ message: "请求未完成，请重试。", retry: text });
+      setError({ message: "请求未完成，请重试。", retry: { kind: "message", content: text } });
     } finally {
       setBusy(false);
     }
@@ -185,8 +205,8 @@ export function ChatShell({
               <ConfirmCard
                 cancellation={message.cancellation}
                 busy={busy}
-                onConfirm={() => void act(message.id, message.cancellation!, "confirm")}
-                onAbandon={() => void act(message.id, message.cancellation!, "abandon")}
+                onConfirm={() => void act(message.cancellation!.task_id, "confirm")}
+                onAbandon={() => void act(message.cancellation!.task_id, "abandon")}
               />
             ) : null}
             {message.clarification?.length ? (
@@ -202,7 +222,15 @@ export function ChatShell({
         {error ? (
           <div className="bubble assistant">
             <p role="alert">{error.message}</p>
-            <button type="button" className="ghost" onClick={() => void submit(error.retry, false)}>
+            <button
+              type="button"
+              className="ghost"
+              onClick={() =>
+                error.retry.kind === "message"
+                  ? void submit(error.retry.content, false)
+                  : void act(error.retry.taskId, error.retry.action)
+              }
+            >
               重试
             </button>
           </div>

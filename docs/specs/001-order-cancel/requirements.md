@@ -237,7 +237,7 @@
 - `COLLECTING`：正在确认订单和信息。
 - `AWAITING_CONFIRMATION`：等待用户明确确认。
 - `ELIGIBILITY_REJECTED`：不符合条件，禁止提交。
-- `SUBMITTING`：正在提交。
+- `SUBMITTING`：正在提交取消申请。
 - `SUBMIT_UNKNOWN`：提交结果未知，需要查询。
 - `ACCEPTED`：OMS 已受理，但尚未确认最终取消。
 - `CANCELLED`：OMS 已确认订单取消。
@@ -254,7 +254,7 @@
 | `COLLECTING` | 正在确认订单信息 |
 | `AWAITING_CONFIRMATION` | 等待您确认 |
 | `ELIGIBILITY_REJECTED` | 不可取消，并说明原因 |
-| `SUBMITTING` | 正在提交（过渡态，通常不单独展示） |
+| `SUBMITTING` | 正在提交取消申请 |
 | `SUBMIT_UNKNOWN` | 已提交，正在核实受理结果 |
 | `ACCEPTED` | 已受理，等待最终取消结果 |
 | `CANCELLED` | 已取消 |

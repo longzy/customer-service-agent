@@ -148,10 +148,15 @@ class ConversationService:
             await self._repository.add_message(conversation, "assistant", reply, trace_id)
             return Reply(conversation_id=conversation, trace_id=trace_id, reply=reply)
 
-        task = await self._cancellation.request(identity, order_id, trace_id)
-        order = await asyncio.to_thread(
-            self._gateway.invoke, "get_order", {"order_id": order_id}, identity, trace_id
-        )
+        try:
+            order = await asyncio.to_thread(
+                self._gateway.invoke, "get_order", {"order_id": order_id}, identity, trace_id
+            )
+            task = await self._cancellation.request(identity, order_id, trace_id)
+        except GatewayError as error:
+            reply = _gateway_reply(error)
+            await self._repository.add_message(conversation, "assistant", reply, trace_id)
+            return Reply(conversation_id=conversation, trace_id=trace_id, reply=reply)
         summary = {
             "order_id": order["order_id"],
             "item_summary": order["item_summary"],

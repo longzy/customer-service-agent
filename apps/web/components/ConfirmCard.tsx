@@ -68,7 +68,7 @@ export function ConfirmCard({
         <li>仅未发货订单可以取消</li>
       </ul>
       <p className="confirm-impact">确认后将向订单系统提交取消申请，通常几分钟内完成。</p>
-      {pending ? <p className="hint-text">已提交，正在核实受理结果</p> : null}
+      {pending ? <p className="hint-text">{cancellation.state_text}</p> : null}
       <div className="confirm-actions">
         <button type="button" className="ghost" onClick={onAbandon} disabled={busy}>
           不取消

@@ -50,7 +50,7 @@ describe("ConfirmCard", () => {
       />,
     );
     expect(screen.getByRole("button", { name: "确认取消" })).toBeDisabled();
-    expect(screen.getByText("已提交，正在核实受理结果")).toBeInTheDocument();
+    expect(screen.getByText("正在提交")).toBeInTheDocument();
   });
 
   it("终态收起卡片（AC-16）", () => {
@@ -63,6 +63,41 @@ describe("ConfirmCard", () => {
       />,
     );
     expect(screen.getByText("已取消")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "确认取消" })).not.toBeInTheDocument();
+  });
+});
+
+describe("ConfirmCard 终态覆盖", () => {
+  const base: Cancellation = {
+    task_id: "task-1",
+    state: "AWAITING_CONFIRMATION",
+    state_text: "等待您确认",
+    reason_code: null,
+    expires_at: "2026-11-15T12:00:00Z",
+    order: {
+      order_id: "ORD-10001",
+      item_summary: "无线耳机 × 1",
+      status_text: "待发货",
+      amount_cents: 39900,
+      currency: "CNY",
+    },
+  };
+
+  it.each([
+    ["REJECTED", "取消申请被拒绝"],
+    ["MANUAL_REVIEW", "已转人工处理"],
+    ["ABANDONED", "未提交（已放弃）"],
+    ["ELIGIBILITY_REJECTED", "不可取消，并说明原因"],
+  ])("终态 %s 展示后端文案（AC-16）", (state, text) => {
+    render(
+      <ConfirmCard
+        cancellation={{ ...base, state, state_text: text, reason_code: "SHIPPED" }}
+        busy={false}
+        onConfirm={vi.fn()}
+        onAbandon={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(text)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "确认取消" })).not.toBeInTheDocument();
   });
 });

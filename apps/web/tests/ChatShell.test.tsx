@@ -200,3 +200,73 @@ describe("ChatShell 取消卡片", () => {
     });
   });
 });
+
+describe("ChatShell 取消动作失败", () => {
+  const cancellation = {
+    task_id: "task-2",
+    state: "AWAITING_CONFIRMATION",
+    state_text: "等待您确认",
+    reason_code: null,
+    expires_at: "2026-11-15T12:00:00Z",
+    order: {
+      order_id: "ORD-10001",
+      item_summary: "无线耳机 × 1",
+      status_text: "待发货",
+      amount_cents: 39900,
+      currency: "CNY",
+    },
+  };
+
+  async function renderCard() {
+    vi.spyOn(global, "fetch").mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          conversation_id: "conv-1",
+          reply: "等待您确认",
+          orders: [],
+          cancellation,
+        }),
+        { status: 200 },
+      ),
+    );
+    render(<ChatShell />);
+    fireEvent.change(screen.getByLabelText("输入消息"), { target: { value: "取消 ORD-10001" } });
+    fireEvent.click(screen.getByRole("button", { name: "发送" }));
+    await screen.findByRole("button", { name: "确认取消" });
+  }
+
+  it("不取消调用放弃接口（AC-06）", async () => {
+    await renderCard();
+    const fetchMock = vi
+      .spyOn(global, "fetch")
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({ state: "ABANDONED", state_text: "未提交（已放弃）", reason_code: null }),
+          { status: 200 },
+        ),
+      );
+    fireEvent.click(screen.getByRole("button", { name: "不取消" }));
+    expect(await screen.findByText("未提交（已放弃）")).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenLastCalledWith("/api/cancellation-requests/task-2/abandon", {
+      method: "POST",
+    });
+  });
+
+  it("确认冲突时查询最新状态（AC-05）", async () => {
+    await renderCard();
+    vi.spyOn(global, "fetch")
+      .mockResolvedValueOnce(new Response("{}", { status: 409 }))
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            state: "CANCELLED",
+            state_text: "已取消",
+            reason_code: null,
+          }),
+          { status: 200 },
+        ),
+      );
+    fireEvent.click(screen.getByRole("button", { name: "确认取消" }));
+    expect(await screen.findByText("已取消")).toBeInTheDocument();
+  });
+});

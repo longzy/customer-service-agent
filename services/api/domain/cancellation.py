@@ -39,7 +39,7 @@ EXPRESSIONS: dict[CancellationState, str] = {
     CancellationState.COLLECTING: "正在确认订单信息",
     CancellationState.AWAITING_CONFIRMATION: "等待您确认",
     CancellationState.ELIGIBILITY_REJECTED: "不可取消，并说明原因",
-    CancellationState.SUBMITTING: "正在提交（过渡态，通常不单独展示）",
+    CancellationState.SUBMITTING: "正在提交取消申请",
     CancellationState.SUBMIT_UNKNOWN: "已提交，正在核实受理结果",
     CancellationState.ACCEPTED: "已受理，等待最终取消结果",
     CancellationState.CANCELLED: "已取消",

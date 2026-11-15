@@ -11,7 +11,7 @@ EXPECTED = {
     "COLLECTING": "正在确认订单信息",
     "AWAITING_CONFIRMATION": "等待您确认",
     "ELIGIBILITY_REJECTED": "不可取消，并说明原因",
-    "SUBMITTING": "正在提交（过渡态，通常不单独展示）",
+    "SUBMITTING": "正在提交取消申请",
     "SUBMIT_UNKNOWN": "已提交，正在核实受理结果",
     "ACCEPTED": "已受理，等待最终取消结果",
     "CANCELLED": "已取消",
