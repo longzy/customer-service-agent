@@ -15,7 +15,7 @@ def test_app_starts_when_database_available() -> None:
         pytest.skip("本地数据库不可用，跳过启动自检")
 
 
-def test_startup_recovers_pending_task(monkeypatch) -> None:
+def test_startup_recovers_pending_task_AC_12(monkeypatch) -> None:
     import asyncio
     from datetime import UTC, datetime
 
@@ -78,7 +78,7 @@ async def _cleanup() -> None:
     await engine.dispose()
 
 
-def test_startup_retries_then_accepts(monkeypatch) -> None:
+def test_startup_retries_then_accepts_AC_10(monkeypatch) -> None:
     import asyncio
     from datetime import UTC, datetime
 
