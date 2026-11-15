@@ -52,7 +52,7 @@ import re
 match = re.search(r"(\d+) 条 AC", docs_line)
 ac_count = match.group(1) if match else "?"
 summary = (
-    f"- 最近验证：`./scripts/verify.sh` 十项全绿——"
+    f"- 最近验证：`./scripts/verify.sh` 全部检查通过——"
     f"pytest {pytest_count} passed、mypy {mypy_count} 个文件、"
     f"文档检查通过（{ac_count} 条 AC）、前端 lint/typecheck/test 通过"
 )

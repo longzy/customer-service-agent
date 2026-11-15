@@ -8,7 +8,7 @@
 - 当前 Milestone：M1 订单查询与未发货订单取消（规格已批准：`docs/specs/001-order-cancel/`）
 - 当前工作：T-15 已完成；下一步 T-11 结果校验
 <!-- verify:start -->
-- 最近验证：`./scripts/verify.sh` 十项全绿——pytest 300 passed、mypy 35 个文件、文档检查通过（20 条 AC）、前端 lint/typecheck/test 通过
+- 最近验证：`./scripts/verify.sh` 全部检查通过——pytest 300 passed、mypy 35 个文件、文档检查通过（20 条 AC）、前端 lint/typecheck/test 通过
 <!-- verify:end -->
 
 ## 本阶段目标
