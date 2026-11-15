@@ -47,3 +47,12 @@ def test_非开发环境禁止测试账号登录_AC_20(monkeypatch: pytest.Monke
     with TestClient(create_app()) as api:
         assert api.post("/session", json={"account_id": "zhang-ming"}).status_code == 404
         assert api.get("/accounts").status_code == 404
+
+
+def test_未设置环境变量时默认关闭测试账号(monkeypatch: pytest.MonkeyPatch) -> None:
+    from services.api.settings import Settings
+
+    monkeypatch.delenv("ENVIRONMENT", raising=False)
+    fresh = Settings(_env_file=None)
+    assert fresh.environment == "production"
+    assert fresh.test_accounts_enabled is False

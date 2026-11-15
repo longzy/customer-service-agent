@@ -50,6 +50,7 @@ export function LoginPanel() {
             {error}
           </p>
         ) : null}
+        {!loaded && !error ? <p className="login-note">加载中…</p> : null}
         {loaded && accounts.length === 0 ? <p className="login-note">无可用账号</p> : null}
         <div className="account-list">
           {accounts.map((account) => (

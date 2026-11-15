@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", extra="ignore")
 
     database_url: str = "postgresql+asyncpg://ba@127.0.0.1:5432/customer_service"
-    environment: str = "development"
+    environment: str = "production"
 
     @property
     def test_accounts_enabled(self) -> bool:

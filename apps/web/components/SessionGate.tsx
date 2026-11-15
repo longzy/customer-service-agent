@@ -9,7 +9,7 @@ import { getSession, logout, type Account } from "@/lib/session";
 export function SessionGate() {
   const router = useRouter();
   const [account, setAccount] = useState<Account | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ message: string; retry: "load" | "logout" } | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -21,7 +21,7 @@ export function SessionGate() {
       }
       setAccount(session);
     } catch {
-      setError("请求未完成，请重试");
+      setError({ message: "请求未完成，请重试", retry: "load" });
     }
   }, [router]);
 
@@ -34,15 +34,19 @@ export function SessionGate() {
       await logout();
       router.replace("/login");
     } catch {
-      setError("退出失败，请重试");
+      setError({ message: "退出失败，请重试", retry: "logout" });
     }
   }
 
   if (error) {
     return (
       <main className="app">
-        <p role="alert">{error}</p>
-        <button type="button" className="ghost" onClick={() => void load()}>
+        <p role="alert">{error.message}</p>
+        <button
+          type="button"
+          className="ghost"
+          onClick={() => void (error.retry === "logout" ? handleLogout() : load())}
+        >
           重试
         </button>
       </main>

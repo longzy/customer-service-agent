@@ -72,3 +72,27 @@ it("空账号列表时提示无可用账号（AC-20）", async () => {
   render(<LoginPanel />);
   expect(await screen.findByText("无可用账号")).toBeInTheDocument();
 });
+
+describe("LoginPanel 重复提交", () => {
+  beforeEach(() => {
+    push.mockReset();
+    vi.restoreAllMocks();
+  });
+
+  it("登录中重复点击只提交一次（AC-20）", async () => {
+    let resolveLogin: (value: Response) => void = () => {};
+    const loginResponse = new Promise<Response>((resolve) => {
+      resolveLogin = resolve;
+    });
+    const fetchMock = vi
+      .spyOn(global, "fetch")
+      .mockResolvedValueOnce(new Response(JSON.stringify(accounts), { status: 200 }))
+      .mockImplementationOnce(() => loginResponse);
+    render(<LoginPanel />);
+    const button = await screen.findByRole("button", { name: /以张明身份进入/ });
+    fireEvent.click(button);
+    fireEvent.click(button);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    resolveLogin(new Response(JSON.stringify(accounts[0]), { status: 200 }));
+  });
+});

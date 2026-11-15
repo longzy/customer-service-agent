@@ -8,7 +8,7 @@
 - 当前 Milestone：M1 订单查询与未发货订单取消（规格已批准：`docs/specs/001-order-cancel/`）
 - 当前工作：T-16 登录页待复审
 <!-- verify:start -->
-- 最近验证：`./scripts/verify.sh` 十项全绿——pytest 187 passed、mypy 21 个文件、文档检查通过（20 条 AC）、前端 lint/typecheck/test 通过
+- 最近验证：`./scripts/verify.sh` 十项全绿——pytest 188 passed、mypy 21 个文件、文档检查通过（20 条 AC）、前端 lint/typecheck/test 通过
 <!-- verify:end -->
 
 ## 本阶段目标
@@ -63,7 +63,7 @@
 
 - 新增测试账号登录页（US-00、AC-20）；三份规格已于 2026-11-15 批准。
 - T-06 Mock OMS 完成：JSON 夹具、读写接口、幂等提交、故障规则引擎与开发期管理接口；177 个测试通过。
-- T-05、T-06 已完成；T-16 登录页尚未开始。
+- T-05、T-06 已完成；T-16 登录页完成第三轮修复，待复审。
 
 ## 阻塞
 

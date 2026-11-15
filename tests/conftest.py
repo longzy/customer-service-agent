@@ -3,6 +3,13 @@
 import pytest
 
 from services.api import auth
+from services.api.settings import settings
+
+
+@pytest.fixture(autouse=True)
+def _development_environment(monkeypatch) -> None:
+    """测试默认按开发环境运行；生产门禁用例自行覆盖。"""
+    monkeypatch.setattr(settings, "environment", "development")
 
 
 @pytest.fixture(autouse=True)

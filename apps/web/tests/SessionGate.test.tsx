@@ -61,3 +61,24 @@ describe("SessionGate", () => {
     expect(replace).not.toHaveBeenCalled();
   });
 });
+
+describe("SessionGate 重试", () => {
+  beforeEach(() => {
+    replace.mockReset();
+    vi.restoreAllMocks();
+  });
+
+  it("退出失败后点重试会再次调用退出（AC-20）", async () => {
+    const fetchMock = vi
+      .spyOn(global, "fetch")
+      .mockResolvedValueOnce(new Response(JSON.stringify(session), { status: 200 }))
+      .mockResolvedValueOnce(new Response("{}", { status: 500 }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+    render(<SessionGate />);
+    fireEvent.click(await screen.findByRole("button", { name: "退出" }));
+    fireEvent.click(await screen.findByRole("button", { name: "重试" }));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/login"));
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(fetchMock).toHaveBeenLastCalledWith("/api/session", { method: "DELETE" });
+  });
+});
