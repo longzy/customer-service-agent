@@ -71,6 +71,8 @@
   - _验收: AC-04、AC-07_
 - [ ] T08 [US3] 实现 Cancellation Workflow（`services/workflows/cancel.py`）— depends on T06、T07；含 T-17 登记的网关真实超时（`oms_timeout_seconds`）
   - _验收: AC-04、AC-05、AC-06、AC-09、AC-10、AC-11、AC-12、AC-19_
+- [ ] T19 [US3] 启动恢复与并发回归（`services/workflows/cancel.py`）— depends on T08
+  - _验收: AC-10、AC-12_
 - [ ] T14 [P] [US3] 实现确认卡片与终态界面（`apps/web/components/ConfirmCard.tsx`）— depends on T10、T08
   - _验收: AC-04、AC-05、AC-06、AC-13、AC-16、AC-19_
 

@@ -299,3 +299,18 @@ def test_trace_id传递给handler_AC_14() -> None:
         "get_order", {"order_id": "ORD-10001"}, IDENTITY, trace_id="trace-9"
     )
     assert seen == ["trace-9"]
+
+
+def test_返回非法响应被归类为未知_AC_11() -> None:
+    recorder = Recorder()
+
+    def bad(payload: dict[str, Any], identity: Identity, trace_id: str) -> dict[str, Any]:
+        return {"order_id": "ORD-10001"}
+
+    with pytest.raises(GatewayError) as exc:
+        gateway(recorder, handler=bad).invoke(
+            "get_order", {"order_id": "ORD-10001"}, IDENTITY, trace_id="t-1"
+        )
+    assert exc.value.status_code == 502
+    assert exc.value.payload["code"] == ErrorCode.INVALID_RESPONSE.value
+    assert recorder.audits[-1]["error_code"] == "INVALID_RESPONSE"

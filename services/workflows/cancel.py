@@ -4,10 +4,11 @@ import asyncio
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
-from typing import Any, Protocol
+from typing import Any, Protocol, cast
 from uuid import uuid4
 
-from sqlalchemy import select
+from sqlalchemy import select, update
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.api.auth import Identity
@@ -47,6 +48,10 @@ class InvalidTransition(Exception):
     pass
 
 
+class TaskConflict(Exception):
+    pass
+
+
 @dataclass
 class CancellationTask:
     id: str
@@ -57,6 +62,10 @@ class CancellationTask:
     idempotency_key: str
     expires_at: datetime
     reason_code: str | None = None
+    conversation_id: str | None = None
+    last_error_code: str | None = None
+    oms_request_id: str | None = None
+    version: int = 0
     metadata: dict[str, str] = field(default_factory=dict)
 
 
@@ -84,6 +93,10 @@ class SqlCancellationRepository:
                 state=task.state.value,
                 idempotency_key=task.idempotency_key,
                 reason_code=task.reason_code,
+                conversation_id=task.conversation_id,
+                last_error_code=task.last_error_code,
+                oms_request_id=task.oms_request_id,
+                version=task.version,
                 expires_at=task.expires_at,
             )
         )
@@ -108,14 +121,32 @@ class SqlCancellationRepository:
             idempotency_key=row.idempotency_key,
             expires_at=row.expires_at,
             reason_code=row.reason_code,
+            conversation_id=row.conversation_id,
+            last_error_code=row.last_error_code,
+            oms_request_id=row.oms_request_id,
+            version=row.version,
         )
 
     async def save(self, task: CancellationTask) -> None:
-        row = await self._session.get(CancellationRow, task.id)
-        if row is None:
-            raise TaskNotFound(task.id)
-        row.state = task.state.value
-        row.reason_code = task.reason_code
+        result = cast(
+            "CursorResult[Any]",
+            await self._session.execute(
+                update(CancellationRow)
+                .where(
+                    CancellationRow.id == task.id,
+                    CancellationRow.version == task.version,
+                )
+                .values(
+                    state=task.state.value,
+                    reason_code=task.reason_code,
+                    last_error_code=task.last_error_code,
+                    version=task.version + 1,
+                )
+            ),
+        )
+        if result.rowcount != 1:
+            raise TaskConflict(task.id)
+        task.version += 1
 
     async def commit(self) -> None:
         await self._session.commit()
@@ -128,7 +159,7 @@ class CancellationWorkflow:
         gateway: ToolGateway,
         confirm_timeout_minutes: int = 30,
         max_retries: int = 3,
-        retry_backoff_seconds: float = 0.2,
+        retry_backoff_seconds: float = 1.0,
         now: Callable[[], datetime] | None = None,
     ) -> None:
         self._repository = repository
@@ -155,14 +186,18 @@ class CancellationWorkflow:
             tenant_id=identity.tenant_id,
             user_id=identity.user_id,
             order_id=order_id,
-            state=CancellationState.AWAITING_CONFIRMATION,
+            state=CancellationState.COLLECTING,
             idempotency_key=str(uuid4()),
             expires_at=self._now() + self._confirm_timeout,
         )
+        await self._repository.create(task)
+        await self._repository.commit()
         if not eligibility["eligible"]:
             task.state = CancellationState.ELIGIBILITY_REJECTED
             task.reason_code = eligibility["reason_code"]
-        await self._repository.create(task)
+        else:
+            task.state = CancellationState.AWAITING_CONFIRMATION
+        await self._repository.save(task)
         await self._repository.commit()
         return task
 
@@ -185,12 +220,15 @@ class CancellationWorkflow:
         await self._repository.commit()
 
         try:
-            await self._invoke(
+            body = await self._invoke(
                 "submit_cancel",
                 {"order_id": task.order_id, "idempotency_key": task.idempotency_key},
                 identity,
                 trace_id,
             )
+            if body.get("state") == OmsCancelState.ACCEPTED.value:
+                return await self._finish(task, CancellationState.ACCEPTED)
+            return await self._recover(identity, task, trace_id)
         except GatewayError as error:
             code = error.payload.get("code")
             if code == "OMS_REJECTED":
@@ -198,11 +236,10 @@ class CancellationWorkflow:
             if code == "NOT_FOUND_OR_UNAUTHORIZED":
                 return await self._finish(task, CancellationState.REJECTED)
             task.state = CancellationState.SUBMIT_UNKNOWN
+            task.last_error_code = str(code)
             await self._repository.save(task)
             await self._repository.commit()
             return await self._recover(identity, task, trace_id)
-
-        return await self._recover(identity, task, trace_id)
 
     async def abandon(self, identity: Identity, task_id: str) -> CancellationTask:
         task = await self._repository.get(task_id, identity)
@@ -240,6 +277,9 @@ class CancellationWorkflow:
                     continue
                 break
             mapped = OMS_TO_STATE[OmsCancelState(body["state"])]
+            if mapped == CancellationState.SUBMIT_UNKNOWN:
+                await asyncio.sleep(self._backoff * (2**attempt))
+                continue
             return await self._finish(task, mapped)
         return await self._finish(task, CancellationState.MANUAL_REVIEW)
 

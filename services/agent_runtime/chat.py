@@ -1,5 +1,6 @@
 """一轮对话的编排：分类、工具调用、回复与持久化。"""
 
+import asyncio
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 from uuid import uuid4
@@ -84,14 +85,21 @@ class ConversationService:
         orders: list[dict[str, Any]] = []
         try:
             if classification.intent == Intent.QUERY_ORDER and classification.order_id:
-                orders = [
-                    self._gateway.invoke(
-                        "get_order", {"order_id": classification.order_id}, identity, trace_id
-                    )
-                ]
+                single = await asyncio.to_thread(
+                    self._gateway.invoke,
+                    "get_order",
+                    {"order_id": classification.order_id},
+                    identity,
+                    trace_id,
+                )
+                orders = [single]
             elif classification.intent == Intent.QUERY_RECENT:
-                orders = self._gateway.invoke(
-                    "list_recent_orders", {"limit": 5}, identity, trace_id
+                orders = await asyncio.to_thread(
+                    self._gateway.invoke,
+                    "list_recent_orders",
+                    {"limit": 5},
+                    identity,
+                    trace_id,
                 )
         except GatewayError as error:
             reply = _gateway_reply(error)
