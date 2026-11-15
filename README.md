@@ -73,9 +73,10 @@ pnpm -C apps/web lint
 pnpm -C apps/web typecheck
 pnpm -C apps/web test
 
-# 启动开发服务器
+# 启动开发服务器（先准备环境变量）
+cp .env.example .env   # 含 ENVIRONMENT=development；默认 production 会关闭测试账号
 UV_CACHE_DIR=./.uv-cache uv run uvicorn services.api.main:app --reload
-pnpm -C apps/web dev
+pnpm -C apps/web dev   # 打开 http://localhost:3000，会引导到登录页
 ```
 
 数据库：`createdb customer_service`；连接串默认 `postgresql+asyncpg://ba@127.0.0.1:5432/customer_service`，可用 `.env` 覆盖（见 `.env.example`）。
