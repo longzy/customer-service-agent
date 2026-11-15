@@ -4,6 +4,8 @@
 """
 
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import TimeoutError as FutureTimeout
 from dataclasses import dataclass
 from typing import Any
 
@@ -81,6 +83,7 @@ class ToolGateway:
         tools: list[ToolSpec],
         ownership: OwnershipIndex,
         audit: Callable[[dict[str, Any]], None] | None = None,
+        timeout_seconds: float = 2.0,
     ) -> None:
         domain = load_domain()
         documents = load_tool_documents()
@@ -97,6 +100,7 @@ class ToolGateway:
             raise ValueError(f"缺少契约的工具：{sorted(missing)}")
         self._ownership = ownership
         self._audit = audit or (lambda event: None)
+        self._timeout = timeout_seconds
 
     def invoke(
         self,
@@ -138,7 +142,15 @@ class ToolGateway:
                 raise GatewayError(404, error_envelope(ErrorCode.NOT_FOUND_OR_UNAUTHORIZED))
 
         try:
-            result = tool.handler(dict(payload), identity, trace_id)
+            pool = ThreadPoolExecutor(max_workers=1)
+            future = pool.submit(tool.handler, dict(payload), identity, trace_id)
+            try:
+                result = future.result(timeout=self._timeout)
+            except FutureTimeout as error:
+                pool.shutdown(wait=False, cancel_futures=True)
+                raise TimeoutError(name) from error
+            finally:
+                pool.shutdown(wait=False)
         except TimeoutError as error:
             code = self._timeout_code(name)
             self._record(name, identity, order_id, "failed", code.value, trace_id)

@@ -35,6 +35,7 @@ def test_生产环境不挂载账号接口_基座豁免(monkeypatch: pytest.Monk
     from services.api.settings import settings
 
     monkeypatch.setattr(settings, "environment", "production")
+    monkeypatch.setattr(settings, "model_api_key", "test-key")
     with TestClient(create_app()) as api:
         assert api.get("/accounts").status_code == 404
 
@@ -44,6 +45,7 @@ def test_非开发环境禁止测试账号登录_AC_20(monkeypatch: pytest.Monke
     from services.api.settings import settings
 
     monkeypatch.setattr(settings, "environment", env)
+    monkeypatch.setattr(settings, "model_api_key", "test-key")
     with TestClient(create_app()) as api:
         assert api.post("/session", json={"account_id": "zhang-ming"}).status_code == 404
         assert api.get("/accounts").status_code == 404

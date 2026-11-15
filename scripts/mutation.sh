@@ -3,6 +3,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 export UV_CACHE_DIR="${UV_CACHE_DIR:-./.uv-cache}"
+export ENVIRONMENT="${ENVIRONMENT:-development}"
 
 MODULE="${1:-services.tools.policy}"
 

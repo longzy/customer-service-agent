@@ -55,5 +55,5 @@ filterwarnings = [
 
 [tool.mutmut]
 source_paths = ["services"]
-also_copy = ["tests", "packages", "migrations"]
-pytest_add_cli_args_test_selection = ["tests/unit/tools/test_policy.py"]
+also_copy = ["tests", "packages", "migrations", "scripts", "docs"]
+pytest_add_cli_args_test_selection = ["tests/unit"]

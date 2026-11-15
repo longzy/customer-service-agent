@@ -177,6 +177,7 @@ def test_生产环境不挂载故障管理接口_基座豁免(monkeypatch: pytes
     from services.api.settings import settings
 
     monkeypatch.setattr(settings, "environment", "production")
+    monkeypatch.setattr(settings, "model_api_key", "test-key")
     with TestClient(create_app()) as api:
         assert api.post("/_admin/faults", json={"kind": "timeout"}).status_code == 404
 

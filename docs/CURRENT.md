@@ -6,9 +6,9 @@
 - 应用代码：骨架 + 领域契约 + 会话后端；尚无订单查询与取消逻辑
 - 版本控制：Git 已初始化，`main` 分支；全部文档已提交，工作区干净
 - 当前 Milestone：M1 订单查询与未发货订单取消（规格已批准：`docs/specs/001-order-cancel/`）
-- 当前工作：T-08 执行卡已确认，待实现
+- 当前工作：T-08 Cancellation Workflow 待评审
 <!-- verify:start -->
-- 最近验证：`./scripts/verify.sh` 十项全绿——pytest 253 passed、mypy 30 个文件、文档检查通过（20 条 AC）、前端 lint/typecheck/test 通过
+- 最近验证：`./scripts/verify.sh` 十项全绿——pytest 266 passed、mypy 33 个文件、文档检查通过（20 条 AC）、前端 lint/typecheck/test 通过
 <!-- verify:end -->
 
 ## 本阶段目标
@@ -66,7 +66,7 @@
 - T-17 已完成并通过两轮评审：查询 Tool 接入网关、摘要投影、隔离与审计断言，203 个测试通过。
 - T-05、T-06、T-16 已完成；T-09/T-10 尚未开始。
 - T-07 已完成并通过评审：原因码枚举、纯函数判定、突变分数 95.5%；253 个测试通过。
-- T-08 执行卡已出，等待三项决策。
+- T-08 完成（待评审）：任务表、状态机、取消 Tool、确认与惰性超时；266 个测试通过，Workflow 突变分数 82.6%。
 - T-10 已完成并通过评审：聊天发送、订单卡片、重试、会话续接与可访问性；前端 22 项测试通过。
 - T-18 已完成并通过评审：Conversation API、消息持久化、真实 DeepSeek 端到端；243 个测试通过。
 - 已接入真实 DeepSeek（密钥仅在本地 `.env`，未入库）。
