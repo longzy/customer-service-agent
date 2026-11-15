@@ -32,7 +32,7 @@ def create_app() -> FastAPI:
     app.state.oms = MockOms()
     app.middleware("http")(resolve_identity)
     app.include_router(session_router)
-    if settings.environment != "production":
+    if settings.test_accounts_enabled:
         app.include_router(admin_router)
         app.include_router(account_router)
 

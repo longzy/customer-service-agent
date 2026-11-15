@@ -49,3 +49,13 @@ def test_验收后缀写法一致() -> None:
             if not valid:
                 bad.append(f"{path}::{name}")
     assert bad == [], f"验收后缀写法不规范：{bad}"
+
+
+def test_前端测试不使用连字符验收编号() -> None:
+    forbidden = "_AC" + "-"
+    offenders = [
+        str(path)
+        for path in Path("apps/web/tests").rglob("*.test.tsx")
+        if forbidden in path.read_text(encoding="utf-8")
+    ]
+    assert offenders == [], f"前端测试使用了连字符写法：{offenders}"

@@ -46,5 +46,8 @@ export async function login(accountId: string): Promise<Account> {
 }
 
 export async function logout(): Promise<void> {
-  await fetch("/api/session", { method: "DELETE" });
+  const response = await fetch("/api/session", { method: "DELETE" });
+  if (!response.ok) {
+    throw new Error(await readError(response));
+  }
 }

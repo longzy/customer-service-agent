@@ -6,9 +6,9 @@
 - 应用代码：骨架 + 领域契约 + 会话后端；尚无订单查询与取消逻辑
 - 版本控制：Git 已初始化，`main` 分支；全部文档已提交，工作区干净
 - 当前 Milestone：M1 订单查询与未发货订单取消（规格已批准：`docs/specs/001-order-cancel/`）
-- 当前工作：T-16 登录页完成，待独立评审
+- 当前工作：T-16 登录页待复审
 <!-- verify:start -->
-- 最近验证：`./scripts/verify.sh` 十项全绿——pytest 183 passed、mypy 21 个文件、文档检查通过（20 条 AC）、前端 lint/typecheck/test 通过
+- 最近验证：`./scripts/verify.sh` 十项全绿——pytest 187 passed、mypy 21 个文件、文档检查通过（20 条 AC）、前端 lint/typecheck/test 通过
 <!-- verify:end -->
 
 ## 本阶段目标

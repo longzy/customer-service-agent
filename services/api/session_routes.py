@@ -13,6 +13,7 @@ from services.api.auth import (
     current_identity,
     destroy_session,
 )
+from services.api.settings import settings
 
 router = APIRouter()
 
@@ -37,6 +38,8 @@ def _public(identity: Identity) -> dict[str, str]:
 
 @router.post("/session")
 def login(payload: SessionRequest, request: Request, response: Response) -> dict[str, str]:
+    if not settings.test_accounts_enabled:
+        raise HTTPException(status_code=404, detail="未找到")
     result = create_session(payload.account_id)
     if result is None:
         raise HTTPException(status_code=404, detail="账号不存在")

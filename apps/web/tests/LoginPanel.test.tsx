@@ -4,9 +4,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LoginPanel } from "@/components/LoginPanel";
 
 const push = vi.fn();
+const router = { push, replace: vi.fn() };
 
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push, replace: vi.fn() }),
+  useRouter: () => router,
 }));
 
 const accounts = [
@@ -30,7 +31,7 @@ describe("LoginPanel", () => {
     vi.restoreAllMocks();
   });
 
-  it("拉取账号并默认选中第一个", async () => {
+  it("拉取账号并默认选中第一个（AC-20）", async () => {
     vi.spyOn(global, "fetch").mockResolvedValue(
       new Response(JSON.stringify(accounts), { status: 200 }),
     );
@@ -39,7 +40,7 @@ describe("LoginPanel", () => {
     expect(screen.getByRole("button", { name: /以张明身份进入/ })).toBeInTheDocument();
   });
 
-  it("选择账号后登录并跳转", async () => {
+  it("选择账号后登录并跳转（AC-20）", async () => {
     const fetchMock = vi
       .spyOn(global, "fetch")
       .mockResolvedValueOnce(new Response(JSON.stringify(accounts), { status: 200 }))
@@ -50,15 +51,24 @@ describe("LoginPanel", () => {
     await waitFor(() => expect(push).toHaveBeenCalledWith("/"));
     expect(fetchMock).toHaveBeenLastCalledWith(
       "/api/session",
-      expect.objectContaining({ method: "POST" }),
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({ account_id: "wang-qiang" }),
+      }),
     );
   });
 
-  it("账号拉取失败时显示错误", async () => {
+  it("账号拉取失败时显示错误（AC-20）", async () => {
     vi.spyOn(global, "fetch").mockResolvedValue(
       new Response(JSON.stringify({ detail: "服务不可用" }), { status: 503 }),
     );
     render(<LoginPanel />);
     expect(await screen.findByRole("alert")).toHaveTextContent("服务不可用");
   });
+});
+
+it("空账号列表时提示无可用账号（AC-20）", async () => {
+  vi.spyOn(global, "fetch").mockResolvedValue(new Response("[]", { status: 200 }));
+  render(<LoginPanel />);
+  expect(await screen.findByText("无可用账号")).toBeInTheDocument();
 });

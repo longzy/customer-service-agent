@@ -11,12 +11,14 @@ export function LoginPanel() {
   const [selected, setSelected] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     void getAccounts()
       .then((items) => {
         setAccounts(items);
         setSelected(items[0]?.account_id ?? null);
+        setLoaded(true);
       })
       .catch((cause: Error) => setError(cause.message));
   }, []);
@@ -48,6 +50,7 @@ export function LoginPanel() {
             {error}
           </p>
         ) : null}
+        {loaded && accounts.length === 0 ? <p className="login-note">无可用账号</p> : null}
         <div className="account-list">
           {accounts.map((account) => (
             <button

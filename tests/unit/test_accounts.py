@@ -30,9 +30,20 @@ def test_登录响应包含租户展示名_AC_20() -> None:
         assert body["tenant_name"] == "示例商户 A"
 
 
+# 基座豁免：生产环境门禁不属于 AC-20 的登录场景，但属于 FR-11 的“仅开发期可用”。
 def test_生产环境不挂载账号接口_基座豁免(monkeypatch: pytest.MonkeyPatch) -> None:
     from services.api.settings import settings
 
     monkeypatch.setattr(settings, "environment", "production")
     with TestClient(create_app()) as api:
+        assert api.get("/accounts").status_code == 404
+
+
+@pytest.mark.parametrize("env", ["production", "prod", ""])
+def test_非开发环境禁止测试账号登录_AC_20(monkeypatch: pytest.MonkeyPatch, env: str) -> None:
+    from services.api.settings import settings
+
+    monkeypatch.setattr(settings, "environment", env)
+    with TestClient(create_app()) as api:
+        assert api.post("/session", json={"account_id": "zhang-ming"}).status_code == 404
         assert api.get("/accounts").status_code == 404
