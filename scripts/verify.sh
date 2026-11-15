@@ -9,6 +9,9 @@ UV_CACHE_DIR=./.uv-cache uv run ruff check .
 echo "== ruff format =="
 UV_CACHE_DIR=./.uv-cache uv run ruff format --check .
 
+echo "== prod import =="
+uv run --no-dev python -c "import services.tools.gateway as g; g.ToolGateway([], g.OwnershipIndex())"
+
 echo "== mypy =="
 UV_CACHE_DIR=./.uv-cache uv run mypy services
 

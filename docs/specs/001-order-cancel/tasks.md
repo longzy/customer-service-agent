@@ -29,7 +29,7 @@
   - _验收: AC-01、AC-02、AC-04、AC-05、AC-07、AC-09、AC-10、AC-11_
 - [x] T04 [P] 实现认证与租户上下文（`services/api/auth.py`、`services/api/middleware.py`）
   - _验收: AC-02、AC-03、AC-15_
-- [ ] T05 实现授权 Tool Gateway（`services/tools/gateway.py`）— depends on T03、T04
+- [x] T05 实现授权 Tool Gateway（`services/tools/gateway.py`）— depends on T03、T04
   - _验收: AC-02、AC-03、AC-14、AC-15_
 - [ ] T06 实现 Mock OMS 与故障注入（`services/mock_oms/`）— depends on T03
   - _验收: AC-01、AC-05、AC-09、AC-10、AC-11、AC-12_

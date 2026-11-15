@@ -12,6 +12,7 @@ from services.tools.gateway import (
     OwnershipIndex,
     ToolGateway,
     ToolSpec,
+    has_identity_fields,
 )
 
 IDENTITY = Identity("zhang-ming", "user-a1", "tenant-a", "张明")
@@ -51,6 +52,7 @@ def test_白名单外的工具被拒绝_AC_14() -> None:
         )
     assert exc.value.status_code == 404
     assert recorder.calls == []
+    assert recorder.audits[-1]["error_code"] == "UNKNOWN_TOOL"
 
 
 @pytest.mark.parametrize(
@@ -63,6 +65,13 @@ def test_非法输入按契约被拒绝_AC_14(payload: dict[str, Any]) -> None:
         gateway(recorder).invoke("get_order", payload, IDENTITY, trace_id="t-1")
     assert exc.value.status_code == 422
     assert recorder.calls == []
+    assert recorder.audits[-1]["error_code"] == "INVALID_ARGUMENT"
+
+
+def test_身份字段判定函数_AC_15() -> None:
+    assert has_identity_fields({"tenant_id": "x"}) is True
+    assert has_identity_fields({"user_id": "x"}) is True
+    assert has_identity_fields({"order_id": "ORD-1"}) is False
 
 
 def test_请求体不得携带身份字段_AC_15() -> None:
@@ -189,6 +198,7 @@ def test_审计失败按失败关闭处理_AC_14() -> None:
     with pytest.raises(GatewayError) as exc:
         tool.invoke("get_order", {"order_id": "ORD-10001"}, IDENTITY, trace_id="t-1")
     assert exc.value.status_code == 500
+    assert exc.value.payload["code"] == ErrorCode.INTERNAL_ERROR.value
 
 
 @pytest.mark.parametrize("payload", [None, 1, []])

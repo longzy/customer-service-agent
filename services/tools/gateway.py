@@ -83,6 +83,11 @@ def error_envelope(code: ErrorCode) -> dict[str, Any]:
     }
 
 
+def has_identity_fields(payload: dict[str, Any]) -> bool:
+    """请求体不得携带身份字段；调用方身份只能来自会话。"""
+    return bool(IDENTITY_FIELDS & set(payload))
+
+
 class ToolGateway:
     """所有 Tool 调用的唯一入口。"""
 
@@ -116,6 +121,7 @@ class ToolGateway:
         trace_id: str,
     ) -> Any:
         if not trace_id:
+            self._record(name, identity, None, "rejected", "INTERNAL_ERROR", None)
             raise GatewayError(500, error_envelope(ErrorCode.INTERNAL_ERROR))
         if not isinstance(payload, dict):
             self._record(name, identity, None, "rejected", "INVALID_ARGUMENT", trace_id)
@@ -126,7 +132,7 @@ class ToolGateway:
             self._record(name, identity, None, "rejected", "UNKNOWN_TOOL", trace_id)
             raise GatewayError(404, {"message": "未知工具"})
 
-        if IDENTITY_FIELDS & set(payload):
+        if has_identity_fields(payload):
             self._record(name, identity, None, "rejected", "INVALID_ARGUMENT", trace_id)
             raise GatewayError(422, {"message": "参数非法"})
 
@@ -188,4 +194,4 @@ class ToolGateway:
         try:
             self._audit(event)
         except Exception as error:  # noqa: BLE001 - 审计失败按失败关闭处理
-            raise GatewayError(500, {"message": "审计写入失败"}) from error
+            raise GatewayError(500, error_envelope(ErrorCode.INTERNAL_ERROR)) from error
