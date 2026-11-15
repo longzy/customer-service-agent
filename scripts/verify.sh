@@ -18,6 +18,9 @@ UV_CACHE_DIR=./.uv-cache uv run mypy services
 echo "== pytest =="
 UV_CACHE_DIR=./.uv-cache uv run pytest
 
+echo "== route coverage =="
+python3 scripts/check-route-coverage.py
+
 echo "== docs =="
 python3 scripts/check-docs.py
 

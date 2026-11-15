@@ -274,6 +274,9 @@ def check_design_card_gate():
                 print(f"跳过执行卡 {rel(card_path)}：状态为 {status or '未声明'}")
                 continue
             checked["cards"] += 1
+            binding = re.search(r"- 绑定验收：(.+)", read(card_path))
+            if binding and len(re.findall(r"AC-\d{2}", binding.group(1))) > 2:
+                print(f"警告：{rel(card_path)} 绑定超过 2 个 AC，检查是否需要按行为拆分")
             for line in read(card_path).splitlines():
                 if not line.startswith("- 依据："):
                     continue
