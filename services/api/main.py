@@ -1,7 +1,10 @@
 """Conversation API 的最小入口：健康检查与启动自检。"""
 
+import asyncio
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from uuid import uuid4
 
 from fastapi import FastAPI
 from sqlalchemy import text
@@ -20,6 +23,8 @@ from services.tools.cancel import build_cancel_gateway
 from services.tools.query import build_query_gateway
 from services.workflows.cancel import CancellationWorkflow, SqlCancellationRepository
 
+logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
@@ -29,17 +34,29 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         async with engine.connect() as connection:
             await connection.execute(text("select 1"))
         maker = async_sessionmaker(engine, expire_on_commit=False)
-        async with maker() as session:
-            workflow = CancellationWorkflow(
-                SqlCancellationRepository(session),
-                _app.state.cancel_gateway,
-                confirm_timeout_minutes=settings.confirm_timeout_minutes,
-                max_retries=1,
-            )
-            await workflow.recover_pending("startup-recovery")
+
+        async def recover() -> None:
+            try:
+                async with maker() as session:
+                    workflow = CancellationWorkflow(
+                        SqlCancellationRepository(session),
+                        _app.state.cancel_gateway,
+                        confirm_timeout_minutes=settings.confirm_timeout_minutes,
+                        max_retries=settings.max_retries,
+                        retry_backoff_seconds=settings.retry_backoff_seconds,
+                    )
+                    await workflow.recover_pending(f"startup-{uuid4()}")
+            except Exception:  # noqa: BLE001 - 恢复失败不应阻止服务启动
+                logger.exception("启动恢复失败")
+
+        task = asyncio.create_task(recover())
+        yield
+        try:
+            await asyncio.wait_for(task, timeout=30)
+        except TimeoutError:
+            task.cancel()
     finally:
         await engine.dispose()
-    yield
 
 
 def create_app() -> FastAPI:

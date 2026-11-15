@@ -13,3 +13,66 @@ def test_app_starts_when_database_available() -> None:
             assert client.get("/health").json() == {"status": "ok"}
     except (OperationalError, OSError):
         pytest.skip("本地数据库不可用，跳过启动自检")
+
+
+def test_startup_recovers_pending_task(monkeypatch) -> None:
+    import asyncio
+    from datetime import UTC, datetime
+
+    from sqlalchemy import text
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    from services.api.settings import settings
+    from tests.integration.db_utils import db_available
+
+    if not db_available():
+        pytest.skip("Postgres 不可用")
+
+    async def insert() -> None:
+        engine = create_async_engine(settings.database_url)
+        async with engine.begin() as conn:
+            await conn.execute(text("delete from cancellation_requests where id = 'task-startup'"))
+            await conn.execute(
+                text(
+                    "insert into cancellation_requests "
+                    "(id, tenant_id, user_id, order_id, state, idempotency_key, "
+                    " expires_at, created_at, updated_at, version) values "
+                    "(:id, 'tenant-a', 'user-a1', 'ORD-10001', 'SUBMITTING', "
+                    " 'idem-startup', :expires, :now, :now, 0)"
+                ),
+                {
+                    "id": "task-startup",
+                    "expires": datetime.now(UTC),
+                    "now": datetime.now(UTC),
+                },
+            )
+        await engine.dispose()
+
+    async def state() -> str:
+        engine = create_async_engine(settings.database_url)
+        async with engine.connect() as conn:
+            value = await conn.scalar(
+                text("select state from cancellation_requests where id = 'task-startup'")
+            )
+        await engine.dispose()
+        return str(value)
+
+    asyncio.run(insert())
+    monkeypatch.setattr(settings, "max_retries", 1)
+    monkeypatch.setattr(settings, "retry_backoff_seconds", 0.01)
+    with TestClient(create_app()) as client:
+        assert client.get("/health").status_code == 200
+    assert asyncio.run(state()) == "MANUAL_REVIEW"
+    asyncio.run(_cleanup())
+
+
+async def _cleanup() -> None:
+    from sqlalchemy import text
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    from services.api.settings import settings
+
+    engine = create_async_engine(settings.database_url)
+    async with engine.begin() as conn:
+        await conn.execute(text("delete from cancellation_requests where id = 'task-startup'"))
+    await engine.dispose()

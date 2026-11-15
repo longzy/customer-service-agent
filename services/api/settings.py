@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     model_api_key: str = ""
     oms_timeout_seconds: float = 2.0
     max_retries: int = 3
+    retry_backoff_seconds: float = 1.0
 
 
 settings = Settings()

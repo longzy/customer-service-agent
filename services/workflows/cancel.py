@@ -132,9 +132,7 @@ class SqlCancellationRepository:
     async def list_recoverable(self) -> list[CancellationTask]:
         result = await self._session.execute(
             select(CancellationRow).where(
-                CancellationRow.state.in_(
-                    [CancellationState.SUBMITTING.value, CancellationState.SUBMIT_UNKNOWN.value]
-                )
+                CancellationRow.state.in_([state.value for state in RECOVERABLE_STATES])
             )
         )
         return [
@@ -283,7 +281,7 @@ class CancellationWorkflow:
         recovered = 0
         for task in tasks:
             identity = Identity(
-                account_id=task.user_id,
+                account_id="startup-recovery",
                 user_id=task.user_id,
                 tenant_id=task.tenant_id,
                 display_name="",

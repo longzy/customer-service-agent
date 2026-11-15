@@ -112,3 +112,67 @@ async def test_启动恢复悬挂任务_AC_10() -> None:
 
         await session.execute(delete(CancellationRow).where(CancellationRow.id == "task-recover"))
         await session.commit()
+
+
+async def test_启动恢复_SUBMITTING与失败转人工_AC_12() -> None:
+    from services.mock_oms.service import MockOms
+    from services.tools.cancel import build_cancel_gateway
+    from services.workflows.cancel import CancellationWorkflow
+
+    oms = MockOms()
+    async with session_factory() as session:
+        repo = SqlCancellationRepository(session)
+        await session.execute(
+            delete(CancellationRow).where(CancellationRow.id.in_(["task-sub", "task-fail"]))
+        )
+        await session.commit()
+        await repo.create(
+            task(
+                id="task-sub",
+                state=CancellationState.SUBMITTING,
+                idempotency_key="idem-sub",
+            )
+        )
+        await repo.create(
+            task(
+                id="task-fail",
+                state=CancellationState.SUBMIT_UNKNOWN,
+                idempotency_key="idem-fail",
+            )
+        )
+        await repo.commit()
+        oms.submit_cancel("tenant-a", "user-a1", "ORD-10001", "idem-sub")
+
+        workflow = CancellationWorkflow(
+            repo,
+            build_cancel_gateway(oms),
+            max_retries=1,
+            retry_backoff_seconds=0.01,
+        )
+        assert await workflow.recover_pending("startup") == 2
+        assert (await repo.get("task-sub", OWNER)).state == CancellationState.ACCEPTED
+        assert (await repo.get("task-fail", OWNER)).state == CancellationState.MANUAL_REVIEW
+
+        await session.execute(
+            delete(CancellationRow).where(CancellationRow.id.in_(["task-sub", "task-fail"]))
+        )
+        await session.commit()
+
+
+async def test_终态任务不被扫描_AC_10() -> None:
+    async with session_factory() as session:
+        repo = SqlCancellationRepository(session)
+        await session.execute(delete(CancellationRow).where(CancellationRow.id == "task-done"))
+        await session.commit()
+        await repo.create(
+            task(
+                id="task-done",
+                state=CancellationState.ACCEPTED,
+                idempotency_key="idem-done",
+            )
+        )
+        await repo.commit()
+        names = [item.id for item in await repo.list_recoverable()]
+        assert "task-done" not in names
+        await session.execute(delete(CancellationRow).where(CancellationRow.id == "task-done"))
+        await session.commit()
