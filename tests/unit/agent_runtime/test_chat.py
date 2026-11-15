@@ -142,7 +142,7 @@ async def test_取消意图返回卡片数据_AC_04() -> None:
     from types import SimpleNamespace
 
     class FakeWorkflow:
-        async def request(self, identity, order_id, trace_id):
+        async def request(self, identity, order_id, trace_id, conversation_id=None):
             return SimpleNamespace(
                 id="task-1",
                 state=__import__(
@@ -171,7 +171,7 @@ async def test_取消路径网关错误返回文案_AC_04() -> None:
     from services.tools.gateway import GatewayError, error_envelope
 
     class FailingWorkflow:
-        async def request(self, identity, order_id, trace_id):
+        async def request(self, identity, order_id, trace_id, conversation_id=None):
             raise GatewayError(503, error_envelope(ErrorCode.DEPENDENCY_UNAVAILABLE))
 
     chat = ConversationService(

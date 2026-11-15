@@ -13,7 +13,7 @@ from services.agent_runtime.intent import IntentError
 from services.agent_runtime.model import ModelError
 from services.api.auth import Identity, current_identity
 from services.api.db import get_session
-from services.api.models import Conversation, Message
+from services.api.models import Conversation, Handoff, Message
 from services.api.settings import settings
 from services.workflows.cancel import CancellationWorkflow, SqlCancellationRepository
 
@@ -85,6 +85,16 @@ async def send_message(
     repository: Annotated[ConversationRepository, Depends(get_repository)],
     session: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict[str, Any]:
+    if payload.conversation_id:
+        handed = await session.scalar(
+            select(Handoff.id).where(
+                Handoff.conversation_id == payload.conversation_id,
+                Handoff.tenant_id == identity.tenant_id,
+                Handoff.user_id == identity.user_id,
+            )
+        )
+        if handed:
+            raise HTTPException(status_code=409, detail="已转人工，自动回复已停止")
     workflow = CancellationWorkflow(
         SqlCancellationRepository(session),
         request.app.state.cancel_gateway,

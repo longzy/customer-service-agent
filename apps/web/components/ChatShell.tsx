@@ -17,6 +17,7 @@ type ChatMessage = {
 
 type RetryAction =
   | { kind: "message"; content: string }
+  | { kind: "handoff" }
   | { kind: "act"; taskId: string; action: "confirm" | "abandon" };
 
 type Reply = {
@@ -46,6 +47,7 @@ export function ChatShell({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<{ message: string; retry: RetryAction } | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
+  const [transferred, setTransferred] = useState(false);
 
   function updateCard(
     taskId: string,
@@ -96,6 +98,31 @@ export function ChatShell({
       updateCard(taskId, await response.json());
     } catch {
       setError({ message: "请求未完成，请重试。", retry });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handoff() {
+    setBusy(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/handoff", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ conversation_id: conversationId }),
+      });
+      if (response.status === 401) {
+        router.replace("/login");
+        return;
+      }
+      if (!response.ok) {
+        setError({ message: "转人工失败，请重试。", retry: { kind: "handoff" } });
+        return;
+      }
+      setTransferred(true);
+    } catch {
+      setError({ message: "转人工失败，请重试。", retry: { kind: "handoff" } });
     } finally {
       setBusy(false);
     }
@@ -156,7 +183,12 @@ export function ChatShell({
             {account.tenant_name} · {account.display_name}
           </span>
         ) : null}
-        <button type="button" className="ghost">
+        <button
+          type="button"
+          className="ghost"
+          onClick={() => void handoff()}
+          disabled={transferred}
+        >
           转人工
         </button>
         {onLogout ? (
@@ -219,6 +251,11 @@ export function ChatShell({
             正在查询…
           </p>
         ) : null}
+        {transferred ? (
+          <p className="msg" role="status">
+            已转人工，自动回复已停止
+          </p>
+        ) : null}
         {error ? (
           <div className="bubble assistant">
             <p role="alert">{error.message}</p>
@@ -228,7 +265,9 @@ export function ChatShell({
               onClick={() =>
                 error.retry.kind === "message"
                   ? void submit(error.retry.content, false)
-                  : void act(error.retry.taskId, error.retry.action)
+                  : error.retry.kind === "handoff"
+                    ? void handoff()
+                    : void act(error.retry.taskId, error.retry.action)
               }
             >
               重试
@@ -237,7 +276,7 @@ export function ChatShell({
         ) : null}
       </div>
 
-      <div className="composer" aria-busy={busy}>
+      <div className="composer" aria-busy={busy || transferred}>
         <label className="sr-only" htmlFor="message">
           输入消息
         </label>
@@ -248,7 +287,7 @@ export function ChatShell({
           rows={2}
           maxLength={MAX_LENGTH}
           value={value}
-          disabled={busy}
+          disabled={busy || transferred}
           onChange={(event) => setValue(event.target.value)}
           onKeyDown={(event) => {
             if (event.nativeEvent.isComposing) {
@@ -270,7 +309,7 @@ export function ChatShell({
             className="send"
             aria-label="发送"
             onClick={() => void submit(value, true)}
-            disabled={busy || value.trim().length === 0}
+            disabled={busy || transferred || value.trim().length === 0}
           >
             发送
           </button>

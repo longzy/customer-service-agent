@@ -16,6 +16,7 @@ from services.api.admin_routes import router as admin_router
 from services.api.auth import resolve_identity
 from services.api.cancellation_routes import router as cancellation_router
 from services.api.conversation_routes import router as conversation_router
+from services.api.handoff_routes import router as handoff_router
 from services.api.session_routes import router as session_router
 from services.api.settings import settings
 from services.mock_oms.service import MockOms
@@ -72,6 +73,7 @@ def create_app() -> FastAPI:
     app.include_router(session_router)
     app.include_router(conversation_router)
     app.include_router(cancellation_router)
+    app.include_router(handoff_router)
     if settings.test_accounts_enabled:
         app.include_router(admin_router)
         app.include_router(account_router)
