@@ -1,29 +1,59 @@
-"""开发期管理接口：注册与清理 Mock OMS 故障规则。"""
+"""开发期管理接口：故障规则与取消结果推进，仅在非生产环境挂载。"""
 
-from fastapi import APIRouter
-from pydantic import BaseModel, ConfigDict
+from typing import Literal
+
+from fastapi import APIRouter, Request
+from pydantic import BaseModel, ConfigDict, Field
 
 from services.mock_oms.faults import FaultRule
 from services.mock_oms.service import MockOms
 
 router = APIRouter(prefix="/_admin")
-_oms = MockOms()
+
+TOOLS = Literal[
+    "get_order",
+    "list_recent_orders",
+    "get_cancel_eligibility",
+    "submit_cancel",
+    "get_cancel_result",
+]
+KINDS = Literal["timeout", "lost_response", "invalid_response", "unavailable", "delay"]
+STATES = Literal["ACCEPTED", "CANCELLED", "REJECTED", "UNKNOWN"]
 
 
 class FaultPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    kind: str
-    tool: str | None = None
+    kind: KINDS
+    tool: TOOLS | None = None
     order_id: str | None = None
-    times: int = 1
+    times: int = Field(default=1, ge=1)
+    delay_ms: int = Field(default=0, ge=0, le=10000)
+
+
+class CancelResultPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    tenant_id: str
+    idempotency_key: str
+    state: STATES
+
+
+def _oms(request: Request) -> MockOms:
+    service: MockOms = request.app.state.oms
+    return service
 
 
 @router.post("/faults", status_code=204)
-def add_fault(payload: FaultPayload) -> None:
-    _oms.faults.add(FaultRule(**payload.model_dump()))
+def add_fault(payload: FaultPayload, request: Request) -> None:
+    _oms(request).faults.add(FaultRule(**payload.model_dump()))
 
 
 @router.delete("/faults", status_code=204)
-def clear_faults() -> None:
-    _oms.faults.clear()
+def clear_faults(request: Request) -> None:
+    _oms(request).faults.clear()
+
+
+@router.post("/cancel-result", status_code=204)
+def set_cancel_result(payload: CancelResultPayload, request: Request) -> None:
+    _oms(request).set_cancel_result(payload.tenant_id, payload.idempotency_key, payload.state)

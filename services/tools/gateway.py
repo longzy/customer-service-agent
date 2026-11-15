@@ -14,16 +14,18 @@ from referencing import Registry, Resource
 
 from services.api.auth import Identity
 from services.api.domain.errors import ErrorCode, error_spec
+from services.errors import (
+    CancelRejected,
+    DownstreamInvalidResponse,
+    IdempotencyConflict,
+    OrderNotFound,
+)
 
 ROOT = Path(__file__).resolve().parents[2]
 CONTRACTS = ROOT / "packages" / "contracts"
 TOOLS_DIR = CONTRACTS / "tools"
 
 IDENTITY_FIELDS = {"tenant_id", "user_id"}
-
-
-class DownstreamInvalidResponse(Exception):
-    """下游返回非法响应，由网关归类为 INVALID_RESPONSE。"""
 
 
 def _load_documents() -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
@@ -161,6 +163,20 @@ class ToolGateway:
         except DownstreamInvalidResponse as error:
             self._record(name, identity, order_id, "failed", "INVALID_RESPONSE", trace_id)
             raise GatewayError(502, error_envelope(ErrorCode.INVALID_RESPONSE)) from error
+        except (CancelRejected, IdempotencyConflict) as error:
+            self._record(name, identity, order_id, "failed", "OMS_REJECTED", trace_id)
+            raise GatewayError(409, error_envelope(ErrorCode.OMS_REJECTED)) from error
+        except OrderNotFound as error:
+            self._record(name, identity, order_id, "failed", "NOT_FOUND_OR_UNAUTHORIZED", trace_id)
+            raise GatewayError(404, error_envelope(ErrorCode.NOT_FOUND_OR_UNAUTHORIZED)) from error
+        except ConnectionError as error:
+            code = (
+                ErrorCode.DEPENDENCY_UNAVAILABLE
+                if ErrorCode.DEPENDENCY_UNAVAILABLE.value in self._errors[name]
+                else ErrorCode.INTERNAL_ERROR
+            )
+            self._record(name, identity, order_id, "failed", code.value, trace_id)
+            raise GatewayError(503, error_envelope(code)) from error
         except Exception as error:  # noqa: BLE001 - 网关必须兜住未知异常
             self._record(name, identity, order_id, "failed", "INTERNAL_ERROR", trace_id)
             raise GatewayError(500, error_envelope(ErrorCode.INTERNAL_ERROR)) from error

@@ -1,8 +1,12 @@
-"""Mock OMS：夹具、读写与幂等（AC-01、AC-05、AC-09）。"""
+"""Mock OMS：夹具、读写、幂等与归属（AC-01、AC-09、AC-10）。"""
+
+import copy
 
 import pytest
 
-from services.mock_oms.service import MockOms, OrderNotFound
+from services.errors import CancelRejected, IdempotencyConflict, OrderNotFound
+from services.mock_oms.service import MockOms
+from services.tools.gateway import OwnershipIndex
 
 
 def oms() -> MockOms:
@@ -20,7 +24,7 @@ def test_夹具覆盖两租户四种状态与跨用户订单_AC_01() -> None:
     assert service.get_order("tenant-b", "user-b1", "ORD-20001")["order_id"] == "ORD-20001"
 
 
-def test_查询他人订单不可见_AC_02() -> None:
+def test_查询他人订单不可见_AC_01() -> None:
     with pytest.raises(OrderNotFound):
         oms().get_order("tenant-a", "user-a1", "ORD-10005")
 
@@ -36,28 +40,70 @@ def test_最近订单只返回本人订单_AC_01() -> None:
     assert len(oms().list_recent_orders("tenant-a", "user-a1", limit=2)) == 2
 
 
+def test_返回值为深拷贝_AC_01() -> None:
+    service = oms()
+    order = service.get_order("tenant-a", "user-a1", "ORD-10001")
+    original = copy.deepcopy(order)
+    order["items"].clear()
+    assert service.get_order("tenant-a", "user-a1", "ORD-10001") == original
+
+
 def test_提交取消幂等_AC_09() -> None:
     service = oms()
-    first = service.submit_cancel("ORD-10001", "idem-0001-abcdef")
-    second = service.submit_cancel("ORD-10001", "idem-0001-abcdef")
+    first = service.submit_cancel("tenant-a", "user-a1", "ORD-10001", "idem-0001-abcdef")
+    second = service.submit_cancel("tenant-a", "user-a1", "ORD-10001", "idem-0001-abcdef")
     assert first == second == "ACCEPTED"
 
 
-def test_按幂等键查询结果_AC_10() -> None:
+def test_同一幂等键不得用于不同订单_AC_09() -> None:
     service = oms()
-    service.submit_cancel("ORD-10001", "idem-0002-abcdef")
-    assert service.get_cancel_result("idem-0002-abcdef") == "ACCEPTED"
-    with pytest.raises(OrderNotFound):
-        service.get_cancel_result("idem-unknown")
+    service.submit_cancel("tenant-a", "user-a1", "ORD-10001", "idem-0002-abcdef")
+    with pytest.raises(IdempotencyConflict):
+        service.submit_cancel("tenant-a", "user-a1", "ORD-10003", "idem-0002-abcdef")
 
 
-def test_已发货订单不可提交_AC_05() -> None:
-    with pytest.raises(OrderNotFound):
-        oms().submit_cancel("ORD-10003", "idem-0003-abcdef")
-
-
-def test_归属索引由夹具生成_AC_02() -> None:
+def test_同一订单不得重复受理_AC_09() -> None:
     service = oms()
-    assert service.owns("ORD-10001", "tenant-a", "user-a1") is True
-    assert service.owns("ORD-10001", "tenant-a", "user-a2") is False
-    assert service.owns("ORD-10001", "tenant-b", "user-b1") is False
+    service.submit_cancel("tenant-a", "user-a1", "ORD-10001", "idem-0003-abcdef")
+    with pytest.raises(CancelRejected):
+        service.submit_cancel("tenant-a", "user-a1", "ORD-10001", "idem-0004-abcdef")
+
+
+def test_跨用户与他人订单不可提交_AC_09() -> None:
+    service = oms()
+    with pytest.raises(OrderNotFound):
+        service.submit_cancel("tenant-a", "user-a1", "ORD-10005", "idem-0005-abcdef")
+    with pytest.raises(OrderNotFound):
+        service.submit_cancel("tenant-a", "user-a1", "ORD-20001", "idem-0006-abcdef")
+
+
+def test_已发货订单不可提交_AC_09() -> None:
+    with pytest.raises(CancelRejected):
+        oms().submit_cancel("tenant-a", "user-a1", "ORD-10003", "idem-0007-abcdef")
+
+
+def test_按幂等键查询结果且按租户隔离_AC_10() -> None:
+    service = oms()
+    service.submit_cancel("tenant-a", "user-a1", "ORD-10001", "idem-0008-abcdef")
+    assert service.get_cancel_result("tenant-a", "idem-0008-abcdef") == "ACCEPTED"
+    with pytest.raises(OrderNotFound):
+        service.get_cancel_result("tenant-b", "idem-0008-abcdef")
+    with pytest.raises(OrderNotFound):
+        service.get_cancel_result("tenant-a", "idem-unknown")
+
+
+def test_取消结果可推进到四态_AC_10() -> None:
+    service = oms()
+    service.submit_cancel("tenant-a", "user-a1", "ORD-10001", "idem-0009-abcdef")
+    for state in ("CANCELLED", "REJECTED", "UNKNOWN"):
+        service.set_cancel_result("tenant-a", "idem-0009-abcdef", state)
+        assert service.get_cancel_result("tenant-a", "idem-0009-abcdef") == state
+
+
+def test_归属索引由夹具生成_AC_01() -> None:
+    service = oms()
+    index = OwnershipIndex()
+    service.build_ownership_index(index)
+    assert index.is_visible("ORD-10001", "tenant-a", "user-a1") is True
+    assert index.is_visible("ORD-10005", "tenant-a", "user-a1") is False
+    assert index.is_visible("ORD-20001", "tenant-b", "user-b1") is True

@@ -14,6 +14,7 @@ class FaultRule:
     tool: str | None = None
     order_id: str | None = None
     times: int = 1
+    delay_ms: int = 0
 
     def __post_init__(self) -> None:
         if self.kind not in KINDS:
@@ -32,6 +33,7 @@ class FaultEngine:
 
     def __init__(self) -> None:
         self._rules: list[FaultRule] = []
+        self._last_delay_ms = 0
 
     def add(self, rule: FaultRule) -> None:
         self._rules.append(rule)
@@ -39,9 +41,14 @@ class FaultEngine:
     def clear(self) -> None:
         self._rules.clear()
 
+    @property
+    def take_delay_seconds(self) -> float:
+        return self._last_delay_ms / 1000
+
     def take(self, tool: str, order_id: str | None = None) -> str | None:
         for rule in self._rules:
             if rule.times > 0 and rule.matches(tool, order_id):
                 rule.times -= 1
+                self._last_delay_ms = rule.delay_ms
                 return rule.kind
         return None

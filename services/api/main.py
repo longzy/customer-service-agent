@@ -11,6 +11,7 @@ from services.api.admin_routes import router as admin_router
 from services.api.auth import resolve_identity
 from services.api.session_routes import router as session_router
 from services.api.settings import settings
+from services.mock_oms.service import MockOms
 
 
 @asynccontextmanager
@@ -27,6 +28,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
 def create_app() -> FastAPI:
     app = FastAPI(title="Customer Service Agent API", version="0.1.0", lifespan=lifespan)
+    app.state.oms = MockOms()
     app.middleware("http")(resolve_identity)
     app.include_router(session_router)
     if settings.environment != "production":

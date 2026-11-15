@@ -7,7 +7,7 @@
 - 版本控制：Git 已初始化，`main` 分支；全部文档已提交，工作区干净
 - 当前 Milestone：M1 订单查询与未发货订单取消（规格已批准：`docs/specs/001-order-cancel/`）
 - 当前工作：T-06 Mock OMS 完成，待独立评审
-- 最近验证：`./scripts/verify.sh` 九项全绿——ruff All checks passed、mypy 18 个文件无问题、pytest 164 passed、文档检查 39 个文件 20 条 AC、前端 lint/typecheck/test 通过
+- 最近验证：`./scripts/verify.sh` 九项全绿——ruff All checks passed、mypy 19 个文件无问题、pytest 175 passed、文档检查 39 个文件 20 条 AC、前端 lint/typecheck/test 通过
 
 ## 本阶段目标
 
@@ -60,7 +60,7 @@
 ## 进行中
 
 - 新增测试账号登录页（US-00、AC-20）；三份规格已于 2026-11-15 批准。
-- T-06 Mock OMS 完成：JSON 夹具、读写接口、幂等提交、故障规则引擎与开发期管理接口；164 个测试通过。
+- T-06 Mock OMS 完成：JSON 夹具、读写接口、幂等提交、故障规则引擎与开发期管理接口；175 个测试通过。
 - T-05 已完成并通过三轮评审；T-16 尚未开始。
 
 ## 阻塞
