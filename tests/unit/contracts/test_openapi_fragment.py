@@ -63,6 +63,13 @@ def test_paths通过引用指向components_基座豁免() -> None:
             assert set(schema) == {"$ref"}, f"{path} {status}"
 
 
+def test_所有引用都指向存在的组件_基座豁免() -> None:
+    doc = build()
+    names = set(doc["components"]["schemas"])
+    missing = collect_refs(doc) - names
+    assert missing == set(), f"悬空引用：{sorted(missing)}"
+
+
 def test_components没有孤立定义_基座豁免() -> None:
     doc = build()
     schemas = doc["components"]["schemas"]

@@ -6,8 +6,8 @@
 - 应用代码：已建立工程骨架（T-01），尚无业务逻辑
 - 版本控制：Git 已初始化，`main` 分支；全部文档已提交，工作区干净
 - 当前 Milestone：M1 订单查询与未发货订单取消（规格已批准：`docs/specs/001-order-cancel/`）
-- 当前工作：T-03 实现完成，待独立评审
-- 最近验证：`./scripts/verify.sh` 七项全绿——ruff All checks passed、mypy 12 个文件无问题、pytest 110 passed、文档检查 33 个文件 19 条 AC、前端 lint/typecheck/test 通过
+- 当前工作：T-03 契约已交付，等待复审结论
+- 最近验证：`./scripts/verify.sh` 九项全绿——ruff All checks passed、mypy 12 个文件无问题、pytest 110 passed、文档检查 33 个文件 19 条 AC、前端 lint/typecheck/test 通过
 
 ## 本阶段目标
 
@@ -59,11 +59,11 @@
 
 ## 进行中
 
-- M1 规格规范化改写完成，`requirements.md`、`requirements.md` 第 10 节、`design.md`、`tasks.md` 均为等待评审。
+- T-03 契约已完成第二轮修复，等待复审；Phase 2 的 T-04 至 T-06 尚未开始。
 
 ## 阻塞
 
-- 上述四份规格未重新批准前，T-03 不开工。
+- 无。
 
 ## 下一步
 

@@ -201,6 +201,8 @@ COLLECTING / AWAITING_CONFIRMATION -> 超时或用户放弃 -> ABANDONED
 
 该 Tool 不由 Agent 自由调用，只允许 Cancellation Workflow 在确认状态后调用。
 
+成功响应只返回 `ACCEPTED`；拒绝、超时与非法响应通过统一错误封套表达（`OMS_REJECTED`、`DEPENDENCY_TIMEOUT`、`INVALID_RESPONSE`），避免同一业务结果同时存在“状态”和“错误码”两种表达。
+
 ### `get_cancel_result`
 
 ```json
@@ -209,7 +211,7 @@ COLLECTING / AWAITING_CONFIRMATION -> 超时或用户放弃 -> ABANDONED
 }
 ```
 
-返回受理、取消、拒绝或未知状态。
+返回 OMS 侧的 `OmsCancelState` 四态：`ACCEPTED`、`CANCELLED`、`REJECTED`、`UNKNOWN`。Workflow 的内部状态（如 `COLLECTING`、`AWAITING_CONFIRMATION`）不得出现在该响应中。
 
 ## 4. Workflow 与幂等
 

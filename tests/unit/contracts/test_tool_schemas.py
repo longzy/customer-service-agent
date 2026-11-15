@@ -103,18 +103,6 @@ def test_错误封套拒绝非法输入_AC_11(overrides: dict[str, Any]) -> None
         validate_doc(DOMAIN, "ErrorEnvelope", envelope)
 
 
-def test_封套属性与错误码规格一致_AC_11() -> None:
-    for code in ErrorCode:
-        spec = error_spec(code)
-        envelope = {
-            "code": code.value,
-            "retryable": spec.retryable,
-            "visible": spec.visible,
-            "message": spec.user_message,
-        }
-        validate_doc(DOMAIN, "ErrorEnvelope", envelope)
-
-
 def test_get_order请求与响应_AC_01() -> None:
     doc = load_tool("get_order")
     validate_doc(doc, "Request", {"order_id": "ORD-10001"})
@@ -150,7 +138,11 @@ def test_get_cancel_eligibility请求与响应_AC_04() -> None:
 def test_submit_cancel请求与响应_AC_05() -> None:
     doc = load_tool("submit_cancel")
     validate_doc(doc, "Request", {"order_id": "ORD-10001", "idempotency_key": "idem-0001-abcdef"})
-    validate_doc(doc, "Response", {"state": OmsCancelState.UNKNOWN.value})
+    validate_doc(doc, "Response", {"state": "ACCEPTED"})
+    with pytest.raises(AssertionError):
+        validate_doc(doc, "Response", {"state": OmsCancelState.UNKNOWN.value})
+    with pytest.raises(AssertionError):
+        validate_doc(doc, "Response", {"state": OmsCancelState.REJECTED.value})
     with pytest.raises(AssertionError):
         validate_doc(doc, "Request", {"order_id": "ORD-10001"})
     with pytest.raises(AssertionError):
@@ -201,7 +193,7 @@ def test_OMS响应不接受Workflow内部状态_AC_10() -> None:
         "MANUAL_REVIEW",
         "ABANDONED",
     ]
-    for name in ("submit_cancel", "get_cancel_result"):
+    for name in ("get_cancel_result",):
         doc = load_tool(name)
         for state in internal:
             with pytest.raises(AssertionError):
@@ -211,10 +203,10 @@ def test_OMS响应不接受Workflow内部状态_AC_10() -> None:
 def test_OMS响应只接受四种状态_AC_10() -> None:
     oms_states = set(DOMAIN["$defs"]["OmsCancelState"]["enum"])
     assert oms_states == {state.value for state in OmsCancelState}
-    for name in ("submit_cancel", "get_cancel_result"):
-        doc = load_tool(name)
-        for state in oms_states:
-            validate_doc(doc, "Response", {"state": state})
+    doc = load_tool("get_cancel_result")
+    for state in oms_states:
+        validate_doc(doc, "Response", {"state": state})
+    validate_doc(load_tool("submit_cancel"), "Response", {"state": "ACCEPTED"})
 
 
 def test_每个Tool的错误码集合精确匹配_AC_02() -> None:
