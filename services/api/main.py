@@ -7,6 +7,8 @@ from fastapi import FastAPI
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
+from services.api.auth import resolve_identity
+from services.api.session_routes import router as session_router
 from services.api.settings import settings
 
 
@@ -24,6 +26,8 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
 def create_app() -> FastAPI:
     app = FastAPI(title="Customer Service Agent API", version="0.1.0", lifespan=lifespan)
+    app.middleware("http")(resolve_identity)
+    app.include_router(session_router)
 
     @app.get("/health")
     async def health() -> dict[str, str]:
