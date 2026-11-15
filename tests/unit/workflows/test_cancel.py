@@ -52,11 +52,15 @@ def workflow(
     oms: MockOms | None = None,
     timeout: float = 2.0,
     now: Any = None,
+    backoff: float = 0.01,
 ) -> tuple[CancellationWorkflow, MemoryRepository, MockOms]:
     repository = repo or MemoryRepository()
     service = oms or MockOms()
     flow = CancellationWorkflow(
-        repository, build_cancel_gateway(service, timeout_seconds=timeout), now=now
+        repository,
+        build_cancel_gateway(service, timeout_seconds=timeout),
+        retry_backoff_seconds=backoff,
+        now=now,
     )
     return flow, repository, service
 
@@ -106,7 +110,7 @@ async def test_响应丢失后恢复为受理_AC_10() -> None:
 async def test_网关超时后恢复为受理_AC_10() -> None:
     oms = MockOms()
     oms.faults.add(FaultRule(kind="delay", tool="submit_cancel", delay_ms=300))
-    flow, _, _ = workflow(oms=oms, timeout=0.05)
+    flow, _, _ = workflow(oms=oms, timeout=0.05, backoff=0.4)
     task = await flow.request(OWNER, "ORD-10001", "t-1")
     confirmed = await flow.confirm(OWNER, task.id, "t-1")
     assert confirmed.state == CancellationState.ACCEPTED
@@ -233,3 +237,27 @@ async def test_提交中状态确认触发恢复_AC_10() -> None:
     stored = repo.tasks[task.id]
     stored.state = CancellationState.SUBMITTING
     assert (await flow.confirm(OWNER, task.id, "t-1")).state == CancellationState.ACCEPTED
+
+
+async def test_受理后可推进为已取消_AC_05() -> None:
+    oms = MockOms()
+    flow, _, _ = workflow(oms=oms)
+    task = await flow.request(OWNER, "ORD-10001", "t-1")
+    await flow.confirm(OWNER, task.id, "t-1")
+    oms.set_cancel_result("tenant-a", task.idempotency_key, "CANCELLED")
+    assert (await flow.get(OWNER, task.id, "t-1")).state == CancellationState.CANCELLED
+
+
+async def test_受理后查询失败保持受理_AC_05() -> None:
+    oms = MockOms()
+    flow, _, _ = workflow(oms=oms)
+    task = await flow.request(OWNER, "ORD-10001", "t-1")
+    await flow.confirm(OWNER, task.id, "t-1")
+    oms.faults.add(FaultRule(kind="unavailable", tool="get_cancel_result", times=3))
+    assert (await flow.get(OWNER, task.id, "t-1")).state == CancellationState.ACCEPTED
+
+
+async def test_会话关联写入任务_AC_04() -> None:
+    flow, repo, _ = workflow()
+    task = await flow.request(OWNER, "ORD-10001", "t-1", conversation_id="conv-9")
+    assert repo.tasks[task.id].conversation_id == "conv-9"

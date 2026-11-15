@@ -177,7 +177,13 @@ class CancellationWorkflow:
 
         return await asyncio.to_thread(call)
 
-    async def request(self, identity: Identity, order_id: str, trace_id: str) -> CancellationTask:
+    async def request(
+        self,
+        identity: Identity,
+        order_id: str,
+        trace_id: str,
+        conversation_id: str | None = None,
+    ) -> CancellationTask:
         eligibility = await self._invoke(
             "get_cancel_eligibility", {"order_id": order_id}, identity, trace_id
         )
@@ -187,6 +193,7 @@ class CancellationWorkflow:
             user_id=identity.user_id,
             order_id=order_id,
             state=CancellationState.COLLECTING,
+            conversation_id=conversation_id,
             idempotency_key=str(uuid4()),
             expires_at=self._now() + self._confirm_timeout,
         )
@@ -226,8 +233,10 @@ class CancellationWorkflow:
                 identity,
                 trace_id,
             )
+            task.oms_request_id = task.idempotency_key
             if body.get("state") == OmsCancelState.ACCEPTED.value:
-                return await self._finish(task, CancellationState.ACCEPTED)
+                await self._finish(task, CancellationState.ACCEPTED)
+                return await self._refresh_accepted(identity, task, trace_id)
             return await self._recover(identity, task, trace_id)
         except GatewayError as error:
             code = error.payload.get("code")
@@ -257,6 +266,25 @@ class CancellationWorkflow:
             await self._repository.commit()
         elif task.state in RECOVERABLE_STATES:
             task = await self._recover(identity, task, trace_id)
+        elif task.state == CancellationState.ACCEPTED:
+            task = await self._refresh_accepted(identity, task, trace_id)
+        return task
+
+    async def _refresh_accepted(
+        self, identity: Identity, task: CancellationTask, trace_id: str
+    ) -> CancellationTask:
+        """已受理后只允许推进到 CANCELLED；查询失败保持 ACCEPTED，不降级。"""
+        try:
+            body = await self._invoke(
+                "get_cancel_result",
+                {"idempotency_key": task.idempotency_key},
+                identity,
+                trace_id,
+            )
+        except GatewayError:
+            return task
+        if body.get("state") == OmsCancelState.CANCELLED.value:
+            return await self._finish(task, CancellationState.CANCELLED)
         return task
 
     async def _recover(

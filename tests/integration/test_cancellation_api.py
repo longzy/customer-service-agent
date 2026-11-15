@@ -36,6 +36,20 @@ class MemoryRepository:
         return None
 
 
+class ConflictRepository(MemoryRepository):
+    def __init__(self) -> None:
+        super().__init__()
+        self.saves = 0
+
+    async def save(self, task: CancellationTask) -> None:
+        self.saves += 1
+        if self.saves > 1:
+            from services.workflows.cancel import TaskConflict
+
+            raise TaskConflict(task.id)
+        await super().save(task)
+
+
 def make_client(repo: CancellationRepository) -> TestClient:
     app = create_app()
     app.dependency_overrides[get_repository] = lambda: repo
@@ -106,3 +120,21 @@ def test_主动放弃_AC_06() -> None:
         task_id = api.post("/cancellation-requests", json={"order_id": "ORD-10001"}).json()["id"]
         body = api.post(f"/cancellation-requests/{task_id}/abandon").json()
         assert body["state"] == "ABANDONED"
+
+
+def test_并发更新返回409_基座豁免() -> None:
+    with make_client(ConflictRepository()) as api:
+        login(api)
+        task_id = api.post("/cancellation-requests", json={"order_id": "ORD-10001"}).json()["id"]
+        assert api.post(f"/cancellation-requests/{task_id}/confirm").status_code == 409
+
+
+def test_会话标识透传_AC_04() -> None:
+    repo = MemoryRepository()
+    with make_client(repo) as api:
+        login(api)
+        body = api.post(
+            "/cancellation-requests",
+            json={"order_id": "ORD-10001", "conversation_id": "conv-9"},
+        ).json()
+        assert repo.tasks[body["id"]].conversation_id == "conv-9"

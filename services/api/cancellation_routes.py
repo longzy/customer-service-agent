@@ -18,6 +18,7 @@ from services.workflows.cancel import (
     CancellationWorkflow,
     InvalidTransition,
     SqlCancellationRepository,
+    TaskConflict,
     TaskNotFound,
 )
 
@@ -28,6 +29,7 @@ class RequestPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     order_id: str
+    conversation_id: str | None = None
 
 
 def get_repository(
@@ -64,7 +66,9 @@ async def create_request(
     workflow: Annotated[CancellationWorkflow, Depends(_workflow)],
 ) -> Any:
     try:
-        task = await workflow.request(identity, payload.order_id, str(uuid4()))
+        task = await workflow.request(
+            identity, payload.order_id, str(uuid4()), payload.conversation_id
+        )
     except GatewayError as error:
         return JSONResponse(status_code=error.status_code, content=error.payload)
     return _public(task)
@@ -84,6 +88,8 @@ async def confirm_request(
         raise HTTPException(status_code=404, detail="任务不存在") from error
     except InvalidTransition as error:
         raise HTTPException(status_code=409, detail="任务状态不允许确认") from error
+    except TaskConflict as error:
+        raise HTTPException(status_code=409, detail="任务已被其他请求更新") from error
     return _public(task)
 
 
@@ -110,4 +116,6 @@ async def abandon_request(
         task = await workflow.abandon(identity, task_id)
     except TaskNotFound as error:
         raise HTTPException(status_code=404, detail="任务不存在") from error
+    except TaskConflict as error:
+        raise HTTPException(status_code=409, detail="任务已被其他请求更新") from error
     return _public(task)
