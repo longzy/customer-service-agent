@@ -53,7 +53,7 @@
 
 - [x] T17 [US1/US2] 实现查询 Tool（`get_order`、`list_recent_orders`）并注册到网关（`services/tools/query.py`）— depends on T05、T06
   - _验收: AC-01、AC-02、AC-03_
-- [ ] T09 [P] [US1] 实现查询意图识别与订单澄清（`services/agent_runtime/intent.py`）— depends on T17
+- [x] T09 [P] [US1] 实现查询意图识别与订单澄清（`services/agent_runtime/intent.py`）— depends on T17
   - _验收: AC-01、AC-08_
 - [ ] T10 [P] [US1] 实现查询结果展示与空态（`apps/web/components/QueryView.tsx`）— depends on T09
   - _验收: AC-01_

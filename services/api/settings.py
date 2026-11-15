@@ -17,6 +17,9 @@ class Settings(BaseSettings):
         return self.environment in TEST_ENVIRONMENTS
 
     confirm_timeout_minutes: int = 30
+    model_base_url: str = "https://api.openai.com/v1"
+    model_name: str = "gpt-4o-mini"
+    model_api_key: str = ""
     oms_timeout_seconds: float = 2.0
     max_retries: int = 3
 
