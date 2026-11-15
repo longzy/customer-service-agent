@@ -49,6 +49,7 @@ def test_查询订单返回结果并落库_AC_01() -> None:
         assert response.status_code == 200
         body = response.json()
         assert body["orders"][0]["order_id"] == "ORD-10001"
+        assert body["orders"][0]["status_text"] == "待发货"
         assert body["clarification"] == []
         assert [role for _, role, _, _ in repo.messages] == ["user", "assistant"]
         assert repo.committed is True

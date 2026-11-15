@@ -21,6 +21,24 @@ const order = {
   cancelable: true,
 };
 
+function reply(overrides: Record<string, unknown> = {}) {
+  return new Response(
+    JSON.stringify({
+      conversation_id: "conv-1",
+      reply: "订单 ORD-10001：无线耳机 × 1，状态 待发货，金额 399.00 元。",
+      orders: [order],
+      clarification: [],
+      ...overrides,
+    }),
+    { status: 200 },
+  );
+}
+
+async function send(text: string) {
+  fireEvent.change(screen.getByLabelText("输入消息"), { target: { value: text } });
+  fireEvent.click(screen.getByRole("button", { name: "发送" }));
+}
+
 describe("ChatShell", () => {
   beforeEach(() => {
     replace.mockReset();
@@ -35,47 +53,91 @@ describe("ChatShell", () => {
   });
 
   it("发送消息后展示用户消息、回复与订单卡片（AC-01）", async () => {
-    const fetchMock = vi.spyOn(global, "fetch").mockResolvedValue(
-      new Response(
-        JSON.stringify({
-          reply: "订单 ORD-10001：无线耳机 × 1，状态 待发货，金额 399.00 元。",
-          orders: [order],
-          clarification: [],
-        }),
-        { status: 200 },
-      ),
-    );
+    const fetchMock = vi.spyOn(global, "fetch").mockResolvedValue(reply());
     render(<ChatShell />);
-    fireEvent.change(screen.getByLabelText("输入消息"), {
-      target: { value: "查一下 ORD-10001" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "发送" }));
+    await send("查一下 ORD-10001");
 
     expect(await screen.findByText("查一下 ORD-10001")).toBeInTheDocument();
     expect(await screen.findByText(/订单 ORD-10001/)).toBeInTheDocument();
     expect(screen.getByText("待发货")).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledWith(
-      "/api/message",
-      expect.objectContaining({
-        method: "POST",
-        body: JSON.stringify({ content: "查一下 ORD-10001" }),
-      }),
-    );
+    const body = JSON.parse(fetchMock.mock.calls[0]?.[1]?.body as string);
+    expect(body).toEqual({ content: "查一下 ORD-10001", conversation_id: null });
   });
 
-  it("服务不可用时显示错误（AC-01）", async () => {
-    vi.spyOn(global, "fetch").mockResolvedValue(new Response("{}", { status: 503 }));
+  it("后续消息回传会话 id（AC-01）", async () => {
+    const fetchMock = vi
+      .spyOn(global, "fetch")
+      .mockResolvedValueOnce(reply())
+      .mockResolvedValueOnce(reply());
     render(<ChatShell />);
-    fireEvent.change(screen.getByLabelText("输入消息"), { target: { value: "查订单" } });
+    await send("第一句");
+    await screen.findByText(/订单 ORD-10001/);
+    fireEvent.change(screen.getByLabelText("输入消息"), { target: { value: "第二句" } });
     fireEvent.click(screen.getByRole("button", { name: "发送" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent("服务暂时不可用");
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    const body = JSON.parse(fetchMock.mock.calls[1]?.[1]?.body as string);
+    expect(body.conversation_id).toBe("conv-1");
+  });
+
+  it("澄清候选可见（AC-08）", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue(
+      reply({
+        orders: [],
+        reply: "你提到了多笔订单，请确认是哪一笔：ORD-10001、ORD-10002",
+        clarification: ["ORD-10001", "ORD-10002"],
+      }),
+    );
+    render(<ChatShell />);
+    await send("查 ORD-10001 和 ORD-10002");
+    expect(await screen.findByText(/候选：ORD-10001、ORD-10002/)).toBeInTheDocument();
+  });
+
+  it("服务不可用时显示可重试提示（基座豁免）", async () => {
+    const fetchMock = vi
+      .spyOn(global, "fetch")
+      .mockResolvedValueOnce(new Response("{}", { status: 503 }))
+      .mockResolvedValueOnce(reply());
+    render(<ChatShell />);
+    await send("查订单");
+    expect(await screen.findByRole("alert")).toHaveTextContent("请求未完成");
+    fireEvent.click(screen.getByRole("button", { name: "重试" }));
+    expect(await screen.findByText(/订单 ORD-10001/)).toBeInTheDocument();
+    const retryBody = JSON.parse(fetchMock.mock.calls[1]?.[1]?.body as string);
+    expect(retryBody.content).toBe("查订单");
+    expect(screen.getAllByText("查订单")).toHaveLength(1);
+  });
+
+  it("网络异常显示可重试提示（基座豁免）", async () => {
+    vi.spyOn(global, "fetch").mockRejectedValue(new TypeError("failed"));
+    render(<ChatShell />);
+    await send("查订单");
+    expect(await screen.findByRole("alert")).toHaveTextContent("请求未完成");
   });
 
   it("登录失效时跳转登录页（AC-20）", async () => {
     vi.spyOn(global, "fetch").mockResolvedValue(new Response("{}", { status: 401 }));
     render(<ChatShell />);
-    fireEvent.change(screen.getByLabelText("输入消息"), { target: { value: "查订单" } });
-    fireEvent.click(screen.getByRole("button", { name: "发送" }));
+    await send("查订单");
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/login"));
+  });
+
+  it("Enter 发送、Shift+Enter 换行（基座豁免）", async () => {
+    const fetchMock = vi.spyOn(global, "fetch").mockResolvedValue(reply());
+    render(<ChatShell />);
+    const textarea = screen.getByLabelText("输入消息");
+    fireEvent.change(textarea, { target: { value: "第一行" } });
+    fireEvent.keyDown(textarea, { key: "Enter", shiftKey: true });
+    expect(fetchMock).not.toHaveBeenCalled();
+    fireEvent.keyDown(textarea, { key: "Enter" });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+  });
+
+  it("请求中禁用输入与发送（基座豁免）", async () => {
+    vi.spyOn(global, "fetch").mockImplementation(() => new Promise(() => {}));
+    render(<ChatShell />);
+    await send("查订单");
+    expect(screen.getByLabelText("输入消息")).toBeDisabled();
+    expect(screen.getByRole("button", { name: "发送" })).toBeDisabled();
+    expect(screen.getByRole("status")).toHaveTextContent("正在查询");
   });
 });

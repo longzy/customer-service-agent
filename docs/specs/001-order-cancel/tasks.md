@@ -57,7 +57,7 @@
   - _验收: AC-01、AC-08_
 - [x] T18 [US1] 实现 Conversation API 与消息持久化（`services/api/conversation_routes.py`、`services/api/models.py`）— depends on T09、T17
   - _验收: AC-01、AC-08_
-- [ ] T10 [P] [US1] 实现查询结果展示与空态（`apps/web/components/QueryView.tsx`）— depends on T18
+- [x] T10 [P] [US1] 实现查询结果展示与空态（`apps/web/components/QueryView.tsx`）— depends on T18
   - _验收: AC-01_
 
 **Checkpoint**：查询切片可独立演示。

@@ -14,6 +14,7 @@ type ChatMessage = {
 };
 
 type Reply = {
+  conversation_id: string;
   reply: string;
   orders?: Order[];
   clarification?: string[];
@@ -22,8 +23,8 @@ type Reply = {
 const MAX_LENGTH = 500;
 
 /**
- * M1 页面骨架：只实现空态与输入区。
- * 消息流、确认卡片与状态切换由 T-10 实现，规则见 ui.md。
+ * M1 页面骨架：空态、消息列表、订单卡片与查询输入。
+ * 流式输出、历史恢复与取消确认分别由后续任务实现。
  */
 export function ChatShell({
   account,
@@ -36,32 +37,36 @@ export function ChatShell({
   const [value, setValue] = useState("");
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ message: string; retry: string } | null>(null);
+  const [conversationId, setConversationId] = useState<string | null>(null);
 
-  async function send() {
-    const content = value.trim();
-    if (!content || busy) {
+  async function submit(content: string, appendUser: boolean) {
+    const text = content.trim();
+    if (!text || busy) {
       return;
+    }
+    if (appendUser) {
+      setMessages((items) => [...items, { id: `${Date.now()}-user`, role: "user", text }]);
     }
     setValue("");
     setError(null);
     setBusy(true);
-    setMessages((items) => [...items, { id: `${Date.now()}-user`, role: "user", text: content }]);
     try {
       const response = await fetch("/api/message", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content }),
+        body: JSON.stringify({ content: text, conversation_id: conversationId }),
       });
       if (response.status === 401) {
         router.replace("/login");
         return;
       }
       if (!response.ok) {
-        setError("服务暂时不可用，请稍后再试。");
+        setError({ message: "请求未完成，请重试。", retry: text });
         return;
       }
       const body = (await response.json()) as Reply;
+      setConversationId(body.conversation_id);
       setMessages((items) => [
         ...items,
         {
@@ -73,7 +78,7 @@ export function ChatShell({
         },
       ]);
     } catch {
-      setError("网络异常，请稍后再试。");
+      setError({ message: "请求未完成，请重试。", retry: text });
     } finally {
       setBusy(false);
     }
@@ -99,28 +104,36 @@ export function ChatShell({
         ) : null}
       </header>
 
-      <div className="log">
+      <div className="log" role="log" aria-live="polite" aria-busy={busy}>
         {messages.length === 0 ? (
-          <p className="msg">您好，我可以帮您查询订单，或取消未发货的订单。</p>
-        ) : null}
-        {messages.length === 0 ? (
-          <div className="hints">
-            <button type="button" className="hint">
-              <svg className="ic" viewBox="0 0 24 24" aria-hidden="true">
-                <circle cx="11" cy="11" r="7" />
-                <path d="m20 20-3.2-3.2" />
-              </svg>
-              查询订单
-            </button>
-            <button type="button" className="hint">
-              <svg className="ic" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
-                <path d="M3.3 7 12 12l8.7-5" />
-                <path d="M12 22V12" />
-              </svg>
-              取消订单
-            </button>
-          </div>
+          <>
+            <p className="msg">您好，我可以帮您查询订单，或取消未发货的订单。</p>
+            <div className="hints">
+              <button
+                type="button"
+                className="hint"
+                onClick={() => void submit("查询我的最近订单", true)}
+              >
+                <svg className="ic" viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="m20 20-3.2-3.2" />
+                </svg>
+                查询订单
+              </button>
+              <button
+                type="button"
+                className="hint"
+                onClick={() => void submit("我要取消订单", true)}
+              >
+                <svg className="ic" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" />
+                  <path d="M3.3 7 12 12l8.7-5" />
+                  <path d="M12 22V12" />
+                </svg>
+                取消订单
+              </button>
+            </div>
+          </>
         ) : null}
         {messages.map((message) => (
           <div key={message.id} className={`bubble ${message.role}`}>
@@ -131,30 +144,41 @@ export function ChatShell({
             ) : null}
           </div>
         ))}
-        {busy ? <p className="msg">正在查询…</p> : null}
-        {error ? (
-          <p className="login-error" role="alert">
-            {error}
+        {busy ? (
+          <p className="msg" role="status">
+            正在查询…
           </p>
+        ) : null}
+        {error ? (
+          <div className="bubble assistant">
+            <p role="alert">{error.message}</p>
+            <button type="button" className="ghost" onClick={() => void submit(error.retry, false)}>
+              重试
+            </button>
+          </div>
         ) : null}
       </div>
 
-      <div className="composer">
+      <div className="composer" aria-busy={busy}>
         <label className="sr-only" htmlFor="message">
           输入消息
         </label>
         <textarea
           id="message"
           className="cin"
-          placeholder="输入消息，例如：取消订单 ORD-10001"
+          placeholder="输入消息，例如：查询订单 ORD-10001"
           rows={2}
           maxLength={MAX_LENGTH}
           value={value}
+          disabled={busy}
           onChange={(event) => setValue(event.target.value)}
           onKeyDown={(event) => {
+            if (event.nativeEvent.isComposing) {
+              return;
+            }
             if (event.key === "Enter" && !event.shiftKey) {
               event.preventDefault();
-              void send();
+              void submit(value, true);
             }
           }}
         />
@@ -167,8 +191,8 @@ export function ChatShell({
             type="button"
             className="send"
             aria-label="发送"
-            onClick={() => void send()}
-            disabled={busy}
+            onClick={() => void submit(value, true)}
+            disabled={busy || value.trim().length === 0}
           >
             发送
           </button>
