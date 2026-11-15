@@ -8,7 +8,13 @@ const MAX_LENGTH = 500;
  * M1 页面骨架：只实现空态与输入区。
  * 消息流、确认卡片与状态切换由 T-10 实现，规则见 ui.md。
  */
-export function ChatShell() {
+export function ChatShell({
+  account,
+  onLogout,
+}: {
+  account?: { display_name: string; tenant_name: string };
+  onLogout?: () => void;
+}) {
   const [value, setValue] = useState("");
 
   return (
@@ -16,9 +22,19 @@ export function ChatShell() {
       <header className="topbar">
         <span className="dot" aria-hidden="true" />
         <h1>客服中心</h1>
+        {account ? (
+          <span className="who">
+            {account.tenant_name} · {account.display_name}
+          </span>
+        ) : null}
         <button type="button" className="ghost">
           转人工
         </button>
+        {onLogout ? (
+          <button type="button" className="ghost" onClick={onLogout}>
+            退出
+          </button>
+        ) : null}
       </header>
 
       <div className="log">

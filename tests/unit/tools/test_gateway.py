@@ -15,9 +15,9 @@ from services.tools.gateway import (
     has_identity_fields,
 )
 
-IDENTITY = Identity("zhang-ming", "user-a1", "tenant-a", "张明")
-OTHER_USER = Identity("li-hua", "user-a2", "tenant-a", "李华")
-OTHER_TENANT = Identity("wang-qiang", "user-b1", "tenant-b", "王强")
+IDENTITY = Identity("zhang-ming", "user-a1", "tenant-a", "张明", "示例商户 A")
+OTHER_USER = Identity("li-hua", "user-a2", "tenant-a", "李华", "示例商户 A")
+OTHER_TENANT = Identity("wang-qiang", "user-b1", "tenant-b", "王强", "示例商户 B")
 
 
 class Recorder:

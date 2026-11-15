@@ -1,5 +1,5 @@
-import { ChatShell } from "@/components/ChatShell";
+import { SessionGate } from "@/components/SessionGate";
 
 export default function Page() {
-  return <ChatShell />;
+  return <SessionGate />;
 }

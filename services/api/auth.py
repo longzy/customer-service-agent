@@ -20,13 +20,16 @@ class Identity:
     user_id: str
     tenant_id: str
     display_name: str
+    tenant_name: str
 
+
+TENANT_NAMES = {"tenant-a": "示例商户 A", "tenant-b": "示例商户 B"}
 
 ACCOUNTS: dict[str, Identity] = {
-    "zhang-ming": Identity("zhang-ming", "user-a1", "tenant-a", "张明"),
-    "li-hua": Identity("li-hua", "user-a2", "tenant-a", "李华"),
-    "wang-qiang": Identity("wang-qiang", "user-b1", "tenant-b", "王强"),
-    "zhao-min": Identity("zhao-min", "user-b2", "tenant-b", "赵敏"),
+    "zhang-ming": Identity("zhang-ming", "user-a1", "tenant-a", "张明", "示例商户 A"),
+    "li-hua": Identity("li-hua", "user-a2", "tenant-a", "李华", "示例商户 A"),
+    "wang-qiang": Identity("wang-qiang", "user-b1", "tenant-b", "王强", "示例商户 B"),
+    "zhao-min": Identity("zhao-min", "user-b2", "tenant-b", "赵敏", "示例商户 B"),
 }
 
 _sessions: dict[str, tuple[Identity, datetime]] = {}

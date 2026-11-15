@@ -11,7 +11,7 @@ from services.mock_oms.faults import FaultEngine, FaultRule
 from services.mock_oms.service import MockOms
 from services.tools.gateway import GatewayError, OwnershipIndex, ToolGateway, ToolSpec
 
-IDENTITY = Identity("zhang-ming", "user-a1", "tenant-a", "张明")
+IDENTITY = Identity("zhang-ming", "user-a1", "tenant-a", "张明", "示例商户 A")
 
 
 def test_规则按次数消耗_基座豁免() -> None:

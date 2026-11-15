@@ -30,6 +30,7 @@ def _public(identity: Identity) -> dict[str, str]:
         "account_id": identity.account_id,
         "user_id": identity.user_id,
         "tenant_id": identity.tenant_id,
+        "tenant_name": identity.tenant_name,
         "display_name": identity.display_name,
     }
 

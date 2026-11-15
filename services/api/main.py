@@ -7,6 +7,7 @@ from fastapi import FastAPI
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
+from services.api.account_routes import router as account_router
 from services.api.admin_routes import router as admin_router
 from services.api.auth import resolve_identity
 from services.api.session_routes import router as session_router
@@ -33,6 +34,7 @@ def create_app() -> FastAPI:
     app.include_router(session_router)
     if settings.environment != "production":
         app.include_router(admin_router)
+        app.include_router(account_router)
 
     @app.get("/health")
     async def health() -> dict[str, str]:
