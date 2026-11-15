@@ -9,6 +9,7 @@
   - 2026-11-15 第 12 节登录页按 Q-2 去掉角色展示；账号切换明确为“退出后重新登录”。
   - 2026-11-15 第 12 节“输出中”由流式改为非流式等待，流式输出拆为后续任务（T-18 决策）。
   - 2026-11-15 第 12 节刷新行为改为不恢复历史（T-10 决策），读取接口留待后续任务。
+  - 2026-11-15 第 3 节明确资格 Tool 可读取 OMS 订单事实，但判定只由 Policy Engine 产出（T-08 决策）。
 - 关联需求：`requirements.md`
 
 ## 1. 设计原则
@@ -197,7 +198,7 @@ COLLECTING / AWAITING_CONFIRMATION -> 超时或用户放弃 -> ABANDONED
 }
 ```
 
-该 Tool 由 Policy Engine 提供，不查询 Mock OMS。`reason_code` 是唯一权威原因码，Agent 只能转述，不能改写或补写。
+该 Tool 由 Policy Engine 判定；网关为取得订单事实会读取 Mock OMS 的只读接口，但**判定结论只由 Policy Engine 产出**。`reason_code` 是唯一权威原因码，Agent 只能转述，不能改写或补写。
 
 ### `submit_cancel`
 
