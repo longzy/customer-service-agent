@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { ConfirmCard, type Cancellation } from "@/components/ConfirmCard";
 import { QueryView, type Order } from "@/components/QueryView";
 
 type ChatMessage = {
@@ -11,6 +12,7 @@ type ChatMessage = {
   text: string;
   orders?: Order[];
   clarification?: string[];
+  cancellation?: Cancellation;
 };
 
 type Reply = {
@@ -18,6 +20,7 @@ type Reply = {
   reply: string;
   orders?: Order[];
   clarification?: string[];
+  cancellation?: Cancellation;
 };
 
 const MAX_LENGTH = 500;
@@ -39,6 +42,44 @@ export function ChatShell({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<{ message: string; retry: string } | null>(null);
   const [conversationId, setConversationId] = useState<string | null>(null);
+
+  async function act(messageId: string, card: Cancellation, action: "confirm" | "abandon") {
+    setBusy(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/cancellation-requests/${card.task_id}/${action}`, {
+        method: "POST",
+      });
+      if (!response.ok) {
+        setError({ message: "请求未完成，请重试。", retry: "" });
+        return;
+      }
+      const body = (await response.json()) as {
+        state: string;
+        state_text: string;
+        reason_code: string | null;
+      };
+      setMessages((items) =>
+        items.map((item) =>
+          item.id === messageId && item.cancellation
+            ? {
+                ...item,
+                cancellation: {
+                  ...item.cancellation,
+                  state: body.state,
+                  state_text: body.state_text,
+                  reason_code: body.reason_code,
+                },
+              }
+            : item,
+        ),
+      );
+    } catch {
+      setError({ message: "请求未完成，请重试。", retry: "" });
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function submit(content: string, appendUser: boolean) {
     const text = content.trim();
@@ -75,6 +116,7 @@ export function ChatShell({
           text: body.reply,
           orders: body.orders,
           clarification: body.clarification,
+          cancellation: body.cancellation,
         },
       ]);
     } catch {
@@ -139,6 +181,14 @@ export function ChatShell({
           <div key={message.id} className={`bubble ${message.role}`}>
             <p>{message.text}</p>
             {message.orders?.length ? <QueryView orders={message.orders} /> : null}
+            {message.cancellation ? (
+              <ConfirmCard
+                cancellation={message.cancellation}
+                busy={busy}
+                onConfirm={() => void act(message.id, message.cancellation!, "confirm")}
+                onAbandon={() => void act(message.id, message.cancellation!, "abandon")}
+              />
+            ) : null}
             {message.clarification?.length ? (
               <p className="hint-text">候选：{message.clarification.join("、")}</p>
             ) : null}

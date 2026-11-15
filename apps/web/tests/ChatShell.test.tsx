@@ -141,3 +141,62 @@ describe("ChatShell", () => {
     expect(screen.getByRole("status")).toHaveTextContent("正在查询");
   });
 });
+
+describe("ChatShell 取消卡片", () => {
+  const cancellation = {
+    task_id: "task-1",
+    state: "AWAITING_CONFIRMATION",
+    state_text: "等待您确认",
+    reason_code: null,
+    expires_at: "2026-11-15T12:00:00Z",
+    order: {
+      order_id: "ORD-10001",
+      item_summary: "无线耳机 × 1",
+      status_text: "待发货",
+      amount_cents: 39900,
+      currency: "CNY",
+    },
+  };
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("取消意图显示确认卡片并可确认（AC-04、AC-05）", async () => {
+    const fetchMock = vi
+      .spyOn(global, "fetch")
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            conversation_id: "conv-1",
+            reply: "等待您确认",
+            orders: [],
+            clarification: [],
+            cancellation,
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            state: "ACCEPTED",
+            state_text: "已受理，等待最终取消结果",
+            reason_code: null,
+          }),
+          { status: 200 },
+        ),
+      );
+    render(<ChatShell />);
+    fireEvent.change(screen.getByLabelText("输入消息"), {
+      target: { value: "取消 ORD-10001" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "发送" }));
+    expect(await screen.findByRole("button", { name: "确认取消" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "确认取消" }));
+    expect(await screen.findByText("已受理，等待最终取消结果")).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenLastCalledWith("/api/cancellation-requests/task-1/confirm", {
+      method: "POST",
+    });
+  });
+});

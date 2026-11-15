@@ -116,3 +116,21 @@ def test_最近订单故障返回可见文案_AC_01() -> None:
         body = api.post("/message", json={"content": "我的订单"}).json()
         assert body["orders"] == []
         assert "服务暂时不可用" in body["reply"]
+
+
+def test_取消意图返回确认卡片_AC_04() -> None:
+    repo = MemoryRepository()
+    app = create_app()
+    app.state.model_client = FakeModelClient(
+        {"取消 ORD-10001": {"intent": "CANCEL_ORDER", "order_id": "ORD-10001"}}
+    )
+    app.dependency_overrides[get_repository] = lambda: repo
+    with TestClient(app) as api:
+        api.post("/session", json={"account_id": "zhang-ming"})
+        body = api.post("/message", json={"content": "取消 ORD-10001"}).json()
+        card = body["cancellation"]
+        assert card["state"] == "AWAITING_CONFIRMATION"
+        assert card["state_text"] == "等待您确认"
+        assert card["order"]["order_id"] == "ORD-10001"
+        assert card["order"]["status_text"] == "待发货"
+        assert card["order"]["amount_cents"] == 39900

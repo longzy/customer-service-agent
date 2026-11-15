@@ -132,6 +132,35 @@ async def test_取消与人工意图不冒充已执行_AC_01() -> None:
         )
     )
     cancel = await chat.handle(IDENTITY, "取消 ORD-10001")
-    assert "后续版本" in cancel.reply
+    assert "暂不可用" in cancel.reply
     handoff = await chat.handle(IDENTITY, "转人工")
     assert "后续版本" in handoff.reply
+
+
+async def test_取消意图返回卡片数据_AC_04() -> None:
+    from datetime import UTC, datetime
+    from types import SimpleNamespace
+
+    class FakeWorkflow:
+        async def request(self, identity, order_id, trace_id):
+            return SimpleNamespace(
+                id="task-1",
+                state=__import__(
+                    "services.api.domain.cancellation", fromlist=["CancellationState"]
+                ).CancellationState.AWAITING_CONFIRMATION,
+                reason_code=None,
+                expires_at=datetime(2026, 11, 15, 12, 0, tzinfo=UTC),
+            )
+
+    chat = ConversationService(
+        MemoryRepository(),
+        FakeModelClient({"取消 ORD-10001": {"intent": "CANCEL_ORDER", "order_id": "ORD-10001"}}),
+        build_query_gateway(MockOms()),
+        cancellation=FakeWorkflow(),
+    )
+    reply = await chat.handle(IDENTITY, "取消 ORD-10001")
+    assert reply.cancellation is not None
+    assert reply.cancellation["task_id"] == "task-1"
+    assert reply.cancellation["state_text"] == "等待您确认"
+    assert reply.cancellation["order"]["order_id"] == "ORD-10001"
+    assert reply.cancellation["order"]["status_text"] == "待发货"

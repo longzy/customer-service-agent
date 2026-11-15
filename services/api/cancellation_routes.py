@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.api.auth import Identity, current_identity
 from services.api.db import get_session
+from services.api.domain.cancellation import EXPRESSIONS
 from services.api.settings import settings
 from services.tools.gateway import GatewayError
 from services.workflows.cancel import (
@@ -53,6 +54,7 @@ def _public(task: CancellationTask) -> dict[str, Any]:
         "id": task.id,
         "order_id": task.order_id,
         "state": task.state.value,
+        "state_text": EXPRESSIONS[task.state],
         "reason_code": task.reason_code,
         "expires_at": task.expires_at.isoformat().replace("+00:00", "Z"),
     }

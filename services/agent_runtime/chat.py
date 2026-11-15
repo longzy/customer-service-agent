@@ -8,6 +8,7 @@ from uuid import uuid4
 from services.agent_runtime.intent import classify_message
 from services.agent_runtime.types import Intent
 from services.api.auth import Identity
+from services.api.domain.cancellation import EXPRESSIONS
 from services.api.domain.errors import ErrorCode
 from services.api.domain.orders import ORDER_STATUS_TEXT, OrderStatus
 from services.tools.gateway import GatewayError, ToolGateway
@@ -30,6 +31,7 @@ class Reply:
     reply: str
     orders: list[dict[str, Any]] = field(default_factory=list)
     clarification: list[str] = field(default_factory=list)
+    cancellation: dict[str, Any] | None = None
 
 
 def _gateway_reply(error: GatewayError) -> str:
@@ -56,11 +58,16 @@ def _summary_text(order: dict[str, Any]) -> str:
 
 class ConversationService:
     def __init__(
-        self, repository: ConversationRepository, model: Any, gateway: ToolGateway
+        self,
+        repository: ConversationRepository,
+        model: Any,
+        gateway: ToolGateway,
+        cancellation: Any = None,
     ) -> None:
         self._repository = repository
         self._model = model
         self._gateway = gateway
+        self._cancellation = cancellation
 
     async def handle(
         self, identity: Identity, content: str, conversation_id: str | None = None
@@ -80,6 +87,11 @@ class ConversationService:
                 trace_id=trace_id,
                 reply=reply,
                 clarification=classification.candidate_order_ids,
+            )
+
+        if classification.intent == Intent.CANCEL_ORDER and classification.order_id:
+            return await self._start_cancellation(
+                identity, conversation, trace_id, content, classification.order_id
             )
 
         orders: list[dict[str, Any]] = []
@@ -121,6 +133,48 @@ class ConversationService:
             trace_id=trace_id,
             reply=reply,
             orders=[{**order, "status_text": _status_text(order)} for order in orders],
+        )
+
+    async def _start_cancellation(
+        self,
+        identity: Identity,
+        conversation: str,
+        trace_id: str,
+        content: str,
+        order_id: str,
+    ) -> Reply:
+        if self._cancellation is None:
+            reply = "取消功能暂不可用，请稍后再试。"
+            await self._repository.add_message(conversation, "assistant", reply, trace_id)
+            return Reply(conversation_id=conversation, trace_id=trace_id, reply=reply)
+
+        task = await self._cancellation.request(identity, order_id, trace_id)
+        order = await asyncio.to_thread(
+            self._gateway.invoke, "get_order", {"order_id": order_id}, identity, trace_id
+        )
+        summary = {
+            "order_id": order["order_id"],
+            "item_summary": order["item_summary"],
+            "order_status": order["order_status"],
+            "status_text": _status_text(order),
+            "amount_cents": order["amount_cents"],
+            "currency": order["currency"],
+        }
+        cancellation = {
+            "task_id": task.id,
+            "state": task.state.value,
+            "state_text": EXPRESSIONS[task.state],
+            "reason_code": task.reason_code,
+            "expires_at": task.expires_at.isoformat().replace("+00:00", "Z"),
+            "order": summary,
+        }
+        reply = EXPRESSIONS[task.state]
+        await self._repository.add_message(conversation, "assistant", reply, trace_id)
+        return Reply(
+            conversation_id=conversation,
+            trace_id=trace_id,
+            reply=reply,
+            cancellation=cancellation,
         )
 
     @staticmethod

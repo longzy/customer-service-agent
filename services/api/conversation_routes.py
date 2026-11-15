@@ -14,6 +14,8 @@ from services.agent_runtime.model import ModelError
 from services.api.auth import Identity, current_identity
 from services.api.db import get_session
 from services.api.models import Conversation, Message
+from services.api.settings import settings
+from services.workflows.cancel import CancellationWorkflow, SqlCancellationRepository
 
 router = APIRouter()
 
@@ -81,9 +83,18 @@ async def send_message(
     request: Request,
     identity: Annotated[Identity, Depends(current_identity)],
     repository: Annotated[ConversationRepository, Depends(get_repository)],
+    session: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict[str, Any]:
+    workflow = CancellationWorkflow(
+        SqlCancellationRepository(session),
+        request.app.state.cancel_gateway,
+        confirm_timeout_minutes=settings.confirm_timeout_minutes,
+    )
     service = ConversationService(
-        repository, request.app.state.model_client, request.app.state.query_gateway
+        repository,
+        request.app.state.model_client,
+        request.app.state.query_gateway,
+        cancellation=workflow,
     )
     try:
         reply = await service.handle(identity, payload.content, payload.conversation_id)
