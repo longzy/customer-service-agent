@@ -7,7 +7,7 @@
 - 版本控制：Git 已初始化，`main` 分支；全部文档已提交，工作区干净
 - 当前 Milestone：M1 订单查询与未发货订单取消（规格已批准：`docs/specs/001-order-cancel/`）
 - 当前工作：T-05 网关实现完成，待独立评审
-- 最近验证：`./scripts/verify.sh` 九项全绿——ruff All checks passed、mypy 14 个文件无问题、pytest 124 passed、文档检查 35 个文件 20 条 AC、前端 lint/typecheck/test 通过
+- 最近验证：`./scripts/verify.sh` 九项全绿——ruff All checks passed、mypy 15 个文件无问题、pytest 139 passed、文档检查 37 个文件 20 条 AC、前端 lint/typecheck/test 通过
 
 ## 本阶段目标
 

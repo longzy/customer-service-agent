@@ -21,6 +21,7 @@ dev = [
     "jsonschema>=4.26.0",
     "rfc3339-validator>=0.1.4",
     "httpx2>=2.16.0",
+    "types-jsonschema>=4.26.0.20261006",
 ]
 
 [tool.uv]
