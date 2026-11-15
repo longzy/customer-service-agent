@@ -51,7 +51,12 @@ class MockOms:
                 raise ValueError(f"夹具订单号重复：{order_id}")
             self._orders[order_id] = entry["order"]
             self._owners[order_id] = (tenant_id, user_id)
-        self.calls = {"get_order": 0, "list_recent_orders": 0}
+        self.calls = {
+            "get_order": 0,
+            "list_recent_orders": 0,
+            "submit_cancel": 0,
+            "get_cancel_result": 0,
+        }
         self._cancel_results: dict[tuple[str, str], tuple[str, str]] = {}
         self._accepted_orders: dict[str, str] = {}
         self.faults = FaultEngine()
@@ -101,6 +106,7 @@ class MockOms:
     def submit_cancel(
         self, tenant_id: str, user_id: str, order_id: str, idempotency_key: str
     ) -> str:
+        self.calls["submit_cancel"] += 1
         if not self.owns(order_id, tenant_id, user_id):
             raise OrderNotFound(order_id)
         key = (tenant_id, idempotency_key)
@@ -124,6 +130,7 @@ class MockOms:
         return "ACCEPTED"
 
     def get_cancel_result(self, tenant_id: str, idempotency_key: str) -> str:
+        self.calls["get_cancel_result"] += 1
         if self._inject("get_cancel_result") == "lost_response":
             raise TimeoutError("get_cancel_result")
         result = self._cancel_results.get((tenant_id, idempotency_key))

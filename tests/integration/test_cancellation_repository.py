@@ -100,6 +100,7 @@ async def test_启动恢复悬挂任务_AC_10() -> None:
         )
         await repo.commit()
         oms.submit_cancel("tenant-a", "user-a1", "ORD-10001", "idem-recover")
+        submits = oms.calls["submit_cancel"]
 
         workflow = CancellationWorkflow(
             repo,
@@ -109,6 +110,7 @@ async def test_启动恢复悬挂任务_AC_10() -> None:
         )
         assert await workflow.recover_pending("startup") == 1
         assert (await repo.get("task-recover", OWNER)).state == CancellationState.ACCEPTED
+        assert oms.calls["submit_cancel"] == submits, "恢复不应重复提交"
 
         await session.execute(delete(CancellationRow).where(CancellationRow.id == "task-recover"))
         await session.commit()

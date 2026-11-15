@@ -76,3 +76,71 @@ async def _cleanup() -> None:
     async with engine.begin() as conn:
         await conn.execute(text("delete from cancellation_requests where id = 'task-startup'"))
     await engine.dispose()
+
+
+def test_startup_retries_then_accepts(monkeypatch) -> None:
+    import asyncio
+    from datetime import UTC, datetime
+
+    from sqlalchemy import text
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    from services.api.main import create_app
+    from services.api.settings import settings
+    from services.mock_oms.faults import FaultRule
+    from tests.integration.db_utils import db_available
+
+    if not db_available():
+        pytest.skip("Postgres 不可用")
+
+    async def insert() -> None:
+        engine = create_async_engine(settings.database_url)
+        async with engine.begin() as conn:
+            await conn.execute(text("delete from cancellation_requests where id = 'task-retry'"))
+            await conn.execute(
+                text(
+                    "insert into cancellation_requests "
+                    "(id, tenant_id, user_id, order_id, state, idempotency_key, "
+                    " expires_at, created_at, updated_at, version) values "
+                    "(:id, 'tenant-a', 'user-a1', 'ORD-10001', 'SUBMITTING', "
+                    " 'idem-retry', :expires, :now, :now, 0)"
+                ),
+                {
+                    "id": "task-retry",
+                    "expires": datetime.now(UTC),
+                    "now": datetime.now(UTC),
+                },
+            )
+        await engine.dispose()
+
+    async def state() -> str:
+        engine = create_async_engine(settings.database_url)
+        async with engine.connect() as conn:
+            value = await conn.scalar(
+                text("select state from cancellation_requests where id = 'task-retry'")
+            )
+        await engine.dispose()
+        return str(value)
+
+    asyncio.run(insert())
+    app = create_app()
+    app.state.oms.submit_cancel("tenant-a", "user-a1", "ORD-10001", "idem-retry")
+    app.state.oms.faults.add(FaultRule(kind="unavailable", tool="get_cancel_result", times=1))
+    with TestClient(app) as client:
+        assert client.get("/health").status_code == 200
+    assert asyncio.run(state()) == "ACCEPTED"
+    asyncio.run(_cleanup_task("task-retry"))
+
+
+async def _cleanup_task(task_id: str) -> None:
+    from sqlalchemy import text
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    from services.api.settings import settings
+
+    engine = create_async_engine(settings.database_url)
+    async with engine.begin() as conn:
+        await conn.execute(
+            text("delete from cancellation_requests where id = :id"), {"id": task_id}
+        )
+    await engine.dispose()

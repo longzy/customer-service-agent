@@ -55,6 +55,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
             await asyncio.wait_for(task, timeout=30)
         except TimeoutError:
             task.cancel()
+            await asyncio.gather(task, return_exceptions=True)
     finally:
         await engine.dispose()
 
