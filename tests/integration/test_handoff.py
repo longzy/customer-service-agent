@@ -113,3 +113,60 @@ def test_转人工后消息被拒绝_AC_13() -> None:
         response = api.post("/message", json={"content": "在吗", "conversation_id": "conv-x"})
         assert response.status_code == 409
     asyncio.run(cleanup())
+
+
+def test_handoff_api_context_and_idempotent_AC_13() -> None:
+    import asyncio
+
+    from sqlalchemy import text
+    from sqlalchemy.ext.asyncio import create_async_engine
+
+    from services.agent_runtime.model import FakeModelClient
+    from services.api.settings import settings
+
+    async def cleanup() -> None:
+        engine = create_async_engine(settings.database_url)
+        async with engine.begin() as conn:
+            await conn.execute(
+                text(
+                    "delete from handoffs where conversation_id in "
+                    "(select id from conversations where user_id = 'user-a1' "
+                    "and created_at > now() - interval '1 minute')"
+                )
+            )
+            await conn.execute(
+                text(
+                    "delete from messages where conversation_id in "
+                    "(select id from conversations where user_id = 'user-a1' "
+                    "and created_at > now() - interval '1 minute')"
+                )
+            )
+            await conn.execute(
+                text(
+                    "delete from conversations where user_id = 'user-a1' "
+                    "and created_at > now() - interval '1 minute'"
+                )
+            )
+        await engine.dispose()
+
+    asyncio.run(cleanup())
+    app = create_app()
+    app.state.model_client = FakeModelClient(
+        {"查 ORD-10001": {"intent": "QUERY_ORDER", "order_id": "ORD-10001"}}
+    )
+    with TestClient(app) as api:
+        api.post("/session", json={"account_id": "zhang-ming"})
+        message = api.post("/message", json={"content": "查 ORD-10001"}).json()
+        conversation_id = message["conversation_id"]
+
+        first = api.post("/handoff", json={"conversation_id": conversation_id})
+        assert first.status_code == 201
+        assert first.json()["context"]["orders"] == ["ORD-10001"]
+
+        second = api.post("/handoff", json={"conversation_id": conversation_id})
+        assert second.status_code == 201
+        assert second.json()["id"] == first.json()["id"]
+
+        api.post("/session", json={"account_id": "li-hua"})
+        assert api.post("/handoff", json={"conversation_id": conversation_id}).status_code == 404
+    asyncio.run(cleanup())

@@ -21,6 +21,7 @@ type RetryAction =
   | { kind: "act"; taskId: string; action: "confirm" | "abandon" };
 
 type Reply = {
+  transferred?: boolean;
   conversation_id: string;
   reply: string;
   orders?: Order[];
@@ -120,6 +121,10 @@ export function ChatShell({
         setError({ message: "转人工失败，请重试。", retry: { kind: "handoff" } });
         return;
       }
+      const body = (await response.json()) as { conversation_id?: string };
+      if (body.conversation_id) {
+        setConversationId(body.conversation_id);
+      }
       setTransferred(true);
     } catch {
       setError({ message: "转人工失败，请重试。", retry: { kind: "handoff" } });
@@ -130,7 +135,7 @@ export function ChatShell({
 
   async function submit(content: string, appendUser: boolean) {
     const text = content.trim();
-    if (!text || busy) {
+    if (!text || busy || transferred) {
       return;
     }
     if (appendUser) {
@@ -149,12 +154,19 @@ export function ChatShell({
         router.replace("/login");
         return;
       }
+      if (response.status === 409) {
+        setTransferred(true);
+        return;
+      }
       if (!response.ok) {
         setError({ message: "请求未完成，请重试。", retry: { kind: "message", content: text } });
         return;
       }
       const body = (await response.json()) as Reply;
       setConversationId(body.conversation_id);
+      if (body.transferred) {
+        setTransferred(true);
+      }
       setMessages((items) => [
         ...items,
         {
@@ -187,7 +199,7 @@ export function ChatShell({
           type="button"
           className="ghost"
           onClick={() => void handoff()}
-          disabled={transferred}
+          disabled={transferred || busy}
         >
           转人工
         </button>
@@ -236,7 +248,7 @@ export function ChatShell({
             {message.cancellation ? (
               <ConfirmCard
                 cancellation={message.cancellation}
-                busy={busy}
+                busy={busy || transferred}
                 onConfirm={() => void act(message.cancellation!.task_id, "confirm")}
                 onAbandon={() => void act(message.cancellation!.task_id, "abandon")}
               />

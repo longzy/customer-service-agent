@@ -85,7 +85,7 @@
 
 - [ ] T11 [US5] 实现结果校验与用户回复（`services/agent_runtime/validator.py`）— depends on T08
   - _验收: AC-10、AC-11、AC-16_
-- [ ] T15 [US6] 实现人工转接上下文（`services/api/handoff.py`）— depends on T08、T14
+- [x] T15 [US6] 实现人工转接上下文（`services/api/handoff.py`）— depends on T08、T14
   - _验收: AC-13_
 
 **Checkpoint**：全部用户故事可独立验证。

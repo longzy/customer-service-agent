@@ -1,5 +1,6 @@
 """人工转接：组装上下文并落库，供后续坐席系统消费。"""
 
+import re
 from typing import Any
 from uuid import uuid4
 
@@ -9,10 +10,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from services.api.auth import Identity
 from services.api.models import CancellationRequest, Conversation, Handoff, Message
 
+ORDER_PATTERN = re.compile(r"ORD-\d{4,12}", re.IGNORECASE)
+
 PENDING_STEP = {
+    "COLLECTING": "正在确认订单信息",
     "AWAITING_CONFIRMATION": "等待用户确认取消",
     "SUBMITTING": "核实取消受理结果",
     "SUBMIT_UNKNOWN": "核实取消受理结果",
+    "MANUAL_REVIEW": "等待人工处理",
 }
 
 
@@ -57,13 +62,25 @@ async def create_handoff(
         .order_by(CancellationRequest.created_at.desc())
         .limit(1)
     )
+    mentioned = {match.upper() for row in rows for match in ORDER_PATTERN.findall(row.content)}
+    orders = sorted(mentioned | ({task.order_id} if task else set()))
     context: dict[str, Any] = {
         "message_count": len(rows),
-        "orders": [task.order_id] if task else [],
+        "orders": orders,
         "workflow_state": task.state if task else None,
         "pending_step": PENDING_STEP.get(task.state, "无") if task else "无",
         "recent_messages": [{"role": row.role, "content": row.content} for row in rows[-10:]],
     }
+    existing = await session.scalar(
+        select(Handoff).where(
+            Handoff.tenant_id == identity.tenant_id,
+            Handoff.user_id == identity.user_id,
+            Handoff.conversation_id == conversation_id,
+        )
+    )
+    if existing is not None:
+        return existing
+
     handoff = Handoff(
         id=str(uuid4()),
         conversation_id=conversation_id,

@@ -308,3 +308,28 @@ describe("ChatShell 人工转接", () => {
     );
   });
 });
+
+describe("ChatShell 已转人工的 409", () => {
+  it("发送返回 409 时显示已转人工并禁用输入（AC-13）", async () => {
+    vi.spyOn(global, "fetch")
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            conversation_id: "conv-1",
+            reply: "订单 ORD-10001",
+            orders: [],
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(new Response("{}", { status: 409 }));
+    render(<ChatShell />);
+    fireEvent.change(screen.getByLabelText("输入消息"), { target: { value: "查单" } });
+    fireEvent.click(screen.getByRole("button", { name: "发送" }));
+    await screen.findByText("订单 ORD-10001");
+    fireEvent.change(screen.getByLabelText("输入消息"), { target: { value: "还在吗" } });
+    fireEvent.click(screen.getByRole("button", { name: "发送" }));
+    expect(await screen.findByText("已转人工，自动回复已停止")).toBeInTheDocument();
+    expect(screen.getByLabelText("输入消息")).toBeDisabled();
+  });
+});

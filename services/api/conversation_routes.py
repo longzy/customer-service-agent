@@ -13,6 +13,7 @@ from services.agent_runtime.intent import IntentError
 from services.agent_runtime.model import ModelError
 from services.api.auth import Identity, current_identity
 from services.api.db import get_session
+from services.api.handoff import create_handoff
 from services.api.models import Conversation, Handoff, Message
 from services.api.settings import settings
 from services.workflows.cancel import CancellationWorkflow, SqlCancellationRepository
@@ -100,11 +101,16 @@ async def send_message(
         request.app.state.cancel_gateway,
         confirm_timeout_minutes=settings.confirm_timeout_minutes,
     )
+
+    async def on_handoff(conversation_id: str, trace_id: str) -> None:
+        await create_handoff(session, identity, conversation_id, trace_id)
+
     service = ConversationService(
         repository,
         request.app.state.model_client,
         request.app.state.query_gateway,
         cancellation=workflow,
+        handoff=on_handoff,
     )
     try:
         reply = await service.handle(identity, payload.content, payload.conversation_id)

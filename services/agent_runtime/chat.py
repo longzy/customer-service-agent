@@ -32,6 +32,7 @@ class Reply:
     orders: list[dict[str, Any]] = field(default_factory=list)
     clarification: list[str] = field(default_factory=list)
     cancellation: dict[str, Any] | None = None
+    transferred: bool = False
 
 
 def _gateway_reply(error: GatewayError) -> str:
@@ -63,11 +64,13 @@ class ConversationService:
         model: Any,
         gateway: ToolGateway,
         cancellation: Any = None,
+        handoff: Any = None,
     ) -> None:
         self._repository = repository
         self._model = model
         self._gateway = gateway
         self._cancellation = cancellation
+        self._handoff = handoff
 
     async def handle(
         self, identity: Identity, content: str, conversation_id: str | None = None
@@ -121,6 +124,16 @@ class ConversationService:
         if orders:
             reply = "\n".join(_summary_text(order) for order in orders)
         elif classification.intent == Intent.HUMAN_HANDOFF:
+            if self._handoff is not None:
+                await self._handoff(conversation, trace_id)
+                reply = "已转人工，自动回复已停止。"
+                await self._repository.add_message(conversation, "assistant", reply, trace_id)
+                return Reply(
+                    conversation_id=conversation,
+                    trace_id=trace_id,
+                    reply=reply,
+                    transferred=True,
+                )
             reply = "已记录转人工请求，人工转接功能将在后续版本开放。"
         elif classification.intent in (Intent.CANCEL_ORDER, Intent.CONFIRM_CANCEL):
             reply = "取消功能将在后续版本开放，当前可以先查询订单。"
