@@ -253,8 +253,7 @@
           "type": "boolean"
         },
         "reason_code": {
-          "type": "string",
-          "minLength": 1
+          "$ref": "#/$defs/CancelReason"
         },
         "requires_confirmation": {
           "type": "boolean"
@@ -449,6 +448,16 @@
         "CANCELLED",
         "REJECTED",
         "UNKNOWN"
+      ]
+    },
+    "CancelReason": {
+      "type": "string",
+      "enum": [
+        "UNFULFILLED",
+        "FULFILLING",
+        "SHIPPED",
+        "DELIVERED",
+        "CANCELLED"
       ]
     }
   },

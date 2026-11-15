@@ -67,7 +67,7 @@
 **Goal**：用户确认后安全取消；重复提交为 0；超时能恢复
 **Independent Test**：对可取消订单走完“请求 → 确认 → 提交”，并注入超时验证恢复
 
-- [ ] T07 [P] [US3] 实现取消资格 Policy Engine（`services/tools/policy.py`）— depends on T03
+- [x] T07 [P] [US3] 实现取消资格 Policy Engine（`services/tools/policy.py`）— depends on T03
   - _验收: AC-04、AC-07_
 - [ ] T08 [US3] 实现 Cancellation Workflow（`services/workflows/cancel.py`）— depends on T06、T07；含 T-17 登记的网关真实超时（`oms_timeout_seconds`）
   - _验收: AC-04、AC-05、AC-06、AC-09、AC-10、AC-11、AC-12、AC-19_

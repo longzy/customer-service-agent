@@ -2,7 +2,7 @@
 
 from enum import StrEnum
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool
+from pydantic import BaseModel, ConfigDict, StrictBool
 
 
 class CancellationState(StrEnum):
@@ -16,6 +16,14 @@ class CancellationState(StrEnum):
     REJECTED = "REJECTED"
     MANUAL_REVIEW = "MANUAL_REVIEW"
     ABANDONED = "ABANDONED"
+
+
+class CancelReason(StrEnum):
+    UNFULFILLED = "UNFULFILLED"
+    FULFILLING = "FULFILLING"
+    SHIPPED = "SHIPPED"
+    DELIVERED = "DELIVERED"
+    CANCELLED = "CANCELLED"
 
 
 class OmsCancelState(StrEnum):
@@ -52,5 +60,5 @@ class CancelEligibility(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     eligible: StrictBool
-    reason_code: str = Field(min_length=1)
+    reason_code: CancelReason
     requires_confirmation: StrictBool

@@ -290,3 +290,18 @@ def test_每个错误码的四种属性组合只有正确值通过_AC_11() -> No
                 else:
                     with pytest.raises(AssertionError):
                         validate_doc(DOMAIN, "ErrorEnvelope", envelope)
+
+
+def test_资格原因码枚举拒绝未知值_AC_07() -> None:
+    doc = load_tool("get_cancel_eligibility")
+    validate_doc(
+        doc,
+        "Response",
+        {"eligible": False, "reason_code": "SHIPPED", "requires_confirmation": False},
+    )
+    with pytest.raises(AssertionError):
+        validate_doc(
+            doc,
+            "Response",
+            {"eligible": False, "reason_code": "WHATEVER", "requires_confirmation": False},
+        )

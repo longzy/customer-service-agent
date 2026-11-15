@@ -23,3 +23,5 @@ coverage/
 # uv 与 pnpm 的本地缓存
 .uv-cache/
 .pnpm-store/
+mutants/
+.mutmut-cache/

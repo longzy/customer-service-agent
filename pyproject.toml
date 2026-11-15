@@ -25,6 +25,7 @@ dev = [
     "rfc3339-validator>=0.1.4",
     "httpx2>=2.16.0",
     "types-jsonschema>=4.26.0.20261006",
+    "mutmut>=3.8.1",
 ]
 
 [tool.uv]
@@ -46,9 +47,13 @@ warn_unused_ignores = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"
-addopts = "-q"
 asyncio_default_fixture_loop_scope = "function"
 # 依赖库的弃用警告升级为错误，避免带着弃用继续开发；无关的第三方警告不拦截
 filterwarnings = [
     "error::starlette.exceptions.StarletteDeprecationWarning",
 ]
+
+[tool.mutmut]
+source_paths = ["services"]
+also_copy = ["tests", "packages", "migrations"]
+pytest_add_cli_args_test_selection = ["tests/unit/tools/test_policy.py"]
