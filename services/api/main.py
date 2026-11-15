@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from services.agent_runtime.model import build_model_client
 from services.api.account_routes import router as account_router
@@ -18,6 +18,7 @@ from services.api.settings import settings
 from services.mock_oms.service import MockOms
 from services.tools.cancel import build_cancel_gateway
 from services.tools.query import build_query_gateway
+from services.workflows.cancel import CancellationWorkflow, SqlCancellationRepository
 
 
 @asynccontextmanager
@@ -27,6 +28,15 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     try:
         async with engine.connect() as connection:
             await connection.execute(text("select 1"))
+        maker = async_sessionmaker(engine, expire_on_commit=False)
+        async with maker() as session:
+            workflow = CancellationWorkflow(
+                SqlCancellationRepository(session),
+                _app.state.cancel_gateway,
+                confirm_timeout_minutes=settings.confirm_timeout_minutes,
+                max_retries=1,
+            )
+            await workflow.recover_pending("startup-recovery")
     finally:
         await engine.dispose()
     yield

@@ -43,6 +43,13 @@ class MemoryRepository:
         self.saves.append(task.state)
         self.tasks[task.id] = task
 
+    async def list_recoverable(self) -> list[CancellationTask]:
+        return [
+            task
+            for task in self.tasks.values()
+            if task.state in (CancellationState.SUBMITTING, CancellationState.SUBMIT_UNKNOWN)
+        ]
+
     async def commit(self) -> None:
         self.commits += 1
 

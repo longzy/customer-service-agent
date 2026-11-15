@@ -79,3 +79,36 @@ async def test_真实乐观锁冲突_AC_09() -> None:
 
         await first.execute(delete(CancellationRow).where(CancellationRow.id == "task-version"))
         await first.commit()
+
+
+async def test_启动恢复悬挂任务_AC_10() -> None:
+    from services.mock_oms.service import MockOms
+    from services.tools.cancel import build_cancel_gateway
+    from services.workflows.cancel import CancellationWorkflow
+
+    oms = MockOms()
+    async with session_factory() as session:
+        repo = SqlCancellationRepository(session)
+        await session.execute(delete(CancellationRow).where(CancellationRow.id == "task-recover"))
+        await session.commit()
+        await repo.create(
+            task(
+                id="task-recover",
+                state=CancellationState.SUBMIT_UNKNOWN,
+                idempotency_key="idem-recover",
+            )
+        )
+        await repo.commit()
+        oms.submit_cancel("tenant-a", "user-a1", "ORD-10001", "idem-recover")
+
+        workflow = CancellationWorkflow(
+            repo,
+            build_cancel_gateway(oms),
+            max_retries=1,
+            retry_backoff_seconds=0.01,
+        )
+        assert await workflow.recover_pending("startup") == 1
+        assert (await repo.get("task-recover", OWNER)).state == CancellationState.ACCEPTED
+
+        await session.execute(delete(CancellationRow).where(CancellationRow.id == "task-recover"))
+        await session.commit()

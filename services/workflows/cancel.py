@@ -76,6 +76,8 @@ class CancellationRepository(Protocol):
 
     async def save(self, task: CancellationTask) -> None: ...
 
+    async def list_recoverable(self) -> list[CancellationTask]: ...
+
     async def commit(self) -> None: ...
 
 
@@ -126,6 +128,32 @@ class SqlCancellationRepository:
             oms_request_id=row.oms_request_id,
             version=row.version,
         )
+
+    async def list_recoverable(self) -> list[CancellationTask]:
+        result = await self._session.execute(
+            select(CancellationRow).where(
+                CancellationRow.state.in_(
+                    [CancellationState.SUBMITTING.value, CancellationState.SUBMIT_UNKNOWN.value]
+                )
+            )
+        )
+        return [
+            CancellationTask(
+                id=row.id,
+                tenant_id=row.tenant_id,
+                user_id=row.user_id,
+                order_id=row.order_id,
+                state=CancellationState(row.state),
+                idempotency_key=row.idempotency_key,
+                expires_at=row.expires_at,
+                reason_code=row.reason_code,
+                conversation_id=row.conversation_id,
+                last_error_code=row.last_error_code,
+                oms_request_id=row.oms_request_id,
+                version=row.version,
+            )
+            for row in result.scalars()
+        ]
 
     async def save(self, task: CancellationTask) -> None:
         result = cast(
@@ -248,6 +276,25 @@ class CancellationWorkflow:
             await self._repository.save(task)
             await self._repository.commit()
             return await self._recover(identity, task, trace_id)
+
+    async def recover_pending(self, trace_id: str) -> int:
+        """启动恢复：扫描悬挂任务并按幂等键查询结果。"""
+        tasks = await self._repository.list_recoverable()
+        recovered = 0
+        for task in tasks:
+            identity = Identity(
+                account_id=task.user_id,
+                user_id=task.user_id,
+                tenant_id=task.tenant_id,
+                display_name="",
+                tenant_name="",
+            )
+            try:
+                await self._recover(identity, task, trace_id)
+            except TaskConflict:
+                continue
+            recovered += 1
+        return recovered
 
     async def abandon(self, identity: Identity, task_id: str) -> CancellationTask:
         task = await self._repository.get(task_id, identity)
