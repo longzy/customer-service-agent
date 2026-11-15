@@ -29,7 +29,6 @@ class RequestPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     order_id: str
-    conversation_id: str | None = None
 
 
 def get_repository(
@@ -66,11 +65,11 @@ async def create_request(
     workflow: Annotated[CancellationWorkflow, Depends(_workflow)],
 ) -> Any:
     try:
-        task = await workflow.request(
-            identity, payload.order_id, str(uuid4()), payload.conversation_id
-        )
+        task = await workflow.request(identity, payload.order_id, str(uuid4()))
     except GatewayError as error:
         return JSONResponse(status_code=error.status_code, content=error.payload)
+    except TaskConflict as error:
+        raise HTTPException(status_code=409, detail="任务已被其他请求更新") from error
     return _public(task)
 
 
@@ -103,6 +102,8 @@ async def get_request(
         task = await workflow.get(identity, task_id, str(uuid4()))
     except TaskNotFound as error:
         raise HTTPException(status_code=404, detail="任务不存在") from error
+    except TaskConflict as error:
+        raise HTTPException(status_code=409, detail="任务已被其他请求更新") from error
     return _public(task)
 
 

@@ -129,12 +129,38 @@ def test_并发更新返回409_基座豁免() -> None:
         assert api.post(f"/cancellation-requests/{task_id}/confirm").status_code == 409
 
 
-def test_会话标识透传_AC_04() -> None:
-    repo = MemoryRepository()
-    with make_client(repo) as api:
+def test_不接受客户端会话标识_AC_04() -> None:
+    with make_client(MemoryRepository()) as api:
         login(api)
-        body = api.post(
+        response = api.post(
             "/cancellation-requests",
             json={"order_id": "ORD-10001", "conversation_id": "conv-9"},
-        ).json()
-        assert repo.tasks[body["id"]].conversation_id == "conv-9"
+        )
+        assert response.status_code == 422
+
+
+def test_查询时冲突返回409_基座豁免() -> None:
+    from datetime import UTC, datetime
+
+    from services.api.domain.cancellation import CancellationState
+    from services.workflows.cancel import CancellationTask
+
+    class ConflictOnSave(MemoryRepository):
+        async def save(self, task: CancellationTask) -> None:
+            from services.workflows.cancel import TaskConflict
+
+            raise TaskConflict(task.id)
+
+    repo = ConflictOnSave()
+    repo.tasks["task-expired"] = CancellationTask(
+        id="task-expired",
+        tenant_id="tenant-a",
+        user_id="user-a1",
+        order_id="ORD-10001",
+        state=CancellationState.AWAITING_CONFIRMATION,
+        idempotency_key="idem-expired-key",
+        expires_at=datetime(2020, 1, 1, tzinfo=UTC),
+    )
+    with make_client(repo) as api:
+        login(api)
+        assert api.get("/cancellation-requests/task-expired").status_code == 409

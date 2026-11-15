@@ -12,6 +12,7 @@ from services.api.models import CancellationRequest as CancellationRow
 from services.workflows.cancel import (
     CancellationTask,
     SqlCancellationRepository,
+    TaskConflict,
     TaskNotFound,
 )
 from tests.integration.db_utils import db_available
@@ -55,3 +56,26 @@ async def test_创建读取保存与隔离_AC_04() -> None:
 
         await session.execute(delete(CancellationRow).where(CancellationRow.id == "task-test-1"))
         await session.commit()
+
+
+async def test_真实乐观锁冲突_AC_09() -> None:
+    async with session_factory() as first, session_factory() as second:
+        repo_first = SqlCancellationRepository(first)
+        repo_second = SqlCancellationRepository(second)
+        await first.execute(delete(CancellationRow).where(CancellationRow.id == "task-version"))
+        await first.commit()
+        await repo_first.create(task(id="task-version", idempotency_key="idem-version"))
+        await repo_first.commit()
+
+        left = await repo_first.get("task-version", OWNER)
+        right = await repo_second.get("task-version", OWNER)
+        left.state = CancellationState.ACCEPTED
+        await repo_first.save(left)
+        await repo_first.commit()
+
+        right.state = CancellationState.ABANDONED
+        with pytest.raises(TaskConflict):
+            await repo_second.save(right)
+
+        await first.execute(delete(CancellationRow).where(CancellationRow.id == "task-version"))
+        await first.commit()

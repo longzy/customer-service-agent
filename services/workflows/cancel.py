@@ -233,7 +233,6 @@ class CancellationWorkflow:
                 identity,
                 trace_id,
             )
-            task.oms_request_id = task.idempotency_key
             if body.get("state") == OmsCancelState.ACCEPTED.value:
                 await self._finish(task, CancellationState.ACCEPTED)
                 return await self._refresh_accepted(identity, task, trace_id)
@@ -300,6 +299,9 @@ class CancellationWorkflow:
                 )
             except GatewayError as error:
                 code = str(error.payload.get("code"))
+                task.last_error_code = code
+                await self._repository.save(task)
+                await self._repository.commit()
                 if code in RETRYABLE_CODES:
                     await asyncio.sleep(self._backoff * (2**attempt))
                     continue
