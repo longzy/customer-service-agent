@@ -95,6 +95,9 @@ class ToolGateway:
         self._validators: dict[str, Draft202012Validator] = {
             name: validator_for(doc, "Request", registry) for name, doc in documents.items()
         }
+        self._response_validators: dict[str, Draft202012Validator] = {
+            name: validator_for(doc, "Response", registry) for name, doc in documents.items()
+        }
         missing = set(self._tools) - set(self._validators)
         if missing:
             raise ValueError(f"缺少契约的工具：{sorted(missing)}")
@@ -176,6 +179,10 @@ class ToolGateway:
             self._record(name, identity, order_id, "failed", "INTERNAL_ERROR", trace_id)
             raise GatewayError(500, error_envelope(ErrorCode.INTERNAL_ERROR)) from error
 
+        response_errors = list(self._response_validators[name].iter_errors(result))
+        if response_errors:
+            self._record(name, identity, order_id, "failed", "INVALID_RESPONSE", trace_id)
+            raise GatewayError(502, error_envelope(ErrorCode.INVALID_RESPONSE))
         self._record(name, identity, order_id, "ok", None, trace_id)
         return result
 

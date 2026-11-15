@@ -81,3 +81,28 @@ def test_他人任务不可见_AC_03() -> None:
 def test_未认证被拒绝_AC_20() -> None:
     with make_client(MemoryRepository()) as api:
         assert api.post("/cancellation-requests", json={"order_id": "ORD-10001"}).status_code == 401
+
+
+def test_越权与不存在订单返回404_AC_02() -> None:
+    with make_client(MemoryRepository()) as api:
+        login(api)
+        for order_id in ("ORD-10005", "ORD-99999"):
+            response = api.post("/cancellation-requests", json={"order_id": order_id})
+            assert response.status_code == 404
+            assert response.json()["code"] == "NOT_FOUND_OR_UNAUTHORIZED"
+
+
+def test_响应不暴露幂等键_AC_09() -> None:
+    with make_client(MemoryRepository()) as api:
+        login(api)
+        body = api.post("/cancellation-requests", json={"order_id": "ORD-10001"}).json()
+        assert "idempotency_key" not in body
+        assert "tenant_id" not in body
+
+
+def test_主动放弃_AC_06() -> None:
+    with make_client(MemoryRepository()) as api:
+        login(api)
+        task_id = api.post("/cancellation-requests", json={"order_id": "ORD-10001"}).json()["id"]
+        body = api.post(f"/cancellation-requests/{task_id}/abandon").json()
+        assert body["state"] == "ABANDONED"

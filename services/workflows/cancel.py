@@ -1,9 +1,10 @@
-"""Cancellation Workflow：状态机、确认、幂等提交与惰性超时。"""
+"""Cancellation Workflow：状态机、确认、幂等提交、恢复重试与惰性超时。"""
 
+import asyncio
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
-from typing import Protocol
+from typing import Any, Protocol
 from uuid import uuid4
 
 from sqlalchemy import select
@@ -15,6 +16,21 @@ from services.api.models import CancellationRequest as CancellationRow
 from services.tools.gateway import GatewayError, ToolGateway
 
 ACTIVE_STATES = {CancellationState.COLLECTING, CancellationState.AWAITING_CONFIRMATION}
+RECOVERABLE_STATES = {CancellationState.SUBMITTING, CancellationState.SUBMIT_UNKNOWN}
+FINAL_STATES = {
+    CancellationState.ACCEPTED,
+    CancellationState.CANCELLED,
+    CancellationState.REJECTED,
+    CancellationState.MANUAL_REVIEW,
+    CancellationState.ABANDONED,
+    CancellationState.ELIGIBILITY_REJECTED,
+}
+RETRYABLE_CODES = {
+    "DEPENDENCY_TIMEOUT",
+    "DEPENDENCY_UNAVAILABLE",
+    "INVALID_RESPONSE",
+    "NOT_FOUND_OR_UNAUTHORIZED",
+}
 OMS_TO_STATE = {
     OmsCancelState.ACCEPTED: CancellationState.ACCEPTED,
     OmsCancelState.CANCELLED: CancellationState.CANCELLED,
@@ -111,15 +127,27 @@ class CancellationWorkflow:
         repository: CancellationRepository,
         gateway: ToolGateway,
         confirm_timeout_minutes: int = 30,
+        max_retries: int = 3,
+        retry_backoff_seconds: float = 0.2,
         now: Callable[[], datetime] | None = None,
     ) -> None:
         self._repository = repository
         self._gateway = gateway
         self._confirm_timeout = timedelta(minutes=confirm_timeout_minutes)
+        self._max_retries = max_retries
+        self._backoff = retry_backoff_seconds
         self._now = now or (lambda: datetime.now(UTC))
 
+    async def _invoke(
+        self, name: str, payload: dict[str, Any], identity: Identity, trace_id: str
+    ) -> Any:
+        def call() -> Any:
+            return self._gateway.invoke(name, payload, identity, trace_id)
+
+        return await asyncio.to_thread(call)
+
     async def request(self, identity: Identity, order_id: str, trace_id: str) -> CancellationTask:
-        eligibility = self._gateway.invoke(
+        eligibility = await self._invoke(
             "get_cancel_eligibility", {"order_id": order_id}, identity, trace_id
         )
         task = CancellationTask(
@@ -140,6 +168,10 @@ class CancellationWorkflow:
 
     async def confirm(self, identity: Identity, task_id: str, trace_id: str) -> CancellationTask:
         task = await self._repository.get(task_id, identity)
+        if task.state in FINAL_STATES:
+            return task
+        if task.state in RECOVERABLE_STATES:
+            return await self._recover(identity, task, trace_id)
         if task.state != CancellationState.AWAITING_CONFIRMATION:
             raise InvalidTransition(task.state.value)
         if self._expired(task):
@@ -153,7 +185,7 @@ class CancellationWorkflow:
         await self._repository.commit()
 
         try:
-            self._gateway.invoke(
+            await self._invoke(
                 "submit_cancel",
                 {"order_id": task.order_id, "idempotency_key": task.idempotency_key},
                 identity,
@@ -163,7 +195,7 @@ class CancellationWorkflow:
             code = error.payload.get("code")
             if code == "OMS_REJECTED":
                 return await self._finish(task, CancellationState.REJECTED)
-            if code in {"NOT_FOUND_OR_UNAUTHORIZED"}:
+            if code == "NOT_FOUND_OR_UNAUTHORIZED":
                 return await self._finish(task, CancellationState.REJECTED)
             task.state = CancellationState.SUBMIT_UNKNOWN
             await self._repository.save(task)
@@ -172,28 +204,44 @@ class CancellationWorkflow:
 
         return await self._recover(identity, task, trace_id)
 
-    async def get(self, identity: Identity, task_id: str) -> CancellationTask:
+    async def abandon(self, identity: Identity, task_id: str) -> CancellationTask:
         task = await self._repository.get(task_id, identity)
-        if task.state in ACTIVE_STATES and self._expired(task):
+        if task.state in ACTIVE_STATES:
             task.state = CancellationState.ABANDONED
             await self._repository.save(task)
             await self._repository.commit()
         return task
 
+    async def get(self, identity: Identity, task_id: str, trace_id: str) -> CancellationTask:
+        task = await self._repository.get(task_id, identity)
+        if task.state in ACTIVE_STATES and self._expired(task):
+            task.state = CancellationState.ABANDONED
+            await self._repository.save(task)
+            await self._repository.commit()
+        elif task.state in RECOVERABLE_STATES:
+            task = await self._recover(identity, task, trace_id)
+        return task
+
     async def _recover(
         self, identity: Identity, task: CancellationTask, trace_id: str
     ) -> CancellationTask:
-        try:
-            body = self._gateway.invoke(
-                "get_cancel_result",
-                {"idempotency_key": task.idempotency_key},
-                identity,
-                trace_id,
-            )
-        except GatewayError:
-            return await self._finish(task, CancellationState.SUBMIT_UNKNOWN)
-        mapped = OMS_TO_STATE[OmsCancelState(body["state"])]
-        return await self._finish(task, mapped)
+        for attempt in range(self._max_retries):
+            try:
+                body = await self._invoke(
+                    "get_cancel_result",
+                    {"idempotency_key": task.idempotency_key},
+                    identity,
+                    trace_id,
+                )
+            except GatewayError as error:
+                code = str(error.payload.get("code"))
+                if code in RETRYABLE_CODES:
+                    await asyncio.sleep(self._backoff * (2**attempt))
+                    continue
+                break
+            mapped = OMS_TO_STATE[OmsCancelState(body["state"])]
+            return await self._finish(task, mapped)
+        return await self._finish(task, CancellationState.MANUAL_REVIEW)
 
     async def _finish(self, task: CancellationTask, state: CancellationState) -> CancellationTask:
         task.state = state

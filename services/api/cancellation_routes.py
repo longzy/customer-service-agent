@@ -1,14 +1,17 @@
 """取消任务接口：创建、确认与查询。"""
 
 from typing import Annotated, Any
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.api.auth import Identity, current_identity
 from services.api.db import get_session
 from services.api.settings import settings
+from services.tools.gateway import GatewayError
 from services.workflows.cancel import (
     CancellationRepository,
     CancellationTask,
@@ -50,7 +53,7 @@ def _public(task: CancellationTask) -> dict[str, Any]:
         "order_id": task.order_id,
         "state": task.state.value,
         "reason_code": task.reason_code,
-        "expires_at": task.expires_at.isoformat(),
+        "expires_at": task.expires_at.isoformat().replace("+00:00", "Z"),
     }
 
 
@@ -59,8 +62,11 @@ async def create_request(
     payload: RequestPayload,
     identity: Annotated[Identity, Depends(current_identity)],
     workflow: Annotated[CancellationWorkflow, Depends(_workflow)],
-) -> dict[str, Any]:
-    task = await workflow.request(identity, payload.order_id, str(identity.user_id))
+) -> Any:
+    try:
+        task = await workflow.request(identity, payload.order_id, str(uuid4()))
+    except GatewayError as error:
+        return JSONResponse(status_code=error.status_code, content=error.payload)
     return _public(task)
 
 
@@ -69,9 +75,11 @@ async def confirm_request(
     task_id: str,
     identity: Annotated[Identity, Depends(current_identity)],
     workflow: Annotated[CancellationWorkflow, Depends(_workflow)],
-) -> dict[str, Any]:
+) -> Any:
     try:
-        task = await workflow.confirm(identity, task_id, str(identity.user_id))
+        task = await workflow.confirm(identity, task_id, str(uuid4()))
+    except GatewayError as error:
+        return JSONResponse(status_code=error.status_code, content=error.payload)
     except TaskNotFound as error:
         raise HTTPException(status_code=404, detail="任务不存在") from error
     except InvalidTransition as error:
@@ -86,7 +94,20 @@ async def get_request(
     workflow: Annotated[CancellationWorkflow, Depends(_workflow)],
 ) -> dict[str, Any]:
     try:
-        task = await workflow.get(identity, task_id)
+        task = await workflow.get(identity, task_id, str(uuid4()))
+    except TaskNotFound as error:
+        raise HTTPException(status_code=404, detail="任务不存在") from error
+    return _public(task)
+
+
+@router.post("/{task_id}/abandon")
+async def abandon_request(
+    task_id: str,
+    identity: Annotated[Identity, Depends(current_identity)],
+    workflow: Annotated[CancellationWorkflow, Depends(_workflow)],
+) -> dict[str, Any]:
+    try:
+        task = await workflow.abandon(identity, task_id)
     except TaskNotFound as error:
         raise HTTPException(status_code=404, detail="任务不存在") from error
     return _public(task)

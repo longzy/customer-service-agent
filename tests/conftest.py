@@ -15,3 +15,12 @@ def _development_environment(monkeypatch) -> None:
 @pytest.fixture(autouse=True)
 def _clear_sessions() -> None:
     auth._sessions.clear()
+
+
+@pytest.fixture(autouse=True)
+async def _dispose_db_engine():
+    """避免跨用例复用绑定到旧事件循环的连接池。"""
+    yield
+    from services.api.db import engine
+
+    await engine.dispose()

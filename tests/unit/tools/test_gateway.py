@@ -20,6 +20,20 @@ OTHER_USER = Identity("li-hua", "user-a2", "tenant-a", "李华", "示例商户 A
 OTHER_TENANT = Identity("wang-qiang", "user-b1", "tenant-b", "王强", "示例商户 B")
 
 
+DETAIL = {
+    "order_id": "ORD-10001",
+    "item_summary": "无线耳机 × 1",
+    "order_status": "PAID_UNFULFILLED",
+    "cancelable": True,
+    "amount_cents": 39900,
+    "currency": "CNY",
+    "created_at": "2026-11-10T02:00:00Z",
+    "items": [{"sku": "S", "name": "无线耳机", "quantity": 1, "unit_amount_cents": 39900}],
+    "paid_at": "2026-11-10T02:05:00Z",
+    "shipped_at": None,
+}
+
+
 class Recorder:
     def __init__(self) -> None:
         self.calls: list[tuple[dict[str, Any], Identity]] = []
@@ -27,7 +41,7 @@ class Recorder:
 
     def ok(self, payload: dict[str, Any], identity: Identity, trace_id: str) -> dict[str, Any]:
         self.calls.append((payload, identity))
-        return payload
+        return DETAIL
 
     def audit(self, event: dict[str, Any]) -> None:
         self.audits.append(event)
@@ -112,7 +126,7 @@ def test_同租户其他用户可见自己的订单_AC_02() -> None:
     result = gateway(recorder).invoke(
         "get_order", {"order_id": "ORD-10002"}, OTHER_USER, trace_id="t-1"
     )
-    assert result["order_id"] == "ORD-10002"
+    assert result["order_id"] == DETAIL["order_id"]
 
 
 def test_合法调用注入可信身份_AC_15() -> None:
@@ -128,13 +142,30 @@ def test_合法调用注入可信身份_AC_15() -> None:
 def test_无需归属的工具跳过闸门_AC_14() -> None:
     recorder = Recorder()
     ownership = OwnershipIndex()
+    summary = {
+        key: DETAIL[key]
+        for key in (
+            "order_id",
+            "item_summary",
+            "order_status",
+            "cancelable",
+            "amount_cents",
+            "currency",
+            "created_at",
+        )
+    }
+
+    def list_handler(payload: dict[str, Any], identity: Identity, trace_id: str) -> Any:
+        recorder.calls.append((payload, identity))
+        return [summary]
+
     tool = ToolGateway(
-        tools=[ToolSpec("list_recent_orders", recorder.ok, requires_order=False)],
+        tools=[ToolSpec("list_recent_orders", list_handler, requires_order=False)],
         ownership=ownership,
         audit=recorder.audit,
     )
     result = tool.invoke("list_recent_orders", {"limit": 5}, IDENTITY, trace_id="t-1")
-    assert result == {"limit": 5}
+    assert result[0]["order_id"] == "ORD-10001"
     assert recorder.calls, "无归属工具应执行"
 
 
@@ -262,7 +293,7 @@ def test_trace_id传递给handler_AC_14() -> None:
 
     def handler(payload: dict[str, Any], identity: Identity, trace_id: str) -> dict[str, Any]:
         seen.append(trace_id)
-        return payload
+        return DETAIL
 
     gateway(recorder, handler=handler).invoke(
         "get_order", {"order_id": "ORD-10001"}, IDENTITY, trace_id="trace-9"
