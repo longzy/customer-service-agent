@@ -107,3 +107,35 @@ def test_归属索引由夹具生成_AC_01() -> None:
     assert index.is_visible("ORD-10001", "tenant-a", "user-a1") is True
     assert index.is_visible("ORD-10005", "tenant-a", "user-a1") is False
     assert index.is_visible("ORD-20001", "tenant-b", "user-b1") is True
+
+
+def test_小数秒时间排序正确_AC_01(tmp_path) -> None:
+    import json
+
+    base = {
+        "item_summary": "耳机 × 1",
+        "order_status": "PAID_UNFULFILLED",
+        "cancelable": True,
+        "amount_cents": 100,
+        "currency": "CNY",
+        "items": [{"sku": "S", "name": "耳机", "quantity": 1, "unit_amount_cents": 100}],
+        "paid_at": "2026-11-10T00:00:00Z",
+        "shipped_at": None,
+    }
+    entries = [
+        {
+            "tenant_id": "tenant-a",
+            "user_id": "user-a1",
+            "order": {**base, "order_id": "ORD-A", "created_at": "2026-11-10T02:00:00.500Z"},
+        },
+        {
+            "tenant_id": "tenant-a",
+            "user_id": "user-a1",
+            "order": {**base, "order_id": "ORD-B", "created_at": "2026-11-10T02:00:00Z"},
+        },
+    ]
+    path = tmp_path / "orders.json"
+    path.write_text(json.dumps(entries), encoding="utf-8")
+    service = MockOms(fixtures_path=path)
+    orders = service.list_recent_orders("tenant-a", "user-a1", limit=10)
+    assert [order["order_id"] for order in orders] == ["ORD-A", "ORD-B"]

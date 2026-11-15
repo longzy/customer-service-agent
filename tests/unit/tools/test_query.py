@@ -115,7 +115,7 @@ def test_故障经网关映射为契约错误码_基座豁免(tool: str, kind: s
     assert exc.value.payload["code"] == code
 
 
-def test_超时延迟超过阈值仍由网关归类_基座豁免() -> None:
+def test_延迟故障后正常返回_基座豁免() -> None:
     service = MockOms()
     service.faults.add(FaultRule(kind="delay", tool="get_order", delay_ms=1))
     result = gateway(service).invoke("get_order", {"order_id": "ORD-10001"}, OWNER, trace_id="t-1")
