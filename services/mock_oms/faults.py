@@ -4,7 +4,9 @@
 """
 
 from dataclasses import dataclass
+from typing import Literal
 
+FaultKind = Literal["timeout", "lost_response", "invalid_response", "unavailable", "delay"]
 KINDS = {"timeout", "lost_response", "invalid_response", "unavailable", "delay"}
 
 

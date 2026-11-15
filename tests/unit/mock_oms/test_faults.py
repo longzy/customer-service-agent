@@ -14,14 +14,14 @@ from services.tools.gateway import GatewayError, OwnershipIndex, ToolGateway, To
 IDENTITY = Identity("zhang-ming", "user-a1", "tenant-a", "张明")
 
 
-def test_规则按次数消耗_AC_10() -> None:
+def test_规则按次数消耗_基座豁免() -> None:
     engine = FaultEngine()
     engine.add(FaultRule(kind="timeout", tool="submit_cancel", times=1))
     assert engine.take("submit_cancel", "ORD-10001") == "timeout"
     assert engine.take("submit_cancel", "ORD-10001") is None
 
 
-def test_规则按工具与订单匹配_AC_10() -> None:
+def test_规则按工具与订单匹配_基座豁免() -> None:
     engine = FaultEngine()
     engine.add(FaultRule(kind="timeout", tool="get_order", order_id="ORD-10001"))
     assert engine.take("get_order", "ORD-10002") is None
@@ -29,14 +29,14 @@ def test_规则按工具与订单匹配_AC_10() -> None:
     assert engine.take("get_order", "ORD-10001") == "timeout"
 
 
-def test_清空规则_AC_12() -> None:
+def test_清空规则_基座豁免() -> None:
     engine = FaultEngine()
     engine.add(FaultRule(kind="unavailable"))
     engine.clear()
     assert engine.take("get_order", "ORD-10001") is None
 
 
-def test_延迟可配置到秒级_AC_12() -> None:
+def test_延迟可配置到秒级_基座豁免() -> None:
     engine = FaultEngine()
     engine.add(FaultRule(kind="delay", delay_ms=2500))
     engine.take("submit_cancel")
@@ -144,7 +144,7 @@ def test_不可取消经网关归类为OMS拒绝_AC_05() -> None:
     assert exc.value.payload["code"] == ErrorCode.OMS_REJECTED.value
 
 
-def test_管理接口注入的故障影响应用实例_AC_12() -> None:
+def test_管理接口注入的故障影响应用实例_基座豁免() -> None:
     from fastapi.testclient import TestClient
 
     from services.api.main import create_app
@@ -160,7 +160,7 @@ def test_管理接口注入的故障影响应用实例_AC_12() -> None:
             api.app.state.oms.get_order("tenant-a", "user-a1", "ORD-10001")
 
 
-def test_管理接口拒绝非法输入_AC_12() -> None:
+def test_管理接口拒绝非法输入_基座豁免() -> None:
     from fastapi.testclient import TestClient
 
     from services.api.main import create_app
@@ -170,7 +170,7 @@ def test_管理接口拒绝非法输入_AC_12() -> None:
         assert api.post("/_admin/faults", json={"kind": "timeout", "times": 0}).status_code == 422
 
 
-def test_生产环境不挂载故障管理接口_AC_12(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_生产环境不挂载故障管理接口_基座豁免(monkeypatch: pytest.MonkeyPatch) -> None:
     from fastapi.testclient import TestClient
 
     from services.api.main import create_app
@@ -179,3 +179,23 @@ def test_生产环境不挂载故障管理接口_AC_12(monkeypatch: pytest.Monke
     monkeypatch.setattr(settings, "environment", "production")
     with TestClient(create_app()) as api:
         assert api.post("/_admin/faults", json={"kind": "timeout"}).status_code == 404
+
+
+def test_幂等回放前先校验归属_AC_09() -> None:
+    service = MockOms()
+    service.submit_cancel("tenant-a", "user-a1", "ORD-10001", "idem-3001-abcdef")
+    with pytest.raises(OrderNotFound):
+        service.submit_cancel("tenant-a", "user-a2", "ORD-10001", "idem-3001-abcdef")
+
+
+def test_取消结果接口对未知键返回404_基座豁免() -> None:
+    from fastapi.testclient import TestClient
+
+    from services.api.main import create_app
+
+    with TestClient(create_app()) as api:
+        response = api.post(
+            "/_admin/cancel-result",
+            json={"tenant_id": "tenant-a", "idempotency_key": "nope", "state": "CANCELLED"},
+        )
+        assert response.status_code == 404

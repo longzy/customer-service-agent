@@ -32,7 +32,7 @@
 ## 当前仓库状态
 
 - 阶段、当前 Milestone、进行中、阻塞与下一步以 `docs/CURRENT.md` 为准，本文件不重复维护。
-- 一键验证：`./scripts/verify.sh`（九项：ruff check/format、mypy、pytest、文档检查、前端 lint/format/typecheck/test）。
+- 一键验证：`./scripts/verify.sh`（十项：ruff check/format、生产依赖导入冒烟、mypy、pytest、文档检查、前端 lint/format/typecheck/test）。
 - 后端依赖 `UV_CACHE_DIR=./.uv-cache uv sync`；前端依赖 `pnpm -C apps/web install`。
 - 门禁分两级：提交前跑 `pre-commit`（格式、静态检查、文档），推送前跑 `pre-push`（完整验证，含测试）。
 - 命令以实际跑通为准；新增或变更构建、测试、Lint 命令时必须同步更新本文件与 `README.md`。

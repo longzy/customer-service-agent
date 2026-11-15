@@ -99,6 +99,8 @@ class MockOms:
     def submit_cancel(
         self, tenant_id: str, user_id: str, order_id: str, idempotency_key: str
     ) -> str:
+        if not self.owns(order_id, tenant_id, user_id):
+            raise OrderNotFound(order_id)
         key = (tenant_id, idempotency_key)
         existing = self._cancel_results.get(key)
         if existing is not None:
@@ -107,8 +109,6 @@ class MockOms:
             return existing[1]
 
         kind = self._inject("submit_cancel", order_id)
-        if not self.owns(order_id, tenant_id, user_id):
-            raise OrderNotFound(order_id)
         if order_id in self._accepted_orders:
             raise CancelRejected("已受理，等待结果")
         order = self._orders[order_id]

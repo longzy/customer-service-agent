@@ -2,10 +2,11 @@
 
 from typing import Literal
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
 
-from services.mock_oms.faults import FaultRule
+from services.errors import OrderNotFound
+from services.mock_oms.faults import FaultKind, FaultRule
 from services.mock_oms.service import MockOms
 
 router = APIRouter(prefix="/_admin")
@@ -17,14 +18,13 @@ TOOLS = Literal[
     "submit_cancel",
     "get_cancel_result",
 ]
-KINDS = Literal["timeout", "lost_response", "invalid_response", "unavailable", "delay"]
 STATES = Literal["ACCEPTED", "CANCELLED", "REJECTED", "UNKNOWN"]
 
 
 class FaultPayload(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    kind: KINDS
+    kind: FaultKind
     tool: TOOLS | None = None
     order_id: str | None = None
     times: int = Field(default=1, ge=1)
@@ -56,4 +56,7 @@ def clear_faults(request: Request) -> None:
 
 @router.post("/cancel-result", status_code=204)
 def set_cancel_result(payload: CancelResultPayload, request: Request) -> None:
-    _oms(request).set_cancel_result(payload.tenant_id, payload.idempotency_key, payload.state)
+    try:
+        _oms(request).set_cancel_result(payload.tenant_id, payload.idempotency_key, payload.state)
+    except OrderNotFound as error:
+        raise HTTPException(status_code=404, detail="幂等键不存在") from error
