@@ -221,12 +221,22 @@ def check_completed_card_reviews():
             if "结论" not in read(review):
                 errors.append(f"{rel(review)}：评审记录缺少结论")
                 continue
+            content = read(card_path)
+            if "## 4. 证据" in content:
+                evidence = content.split("## 4. 证据", 1)[1].split("\n## ", 1)[0]
+                if "```" not in evidence or not any(
+                    token in evidence for token in ("passed", "FAILED", "$ ")
+                ):
+                    errors.append(
+                        f"{rel(card_path)}：第 4 节证据缺少真实命令输出（代码块且含 passed/FAILED）"
+                    )
             checked["reviews"] += 1
 
 
 def resolve_reference(card_path, ref):
     """依次在仓库根、执行卡所在目录及其各级上级目录中解析相对引用。"""
-    candidates = [os.path.join(ROOT, ref)]
+    spec_dir = os.path.join(ROOT, "docs", "specs", os.path.basename(os.path.dirname(card_path)))
+    candidates = [os.path.join(ROOT, ref), os.path.join(spec_dir, ref)]
     directory = os.path.dirname(card_path)
     while True:
         candidates.append(os.path.join(directory, ref))
@@ -268,6 +278,34 @@ def check_design_card_gate():
                         )
 
 
+def check_status_vocabulary_sync():
+    """sdd.md 状态词表与检查器常量必须一致，避免新增状态时漏改。"""
+    path = os.path.join(ROOT, "docs", "process", "sdd.md")
+    if not os.path.exists(path):
+        return
+    declared = set()
+    for line in read(path).splitlines():
+        if "状态" not in line or "→" not in line:
+            continue
+        declared |= set(re.findall(r"`([^`]+)`", line))
+    declared -= {"已确认"}
+    unknown = declared - STATUS_WORDS
+    if unknown:
+        errors.append(f"docs/process/sdd.md：状态词未加入检查器：{sorted(unknown)}")
+
+
+def check_verification_block():
+    """CURRENT.md 的最近验证必须由 verify.sh 生成，防止手写漂移。"""
+    path = os.path.join(ROOT, "docs", "CURRENT.md")
+    content = read(path)
+    if "<!-- verify:start -->" not in content or "<!-- verify:end -->" not in content:
+        errors.append("docs/CURRENT.md：缺少 verify 标记块（由 scripts/verify.sh 生成）")
+        return
+    block = content.split("<!-- verify:start -->", 1)[1].split("<!-- verify:end -->", 1)[0]
+    if "passed" not in block and "待运行" not in block:
+        errors.append("docs/CURRENT.md：verify 标记块未包含验证结果")
+
+
 def main():
     files = sorted(md_files())
     checked["files"] = len(files)
@@ -282,6 +320,8 @@ def main():
     check_card_paths()
     check_design_card_gate()
     check_completed_card_reviews()
+    check_status_vocabulary_sync()
+    check_verification_block()
 
     if errors:
         print(f"文档检查失败，{len(errors)} 个问题：")

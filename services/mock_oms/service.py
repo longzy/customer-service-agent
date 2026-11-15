@@ -9,9 +9,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from jsonschema import Draft202012Validator
-from referencing import Registry, Resource
-
+from services.contracts import build_registry, load_domain, validator_for
 from services.errors import (
     CancelRejected,
     DownstreamInvalidResponse,
@@ -20,8 +18,6 @@ from services.errors import (
 )
 from services.mock_oms.faults import FaultEngine
 
-ROOT = Path(__file__).resolve().parents[2]
-CONTRACTS = ROOT / "packages" / "contracts"
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "orders.json"
 
 SUBMITTABLE = {"PAID_UNFULFILLED"}
@@ -32,11 +28,9 @@ class MockOms:
     """订单查询与取消提交。数据只读加载，取消结果保存在进程内。"""
 
     def __init__(self, fixtures_path: Path | None = None) -> None:
-        domain = json.loads((CONTRACTS / "schemas" / "domain.json").read_text(encoding="utf-8"))
-        registry = Registry().with_resource(domain["$id"], Resource.from_contents(domain))
-        self._validator = Draft202012Validator(
-            {"$ref": f"{domain['$id']}#/$defs/OrderDetail"}, registry=registry
-        )
+        domain = load_domain()
+        registry = build_registry(domain, {})
+        self._validator = validator_for(domain, "OrderDetail", registry)
         entries = json.loads((fixtures_path or FIXTURES).read_text(encoding="utf-8"))
         self._orders: dict[str, dict[str, Any]] = {}
         self._owners: dict[str, tuple[str, str]] = {}

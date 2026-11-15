@@ -3,17 +3,20 @@
 职责：白名单、契约校验、身份字段剥离、订单归属闸门、错误归一与审计。
 """
 
-import json
 from collections.abc import Callable
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Any
 
 from jsonschema import Draft202012Validator
-from referencing import Registry, Resource
 
 from services.api.auth import Identity
 from services.api.domain.errors import ErrorCode, error_spec
+from services.contracts import (
+    build_registry,
+    load_domain,
+    load_tool_documents,
+    validator_for,
+)
 from services.errors import (
     CancelRejected,
     DownstreamInvalidResponse,
@@ -21,27 +24,7 @@ from services.errors import (
     OrderNotFound,
 )
 
-ROOT = Path(__file__).resolve().parents[2]
-CONTRACTS = ROOT / "packages" / "contracts"
-TOOLS_DIR = CONTRACTS / "tools"
-
 IDENTITY_FIELDS = {"tenant_id", "user_id"}
-
-
-def _load_documents() -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
-    domain = json.loads((CONTRACTS / "schemas" / "domain.json").read_text(encoding="utf-8"))
-    tools = {
-        path.stem: json.loads(path.read_text(encoding="utf-8"))
-        for path in sorted(TOOLS_DIR.glob("*.json"))
-        if path.name != "openapi.json"
-    }
-    return domain, tools
-
-
-def _registry(domain: dict[str, Any], tools: dict[str, dict[str, Any]]) -> Registry:
-    resources = [(domain["$id"], Resource.from_contents(domain))]
-    resources.extend((doc["$id"], Resource.from_contents(doc)) for doc in tools.values())
-    return Registry().with_resources(resources)
 
 
 @dataclass(frozen=True)
@@ -99,15 +82,15 @@ class ToolGateway:
         ownership: OwnershipIndex,
         audit: Callable[[dict[str, Any]], None] | None = None,
     ) -> None:
-        domain, documents = _load_documents()
-        registry = _registry(domain, documents)
+        domain = load_domain()
+        documents = load_tool_documents()
+        registry = build_registry(domain, documents)
         self._tools: dict[str, ToolSpec] = {tool.name: tool for tool in tools}
         self._errors: dict[str, set[str]] = {
             name: set(doc["x-error-codes"]) for name, doc in documents.items()
         }
         self._validators: dict[str, Draft202012Validator] = {
-            name: Draft202012Validator({"$ref": f"{doc['$id']}#/$defs/Request"}, registry=registry)
-            for name, doc in documents.items()
+            name: validator_for(doc, "Request", registry) for name, doc in documents.items()
         }
         missing = set(self._tools) - set(self._validators)
         if missing:
