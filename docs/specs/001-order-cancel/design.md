@@ -1,7 +1,7 @@
 # M1 技术设计：订单查询与未发货订单取消
 
 - 状态：已批准
-- 批准：2026-11-15（用户确认，含测试账号登录页与 AC-20）
+- 批准：2026-11-15（用户确认，含测试账号登录页与 AC-20）；2026-11-16 澄清确认（状态迁移表）
 - 变更说明：
   - 2026-11-14 增加取消主流程与超时恢复的时序图，并补 4.1 契约约定。
   - 2026-11-15 第 3 节新增 OMS 侧 `OmsCancelState` 四态；`submit_cancel` 成功响应收敛为 `ACCEPTED`，拒绝与未知改由错误封套表达。
@@ -11,6 +11,7 @@
   - 2026-11-15 第 12 节刷新行为改为不恢复历史（T-10 决策），读取接口留待后续任务。
   - 2026-11-15 第 12 节“不取消”改为发送一次状态收尾请求，失败时等超时转 `ABANDONED`（T-14 决策）。
   - 2026-11-15 第 3 节明确资格 Tool 可读取 OMS 订单事实，但判定只由 Policy Engine 产出（T-08 决策）。
+  - 2026-11-16 第 2 节状态迁移由箭头图改为迁移表（澄清，不改行为）。
 - 关联需求：`requirements.md`
 
 ## 1. 设计原则
@@ -121,25 +122,22 @@ sequenceDiagram
 
 ### Cancellation Workflow
 
-管理：
+状态迁移以表为准；幂等与重试规则见第 4 节。
 
-```text
-COLLECTING
-  -> AWAITING_CONFIRMATION
-  -> SUBMITTING
-  -> ACCEPTED
-  -> CANCELLED
-```
-
-异常分支：
-
-```text
-ELIGIBILITY_REJECTED
-REJECTED
-SUBMIT_UNKNOWN -> query result -> ACCEPTED/CANCELLED/REJECTED
-SUBMIT_UNKNOWN -> retries exhausted -> MANUAL_REVIEW
-COLLECTING / AWAITING_CONFIRMATION -> 超时或用户放弃 -> ABANDONED
-```
+| from | event | guard | to | 副作用 |
+|---|---|---|---|---|
+| COLLECTING | 用户请求取消，资格通过 | 归属校验通过 | AWAITING_CONFIRMATION | 持久化任务 |
+| COLLECTING | 用户请求取消，资格不通过 | — | ELIGIBILITY_REJECTED | 记录原因码 |
+| AWAITING_CONFIRMATION | 用户确认 | 未过期 | SUBMITTING | 调 submit_cancel |
+| AWAITING_CONFIRMATION | 用户放弃 | — | ABANDONED | 不写 OMS |
+| AWAITING_CONFIRMATION | 确认超时 | — | ABANDONED | 不写 OMS |
+| SUBMITTING | submit 返回 `ACCEPTED` | — | ACCEPTED | 持久化终态，可刷新 |
+| SUBMITTING | submit 返回 `OMS_REJECTED` | — | REJECTED | 持久化终态 |
+| SUBMITTING | submit 超时或非法响应 | — | SUBMIT_UNKNOWN | 记录错误码与幂等键摘要 |
+| SUBMIT_UNKNOWN | 查询得到明确状态 | — | ACCEPTED / CANCELLED / REJECTED | 持久化终态 |
+| SUBMIT_UNKNOWN | 重试耗尽 | — | MANUAL_REVIEW | 转人工 |
+| ACCEPTED | 查询返回 `CANCELLED` | — | CANCELLED | 推进终态 |
+| 任意终态 | 重复确认或放弃 | — | 不变 | 幂等返回 |
 
 `COLLECTING` 与 `AWAITING_CONFIRMATION` 是已持久化的任务状态，不是会话内存状态；任务在用户表达取消意图时即创建，`ABANDONED` 为其未提交的终点，不产生任何 OMS 写调用。
 
