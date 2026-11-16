@@ -36,7 +36,11 @@ line-length = 100
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B", "SIM"]
+select = ["E", "F", "I", "UP", "B", "SIM", "S", "BLE", "ASYNC"]
+
+[tool.ruff.lint.per-file-ignores]
+# 测试用 assert 表达断言，不适用 bandit 的生产代码规则
+"tests/**/*.py" = ["S101"]
 
 [tool.mypy]
 python_version = "3.12"
@@ -54,6 +58,7 @@ filterwarnings = [
 ]
 
 [tool.mutmut]
-source_paths = ["services"]
+# 只对确定性核心跑突变：范围与 docs/process/tdd.md 第 5 节一致
+source_paths = ["services/tools", "services/workflows", "services/api/domain"]
 also_copy = ["tests", "packages", "migrations", "scripts", "docs"]
 pytest_add_cli_args_test_selection = ["tests/unit"]

@@ -1,9 +1,13 @@
 #!/bin/sh
-# 提交前执行快检查：格式、静态检查、文档一致性。失败即阻断。
+# 提交前执行快检查：格式、静态检查、文档与状态一致性。失败即阻断。
 set -e
 cd "$(git rev-parse --show-toplevel)"
 
-export UV_CACHE_DIR=./.uv-cache
+export UV_CACHE_DIR="${UV_CACHE_DIR:-./.uv-cache}"
 uv run ruff check . --quiet
 uv run ruff format --check . --quiet
-python3 scripts/check-docs.py
+python3 scripts/check-secrets.py --staged >/dev/null
+python3 scripts/check-docs.py >/dev/null
+python3 scripts/check-status.py >/dev/null
+python3 scripts/trace.py --strict >/dev/null
+echo "pre-commit：格式、静态检查、密钥、文档、状态与追溯检查通过"

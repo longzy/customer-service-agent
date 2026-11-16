@@ -42,6 +42,7 @@ STATUS_WORDS = {
     "已关闭",
     "已清零",
     "待确认",
+    "已确认",
     "待开工许可",
     "待评审",
 }
@@ -301,10 +302,36 @@ def check_status_vocabulary_sync():
         if "状态" not in line or "→" not in line:
             continue
         declared |= set(re.findall(r"`([^`]+)`", line))
-    declared -= {"已确认"}
     unknown = declared - STATUS_WORDS
     if unknown:
         errors.append(f"docs/process/sdd.md：状态词未加入检查器：{sorted(unknown)}")
+
+
+def check_review_conclusions():
+    """评审结论必须是三种枚举之一，且评审文件不能是孤儿。"""
+    if not os.path.isdir(REVIEWS_ROOT):
+        return
+    for base, _dirs, names in os.walk(REVIEWS_ROOT):
+        spec_name = os.path.basename(base)
+        if not SPEC_DIR_PATTERN.match(spec_name):
+            continue  # 历史评审（如初始架构评审）不受执行卡评审格式约束
+        for name in sorted(names):
+            if not CARD_PATTERN.match(name):
+                continue
+            path = os.path.join(base, name)
+            content = read(path)
+            if "## 结论" not in content:
+                errors.append(f"{rel(path)}：缺少「## 结论」小节")
+                continue
+            tail = content.split("## 结论", 1)[1]
+            first = next((line.strip() for line in tail.splitlines() if line.strip()), "")
+            if not first.startswith(("通过", "有条件通过", "不通过")):
+                errors.append(
+                    f"{rel(path)}：结论必须为通过/有条件通过/不通过，当前为「{first[:20]}」"
+                )
+            card = os.path.join(TASKS_ROOT, spec_name, name)
+            if not os.path.exists(card):
+                errors.append(f"{rel(path)}：没有对应的执行卡 {rel(card)}")
 
 
 def check_verification_block():
@@ -334,6 +361,7 @@ def main():
     check_design_card_gate()
     check_completed_card_reviews()
     check_status_vocabulary_sync()
+    check_review_conclusions()
     check_verification_block()
 
     if errors:
