@@ -10,8 +10,6 @@ from urllib.parse import urlsplit
 from fastapi import Request
 from starlette.responses import JSONResponse, Response
 
-from services.platform.settings import settings
-
 UNSAFE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 REJECTION = {"detail": "跨站请求被拒绝"}
 
@@ -30,9 +28,10 @@ async def verify_origin(
     call_next: Callable[[Request], Awaitable[Response]],
 ) -> Response:
     if request.method in UNSAFE_METHODS:
+        active = request.app.state.settings
         origin = request.headers.get("origin")
         if origin is not None and not origin_allowed(
-            origin, request.headers.get("host"), settings.allowed_origin_set
+            origin, request.headers.get("host"), active.allowed_origin_set
         ):
             return JSONResponse(status_code=403, content=REJECTION)
     return await call_next(request)

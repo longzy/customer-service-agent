@@ -8,6 +8,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Protocol
 
+CANCEL_RESULT_STATES = frozenset({"ACCEPTED", "CANCELLED", "REJECTED", "UNKNOWN"})
+
 
 @dataclass(frozen=True)
 class OmsAccess:

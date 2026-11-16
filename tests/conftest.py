@@ -1,6 +1,11 @@
 """测试夹具：每个用例前清空服务端会话，避免用例互相污染。"""
 
+import os
+
 import pytest
+
+# 干净检出/CI 没有 .env 时，模块级 create_app 也应按测试环境启动而不是 production。
+os.environ.setdefault("ENVIRONMENT", "test")
 
 from services import identity as auth
 from services.platform.settings import settings

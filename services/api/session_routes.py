@@ -13,7 +13,6 @@ from services.identity import (
     create_session,
     destroy_session,
 )
-from services.platform.settings import settings
 
 router = APIRouter()
 
@@ -38,7 +37,8 @@ def _public(identity: Identity) -> dict[str, str]:
 
 @router.post("/session")
 def login(payload: SessionRequest, request: Request, response: Response) -> dict[str, str]:
-    if not settings.test_accounts_enabled:
+    active = request.app.state.settings
+    if not active.test_accounts_enabled:
         raise HTTPException(status_code=404, detail="未找到")
     result = create_session(payload.account_id)
     if result is None:
@@ -50,7 +50,7 @@ def login(payload: SessionRequest, request: Request, response: Response) -> dict
         SESSION_COOKIE,
         sid,
         httponly=True,
-        secure=settings.secure_cookie,
+        secure=active.secure_cookie,
         samesite="lax",
         max_age=int(SESSION_TTL.total_seconds()),
     )

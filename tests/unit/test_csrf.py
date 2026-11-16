@@ -95,6 +95,7 @@ def test_空COOKIE_SECURE按未设置处理_AC_21() -> None:
 
 def test_生产环境真实响应头带Secure_AC_21(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(settings, "environment", "production")
+    monkeypatch.setattr(settings, "oms_base_url", "http://oms.test")
     monkeypatch.setattr(Settings, "test_accounts_enabled", property(lambda self: True))
     with client() as api:
         cookie = login(api).headers["set-cookie"].lower()

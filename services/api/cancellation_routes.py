@@ -13,7 +13,6 @@ from services.domain.cancellation import render_result
 from services.identity import Identity
 from services.platform.db import get_session, session_factory
 from services.platform.observability import AsyncTraceSink, new_trace_id, use_trace_sink
-from services.platform.settings import settings
 from services.tools.gateway import GatewayError
 from services.workflows.cancel import (
     CancellationRepository,
@@ -74,7 +73,7 @@ def _workflow(
     return CancellationWorkflow(
         repository,
         request.app.state.cancel_gateway,
-        confirm_timeout_minutes=settings.confirm_timeout_minutes,
+        confirm_timeout_minutes=request.app.state.settings.confirm_timeout_minutes,
         audit=audit,
         confirmation=confirmation,
     )

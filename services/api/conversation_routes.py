@@ -19,7 +19,6 @@ from services.identity import Identity
 from services.platform.db import get_session, session_factory
 from services.platform.models import Conversation, Handoff, Message
 from services.platform.observability import AsyncTraceSink, log_event, use_trace_sink
-from services.platform.settings import settings
 from services.workflows.cancel import CancellationWorkflow, SqlCancellationRepository
 
 router = APIRouter()
@@ -129,7 +128,7 @@ async def send_message(
     workflow = CancellationWorkflow(
         SqlCancellationRepository(session),
         request.app.state.cancel_gateway,
-        confirm_timeout_minutes=settings.confirm_timeout_minutes,
+        confirm_timeout_minutes=request.app.state.settings.confirm_timeout_minutes,
         audit=on_transition,
     )
 
