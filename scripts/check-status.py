@@ -8,6 +8,7 @@ CURRENT.md 是给人看的一页状态，但它的每个事实都必须能从产
 2. 引用的任务必须存在：CURRENT.md 里出现的 T-XX 必须能在 tasks.md 或执行卡中找到。
 3. 未完成任务不能消失：tasks.md 中未勾选的任务必须出现在 CURRENT.md 的进行中/阻塞/下一步。
 4. 列表编号连续：手工追加导致 2、2、3、3 的序号重复会被拦下。
+5. 任务号全局唯一：同一 T-XX 不允许跨规格或重复出现。
 
 用法：python3 scripts/check-status.py
 """
@@ -41,9 +42,43 @@ def section(text: str, title: str) -> str:
     return rest[: end.start()] if end else rest
 
 
+def check_duplicate_task_ids() -> None:
+    """任务号全局唯一；同号会静默覆盖 cards 字典，必须显式报错。"""
+    task_occurrences: dict[str, list[str]] = {}
+    card_occurrences: dict[str, list[str]] = {}
+    for path in TASK_FILES:
+        relative = path.relative_to(ROOT).as_posix()
+        for line in path.read_text(encoding="utf-8").splitlines():
+            match = re.match(r"- \[[ x]\] T-?(\d{2})\b", line)
+            if match:
+                task_occurrences.setdefault(canonical(match.group(1)), []).append(relative)
+    for path in CARDS.rglob("T-*.md"):
+        card_occurrences.setdefault(canonical(path.stem[2:]), []).append(
+            path.relative_to(ROOT).as_posix()
+        )
+    duplicated: set[str] = set()
+    for label, occurrences in (
+        ("tasks.md", task_occurrences),
+        ("执行卡", card_occurrences),
+    ):
+        for task, paths in sorted(occurrences.items()):
+            if len(paths) > 1:
+                errors.append(f"{task}：{label} 重复出现（{'、'.join(paths)}）")
+                duplicated.add(task)
+    specs: dict[str, set[str]] = {}
+    for task, paths in task_occurrences.items():
+        specs.setdefault(task, set()).update(Path(path).parent.name for path in paths)
+    for task, paths in card_occurrences.items():
+        specs.setdefault(task, set()).update(Path(path).parent.name for path in paths)
+    for task, names in sorted(specs.items()):
+        if len(names) > 1 and task not in duplicated:
+            errors.append(f"{task}：跨规格重复使用（{'、'.join(sorted(names))}）")
+
+
 def main() -> int:
     text = CURRENT.read_text(encoding="utf-8")
     task_texts = {path: path.read_text(encoding="utf-8") for path in TASK_FILES}
+    check_duplicate_task_ids()
 
     closed: set[str] = set()
     opened: set[str] = set()
