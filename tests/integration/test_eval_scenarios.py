@@ -4,14 +4,19 @@
 测试名带 AC 后缀，自动进入 evals/run.py 的聚合报告。
 """
 
+import asyncio
 from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import delete
+from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from services.agent_runtime.model import FakeModelClient
 from services.api.conversation_routes import get_repository
 from services.api.main import create_app
+from services.api.models import AuditEvent, CancellationRequest, ToolExecution
+from services.api.settings import settings
 from tests.integration.db_utils import db_available
 
 pytestmark = pytest.mark.skipif(not db_available(), reason="Postgres 不可用")
@@ -50,6 +55,20 @@ def roles(repo: MemoryRepository) -> list[str]:
     return [role for _, role, _, _ in repo.messages]
 
 
+async def cleanup_traces(trace_ids: list[str]) -> None:
+    if not trace_ids:
+        return
+    engine = create_async_engine(settings.database_url)
+    factory = async_sessionmaker(engine, expire_on_commit=False)
+    try:
+        async with factory() as session:
+            for model in (AuditEvent, ToolExecution, CancellationRequest):
+                await session.execute(delete(model).where(model.trace_id.in_(trace_ids)))
+            await session.commit()
+    finally:
+        await engine.dispose()
+
+
 def test_多轮查询同一会话返回订单_AC_01() -> None:
     repo = MemoryRepository()
     model = FakeModelClient(
@@ -58,21 +77,27 @@ def test_多轮查询同一会话返回订单_AC_01() -> None:
             "我的订单": {"intent": "QUERY_RECENT"},
         }
     )
-    with make_api(model, repo) as api:
-        login(api)
-        first = api.post("/message", json={"content": "查 ORD-10001"}).json()
-        assert first["orders"][0]["order_id"] == "ORD-10001"
-        assert first["orders"][0]["status_text"] == "待发货"
+    trace_ids: list[str] = []
+    try:
+        with make_api(model, repo) as api:
+            login(api)
+            first = api.post("/message", json={"content": "查 ORD-10001"}).json()
+            trace_ids.append(first["trace_id"])
+            assert first["orders"][0]["order_id"] == "ORD-10001"
+            assert first["orders"][0]["status_text"] == "待发货"
 
-        second = api.post(
-            "/message",
-            json={"content": "我的订单", "conversation_id": first["conversation_id"]},
-        ).json()
-        assert second["conversation_id"] == first["conversation_id"]
-        assert "ORD-10001" in {order["order_id"] for order in second["orders"]}
-        assert second["clarification"] == []
-        assert first["trace_id"] != second["trace_id"]
-        assert roles(repo) == ["user", "assistant", "user", "assistant"]
+            second = api.post(
+                "/message",
+                json={"content": "我的订单", "conversation_id": first["conversation_id"]},
+            ).json()
+            trace_ids.append(second["trace_id"])
+            assert second["conversation_id"] == first["conversation_id"]
+            assert "ORD-10001" in {order["order_id"] for order in second["orders"]}
+            assert second["clarification"] == []
+            assert first["trace_id"] != second["trace_id"]
+            assert roles(repo) == ["user", "assistant", "user", "assistant"]
+    finally:
+        asyncio.run(cleanup_traces(trace_ids))
 
 
 def test_多轮歧义澄清后查询指定订单_AC_08() -> None:
@@ -83,20 +108,26 @@ def test_多轮歧义澄清后查询指定订单_AC_08() -> None:
             "查 ORD-10002": {"intent": "QUERY_ORDER"},
         }
     )
-    with make_api(model, repo) as api:
-        login(api)
-        first = api.post("/message", json={"content": "查 ORD-10001 和 ORD-10002"}).json()
-        assert first["orders"] == []
-        assert first["clarification"] == ["ORD-10001", "ORD-10002"]
+    trace_ids: list[str] = []
+    try:
+        with make_api(model, repo) as api:
+            login(api)
+            first = api.post("/message", json={"content": "查 ORD-10001 和 ORD-10002"}).json()
+            trace_ids.append(first["trace_id"])
+            assert first["orders"] == []
+            assert first["clarification"] == ["ORD-10001", "ORD-10002"]
 
-        second = api.post(
-            "/message",
-            json={"content": "查 ORD-10002", "conversation_id": first["conversation_id"]},
-        ).json()
-        assert second["conversation_id"] == first["conversation_id"]
-        assert second["clarification"] == []
-        assert [order["order_id"] for order in second["orders"]] == ["ORD-10002"]
-        assert roles(repo) == ["user", "assistant", "user", "assistant"]
+            second = api.post(
+                "/message",
+                json={"content": "查 ORD-10002", "conversation_id": first["conversation_id"]},
+            ).json()
+            trace_ids.append(second["trace_id"])
+            assert second["conversation_id"] == first["conversation_id"]
+            assert second["clarification"] == []
+            assert [order["order_id"] for order in second["orders"]] == ["ORD-10002"]
+            assert roles(repo) == ["user", "assistant", "user", "assistant"]
+    finally:
+        asyncio.run(cleanup_traces(trace_ids))
 
 
 def test_多轮取消意图沿同一trace确认_AC_04() -> None:
@@ -107,24 +138,30 @@ def test_多轮取消意图沿同一trace确认_AC_04() -> None:
             "取消 ORD-10001": {"intent": "CANCEL_ORDER", "order_id": "ORD-10001"},
         }
     )
-    with make_api(model, repo) as api:
-        login(api)
-        queried = api.post("/message", json={"content": "查 ORD-10001"}).json()
-        assert queried["orders"][0]["order_id"] == "ORD-10001"
+    trace_ids: list[str] = []
+    try:
+        with make_api(model, repo) as api:
+            login(api)
+            queried = api.post("/message", json={"content": "查 ORD-10001"}).json()
+            trace_ids.append(queried["trace_id"])
+            assert queried["orders"][0]["order_id"] == "ORD-10001"
 
-        started = api.post(
-            "/message",
-            json={"content": "取消 ORD-10001", "conversation_id": queried["conversation_id"]},
-        ).json()
-        assert started["conversation_id"] == queried["conversation_id"]
-        card = started["cancellation"]
-        assert card["state"] == "AWAITING_CONFIRMATION"
-        assert card["order"]["order_id"] == "ORD-10001"
-        assert card["trace_id"] == started["trace_id"]
+            started = api.post(
+                "/message",
+                json={"content": "取消 ORD-10001", "conversation_id": queried["conversation_id"]},
+            ).json()
+            trace_ids.append(started["trace_id"])
+            assert started["conversation_id"] == queried["conversation_id"]
+            card = started["cancellation"]
+            assert card["state"] == "AWAITING_CONFIRMATION"
+            assert card["order"]["order_id"] == "ORD-10001"
+            assert card["trace_id"] == started["trace_id"]
 
-        confirmed = api.post(f"/cancellation-requests/{card['task_id']}/confirm")
-        assert confirmed.status_code == 200
-        body = confirmed.json()
-        assert body["state"] == "ACCEPTED"
-        assert body["trace_id"] == started["trace_id"]
-        assert roles(repo) == ["user", "assistant", "user", "assistant"]
+            confirmed = api.post(f"/cancellation-requests/{card['task_id']}/confirm")
+            assert confirmed.status_code == 200
+            body = confirmed.json()
+            assert body["state"] == "ACCEPTED"
+            assert body["trace_id"] == started["trace_id"]
+            assert roles(repo) == ["user", "assistant", "user", "assistant"]
+    finally:
+        asyncio.run(cleanup_traces(trace_ids))

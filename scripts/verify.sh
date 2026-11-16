@@ -25,6 +25,8 @@ if [ "$FAST" = "1" ]; then
   uv run ruff format --check .
   echo "== fast: mypy =="
   uv run mypy services
+  echo "== fast: shell 检查 =="
+  python3 scripts/check-shell.py
   echo "== fast: unit tests（独立测试库）=="
   ./scripts/test-db.sh tests/unit -q
   echo "fast checks passed"
@@ -42,6 +44,9 @@ uv run ruff check .
 
 echo "== ruff format =="
 uv run ruff format --check .
+
+echo "== shell 检查 =="
+python3 scripts/check-shell.py
 
 echo "== prod import =="
 uv run --no-dev python -c "import services.tools.gateway as g; g.ToolGateway([], g.OwnershipIndex())"
