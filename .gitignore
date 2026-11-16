@@ -25,3 +25,6 @@ coverage/
 .pnpm-store/
 mutants/
 .mutmut-cache/
+
+# 每任务 mutation 一次性标记
+.mutation-runs/
