@@ -2,7 +2,7 @@
 
 import asyncio
 import logging
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any, Protocol, cast
@@ -66,6 +66,7 @@ class CancellationTask:
     expires_at: datetime
     reason_code: str | None = None
     conversation_id: str | None = None
+    trace_id: str = field(default_factory=lambda: str(uuid4()))
     last_error_code: str | None = None
     oms_request_id: str | None = None
     version: int = 0
@@ -96,6 +97,7 @@ class SqlCancellationRepository:
                 user_id=task.user_id,
                 order_id=task.order_id,
                 state=task.state.value,
+                trace_id=task.trace_id,
                 idempotency_key=task.idempotency_key,
                 reason_code=task.reason_code,
                 conversation_id=task.conversation_id,
@@ -127,6 +129,7 @@ class SqlCancellationRepository:
             expires_at=row.expires_at,
             reason_code=row.reason_code,
             conversation_id=row.conversation_id,
+            trace_id=row.trace_id,
             last_error_code=row.last_error_code,
             oms_request_id=row.oms_request_id,
             version=row.version,
@@ -149,6 +152,7 @@ class SqlCancellationRepository:
                 expires_at=row.expires_at,
                 reason_code=row.reason_code,
                 conversation_id=row.conversation_id,
+                trace_id=row.trace_id,
                 last_error_code=row.last_error_code,
                 oms_request_id=row.oms_request_id,
                 version=row.version,
@@ -190,6 +194,8 @@ class CancellationWorkflow:
         max_retries: int = 3,
         retry_backoff_seconds: float = 1.0,
         now: Callable[[], datetime] | None = None,
+        audit: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
+        confirmation: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
     ) -> None:
         self._repository = repository
         self._gateway = gateway
@@ -197,6 +203,55 @@ class CancellationWorkflow:
         self._max_retries = max_retries
         self._backoff = retry_backoff_seconds
         self._now = now or (lambda: datetime.now(UTC))
+        self._audit = audit
+        self._confirmation = confirmation
+
+    async def _record(
+        self,
+        identity: Identity,
+        task: CancellationTask,
+        from_state: CancellationState,
+        to_state: CancellationState,
+        *,
+        reason_code: str | None = None,
+        result_status: str = "committed",
+    ) -> None:
+        if self._audit is None:
+            return
+        await self._audit(
+            {
+                "trace_id": task.trace_id,
+                "identity": identity,
+                "task_id": task.id,
+                "order_id": task.order_id,
+                "from_state": from_state.value,
+                "to_state": to_state.value,
+                "reason_code": reason_code,
+                "result_status": result_status,
+                "idempotency_key": task.idempotency_key,
+            }
+        )
+
+    async def _confirm(
+        self,
+        identity: Identity,
+        task: CancellationTask,
+        action: str,
+        result_status: str,
+    ) -> None:
+        if self._confirmation is None:
+            return
+        await self._confirmation(
+            {
+                "trace_id": task.trace_id,
+                "identity": identity,
+                "task_id": task.id,
+                "order_id": task.order_id,
+                "action": action,
+                "result_status": result_status,
+                "idempotency_key": task.idempotency_key,
+            }
+        )
 
     async def _invoke(
         self, name: str, payload: dict[str, Any], identity: Identity, trace_id: str
@@ -223,34 +278,48 @@ class CancellationWorkflow:
             order_id=order_id,
             state=CancellationState.COLLECTING,
             conversation_id=conversation_id,
+            trace_id=trace_id,
             idempotency_key=str(uuid4()),
             expires_at=self._now() + self._confirm_timeout,
         )
         await self._repository.create(task)
         await self._repository.commit()
         if not eligibility["eligible"]:
-            task.state = CancellationState.ELIGIBILITY_REJECTED
+            target = CancellationState.ELIGIBILITY_REJECTED
             task.reason_code = eligibility["reason_code"]
         else:
-            task.state = CancellationState.AWAITING_CONFIRMATION
+            target = CancellationState.AWAITING_CONFIRMATION
+        await self._record(identity, task, task.state, target, reason_code=task.reason_code)
+        task.state = target
         await self._repository.save(task)
         await self._repository.commit()
         return task
 
-    async def confirm(self, identity: Identity, task_id: str, trace_id: str) -> CancellationTask:
+    async def confirm(
+        self, identity: Identity, task_id: str, trace_id: str | None = None
+    ) -> CancellationTask:
         task = await self._repository.get(task_id, identity)
+        trace_id = task.trace_id
         if task.state in FINAL_STATES:
+            await self._confirm(identity, task, "confirm", "idempotent")
             return task
         if task.state in RECOVERABLE_STATES:
+            await self._confirm(identity, task, "confirm", "idempotent")
             return await self._recover(identity, task, trace_id)
         if task.state != CancellationState.AWAITING_CONFIRMATION:
             raise InvalidTransition(task.state.value)
         if self._expired(task):
+            await self._confirm(identity, task, "confirm", "abandoned")
+            await self._record(identity, task, task.state, CancellationState.ABANDONED)
             task.state = CancellationState.ABANDONED
             await self._repository.save(task)
             await self._repository.commit()
             return task
 
+        await self._confirm(identity, task, "confirm", "committed")
+        await self._record(
+            identity, task, CancellationState.AWAITING_CONFIRMATION, CancellationState.SUBMITTING
+        )
         task.state = CancellationState.SUBMITTING
         await self._repository.save(task)
         await self._repository.commit()
@@ -272,17 +341,19 @@ class CancellationWorkflow:
                 return await self._finish(task, CancellationState.REJECTED)
             if code == "NOT_FOUND_OR_UNAUTHORIZED":
                 return await self._finish(task, CancellationState.REJECTED)
+            await self._record(identity, task, task.state, CancellationState.SUBMIT_UNKNOWN)
             task.state = CancellationState.SUBMIT_UNKNOWN
             task.last_error_code = str(code)
             await self._repository.save(task)
             await self._repository.commit()
             return await self._recover(identity, task, trace_id)
 
-    async def recover_pending(self, trace_id: str) -> int:
-        """启动恢复：扫描悬挂任务并按幂等键查询结果。"""
+    async def recover_pending(self, trace_id: str | None = None) -> int:
+        """启动恢复：扫描悬挂任务并按幂等键查询结果；优先使用任务自己的 trace。"""
         tasks = await self._repository.list_recoverable()
         recovered = 0
         for task in tasks:
+            task_trace = task.trace_id
             identity = Identity(
                 account_id="startup-recovery",
                 user_id=task.user_id,
@@ -291,7 +362,7 @@ class CancellationWorkflow:
                 tenant_name="",
             )
             try:
-                await self._recover(identity, task, trace_id)
+                await self._recover(identity, task, task_trace)
             except TaskConflict:
                 logger.warning("启动恢复遇到并发更新，跳过任务 %s", task.id)
                 continue
@@ -301,14 +372,22 @@ class CancellationWorkflow:
     async def abandon(self, identity: Identity, task_id: str) -> CancellationTask:
         task = await self._repository.get(task_id, identity)
         if task.state in ACTIVE_STATES:
+            await self._confirm(identity, task, "abandon", "abandoned")
+            await self._record(identity, task, task.state, CancellationState.ABANDONED)
             task.state = CancellationState.ABANDONED
             await self._repository.save(task)
             await self._repository.commit()
+        else:
+            await self._confirm(identity, task, "abandon", "idempotent")
         return task
 
-    async def get(self, identity: Identity, task_id: str, trace_id: str) -> CancellationTask:
+    async def get(
+        self, identity: Identity, task_id: str, trace_id: str | None = None
+    ) -> CancellationTask:
         task = await self._repository.get(task_id, identity)
+        trace_id = task.trace_id
         if task.state in ACTIVE_STATES and self._expired(task):
+            await self._record(identity, task, task.state, CancellationState.ABANDONED)
             task.state = CancellationState.ABANDONED
             await self._repository.save(task)
             await self._repository.commit()
@@ -322,6 +401,7 @@ class CancellationWorkflow:
         self, identity: Identity, task: CancellationTask, trace_id: str
     ) -> CancellationTask:
         """已受理后只允许推进到 CANCELLED；查询失败保持 ACCEPTED，不降级。"""
+        trace_id = task.trace_id
         try:
             body = await self._invoke(
                 "get_cancel_result",
@@ -338,6 +418,7 @@ class CancellationWorkflow:
     async def _recover(
         self, identity: Identity, task: CancellationTask, trace_id: str
     ) -> CancellationTask:
+        trace_id = task.trace_id
         for attempt in range(self._max_retries):
             try:
                 body = await self._invoke(
@@ -363,6 +444,16 @@ class CancellationWorkflow:
         return await self._finish(task, CancellationState.MANUAL_REVIEW)
 
     async def _finish(self, task: CancellationTask, state: CancellationState) -> CancellationTask:
+        previous = task.state
+        identity = Identity(
+            account_id=task.user_id,
+            user_id=task.user_id,
+            tenant_id=task.tenant_id,
+            display_name="",
+            tenant_name="",
+        )
+        if previous is not state:
+            await self._record(identity, task, previous, state)
         task.state = state
         await self._repository.save(task)
         await self._repository.commit()

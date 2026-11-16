@@ -1,16 +1,17 @@
 """取消任务接口：创建、确认与查询。"""
 
 from typing import Annotated, Any
-from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from services.api.audit import audit_confirmation, audit_transition
 from services.api.auth import Identity, current_identity
-from services.api.db import get_session
+from services.api.db import get_session, session_factory
 from services.api.domain.cancellation import render_result
+from services.api.observability import AsyncTraceSink, new_trace_id, use_trace_sink
 from services.api.settings import settings
 from services.tools.gateway import GatewayError
 from services.workflows.cancel import (
@@ -39,12 +40,42 @@ def get_repository(
 
 
 def _workflow(
-    request: Request, repository: Annotated[CancellationRepository, Depends(get_repository)]
+    request: Request,
+    repository: Annotated[CancellationRepository, Depends(get_repository)],
+    session: Annotated[AsyncSession, Depends(get_session)],
 ) -> CancellationWorkflow:
+    async def audit(event: dict[str, Any]) -> None:
+        await audit_transition(
+            session,
+            trace_id=event["trace_id"],
+            identity=event["identity"],
+            task_id=event["task_id"],
+            order_id=event["order_id"],
+            from_state=event["from_state"],
+            to_state=event["to_state"],
+            reason_code=event["reason_code"],
+            result_status=event["result_status"],
+            idempotency_key=event.get("idempotency_key"),
+        )
+
+    async def confirmation(event: dict[str, Any]) -> None:
+        await audit_confirmation(
+            session,
+            trace_id=event["trace_id"],
+            identity=event["identity"],
+            task_id=event["task_id"],
+            order_id=event["order_id"],
+            action=event["action"],
+            result_status=event["result_status"],
+            idempotency_key=event.get("idempotency_key"),
+        )
+
     return CancellationWorkflow(
         repository,
         request.app.state.cancel_gateway,
         confirm_timeout_minutes=settings.confirm_timeout_minutes,
+        audit=audit,
+        confirmation=confirmation,
     )
 
 
@@ -55,6 +86,7 @@ def _public(task: CancellationTask) -> dict[str, Any]:
         "id": task.id,
         "order_id": task.order_id,
         "state": task.state.value,
+        "trace_id": task.trace_id,
         "state_text": copy.state_text,
         "reason_text": copy.reason_text,
         "next_step": copy.next_step,
@@ -68,9 +100,12 @@ async def create_request(
     payload: RequestPayload,
     identity: Annotated[Identity, Depends(current_identity)],
     workflow: Annotated[CancellationWorkflow, Depends(_workflow)],
+    session: Annotated[AsyncSession, Depends(get_session)],
 ) -> Any:
+    trace_id = new_trace_id()
     try:
-        task = await workflow.request(identity, payload.order_id, str(uuid4()))
+        with use_trace_sink(AsyncTraceSink(session_factory)):
+            task = await workflow.request(identity, payload.order_id, trace_id)
     except GatewayError as error:
         return JSONResponse(status_code=error.status_code, content=error.payload)
     except TaskConflict as error:
@@ -83,9 +118,11 @@ async def confirm_request(
     task_id: str,
     identity: Annotated[Identity, Depends(current_identity)],
     workflow: Annotated[CancellationWorkflow, Depends(_workflow)],
+    session: Annotated[AsyncSession, Depends(get_session)],
 ) -> Any:
     try:
-        task = await workflow.confirm(identity, task_id, str(uuid4()))
+        with use_trace_sink(AsyncTraceSink(session_factory)):
+            task = await workflow.confirm(identity, task_id)
     except GatewayError as error:
         return JSONResponse(status_code=error.status_code, content=error.payload)
     except TaskNotFound as error:
@@ -94,6 +131,7 @@ async def confirm_request(
         raise HTTPException(status_code=409, detail="任务状态不允许确认") from error
     except TaskConflict as error:
         raise HTTPException(status_code=409, detail="任务已被其他请求更新") from error
+    await session.commit()
     return _public(task)
 
 
@@ -102,9 +140,11 @@ async def get_request(
     task_id: str,
     identity: Annotated[Identity, Depends(current_identity)],
     workflow: Annotated[CancellationWorkflow, Depends(_workflow)],
+    session: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict[str, Any]:
     try:
-        task = await workflow.get(identity, task_id, str(uuid4()))
+        with use_trace_sink(AsyncTraceSink(session_factory)):
+            task = await workflow.get(identity, task_id)
     except TaskNotFound as error:
         raise HTTPException(status_code=404, detail="任务不存在") from error
     except TaskConflict as error:
@@ -117,11 +157,14 @@ async def abandon_request(
     task_id: str,
     identity: Annotated[Identity, Depends(current_identity)],
     workflow: Annotated[CancellationWorkflow, Depends(_workflow)],
+    session: Annotated[AsyncSession, Depends(get_session)],
 ) -> dict[str, Any]:
     try:
-        task = await workflow.abandon(identity, task_id)
+        with use_trace_sink(AsyncTraceSink(session_factory)):
+            task = await workflow.abandon(identity, task_id)
     except TaskNotFound as error:
         raise HTTPException(status_code=404, detail="任务不存在") from error
     except TaskConflict as error:
         raise HTTPException(status_code=409, detail="任务已被其他请求更新") from error
+    await session.commit()
     return _public(task)

@@ -214,7 +214,7 @@ def test_未知异常不泄漏内部细节_AC_14() -> None:
     assert recorder.audits[-1]["error_code"] == "INTERNAL_ERROR"
 
 
-def test_审计失败按失败关闭处理_AC_14() -> None:
+def test_审计失败按失败关闭处理_AC_18() -> None:
     ownership = OwnershipIndex()
     ownership.register("ORD-10001", "tenant-a", "user-a1")
 
@@ -226,10 +226,11 @@ def test_审计失败按失败关闭处理_AC_14() -> None:
         ownership=ownership,
         audit=broken_audit,
     )
-    with pytest.raises(GatewayError) as exc:
+    from services.api.observability import TraceSinkError
+
+    with pytest.raises(TraceSinkError) as exc:
         tool.invoke("get_order", {"order_id": "ORD-10001"}, IDENTITY, trace_id="t-1")
-    assert exc.value.status_code == 500
-    assert exc.value.payload["code"] == ErrorCode.INTERNAL_ERROR.value
+    assert str(exc.value) == "审计写入失败"
 
 
 @pytest.mark.parametrize("payload", [None, 1, []])
@@ -547,3 +548,142 @@ def test_连接错误归一与审计_AC_11() -> None:
     assert exc.value.status_code == 503
     assert exc.value.payload["code"] == ErrorCode.DEPENDENCY_UNAVAILABLE.value
     _assert_audit(recorder, result="failed", error_code="DEPENDENCY_UNAVAILABLE")
+
+
+class RecordingSink:
+    def __init__(self) -> None:
+        self.started: list[dict[str, Any]] = []
+        self.finished: list[dict[str, Any]] = []
+        self.rejected: list[dict[str, Any]] = []
+
+    def start(self, **kwargs: Any) -> str:
+        self.started.append(kwargs)
+        return "exec-1"
+
+    def finish(self, execution_id: str, **kwargs: Any) -> None:
+        self.finished.append({"execution_id": execution_id, **kwargs})
+
+    def reject(self, **kwargs: Any) -> None:
+        self.rejected.append(kwargs)
+
+
+def test_工具写前与完成审计_AC_17() -> None:
+    from services.api.observability import use_trace_sink
+
+    recorder = Recorder()
+    sink = RecordingSink()
+    with use_trace_sink(sink):
+        gateway(recorder).invoke("get_order", {"order_id": "ORD-10001"}, IDENTITY, trace_id="t-1")
+    assert sink.started[0]["tool"] == "get_order"
+    assert sink.started[0]["order_id"] == "ORD-10001"
+    assert sink.started[0]["trace_id"] == "t-1"
+    assert sink.finished[0]["execution_id"] == "exec-1"
+    assert sink.finished[0]["result_status"] == "ok"
+    assert sink.finished[0]["response"]["order_id"] == "ORD-10001"
+    assert sink.finished[0]["latency_ms"] is not None
+
+
+def test_工具拒绝写审计_AC_17() -> None:
+    from services.api.observability import use_trace_sink
+
+    sink = RecordingSink()
+    with use_trace_sink(sink), pytest.raises(GatewayError):
+        gateway(Recorder()).invoke(
+            "delete_everything", {"order_id": "ORD-10001"}, IDENTITY, trace_id="t-1"
+        )
+    assert sink.rejected[0]["tool"] == "delete_everything"
+    assert sink.rejected[0]["error_code"] == "UNKNOWN_TOOL"
+    assert sink.rejected[0]["identity"] == IDENTITY
+    assert sink.rejected[0]["trace_id"] == "t-1"
+
+
+def test_工具失败写审计_AC_17() -> None:
+    from services.api.observability import use_trace_sink
+
+    def boom(payload: dict[str, Any], identity: Identity, trace_id: str) -> None:
+        raise RuntimeError("boom")
+
+    sink = RecordingSink()
+    with use_trace_sink(sink), pytest.raises(GatewayError):
+        gateway(Recorder(), handler=boom).invoke(
+            "get_order", {"order_id": "ORD-10001"}, IDENTITY, trace_id="t-1"
+        )
+    assert sink.finished[0]["result_status"] == "failed"
+    assert sink.finished[0]["error_code"] == "INTERNAL_ERROR"
+
+
+def test_审计start失败不调用handler_AC_18() -> None:
+    from services.api.observability import TraceSinkError, use_trace_sink
+
+    calls: list[str] = []
+
+    def handler(payload: dict[str, Any], identity: Identity, trace_id: str) -> dict[str, Any]:
+        calls.append(trace_id)
+        return DETAIL
+
+    class FailingStart(RecordingSink):
+        def start(self, **kwargs: Any) -> str:
+            raise TraceSinkError("down")
+
+    with use_trace_sink(FailingStart()), pytest.raises(TraceSinkError):
+        gateway(Recorder(), handler=handler).invoke(
+            "get_order", {"order_id": "ORD-10001"}, IDENTITY, trace_id="t-1"
+        )
+    assert calls == []
+
+
+def test_审计finish失败向上抛_AC_18() -> None:
+    from services.api.observability import TraceSinkError, use_trace_sink
+
+    class FailingFinish(RecordingSink):
+        def finish(self, execution_id: str, **kwargs: Any) -> None:
+            raise TraceSinkError("down")
+
+    with use_trace_sink(FailingFinish()), pytest.raises(TraceSinkError):
+        gateway(Recorder()).invoke("get_order", {"order_id": "ORD-10001"}, IDENTITY, trace_id="t-1")
+
+
+def test_审计reject失败向上抛_AC_18() -> None:
+    from services.api.observability import TraceSinkError, use_trace_sink
+
+    class FailingReject(RecordingSink):
+        def reject(self, **kwargs: Any) -> None:
+            raise TraceSinkError("down")
+
+    with use_trace_sink(FailingReject()), pytest.raises(TraceSinkError):
+        gateway(Recorder()).invoke(
+            "delete_everything", {"order_id": "ORD-10001"}, IDENTITY, trace_id="t-1"
+        )
+
+
+def test_非法参数审计sink记录payload_AC_17() -> None:
+    from services.api.observability import use_trace_sink
+
+    sink = RecordingSink()
+    with use_trace_sink(sink), pytest.raises(GatewayError):
+        gateway(Recorder()).invoke("get_order", {"order_id": 1}, IDENTITY, trace_id="t-1")
+    assert sink.rejected[0]["order_id"] is None
+    assert sink.rejected[0]["payload"] == {"order_id": 1}
+    assert sink.rejected[0]["identity"] == IDENTITY
+    assert sink.rejected[0]["trace_id"] == "t-1"
+
+
+def test_越权审计sink记录payload_AC_17() -> None:
+    from services.api.observability import use_trace_sink
+
+    sink = RecordingSink()
+    with use_trace_sink(sink), pytest.raises(GatewayError):
+        gateway(Recorder()).invoke("get_order", {"order_id": "ORD-10002"}, IDENTITY, trace_id="t-1")
+    assert sink.rejected[0]["order_id"] == "ORD-10002"
+    assert sink.rejected[0]["payload"] == {"order_id": "ORD-10002"}
+    assert sink.rejected[0]["identity"] == IDENTITY
+    assert sink.rejected[0]["trace_id"] == "t-1"
+
+
+def test_非对象参数审计sink记录空payload_AC_17() -> None:
+    from services.api.observability import use_trace_sink
+
+    sink = RecordingSink()
+    with use_trace_sink(sink), pytest.raises(GatewayError):
+        gateway(Recorder()).invoke("get_order", 1, IDENTITY, trace_id="t-1")  # type: ignore[arg-type]
+    assert sink.rejected[0]["payload"] == {}

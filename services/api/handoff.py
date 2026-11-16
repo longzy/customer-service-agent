@@ -7,6 +7,7 @@ from uuid import uuid4
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from services.api.audit import audit_handoff
 from services.api.auth import Identity
 from services.api.models import CancellationRequest, Conversation, Handoff, Message
 
@@ -91,5 +92,6 @@ async def create_handoff(
         trace_id=trace_id,
     )
     session.add(handoff)
-    await session.commit()
+    await audit_handoff(session, identity=identity, handoff=handoff)
+    await session.flush()
     return handoff

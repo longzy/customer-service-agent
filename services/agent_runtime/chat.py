@@ -1,6 +1,7 @@
 """一轮对话的编排：分类、工具调用、回复与持久化。"""
 
 import asyncio
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 from uuid import uuid4
@@ -34,6 +35,7 @@ class Reply:
     clarification: list[str] = field(default_factory=list)
     cancellation: dict[str, Any] | None = None
     transferred: bool = False
+    validation: dict[str, Any] | None = None
 
 
 def _gateway_reply(error: GatewayError) -> str:
@@ -66,12 +68,14 @@ class ConversationService:
         gateway: ToolGateway,
         cancellation: Any = None,
         handoff: Any = None,
+        audit: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
     ) -> None:
         self._repository = repository
         self._model = model
         self._gateway = gateway
         self._cancellation = cancellation
         self._handoff = handoff
+        self._audit = audit
 
     async def handle(
         self, identity: Identity, content: str, conversation_id: str | None = None
@@ -83,6 +87,16 @@ class ConversationService:
         await self._repository.commit()
 
         classification = await classify_message(content, self._model)
+        if self._audit is not None:
+            await self._audit(
+                {
+                    "trace_id": trace_id,
+                    "identity": identity,
+                    "intent": classification.intent.value,
+                    "order_id": classification.order_id,
+                    "needs_clarification": classification.needs_clarification,
+                }
+            )
         if classification.needs_clarification:
             reply = self._clarify(classification.candidate_order_ids)
             await self._repository.add_message(conversation, "assistant", reply, trace_id)
@@ -184,6 +198,7 @@ class ConversationService:
         copy = render_result(task.state, task.reason_code)
         cancellation = {
             "task_id": task.id,
+            "trace_id": getattr(task, "trace_id", trace_id),
             "state": task.state.value,
             "state_text": copy.state_text,
             "reason_text": copy.reason_text,
@@ -192,13 +207,17 @@ class ConversationService:
             "expires_at": task.expires_at.isoformat().replace("+00:00", "Z"),
             "order": summary,
         }
-        reply = validate_reply(task.state, task.reason_code, EXPRESSIONS[task.state]).reply
-        await self._repository.add_message(conversation, "assistant", reply, trace_id)
+        validated = validate_reply(task.state, task.reason_code, EXPRESSIONS[task.state])
+        await self._repository.add_message(conversation, "assistant", validated.reply, trace_id)
         return Reply(
             conversation_id=conversation,
             trace_id=trace_id,
-            reply=reply,
+            reply=validated.reply,
             cancellation=cancellation,
+            validation={
+                "replaced": validated.replaced,
+                "mismatch": validated.mismatch,
+            },
         )
 
     @staticmethod

@@ -61,6 +61,8 @@ def workflow(
     timeout: float = 2.0,
     now: Any = None,
     backoff: float = 0.01,
+    audit: Any = None,
+    confirmation: Any = None,
 ) -> tuple[CancellationWorkflow, MemoryRepository, MockOms]:
     repository = repo or MemoryRepository()
     service = oms or MockOms()
@@ -69,6 +71,8 @@ def workflow(
         build_cancel_gateway(service, timeout_seconds=timeout),
         retry_backoff_seconds=backoff,
         now=now,
+        audit=audit,
+        confirmation=confirmation,
     )
     return flow, repository, service
 
@@ -297,6 +301,7 @@ async def test_启动恢复身份与跳过冲突_AC_12() -> None:
             order_id="ORD-10001",
             state=CancellationState.SUBMIT_UNKNOWN,
             idempotency_key=f"idem-{task_id}",
+            trace_id="trace-startup",
             expires_at=datetime(2026, 11, 15, 12, 0, tzinfo=UTC),
         )
     flow = _CapturingWorkflow(repo)
@@ -378,3 +383,151 @@ async def test_可恢复查询字段映射与状态参数_AC_10() -> None:
         else:
             flattened.add(str(value))
     assert flattened == {"SUBMITTING", "SUBMIT_UNKNOWN"}
+
+
+async def test_启动恢复使用任务trace_AC_17() -> None:
+    repo = MemoryRepository()
+    repo.tasks["task-trace"] = CancellationTask(
+        id="task-trace",
+        tenant_id="tenant-a",
+        user_id="user-a1",
+        order_id="ORD-10001",
+        state=CancellationState.SUBMIT_UNKNOWN,
+        idempotency_key="idem-trace",
+        trace_id="trace-origin",
+        expires_at=datetime(2026, 11, 15, 12, 0, tzinfo=UTC),
+    )
+    flow = _CapturingWorkflow(repo)
+    assert await flow.recover_pending("trace-ignored") == 1
+    assert flow.calls[0][2] == "trace-origin"
+
+
+async def test_请求与确认写状态转换审计_AC_17() -> None:
+    events: list[dict[str, Any]] = []
+
+    async def audit(event: dict[str, Any]) -> None:
+        events.append(event)
+
+    flow, _, _ = workflow(audit=audit)
+    task = await flow.request(OWNER, "ORD-10001", "trace-audit")
+    assert events[0] == {
+        "trace_id": "trace-audit",
+        "identity": OWNER,
+        "task_id": task.id,
+        "order_id": "ORD-10001",
+        "from_state": "COLLECTING",
+        "to_state": "AWAITING_CONFIRMATION",
+        "reason_code": None,
+        "result_status": "committed",
+        "idempotency_key": task.idempotency_key,
+    }
+    await flow.confirm(OWNER, task.id)
+    accepted = [event for event in events if event["to_state"] == "ACCEPTED"][0]
+    assert accepted["identity"].account_id == "user-a1"
+    assert any(event["to_state"] == "SUBMITTING" for event in events)
+    assert any(event["to_state"] == "ACCEPTED" for event in events)
+    assert all(event["trace_id"] == "trace-audit" for event in events)
+
+
+async def test_放弃写状态转换审计_AC_17() -> None:
+    events: list[dict[str, Any]] = []
+
+    async def audit(event: dict[str, Any]) -> None:
+        events.append(event)
+
+    flow, _, _ = workflow(audit=audit)
+    task = await flow.request(OWNER, "ORD-10001", "trace-abandon")
+    await flow.abandon(OWNER, task.id)
+    assert events[-1]["to_state"] == "ABANDONED"
+    assert events[-1]["trace_id"] == "trace-abandon"
+
+
+async def test_审计失败向上抛_AC_18() -> None:
+    from services.api.observability import TraceSinkError
+
+    async def failing(event: dict[str, Any]) -> None:
+        raise TraceSinkError("down")
+
+    flow, _, _ = workflow(audit=failing)
+    with pytest.raises(TraceSinkError):
+        await flow.request(OWNER, "ORD-10001", "trace-fail")
+
+
+async def test_确认审计失败不被吞_AC_18() -> None:
+    from services.api.observability import TraceSinkError
+
+    events: list[dict[str, Any]] = []
+
+    async def audit(event: dict[str, Any]) -> None:
+        events.append(event)
+        if event["to_state"] == "SUBMITTING":
+            raise TraceSinkError("down")
+
+    flow, _, _ = workflow(audit=audit)
+    task = await flow.request(OWNER, "ORD-10001", "trace-confirm")
+    with pytest.raises(TraceSinkError):
+        await flow.confirm(OWNER, task.id)
+
+
+async def test_确认写完整确认审计_AC_17() -> None:
+    confirmations: list[dict[str, Any]] = []
+
+    async def confirmation(event: dict[str, Any]) -> None:
+        confirmations.append(event)
+
+    flow, _, _ = workflow(confirmation=confirmation)
+    task = await flow.request(OWNER, "ORD-10001", "trace-confirm-audit")
+    await flow.confirm(OWNER, task.id)
+    assert confirmations == [
+        {
+            "trace_id": "trace-confirm-audit",
+            "identity": OWNER,
+            "task_id": task.id,
+            "order_id": "ORD-10001",
+            "action": "confirm",
+            "result_status": "committed",
+            "idempotency_key": task.idempotency_key,
+        }
+    ]
+
+
+async def test_放弃写完整确认审计_AC_17() -> None:
+    confirmations: list[dict[str, Any]] = []
+
+    async def confirmation(event: dict[str, Any]) -> None:
+        confirmations.append(event)
+
+    flow, _, _ = workflow(confirmation=confirmation)
+    task = await flow.request(OWNER, "ORD-10001", "trace-abandon-audit")
+    await flow.abandon(OWNER, task.id)
+    assert confirmations[0]["action"] == "abandon"
+    assert confirmations[0]["result_status"] == "abandoned"
+    assert confirmations[0]["idempotency_key"] == task.idempotency_key
+    await flow.abandon(OWNER, task.id)
+    assert confirmations[-1]["result_status"] == "idempotent"
+
+
+async def test_重复确认写幂等确认审计_AC_17() -> None:
+    confirmations: list[dict[str, Any]] = []
+
+    async def confirmation(event: dict[str, Any]) -> None:
+        confirmations.append(event)
+
+    flow, _, _ = workflow(confirmation=confirmation)
+    task = await flow.request(OWNER, "ORD-10001", "trace-duplicate")
+    await flow.confirm(OWNER, task.id)
+    await flow.confirm(OWNER, task.id)
+    assert [event["result_status"] for event in confirmations] == ["committed", "idempotent"]
+
+
+async def test_确认审计失败不推进状态_AC_18() -> None:
+    from services.api.observability import TraceSinkError
+
+    async def failing(event: dict[str, Any]) -> None:
+        raise TraceSinkError("down")
+
+    flow, _, _ = workflow(confirmation=failing)
+    task = await flow.request(OWNER, "ORD-10001", "trace-confirm-fail")
+    with pytest.raises(TraceSinkError):
+        await flow.confirm(OWNER, task.id)
+    assert task.state == CancellationState.AWAITING_CONFIRMATION

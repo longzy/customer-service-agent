@@ -35,10 +35,10 @@ def test_startup_recovers_pending_task_AC_12(monkeypatch) -> None:
             await conn.execute(
                 text(
                     "insert into cancellation_requests "
-                    "(id, tenant_id, user_id, order_id, state, idempotency_key, "
+                    "(id, tenant_id, user_id, order_id, state, idempotency_key, trace_id, "
                     " expires_at, created_at, updated_at, version) values "
                     "(:id, 'tenant-a', 'user-a1', 'ORD-10001', 'SUBMITTING', "
-                    " 'idem-startup', :expires, :now, :now, 0)"
+                    " 'idem-startup', 'trace-startup-origin', :expires, :now, :now, 0)"
                 ),
                 {
                     "id": "task-startup",
@@ -57,12 +57,42 @@ def test_startup_recovers_pending_task_AC_12(monkeypatch) -> None:
         await engine.dispose()
         return str(value)
 
+    async def trace() -> str:
+        engine = create_async_engine(settings.database_url)
+        async with engine.connect() as conn:
+            value = await conn.scalar(
+                text("select trace_id from cancellation_requests where id = 'task-startup'")
+            )
+        await engine.dispose()
+        return str(value)
+
     asyncio.run(insert())
     monkeypatch.setattr(settings, "max_retries", 1)
     monkeypatch.setattr(settings, "retry_backoff_seconds", 0.01)
     with TestClient(create_app()) as client:
         assert client.get("/health").status_code == 200
     assert asyncio.run(state()) == "MANUAL_REVIEW"
+    assert asyncio.run(trace()) == "trace-startup-origin"
+
+    async def trace_view():
+        from sqlalchemy.ext.asyncio import async_sessionmaker
+
+        from services.api.observability import load_trace
+        from services.api.settings import settings
+
+        engine = create_async_engine(settings.database_url)
+        factory = async_sessionmaker(engine, expire_on_commit=False)
+        try:
+            async with factory() as session:
+                return await load_trace(session, "trace-startup-origin", "tenant-a")
+        finally:
+            await engine.dispose()
+
+    view = asyncio.run(trace_view())
+    assert view.cancellation is not None
+    assert view.cancellation["trace_id"] == "trace-startup-origin"
+    assert any(item["tool"] == "get_cancel_result" for item in view.tool_executions)
+    assert any(item["event_type"] == "WORKFLOW_TRANSITION" for item in view.audit_events)
     asyncio.run(_cleanup())
 
 

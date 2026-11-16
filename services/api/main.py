@@ -2,30 +2,50 @@
 
 import asyncio
 import logging
+import sys
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from uuid import uuid4
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from services.agent_runtime.model import build_model_client
 from services.api.account_routes import router as account_router
 from services.api.admin_routes import router as admin_router
+from services.api.audit import audit_transition
 from services.api.auth import resolve_identity
 from services.api.cancellation_routes import router as cancellation_router
 from services.api.conversation_routes import router as conversation_router
 from services.api.csrf import verify_origin
+from services.api.domain.errors import ErrorCode
 from services.api.handoff_routes import router as handoff_router
+from services.api.observability import AsyncTraceSink, TraceSinkError, use_trace_sink
 from services.api.session_routes import router as session_router
 from services.api.settings import settings
 from services.mock_oms.service import MockOms
 from services.tools.cancel import build_cancel_gateway
+from services.tools.gateway import error_envelope
 from services.tools.query import build_query_gateway
 from services.workflows.cancel import CancellationWorkflow, SqlCancellationRepository
 
 logger = logging.getLogger(__name__)
+
+
+def configure_logging() -> None:
+    """JSON 行日志的 stdout 入口；已有 handler 时不重复添加。"""
+    root = logging.getLogger()
+    has_stdout = any(
+        isinstance(handler, logging.StreamHandler)
+        and getattr(handler, "stream", None) is sys.stdout
+        for handler in root.handlers
+    )
+    if not has_stdout:
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setFormatter(logging.Formatter("%(message)s"))
+        root.addHandler(handler)
+    root.setLevel(logging.INFO)
 
 
 @asynccontextmanager
@@ -40,14 +60,31 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         async def recover() -> None:
             try:
                 async with maker() as session:
+
+                    async def audit(event: dict[str, object]) -> None:
+                        await audit_transition(
+                            session,
+                            trace_id=str(event["trace_id"]),
+                            identity=event["identity"],  # type: ignore[arg-type]
+                            task_id=str(event["task_id"]),
+                            order_id=str(event["order_id"]),
+                            from_state=str(event["from_state"]),
+                            to_state=str(event["to_state"]),
+                            reason_code=event["reason_code"],  # type: ignore[arg-type]
+                            result_status=str(event["result_status"]),
+                            idempotency_key=event.get("idempotency_key"),  # type: ignore[arg-type]
+                        )
+
                     workflow = CancellationWorkflow(
                         SqlCancellationRepository(session),
                         _app.state.cancel_gateway,
                         confirm_timeout_minutes=settings.confirm_timeout_minutes,
                         max_retries=settings.max_retries,
                         retry_backoff_seconds=settings.retry_backoff_seconds,
+                        audit=audit,
                     )
-                    await workflow.recover_pending(f"startup-{uuid4()}")
+                    with use_trace_sink(AsyncTraceSink(maker)):
+                        await workflow.recover_pending()
             except Exception:  # noqa: BLE001 - 恢复失败不应阻止服务启动
                 logger.exception("启动恢复失败")
 
@@ -63,7 +100,13 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
 
 
 def create_app() -> FastAPI:
+    configure_logging()
     app = FastAPI(title="Customer Service Agent API", version="0.1.0", lifespan=lifespan)
+
+    @app.exception_handler(TraceSinkError)
+    async def _trace_sink_error(_request: Request, _error: TraceSinkError) -> JSONResponse:
+        return JSONResponse(status_code=500, content=error_envelope(ErrorCode.INTERNAL_ERROR))
+
     app.state.oms = MockOms()
     app.state.model_client = build_model_client(settings)
     app.state.query_gateway = build_query_gateway(app.state.oms)

@@ -94,7 +94,7 @@
 
 **Purpose**：跨故事的横切质量
 
-- [ ] T12 [P] 加入 Trace 与审计（`services/api/observability.py`、`services/api/audit.py`、`services/api/models.py`、`migrations/versions/`、`services/api/main.py`、`services/api/conversation_routes.py`、`services/api/cancellation_routes.py`、`services/api/handoff.py`、`services/agent_runtime/chat.py`、`services/workflows/cancel.py`、`services/tools/gateway.py`、`scripts/show-trace.py`）— depends on T11
+- [x] T12 [P] 加入 Trace 与审计（`services/api/observability.py`、`services/api/audit.py`、`services/api/models.py`、`migrations/versions/`、`services/api/main.py`、`services/api/conversation_routes.py`、`services/api/cancellation_routes.py`、`services/api/handoff.py`、`services/agent_runtime/chat.py`、`services/workflows/cancel.py`、`services/tools/gateway.py`、`scripts/show-trace.py`）— depends on T11
   - _验收: AC-17、AC-18_
 - [ ] T13 建立场景评测（`evals/`）— depends on T10、T14、T11、T15、T12
   - _验收: AC-01 至 AC-20_

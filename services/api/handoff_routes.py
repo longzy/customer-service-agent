@@ -30,6 +30,7 @@ async def create(
         handoff = await create_handoff(session, identity, payload.conversation_id, str(uuid4()))
     except LookupError as error:
         raise HTTPException(status_code=404, detail="会话不存在") from error
+    await session.commit()
     return {
         "id": handoff.id,
         "conversation_id": handoff.conversation_id,

@@ -191,6 +191,7 @@ async def test_可恢复查询只返回两种状态并映射字段_AC_10() -> No
                 id="task-rec-1",
                 state=CancellationState.SUBMITTING,
                 idempotency_key="idem-rec-1",
+                trace_id="trace-map",
                 reason_code="SHIPPED",
                 conversation_id="conv-1",
                 last_error_code="DEPENDENCY_TIMEOUT",
@@ -222,6 +223,7 @@ async def test_可恢复查询只返回两种状态并映射字段_AC_10() -> No
         assert first.order_id == "ORD-10001"
         assert first.state == CancellationState.SUBMITTING
         assert first.idempotency_key == "idem-rec-1"
+        assert first.trace_id == "trace-map"
         assert first.expires_at == datetime(2026, 11, 15, 12, 0, tzinfo=UTC)
         assert first.reason_code == "SHIPPED"
         assert first.conversation_id == "conv-1"

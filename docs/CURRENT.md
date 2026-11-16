@@ -4,27 +4,25 @@
 - 项目阶段：M1 订单查询与未发货订单取消（M0 已满足）
 - 当前状态：进行中
 - 当前 Milestone：M1（规格已批准：`docs/specs/001-order-cancel/`）
-- 当前工作：T-12 执行卡已出（待开工许可）
+- 当前工作：T-13 场景评测（未开工）
 
 <!-- verify:start -->
-- 最近验证：`./scripts/verify.sh` 全部检查通过——pytest 362 passed（独立测试库）、mypy 37 个文件、追溯矩阵通过（21 条 AC）、文档与前端检查通过
+- 最近验证：`./scripts/verify.sh` 全部检查通过——pytest 400 passed（独立测试库）、mypy 39 个文件、追溯矩阵通过（21 条 AC）、文档与前端检查通过
 <!-- verify:end -->
 
 ## 进行中
 
-- T-12 Trace 与审计：执行卡已出（T2，迁移 + 后端），待开工许可。
 - T-13 场景评测：`evals/` 仍是空占位。
 
 ## 下一步
 
-1. T-12 待开工许可；开工后实现并删除 `scripts/trace-baseline.txt` 中两条基线。
-2. 完成 T-13：AC-01 至 AC-21 的可重复评测与阈值。
-3. 在 GitHub 开启分支保护，把 `verify`、`frontend-build` 设为 required check。
+1. 完成 T-13：AC-01 至 AC-21 的可重复评测与阈值。
+2. 在 GitHub 开启分支保护，把 `verify`、`frontend-build` 设为 required check。
 
 ## 已完成
 
 - M0：宪章、架构、不变量、ADR-0001~0004、AI Coding 入口。
-- M1：T-01–T-11、T-14–T-21 完成（19/21），含查询、取消、转人工、登录、结果文案与校验、G3 校准、会话安全基线。
+- M1：T-01–T-21 完成（20/21），含查询、取消、转人工、登录、结果文案与校验、Trace/审计、G3 校准、会话安全基线。
 - 门禁：CI + 本地 hook、独立测试库、状态与追溯检查、密钥扫描。
 - 流程：单份工作流 + 14 条强制规则；S1.5 可判定性评审与判定表模板已生效。
 
