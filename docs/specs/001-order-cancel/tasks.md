@@ -4,7 +4,7 @@
 - 批准：2026-11-15（用户确认，含 T-16 登录页）
 - **Input**：`docs/specs/001-order-cancel/requirements.md`、`design.md`
 - **Prerequisites**：需求与设计均已批准；任务按用户故事分组，每个故事可独立实现与测试
-- **Tests**：按 `docs/process/tdd.md`，测试与实现同属一个任务，先红后绿；不为测试单列任务
+- **Tests**：按 `docs/process/WORKFLOW.md` 附录 A，测试与实现同属一个任务，先红后绿；不为测试单列任务
 - **执行卡与评审**：任务开工前产出 `docs/tasks/001-order-cancel/T-XX.md`；完成后评审记录写入 `docs/reviews/001-order-cancel/T-XX.md`
 
 ## Format: `[ID] [P?] [Story] Description`
@@ -117,7 +117,7 @@
 ### Within Each User Story
 
 - 契约与类型先于实现；实现先于界面
-- 每个任务先写失败测试，再写最小实现（见 `docs/process/tdd.md`）
+- 每个任务先写失败测试，再写最小实现（见 `docs/process/WORKFLOW.md` 附录 A）
 - 一个故事完成并独立验证后，再进入下一个优先级
 
 ### Parallel Opportunities
@@ -145,5 +145,5 @@
 
 - `[P]` 表示不同文件、无依赖，可并行
 - `[USx]` 用于追溯任务与用户故事
-- 每个任务开工前必须有执行卡；完成的判定见 `docs/process/sdd.md` 第 3 节
+- 每个任务开工前必须有执行卡；完成的判定见 `docs/process/WORKFLOW.md` 第 3 节
 - 执行卡与评审记录分别位于 `docs/tasks/001-order-cancel/` 与 `docs/reviews/001-order-cancel/`
