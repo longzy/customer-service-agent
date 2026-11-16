@@ -87,8 +87,10 @@ services/
 | `AI_ACTIVE` | 客户结束 | `CLOSED` | 客户 |
 | `QUEUED` | 领取 | `CLAIMED` | 坐席 |
 | `QUEUED` | 客户结束 | `CLOSED` | 客户 |
+| `CLAIMED` | 客户结束 | `CLOSED` | 客户 |
 | `CLAIMED` | 接管 | `HUMAN_ACTIVE` | 领取坐席 |
 | `CLAIMED` | 关闭 | `CLOSED` | 领取坐席 |
+| `HUMAN_ACTIVE` | 客户结束 | `CLOSED` | 客户 |
 | `HUMAN_ACTIVE` | 关闭 | `CLOSED` | 接管坐席 |
 | `HUMAN_ACTIVE` | 转回 AI | `AI_ACTIVE` | 接管坐席 |
 | `CLOSED` | 任意写 | 409 `CONVERSATION_CLOSED` | — |
@@ -230,10 +232,10 @@ class ToolContext:
 
 | Spec | AC |
 |---|---|
-| A 转接闭环（004） | AC-30、31、35、36、37、38、39、40、41、42（回复）、43、44、45、47、48、49 |
+| A 转接闭环（004） | AC-30、31、35、36、37、38、39、40、41、43、44、45、47、49（回复为本地 AC） |
 | B 订单（005，后续） | AC-32、33 |
-| C 取消（006） | AC-34、42（取消） |
-| D 硬化（007，后续） | AC-46 |
+| C 取消（006） | AC-34、42 |
+| D 硬化（007，后续） | AC-46、48 |
 
 ## 15. 开放项（必须由子 spec S2 关闭）
 
