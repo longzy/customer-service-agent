@@ -1,6 +1,7 @@
 # R0-2 设计：后端模块边界
 
-- 状态：等待评审
+- 状态：已批准
+- 批准：2026-11-16（用户确认 R0-2 规格与任务地图）
 - 日期：2026-11-16
 - 关联：[requirements.md](requirements.md)、[tasks.md](tasks.md)、[ADR-0005](../../adr/0005-enterprise-boundary.md)
 - 目的：在不改变行为的前提下完成模块解耦，为 M1 留出稳定 seam
@@ -193,7 +194,7 @@ def build_oms(settings: Settings) -> OmsPort:
 - 纯函数 `find_violations(root: Path) -> list[Violation]` 负责扫描；CLI 只是包装，`--root PATH` 同时决定扫描根与基线的路径基准。AC-22 的临时目录测试直接调用该函数。
 - AST 扫描 `<root>/services/**/*.py`，统计 `Import` 与 `ImportFrom`；`TYPE_CHECKING` 与 `try/except ImportError` 同样计入。
 - 相对 import 按源文件包路径解析；动态 `importlib` 不静态检测，评审时人工确认。
-- 违规未登记在 `scripts/import-baseline.txt` → 退出码 1；已登记 → 提示剩余数量；登记但已无违规 → 退出码 1（禁止永久豁免）。
+- 默认即严格：违规未登记在 `scripts/import-baseline.txt` → 退出码 1；已登记 → 提示剩余数量；登记但已无违规 → 退出码 1（禁止永久豁免）。`--strict` 是兼容别名，`verify.sh` 显式传入。
 - 基线文件不存在或只有注释 → 视为空基线；`--baseline PATH` 可覆盖默认路径。
 - 检查器自身异常（读文件失败、AST 解析失败）→ 退出码 2。
 - `verify.sh` 增加 `== import 边界 ==`，调用 `python3 scripts/check-imports.py --strict`。
@@ -201,29 +202,29 @@ def build_oms(settings: Settings) -> OmsPort:
 
 ### 7.3 全局 AC 编号门禁
 
-`tests/unit/test_naming_convention.py` 当前只解析 `001-order-cancel` 的需求文档，会把 AC-22~29 判成不存在。T01 必须把它改为扫描 `docs/specs/*/requirements.md` 的并集，并断言并集非空、编号不重复。
+`tests/unit/test_naming_convention.py` 当前只解析 `001-order-cancel` 的需求文档，会把 AC-22~29 判成不存在。T-22 必须把它改为扫描 `docs/specs/*/requirements.md` 的并集，并断言并集非空、编号不重复。
 
 ## 8. 迁移顺序
 
-1. **T01 检查器、快照与命名门禁**：`find_violations(root)`/CLI/基线；更新 `test_naming_convention.py` 覆盖全部规格；在任何移动之前捕获 OpenAPI 与 DB metadata 快照；接入 `verify.sh`。
-2. **T02 共享模块迁移**：一次迁 `platform`（settings/db/models/observability）、`identity`（纯身份/session）、`domain`（orders/cancellation/errors）；FastAPI 中间件拆到 `api/auth_web.py`；`api`/`tools`/`workflows` 改 import。
-3. **T03 OMS 端口与 Mock**：定义 `OmsPort`/`OmsAccess`，迁 `MockOmsAdapter` 与夹具，`ToolGateway` 改用端口授权，建立 Mock/Http 共用契约测试。
-4. **T04 Http 与 factory**：实现 `HttpOmsAdapter`（可注入 client）、URL 校验、`build_oms`、`create_app(settings)` 与生产启动失败。
-5. **T05 收口**：重接 `api`，删除 `services.mock_oms` 与 `services.api.domain`，基线清零，更新 `verify.sh` 的 `prod import` 冒烟。
-6. **T06 行为冻结**：显式导入 `platform.models` 后建立 DB metadata 快照对比，并建立 OpenAPI 对比测试、跑全量回归。
-7. **T07 文档与回滚**：更新 `overview.md`、执行回滚演练并记录 SHA/命令/退出码。
+1. **T-22 检查器、快照与命名门禁**：`find_violations(root)`/CLI/基线；更新 `test_naming_convention.py` 覆盖全部规格；在任何移动之前捕获 OpenAPI 与 DB metadata 快照；接入 `verify.sh`。
+2. **T-23 共享模块迁移**：一次迁 `platform`（settings/db/models/observability）、`identity`（纯身份/session）、`domain`（orders/cancellation/errors）；FastAPI 中间件拆到 `api/auth_web.py`；`api`/`tools`/`workflows` 改 import。
+3. **T-24 OMS 端口与 Mock**：定义 `OmsPort`/`OmsAccess`，迁 `MockOmsAdapter` 与夹具，`ToolGateway` 改用端口授权，建立 Mock/Http 共用契约测试。
+4. **T-25 Http 与 factory**：实现 `HttpOmsAdapter`（可注入 client）、URL 校验、`build_oms`、`create_app(settings)` 与生产启动失败。
+5. **T-26 收口**：重接 `api`，删除 `services.mock_oms` 与 `services.api.domain`，基线清零，更新 `verify.sh` 的 `prod import` 冒烟。
+6. **T-27 行为冻结**：显式导入 `platform.models` 后建立 DB metadata 快照对比，并建立 OpenAPI 对比测试、跑全量回归。
+7. **T-28 文档与回滚**：更新 `overview.md`、执行回滚演练并记录 SHA/命令/退出码。
 
-T02 依赖 T01；T03 依赖 T02；T04 依赖 T03；T05 依赖 T02–T04；T06/T07 依赖 T05。
+T-23 依赖 T-22；T-24 依赖 T-23；T-25 依赖 T-24；T-26 依赖 T-23–T-25；T-27/T-28 依赖 T-26。
 
 ## 9. 行为冻结证据
 
-- **OpenAPI**：在 T01 任何文件移动之前，由 `create_app(settings_fixture).openapi()` 生成 `tests/fixtures/openapi-r0-2.json`；T06 比较路由、方法、状态码与 schema。
-- **DB schema**：同样在 T01 移动之前，显式导入 `services.api.models` 后由 `Base.metadata` 生成 `tests/fixtures/db-schema-r0-2.json`；T06 先导入 `services.platform.models`，断言表数 > 0，再比较表、列、类型、可空、主键。
+- **OpenAPI**：在 T-22 任何文件移动之前，由 `create_app(settings_fixture).openapi()` 生成 `tests/fixtures/openapi-r0-2.json`；T-27 比较路由、方法、状态码与 schema。
+- **DB schema**：同样在 T-22 移动之前，显式导入 `services.api.models` 后由 `Base.metadata` 生成 `tests/fixtures/db-schema-r0-2.json`；T-27 先导入 `services.platform.models`，断言表数 > 0，再比较表、列、类型、可空、主键。
 - **现有测试**：413 个测试数量不减少；只允许改 import 路径，不允许改断言语义。
 - **路由覆盖**：`scripts/check-route-coverage.py` 结果不变。
 - **场景评测**：`evals/run.py` 报告不变。
 
-若 OpenAPI/DB 快照意外变化：停止 T05，回到设计判断是“必须接受的契约变化”还是“移动引入的回归”。R0-2 默认不接受任何变化。
+若 OpenAPI/DB 快照意外变化：停止 T-26，回到设计判断是“必须接受的契约变化”还是“移动引入的回归”。R0-2 默认不接受任何变化。
 
 ## 10. 回滚方案
 

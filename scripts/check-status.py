@@ -18,7 +18,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 CURRENT = ROOT / "docs" / "CURRENT.md"
-TASKS = ROOT / "docs" / "specs" / "001-order-cancel" / "tasks.md"
+SPECS = ROOT / "docs" / "specs"
+TASK_FILES = sorted(SPECS.glob("*/tasks.md"))
 CARDS = ROOT / "docs" / "tasks"
 TASK_ID = re.compile(r"T-?(\d{2})")
 PATH_TOKEN = re.compile(r"`([^`\n]+)`")
@@ -42,16 +43,17 @@ def section(text: str, title: str) -> str:
 
 def main() -> int:
     text = CURRENT.read_text(encoding="utf-8")
-    tasks_text = TASKS.read_text(encoding="utf-8")
+    task_texts = {path: path.read_text(encoding="utf-8") for path in TASK_FILES}
 
     closed: set[str] = set()
     opened: set[str] = set()
-    for line in tasks_text.splitlines():
-        match = re.match(r"- \[([ x])\] (T\d{2})\b", line)
-        if not match:
-            continue
-        task = canonical(match.group(2)[1:])
-        (closed if match.group(1) == "x" else opened).add(task)
+    for tasks_text in task_texts.values():
+        for line in tasks_text.splitlines():
+            match = re.match(r"- \[([ x])\] T-?(\d{2})\b", line)
+            if not match:
+                continue
+            task = canonical(match.group(2))
+            (closed if match.group(1) == "x" else opened).add(task)
 
     cards: dict[str, str] = {}
     for path in CARDS.rglob("T-*.md"):
@@ -94,18 +96,19 @@ def main() -> int:
         if numbers and numbers != expected:
             errors.append(f"docs/CURRENT.md：{name} 的列表编号不连续 {numbers}")
 
-    for line in tasks_text.splitlines():
-        if not re.match(r"- \[x\] T\d{2}\b", line):
-            continue
-        for token in PATH_TOKEN.findall(line):
-            if not token.startswith(PATH_PREFIXES):
+    for path, tasks_text in task_texts.items():
+        for line in tasks_text.splitlines():
+            if not re.match(r"- \[x\] T-?\d{2}\b", line):
                 continue
-            if "<" in token or "*" in token:
-                continue
-            if not (ROOT / token.rstrip("/")).exists():
-                errors.append(
-                    f"docs/specs/001-order-cancel/tasks.md：已完成任务引用的路径不存在 {token}"
-                )
+            for token in PATH_TOKEN.findall(line):
+                if not token.startswith(PATH_PREFIXES):
+                    continue
+                if "<" in token or "*" in token:
+                    continue
+                if not (ROOT / token.rstrip("/")).exists():
+                    errors.append(
+                        f"{path.relative_to(ROOT).as_posix()}：已完成任务引用的路径不存在 {token}"
+                    )
 
     if errors:
         print(f"状态一致性检查失败，{len(errors)} 个问题：")

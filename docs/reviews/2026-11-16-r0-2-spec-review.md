@@ -22,7 +22,7 @@
 | AC-24 | 可判定 | 检查器 R2 + 具体 Adapter 禁止 |
 | AC-25 | 可判定 | 契约矩阵 + `MockTransport` 注入 + 统一错误类型 |
 | AC-26 | 可判定 | `create_app(settings)` + URL 校验 + 9 格判定表 |
-| AC-27 | 可判定 | `app.openapi()` 快照，T01 移动前捕获 |
+| AC-27 | 可判定 | `app.openapi()` 快照，T-22 移动前捕获 |
 | AC-28 | 可判定 | 显式导入 `platform.models`，断言表数 > 0 |
 | AC-29 | 可判定 | 起点/结束 SHA、命令、退出码、基线有效条目 0 |
 
@@ -30,12 +30,12 @@
 
 | ID | 修复 |
 |---|---|
-| B1 | T01 更新 `test_naming_convention.py` 扫描全部 `docs/specs/*/requirements.md`，断言并集非空、编号不重复 |
+| B1 | T-22 更新 `test_naming_convention.py` 扫描全部 `docs/specs/*/requirements.md`，断言并集非空、编号不重复 |
 | B2 | 检查器增加 `find_violations(root)` 与 `--root/--baseline`；AC-22 用临时目录 |
 | B3 | AC-25 增加 8 类契约用例；Http Adapter 可注入 `httpx.Client(MockTransport)`；不新增异常类 |
 | B4 | URL 校验对所有环境生效；requirements 6.1、FR-05、AC-26 与 design 5.4/6 同步 |
-| B5 | T06 先导入 `services.platform.models` 并断言表数 > 0，再比对快照 |
-| B6 | 回滚对象改为 R0-2 起点到结束 SHA；基线出口统一为“只保留注释、有效条目 0”；T05 更新 `verify.sh` 的 `prod import` 冒烟 |
+| B5 | T-27 先导入 `services.platform.models` 并断言表数 > 0，再比对快照 |
+| B6 | 回滚对象改为 R0-2 起点到结束 SHA；基线出口统一为“只保留注释、有效条目 0”；T-26 更新 `verify.sh` 的 `prod import` 冒烟 |
 
 ## 4. 检查证据
 

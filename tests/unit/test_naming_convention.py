@@ -1,10 +1,11 @@
-"""测试命名与验收编号规范：覆盖 tests/ 全目录。"""
+"""测试命名与验收编号规范：覆盖 tests/ 全目录与全部规格。"""
 
 import re
 from pathlib import Path
 
-REQUIREMENTS = Path("docs/specs/001-order-cancel/requirements.md")
+SPECS = Path("docs/specs")
 AC_PATTERN = re.compile(r"_AC_(\d{2})")
+TABLE_AC_PATTERN = re.compile(r"^\| (AC-\d{2}) \|", re.MULTILINE)
 DEF_PATTERN = re.compile(r"^def (test_\w+)", re.MULTILINE)
 
 
@@ -12,9 +13,41 @@ def _test_files() -> list[Path]:
     return sorted(path for path in Path("tests").rglob("test_*.py") if path.is_file())
 
 
+def _requirement_files() -> list[Path]:
+    return sorted(SPECS.glob("*/requirements.md"))
+
+
 def known_acs() -> set[str]:
-    text = REQUIREMENTS.read_text(encoding="utf-8")
-    return set(re.findall(r"\| (AC-\d{2}) \|", text))
+    acs: set[str] = set()
+    for path in _requirement_files():
+        acs |= set(TABLE_AC_PATTERN.findall(path.read_text(encoding="utf-8")))
+    return acs
+
+
+def duplicate_acs(paths: list[Path]) -> list[str]:
+    """按原始出现次数查重；同文件重复与跨文件重复都要报告。"""
+    seen: dict[str, Path] = {}
+    duplicates: list[str] = []
+    for path in paths:
+        for ac in TABLE_AC_PATTERN.findall(path.read_text(encoding="utf-8")):
+            if ac in seen:
+                duplicates.append(f"{ac}: {seen[ac]} 与 {path}")
+            else:
+                seen[ac] = path
+    return duplicates
+
+
+def test_验收编号全局唯一() -> None:
+    """AC 编号跨规格全局唯一；重复会让 trace 把两个 AC 当成同一个。"""
+    duplicates = duplicate_acs(_requirement_files())
+    assert duplicates == [], f"验收编号重复：{duplicates}"
+
+
+def test_验收编号同文件重复也会被拦下(tmp_path: Path) -> None:
+    path = tmp_path / "requirements.md"
+    path.write_text("| AC-99 | a | b | c |\n| AC-99 | d | e | f |\n", encoding="utf-8")
+
+    assert duplicate_acs([path]) != []
 
 
 def test_禁止连字符形式的验收编号() -> None:

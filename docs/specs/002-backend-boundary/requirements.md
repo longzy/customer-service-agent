@@ -1,12 +1,13 @@
 # R0-2 需求：后端模块边界
 
-- 状态：等待评审
+- 状态：已批准
+- 批准：2026-11-16（用户确认 R0-2 规格与任务地图）
 - 日期：2026-11-16
 - 级别：T2（结构性；不改 API 行为）
 - 依据：[ADR-0005](../../adr/0005-enterprise-boundary.md)、[总体架构](../../architecture/overview.md)、[企业化方向重置](../../initiatives/2026-11-16-enterprise-reset.md)
 - 关联：[design.md](design.md)、[tasks.md](tasks.md)
 - AC 编号：全局唯一；`001-order-cancel` 已使用 01–21，本规格从 22 起。
-- S1.5：可判定（2026-11-16，见 `docs/reviews/2026-11-16-r0-2-spec-review.md`），待用户批准。
+- S1.5：可判定（2026-11-16，见 `docs/reviews/2026-11-16-r0-2-spec-review.md`）；用户已批准。
 
 ## 1. 目标
 

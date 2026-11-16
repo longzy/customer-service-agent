@@ -27,6 +27,8 @@ if [ "$FAST" = "1" ]; then
   uv run mypy services
   echo "== fast: shell 检查 =="
   python3 scripts/check-shell.py
+  echo "== fast: import 边界 =="
+  python3 scripts/check-imports.py --strict
   echo "== fast: unit tests（独立测试库）=="
   ./scripts/test-db.sh tests/unit -q
   echo "fast checks passed"
@@ -47,6 +49,9 @@ uv run ruff format --check .
 
 echo "== shell 检查 =="
 python3 scripts/check-shell.py
+
+echo "== import 边界 =="
+python3 scripts/check-imports.py --strict
 
 echo "== prod import =="
 uv run --no-dev python -c "import services.tools.gateway as g; g.ToolGateway([], g.OwnershipIndex())"

@@ -1,0 +1,400 @@
+{
+  "audit_events": {
+    "columns": [
+      {
+        "name": "id",
+        "nullable": false,
+        "primary_key": true,
+        "type": "VARCHAR(36)"
+      },
+      {
+        "name": "trace_id",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(36)"
+      },
+      {
+        "name": "tenant_id",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(64)"
+      },
+      {
+        "name": "actor_type",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(16)"
+      },
+      {
+        "name": "actor_id",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(64)"
+      },
+      {
+        "name": "event_type",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(32)"
+      },
+      {
+        "name": "entity_type",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(32)"
+      },
+      {
+        "name": "entity_id",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(64)"
+      },
+      {
+        "name": "order_id",
+        "nullable": true,
+        "primary_key": false,
+        "type": "VARCHAR(64)"
+      },
+      {
+        "name": "idempotency_key_digest",
+        "nullable": true,
+        "primary_key": false,
+        "type": "VARCHAR(32)"
+      },
+      {
+        "name": "result_status",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(16)"
+      },
+      {
+        "name": "metadata_redacted",
+        "nullable": false,
+        "primary_key": false,
+        "type": "JSON"
+      },
+      {
+        "name": "created_at",
+        "nullable": false,
+        "primary_key": false,
+        "type": "DATETIME"
+      }
+    ],
+    "unique_constraints": []
+  },
+  "cancellation_requests": {
+    "columns": [
+      {
+        "name": "id",
+        "nullable": false,
+        "primary_key": true,
+        "type": "VARCHAR(36)"
+      },
+      {
+        "name": "tenant_id",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(64)"
+      },
+      {
+        "name": "user_id",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(64)"
+      },
+      {
+        "name": "order_id",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(64)"
+      },
+      {
+        "name": "state",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(32)"
+      },
+      {
+        "name": "trace_id",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(36)"
+      },
+      {
+        "name": "idempotency_key",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(128)"
+      },
+      {
+        "name": "reason_code",
+        "nullable": true,
+        "primary_key": false,
+        "type": "VARCHAR(32)"
+      },
+      {
+        "name": "conversation_id",
+        "nullable": true,
+        "primary_key": false,
+        "type": "VARCHAR(36)"
+      },
+      {
+        "name": "last_error_code",
+        "nullable": true,
+        "primary_key": false,
+        "type": "VARCHAR(32)"
+      },
+      {
+        "name": "oms_request_id",
+        "nullable": true,
+        "primary_key": false,
+        "type": "VARCHAR(128)"
+      },
+      {
+        "name": "version",
+        "nullable": false,
+        "primary_key": false,
+        "type": "INTEGER"
+      },
+      {
+        "name": "expires_at",
+        "nullable": false,
+        "primary_key": false,
+        "type": "DATETIME"
+      },
+      {
+        "name": "created_at",
+        "nullable": false,
+        "primary_key": false,
+        "type": "DATETIME"
+      },
+      {
+        "name": "updated_at",
+        "nullable": false,
+        "primary_key": false,
+        "type": "DATETIME"
+      }
+    ],
+    "unique_constraints": [
+      "uq_cancellation_tenant_idempotency"
+    ]
+  },
+  "conversations": {
+    "columns": [
+      {
+        "name": "id",
+        "nullable": false,
+        "primary_key": true,
+        "type": "VARCHAR(36)"
+      },
+      {
+        "name": "tenant_id",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(64)"
+      },
+      {
+        "name": "user_id",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(64)"
+      },
+      {
+        "name": "channel",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(32)"
+      },
+      {
+        "name": "created_at",
+        "nullable": false,
+        "primary_key": false,
+        "type": "DATETIME"
+      },
+      {
+        "name": "updated_at",
+        "nullable": false,
+        "primary_key": false,
+        "type": "DATETIME"
+      }
+    ],
+    "unique_constraints": []
+  },
+  "handoffs": {
+    "columns": [
+      {
+        "name": "id",
+        "nullable": false,
+        "primary_key": true,
+        "type": "VARCHAR(36)"
+      },
+      {
+        "name": "conversation_id",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(36)"
+      },
+      {
+        "name": "tenant_id",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(64)"
+      },
+      {
+        "name": "user_id",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(64)"
+      },
+      {
+        "name": "summary",
+        "nullable": false,
+        "primary_key": false,
+        "type": "TEXT"
+      },
+      {
+        "name": "context",
+        "nullable": false,
+        "primary_key": false,
+        "type": "JSON"
+      },
+      {
+        "name": "trace_id",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(36)"
+      },
+      {
+        "name": "created_at",
+        "nullable": false,
+        "primary_key": false,
+        "type": "DATETIME"
+      }
+    ],
+    "unique_constraints": []
+  },
+  "messages": {
+    "columns": [
+      {
+        "name": "id",
+        "nullable": false,
+        "primary_key": true,
+        "type": "VARCHAR(36)"
+      },
+      {
+        "name": "conversation_id",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(36)"
+      },
+      {
+        "name": "role",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(16)"
+      },
+      {
+        "name": "content",
+        "nullable": false,
+        "primary_key": false,
+        "type": "TEXT"
+      },
+      {
+        "name": "trace_id",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(36)"
+      },
+      {
+        "name": "created_at",
+        "nullable": false,
+        "primary_key": false,
+        "type": "DATETIME"
+      }
+    ],
+    "unique_constraints": []
+  },
+  "tool_executions": {
+    "columns": [
+      {
+        "name": "id",
+        "nullable": false,
+        "primary_key": true,
+        "type": "VARCHAR(36)"
+      },
+      {
+        "name": "trace_id",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(36)"
+      },
+      {
+        "name": "tool_name",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(64)"
+      },
+      {
+        "name": "tenant_id",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(64)"
+      },
+      {
+        "name": "user_id",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(64)"
+      },
+      {
+        "name": "order_id",
+        "nullable": true,
+        "primary_key": false,
+        "type": "VARCHAR(64)"
+      },
+      {
+        "name": "idempotency_key_digest",
+        "nullable": true,
+        "primary_key": false,
+        "type": "VARCHAR(32)"
+      },
+      {
+        "name": "input_digest",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(64)"
+      },
+      {
+        "name": "result_status",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(16)"
+      },
+      {
+        "name": "latency_ms",
+        "nullable": true,
+        "primary_key": false,
+        "type": "INTEGER"
+      },
+      {
+        "name": "error_code",
+        "nullable": true,
+        "primary_key": false,
+        "type": "VARCHAR(32)"
+      },
+      {
+        "name": "response_redacted",
+        "nullable": true,
+        "primary_key": false,
+        "type": "JSON"
+      },
+      {
+        "name": "created_at",
+        "nullable": false,
+        "primary_key": false,
+        "type": "DATETIME"
+      }
+    ],
+    "unique_constraints": []
+  }
+}

@@ -1,6 +1,7 @@
 # R0-2 任务地图：后端模块边界
 
-- 状态：等待评审
+- 状态：已批准
+- 批准：2026-11-16（用户确认 R0-2 规格与任务地图）
 - 日期：2026-11-16
 - 输入：[requirements.md](requirements.md)、[design.md](design.md)
 - 约束：每个任务一个可独立验证的切片；开工前产出 `docs/tasks/002-backend-boundary/T-XX.md`，完成后评审写入 `docs/reviews/002-backend-boundary/`
@@ -11,9 +12,9 @@
 
 **Goal**：先让边界与行为快照可判定，再搬代码。
 
-- [ ] T01 建立 `check-imports.py`（`find_violations(root)` + `--root/--baseline/--strict`）与初始基线；更新全局 AC 命名门禁；在任何移动之前捕获 OpenAPI 与 DB 快照；接入 `verify.sh`
-  - 文件：`scripts/check-imports.py`、`scripts/import-baseline.txt`、`scripts/verify.sh`、`tests/unit/test_naming_convention.py`、`tests/unit/test_import_rules_AC_22.py`、`tests/unit/test_verify_wiring_AC_29.py`、`tests/fixtures/openapi-r0-2.json`、`tests/fixtures/db-schema-r0-2.json`
-  - _验收: AC-22、AC-29_
+- [x] T-22 建立 `check-imports.py`（`find_violations(root)` + `--root/--baseline/--strict`）与初始基线；更新全局 AC 命名门禁；在任何移动之前捕获 OpenAPI 与 DB 快照；接入 `verify.sh`
+  - 文件：`scripts/check-imports.py`、`scripts/import-baseline.txt`、`scripts/verify.sh`、`tests/unit/test_naming_convention.py`、`tests/unit/test_import_rules_AC_22.py`、`tests/unit/test_verify_wiring.py`、`tests/fixtures/openapi-r0-2.json`、`tests/fixtures/db-schema-r0-2.json`
+  - _验收: AC-22_
 
 **Checkpoint**：`check-imports --strict` 对当前树报出已知违规并登记；命名门禁能识别 AC-22~29；其余检查全绿。
 
@@ -21,7 +22,7 @@
 
 **Goal**：把 `services/api` 中的基础设施、身份与领域类型迁出。
 
-- [ ] T02 迁移 platform（settings/db/models/observability）、identity（纯身份/session）、domain（orders/cancellation/errors）；FastAPI 中间件拆到 `api/auth_web.py`；更新 `api`/`tools`/`workflows` 与测试的 import
+- [ ] T-23 迁移 platform（settings/db/models/observability）、identity（纯身份/session）、domain（orders/cancellation/errors）；FastAPI 中间件拆到 `api/auth_web.py`；更新 `api`/`tools`/`workflows` 与测试的 import
   - 文件：`services/platform/`、`services/identity/`、`services/domain/`、`services/api/auth_web.py`、`services/tools/`、`services/workflows/`、`tests/unit/test_import_boundaries_AC_23.py`、相关测试
   - _验收: AC-23_
 
@@ -31,7 +32,7 @@
 
 **Goal**：业务模块只依赖端口。
 
-- [ ] T03 定义 `OmsPort`/`OmsAccess`，迁移 `MockOmsAdapter` 与夹具，`ToolGateway` 改用端口授权；建立 Mock/Http 共用契约测试矩阵
+- [ ] T-24 定义 `OmsPort`/`OmsAccess`，迁移 `MockOmsAdapter` 与夹具，`ToolGateway` 改用端口授权；建立 Mock/Http 共用契约测试矩阵
   - 文件：`services/adapters/oms/port.py`、`services/adapters/oms/mock.py`、`services/adapters/oms/fixtures/`、`services/tools/gateway.py`、`services/tools/query.py`、`services/tools/cancel.py`、`tests/unit/adapters/test_oms_contract_AC_25.py`、相关测试
   - _验收: AC-25_
 
@@ -41,7 +42,7 @@
 
 **Goal**：生产缺配置不回落 Mock。
 
-- [ ] T04 实现 `HttpOmsAdapter`（可注入 client）、URL 校验、`build_oms`、`create_app(settings)` 与生产启动失败
+- [ ] T-25 实现 `HttpOmsAdapter`（可注入 client）、URL 校验、`build_oms`、`create_app(settings)` 与生产启动失败
   - 文件：`services/adapters/oms/http.py`、`services/adapters/oms/factory.py`、`services/api/main.py`、`services/platform/settings.py`、`tests/unit/adapters/test_oms_factory_AC_26.py`
   - _验收: AC-26_
 
@@ -51,7 +52,7 @@
 
 **Goal**：删除旧路径，清零基线。
 
-- [ ] T05 重接 `api`，删除 `services/mock_oms` 与 `services/api/domain`，基线清零，更新 `verify.sh` 的 `prod import` 冒烟
+- [ ] T-26 重接 `api`，删除 `services/mock_oms` 与 `services/api/domain`，基线清零，更新 `verify.sh` 的 `prod import` 冒烟
   - 文件：`services/api/*`、删除 `services/mock_oms/`、删除 `services/api/domain/`、`scripts/import-baseline.txt`、`scripts/verify.sh`、`tests/unit/test_import_boundaries_AC_24.py`
   - _验收: AC-23、AC-24_
 
@@ -61,7 +62,7 @@
 
 **Goal**：证明移动没有改变契约。
 
-- [ ] T06 建立 OpenAPI 与 DB metadata 对比测试（使用 T01 捕获的快照），显式导入 `platform.models` 并断言表数 > 0；跑全量回归
+- [ ] T-27 建立 OpenAPI 与 DB metadata 对比测试（使用 T-22 捕获的快照），显式导入 `platform.models` 并断言表数 > 0；跑全量回归
   - 文件：`tests/unit/test_contract_snapshot_AC_27.py`、`tests/unit/test_db_schema_AC_28.py`
   - _验收: AC-27、AC-28_
 
@@ -71,7 +72,7 @@
 
 **Goal**：文档与实际目录一致，回滚可复现。
 
-- [ ] T07 更新 `overview.md` 目标树，执行 R0-2 起点 SHA 到结束 SHA 的 revert 演练并记录命令/退出码
+- [ ] T-28 更新 `overview.md` 目标树，执行 R0-2 起点 SHA 到结束 SHA 的 revert 演练并记录命令/退出码
   - 文件：`docs/architecture/overview.md`、`docs/reviews/2026-11-16-r0-2-boundary.md`
   - _验收: AC-29_
 
@@ -80,11 +81,11 @@
 ## 依赖与并行
 
 ```text
-T01 -> T02 -> T03 -> T04 -> T05 -> T06 -> T07
+T-22 -> T-23 -> T-24 -> T-25 -> T-26 -> T-27 -> T-28
 ```
 
-- T02 依赖 T01；T03 依赖 T02；T04 依赖 T03；T05 依赖 T02–T04。
-- T06/T07 依赖 T05；T07 的回滚演练在 T06 快照通过后执行。
+- T-23 依赖 T-22；T-24 依赖 T-23；T-25 依赖 T-24；T-26 依赖 T-23–T-25。
+- T-27/T-28 依赖 T-26；T-28 的回滚演练在 T-27 快照通过后执行。
 - 不并行搬模块：半迁移状态会让 import 边界与快照都不可判定。
 
 ## 完成定义
