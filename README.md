@@ -15,6 +15,7 @@
 ## 文档入口
 
 - [当前阶段](docs/CURRENT.md)
+- [企业化方向重置](docs/initiatives/2026-11-16-enterprise-reset.md)
 - [术语表](docs/GLOSSARY.md)
 - [产品宪章](docs/product/charter.md)
 - [总体架构](docs/architecture/overview.md)
