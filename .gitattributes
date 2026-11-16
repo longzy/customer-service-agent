@@ -1,0 +1,10 @@
+* text=auto eol=lf
+
+# 生成物与锁文件不参与 diff 统计
+uv.lock linguist-generated=true
+apps/web/pnpm-lock.yaml linguist-generated=true
+packages/contracts/tools/openapi.json linguist-generated=true
+
+*.png binary
+*.jpg binary
+*.woff2 binary

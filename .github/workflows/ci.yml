@@ -1,0 +1,92 @@
+name: CI
+
+# 服务端是唯一硬门禁：本地 hook 只负责早发现。
+# 合并前需要的 required checks：verify / frontend-build。
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  UV_CACHE_DIR: .uv-cache
+  TEST_DB_NAME: customer_service_test
+  TEST_DB_USER: postgres
+  TEST_DB_PASSWORD: postgres
+  TEST_DB_HOST: 127.0.0.1
+
+jobs:
+  verify:
+    name: verify
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: customer_service_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - name: 安装依赖（锁定版本）
+        run: |
+          uv sync --frozen
+          pnpm -C apps/web install --frozen-lockfile
+      - name: 全量验证（不写回状态文件）
+        run: ./scripts/verify.sh --no-record
+
+  frontend-build:
+    name: frontend-build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - run: pnpm -C apps/web install --frozen-lockfile
+      - run: pnpm -C apps/web build
+
+  audit:
+    name: audit（观察期）
+    runs-on: ubuntu-latest
+    continue-on-error: true # 观察两周后改为 false，并设为 required check
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+      - name: 审计 Python 依赖（含传递依赖）
+        run: |
+          uv export --frozen --no-dev --format requirements-txt > /tmp/requirements.txt
+          uvx pip-audit --strict -r /tmp/requirements.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - run: pnpm -C apps/web audit --audit-level high

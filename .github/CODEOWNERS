@@ -1,0 +1,8 @@
+# 默认由仓库 owner 评审；新增模块时在此补充具体 owner。
+*       @longzy
+
+# 高风险区域要求更严格的评审
+/docs/architecture/  @longzy
+/docs/adr/           @longzy
+/.github/            @longzy
+/scripts/            @longzy
