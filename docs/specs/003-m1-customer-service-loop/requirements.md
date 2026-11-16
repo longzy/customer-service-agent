@@ -1,12 +1,12 @@
 # M1 需求：企业客服核心闭环
 
-- 状态：已批准
-- 批准：2026-11-16（用户确认 M1 requirements；S1.5 可判定）
+- 状态：草案
+- 变更：2026-11-16 ADR-0006 将客户改为登录客户；AC-30/32/33/46/47/49 与订单/会话相关内容待重写，S1 批准失效
 - 日期：2026-11-16
-- 级别：T3（员工认证/RBAC、匿名会话、队列权限、订单隐私）
-- 依据：[产品宪章](../../product/charter.md)、[路线图](../../roadmap.md)、[ADR-0005](../../adr/0005-enterprise-boundary.md)、[总体架构](../../architecture/overview.md)、[架构不变量](../../architecture/invariants.md)
+- 级别：T3（客户登录/订单归属、员工认证/RBAC、队列权限、订单隐私）
+- 依据：[产品宪章](../../product/charter.md)、[路线图](../../roadmap.md)、[ADR-0005](../../adr/0005-enterprise-boundary.md)、[ADR-0006](../../adr/0006-customer-login.md)、[总体架构](../../architecture/overview.md)、[架构不变量](../../architecture/invariants.md)
 - 关联：[design.md](design.md)、[tasks.md](tasks.md)
-- 已确认决策：D-011 队列领取优先（不做自动分配）；D-012 会话 24h、消息/交接单 30d、审计 90d
+- 已确认决策：D-011 队列领取优先（不做自动分配）；D-012 会话 24h、消息/交接单 30d、审计 90d；D-013 客户预置账号+密码登录；D-014 订单按客户账号归属
 - AC 编号：全局唯一；`001` 使用 01–21，`002` 使用 22–29，本规格使用 30–49
 - S1.5：可判定（2026-11-16，见 `docs/reviews/003-m1-customer-service-loop/S1.5.md`），待用户批准
 

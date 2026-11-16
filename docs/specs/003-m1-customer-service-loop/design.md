@@ -3,7 +3,7 @@
 - 状态：草案
 - 日期：2026-11-16
 - 级别：T3
-- 依据：[requirements.md](requirements.md) AC-30~49；[ADR-0005](../../adr/0005-enterprise-boundary.md)
+- 依据：[requirements.md](requirements.md) AC-30~49；[ADR-0005](../../adr/0005-enterprise-boundary.md)、[ADR-0006](../../adr/0006-customer-login.md)
 - 说明：S2 首版评审不通过（B-01~B-12）后重写。`003` 只保留 M1 验收与跨 spec 契约；实现设计在 `004`/`005`/`006`。
 
 ## 1. Spec 关系

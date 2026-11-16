@@ -5,6 +5,7 @@
 - 批准：2026-11-16（R0-1 基线，用户确认）
 - 关联：[产品宪章](../product/charter.md)、[路线图](../roadmap.md)、[企业化方向重置](../initiatives/2026-11-16-enterprise-reset.md)
 - 取代：M1-P 原型的产品与 Mock 边界；ADR-0002 的订单识别方式由本 ADR 调整，ADR-0001/0003/0004 继续有效
+- 后续修订：[ADR-0006](0006-customer-login.md) 已取代本 ADR 的“客户匿名”与“订单号 + 手机尾号校验”决策
 
 ## 背景
 
