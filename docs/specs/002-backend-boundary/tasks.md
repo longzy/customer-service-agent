@@ -62,7 +62,7 @@
 
 **Goal**：证明移动没有改变契约。
 
-- [ ] T-27 建立 OpenAPI 与 DB metadata 对比测试（使用 T-22 捕获的快照），显式导入 `platform.models` 并断言表数 > 0；跑全量回归
+- [x] T-27 建立 OpenAPI 与 DB metadata 对比测试（使用 T-22 捕获的快照），显式导入 `platform.models` 并断言表数 > 0；跑全量回归
   - 文件：`tests/unit/test_contract_snapshot_AC_27.py`、`tests/unit/test_db_schema_AC_28.py`
   - _验收: AC-27、AC-28_
 
