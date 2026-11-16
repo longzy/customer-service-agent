@@ -314,3 +314,236 @@ def test_返回非法响应被归类为未知_AC_11() -> None:
     assert exc.value.status_code == 502
     assert exc.value.payload["code"] == ErrorCode.INVALID_RESPONSE.value
     assert recorder.audits[-1]["error_code"] == "INVALID_RESPONSE"
+
+
+def _assert_audit(recorder: Recorder, **overrides: Any) -> None:
+    expected: dict[str, Any] = {
+        "tool": "get_order",
+        "tenant_id": "tenant-a",
+        "user_id": "user-a1",
+        "order_id": "ORD-10001",
+        "result": "ok",
+        "error_code": None,
+        "trace_id": "t-1",
+    }
+    expected.update(overrides)
+    assert recorder.audits[-1] == expected
+
+
+def test_成功审计事件字段完整_AC_14() -> None:
+    recorder = Recorder()
+    gateway(recorder).invoke("get_order", {"order_id": "ORD-10001"}, IDENTITY, trace_id="t-1")
+    _assert_audit(recorder)
+
+
+def test_未知工具审计字段_AC_14() -> None:
+    recorder = Recorder()
+    with pytest.raises(GatewayError):
+        gateway(recorder).invoke(
+            "delete_everything", {"order_id": "ORD-10001"}, IDENTITY, trace_id="t-1"
+        )
+    _assert_audit(
+        recorder,
+        tool="delete_everything",
+        order_id=None,
+        result="rejected",
+        error_code="UNKNOWN_TOOL",
+    )
+
+
+def test_非法参数审计字段_AC_14() -> None:
+    recorder = Recorder()
+    with pytest.raises(GatewayError):
+        gateway(recorder).invoke("get_order", {"order_id": 1}, IDENTITY, trace_id="t-1")
+    _assert_audit(recorder, order_id=None, result="rejected", error_code="INVALID_ARGUMENT")
+
+
+def test_越权审计字段_AC_02() -> None:
+    recorder = Recorder()
+    with pytest.raises(GatewayError):
+        gateway(recorder).invoke("get_order", {"order_id": "ORD-10002"}, IDENTITY, trace_id="t-1")
+    _assert_audit(
+        recorder,
+        order_id="ORD-10002",
+        result="rejected",
+        error_code="NOT_FOUND_OR_UNAUTHORIZED",
+    )
+
+
+def test_超时审计字段_AC_14() -> None:
+    recorder = Recorder()
+
+    def timeout(payload: dict[str, Any], identity: Identity, trace_id: str) -> None:
+        raise TimeoutError
+
+    with pytest.raises(GatewayError):
+        gateway(recorder, handler=timeout).invoke(
+            "get_order", {"order_id": "ORD-10001"}, IDENTITY, trace_id="t-1"
+        )
+    _assert_audit(recorder, result="failed", error_code="DEPENDENCY_UNAVAILABLE")
+
+
+def test_非法响应审计字段_AC_11() -> None:
+    recorder = Recorder()
+
+    def bad(payload: dict[str, Any], identity: Identity, trace_id: str) -> None:
+        raise DownstreamInvalidResponse("bad")
+
+    with pytest.raises(GatewayError):
+        gateway(recorder, handler=bad).invoke(
+            "get_order", {"order_id": "ORD-10001"}, IDENTITY, trace_id="t-1"
+        )
+    _assert_audit(recorder, result="failed", error_code="INVALID_RESPONSE")
+
+
+def test_未知异常审计字段_AC_14() -> None:
+    recorder = Recorder()
+
+    def boom(payload: dict[str, Any], identity: Identity, trace_id: str) -> None:
+        raise RuntimeError("secret")
+
+    with pytest.raises(GatewayError):
+        gateway(recorder, handler=boom).invoke(
+            "get_order", {"order_id": "ORD-10001"}, IDENTITY, trace_id="t-1"
+        )
+    _assert_audit(recorder, result="failed", error_code="INTERNAL_ERROR")
+
+
+def test_响应契约非法审计字段_AC_11() -> None:
+    recorder = Recorder()
+
+    def bad(payload: dict[str, Any], identity: Identity, trace_id: str) -> dict[str, Any]:
+        return {"order_id": "ORD-10001"}
+
+    with pytest.raises(GatewayError):
+        gateway(recorder, handler=bad).invoke(
+            "get_order", {"order_id": "ORD-10001"}, IDENTITY, trace_id="t-1"
+        )
+    _assert_audit(recorder, result="failed", error_code="INVALID_RESPONSE")
+
+
+def test_网关错误保留状态码与消息_AC_14() -> None:
+    error = GatewayError(422, {"message": "参数非法"})
+    assert error.status_code == 422
+    assert error.payload == {"message": "参数非法"}
+    assert str(error) == "参数非法"
+    assert str(GatewayError(500, {})) == "gateway rejected"
+
+
+def test_错误封套字段完整_AC_11() -> None:
+    from services.api.domain.errors import SPECS, ErrorCode
+    from services.tools.gateway import error_envelope
+
+    for code, spec in SPECS.items():
+        assert error_envelope(code) == {
+            "code": code.value,
+            "retryable": spec.retryable,
+            "visible": spec.visible,
+            "message": spec.user_message,
+        }
+    assert error_envelope(ErrorCode.OMS_REJECTED)["message"] == "订单系统拒绝取消"
+
+
+def test_初始化缺少契约时失败_基座豁免() -> None:
+    with pytest.raises(ValueError, match="缺少契约的工具"):
+        ToolGateway(
+            tools=[ToolSpec("not_in_contract", lambda payload, identity, trace_id: payload)],
+            ownership=OwnershipIndex(),
+        )
+
+
+def test_缺少trace_id的审计字段_AC_14() -> None:
+    recorder = Recorder()
+    with pytest.raises(GatewayError):
+        gateway(recorder).invoke("get_order", {"order_id": "ORD-10001"}, IDENTITY, trace_id="")
+    _assert_audit(
+        recorder,
+        order_id=None,
+        result="rejected",
+        error_code="INTERNAL_ERROR",
+        trace_id=None,
+    )
+
+
+def test_未知工具响应体_AC_14() -> None:
+    recorder = Recorder()
+    with pytest.raises(GatewayError) as exc:
+        gateway(recorder).invoke(
+            "delete_everything", {"order_id": "ORD-10001"}, IDENTITY, trace_id="t-1"
+        )
+    assert exc.value.status_code == 404
+    assert exc.value.payload == {"message": "未知工具"}
+
+
+def test_契约校验失败响应体_AC_14() -> None:
+    recorder = Recorder()
+    with pytest.raises(GatewayError) as exc:
+        gateway(recorder).invoke(
+            "get_order", {"order_id": "ORD-10001", "extra": 1}, IDENTITY, "t-1"
+        )
+    assert exc.value.status_code == 422
+    assert exc.value.payload == {"message": "参数非法", "errors": 1}
+
+
+def test_业务拒绝归一与审计_AC_11() -> None:
+    from services.errors import CancelRejected
+
+    recorder = Recorder()
+
+    def rejected(payload: dict[str, Any], identity: Identity, trace_id: str) -> None:
+        raise CancelRejected("no")
+
+    with pytest.raises(GatewayError) as exc:
+        gateway(recorder, handler=rejected).invoke(
+            "get_order", {"order_id": "ORD-10001"}, IDENTITY, trace_id="t-1"
+        )
+    assert exc.value.status_code == 409
+    assert exc.value.payload["code"] == ErrorCode.OMS_REJECTED.value
+    _assert_audit(recorder, result="failed", error_code="OMS_REJECTED")
+
+
+def test_幂等冲突归一与审计_AC_11() -> None:
+    from services.errors import IdempotencyConflict
+
+    recorder = Recorder()
+
+    def conflict(payload: dict[str, Any], identity: Identity, trace_id: str) -> None:
+        raise IdempotencyConflict("conflict")
+
+    with pytest.raises(GatewayError) as exc:
+        gateway(recorder, handler=conflict).invoke(
+            "get_order", {"order_id": "ORD-10001"}, IDENTITY, trace_id="t-1"
+        )
+    assert exc.value.status_code == 409
+    _assert_audit(recorder, result="failed", error_code="OMS_REJECTED")
+
+
+def test_订单不存在归一与审计_AC_02() -> None:
+    from services.errors import OrderNotFound
+
+    recorder = Recorder()
+
+    def missing(payload: dict[str, Any], identity: Identity, trace_id: str) -> None:
+        raise OrderNotFound("missing")
+
+    with pytest.raises(GatewayError) as exc:
+        gateway(recorder, handler=missing).invoke(
+            "get_order", {"order_id": "ORD-10001"}, IDENTITY, trace_id="t-1"
+        )
+    assert exc.value.status_code == 404
+    _assert_audit(recorder, result="failed", error_code="NOT_FOUND_OR_UNAUTHORIZED")
+
+
+def test_连接错误归一与审计_AC_11() -> None:
+    recorder = Recorder()
+
+    def offline(payload: dict[str, Any], identity: Identity, trace_id: str) -> None:
+        raise ConnectionError("down")
+
+    with pytest.raises(GatewayError) as exc:
+        gateway(recorder, handler=offline).invoke(
+            "get_order", {"order_id": "ORD-10001"}, IDENTITY, trace_id="t-1"
+        )
+    assert exc.value.status_code == 503
+    assert exc.value.payload["code"] == ErrorCode.DEPENDENCY_UNAVAILABLE.value
+    _assert_audit(recorder, result="failed", error_code="DEPENDENCY_UNAVAILABLE")

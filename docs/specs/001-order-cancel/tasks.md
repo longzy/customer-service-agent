@@ -98,6 +98,8 @@
   - _验收: AC-17、AC-18_
 - [ ] T13 建立场景评测（`evals/`）— depends on T10、T14、T11、T15、T12
   - _验收: AC-01 至 AC-20_
+- [x] T21 [P] G3 突变基线校准与 T-11 证据收口（`tests/unit/tools/test_gateway.py`、`tests/unit/workflows/test_cancel.py`、`tests/integration/test_cancellation_repository.py`、`apps/web/tests/ChatShell.test.tsx`）— 测试-only；depends on T11、T19
+  - _验收: 基座豁免——补 AC-05/06/10/11/14 既有断言，不新增行为_
 - [x] T20 [P] 会话安全基线：Cookie `Secure`、跨站写请求拒绝、密钥扫描（`services/api/csrf.py`、`services/api/settings.py`、`scripts/check-secrets.py`）
   - _验收: AC-21_
 

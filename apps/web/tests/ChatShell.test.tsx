@@ -237,16 +237,21 @@ describe("ChatShell 取消动作失败", () => {
 
   it("不取消调用放弃接口（AC-06）", async () => {
     await renderCard();
-    const fetchMock = vi
-      .spyOn(global, "fetch")
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({ state: "ABANDONED", state_text: "未提交（已放弃）", reason_code: null }),
-          { status: 200 },
-        ),
-      );
+    const fetchMock = vi.spyOn(global, "fetch").mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          state: "ABANDONED",
+          state_text: "未提交（已放弃）",
+          reason_code: null,
+          reason_text: null,
+          next_step: "如仍需取消，可重新发起。",
+        }),
+        { status: 200 },
+      ),
+    );
     fireEvent.click(screen.getByRole("button", { name: "不取消" }));
     expect(await screen.findByText("未提交（已放弃）")).toBeInTheDocument();
+    expect(screen.getByText("如仍需取消，可重新发起。")).toBeInTheDocument();
     expect(fetchMock).toHaveBeenLastCalledWith("/api/cancellation-requests/task-2/abandon", {
       method: "POST",
     });
@@ -259,15 +264,19 @@ describe("ChatShell 取消动作失败", () => {
       .mockResolvedValueOnce(
         new Response(
           JSON.stringify({
-            state: "CANCELLED",
-            state_text: "已取消",
-            reason_code: null,
+            state: "ELIGIBILITY_REJECTED",
+            state_text: "不可取消，并说明原因",
+            reason_code: "SHIPPED",
+            reason_text: "订单已发货",
+            next_step: "如需进一步处理，可转人工。",
           }),
           { status: 200 },
         ),
       );
     fireEvent.click(screen.getByRole("button", { name: "确认取消" }));
-    expect(await screen.findByText("已取消")).toBeInTheDocument();
+    expect(await screen.findByText("不可取消，并说明原因")).toBeInTheDocument();
+    expect(screen.getByText("原因：订单已发货")).toBeInTheDocument();
+    expect(screen.getByText("如需进一步处理，可转人工。")).toBeInTheDocument();
   });
 });
 

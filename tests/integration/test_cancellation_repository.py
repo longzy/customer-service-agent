@@ -178,3 +178,56 @@ async def test_终态任务不被扫描_AC_10() -> None:
         assert "task-done" not in names
         await session.execute(delete(CancellationRow).where(CancellationRow.id == "task-done"))
         await session.commit()
+
+
+async def test_可恢复查询只返回两种状态并映射字段_AC_10() -> None:
+    async with session_factory() as session:
+        repo = SqlCancellationRepository(session)
+        ids = ["task-rec-1", "task-rec-2", "task-rec-done"]
+        await session.execute(delete(CancellationRow).where(CancellationRow.id.in_(ids)))
+        await session.commit()
+        await repo.create(
+            task(
+                id="task-rec-1",
+                state=CancellationState.SUBMITTING,
+                idempotency_key="idem-rec-1",
+                reason_code="SHIPPED",
+                conversation_id="conv-1",
+                last_error_code="DEPENDENCY_TIMEOUT",
+                oms_request_id="oms-1",
+                version=3,
+            )
+        )
+        await repo.create(
+            task(
+                id="task-rec-2",
+                state=CancellationState.SUBMIT_UNKNOWN,
+                idempotency_key="idem-rec-2",
+            )
+        )
+        await repo.create(
+            task(
+                id="task-rec-done",
+                state=CancellationState.ACCEPTED,
+                idempotency_key="idem-rec-done",
+            )
+        )
+        await repo.commit()
+
+        items = {item.id: item for item in await repo.list_recoverable()}
+        assert set(items) == {"task-rec-1", "task-rec-2"}
+        first = items["task-rec-1"]
+        assert first.tenant_id == OWNER.tenant_id
+        assert first.user_id == OWNER.user_id
+        assert first.order_id == "ORD-10001"
+        assert first.state == CancellationState.SUBMITTING
+        assert first.idempotency_key == "idem-rec-1"
+        assert first.expires_at == datetime(2026, 11, 15, 12, 0, tzinfo=UTC)
+        assert first.reason_code == "SHIPPED"
+        assert first.conversation_id == "conv-1"
+        assert first.last_error_code == "DEPENDENCY_TIMEOUT"
+        assert first.oms_request_id == "oms-1"
+        assert first.version == 3
+
+        await session.execute(delete(CancellationRow).where(CancellationRow.id.in_(ids)))
+        await session.commit()

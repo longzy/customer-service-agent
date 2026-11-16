@@ -15,6 +15,7 @@ from services.workflows.cancel import (
     CancellationRepository,
     CancellationTask,
     CancellationWorkflow,
+    SqlCancellationRepository,
     TaskNotFound,
 )
 
@@ -268,3 +269,112 @@ async def test_会话关联写入任务_AC_04() -> None:
     flow, repo, _ = workflow()
     task = await flow.request(OWNER, "ORD-10001", "t-1", conversation_id="conv-9")
     assert repo.tasks[task.id].conversation_id == "conv-9"
+
+
+class _CapturingWorkflow(CancellationWorkflow):
+    def __init__(self, repo: CancellationRepository) -> None:
+        super().__init__(repo, None)  # type: ignore[arg-type]
+        self.calls: list[tuple[Identity, CancellationTask, str]] = []
+
+    async def _recover(
+        self, identity: Identity, task: CancellationTask, trace_id: str
+    ) -> CancellationTask:
+        self.calls.append((identity, task, trace_id))
+        if task.id == "task-conflict":
+            from services.workflows.cancel import TaskConflict
+
+            raise TaskConflict(task.id)
+        return task
+
+
+async def test_启动恢复身份与跳过冲突_AC_12() -> None:
+    repo = MemoryRepository()
+    for task_id in ("task-ok", "task-conflict"):
+        repo.tasks[task_id] = CancellationTask(
+            id=task_id,
+            tenant_id="tenant-a",
+            user_id="user-a1",
+            order_id="ORD-10001",
+            state=CancellationState.SUBMIT_UNKNOWN,
+            idempotency_key=f"idem-{task_id}",
+            expires_at=datetime(2026, 11, 15, 12, 0, tzinfo=UTC),
+        )
+    flow = _CapturingWorkflow(repo)
+    assert await flow.recover_pending("trace-startup") == 1
+    assert [task.id for _, task, _ in flow.calls] == ["task-ok", "task-conflict"]
+    identity, task, trace_id = flow.calls[0]
+    assert identity.account_id == "startup-recovery"
+    assert identity.tenant_id == "tenant-a"
+    assert identity.user_id == "user-a1"
+    assert identity.display_name == ""
+    assert identity.tenant_name == ""
+    assert task.id == "task-ok"
+    assert trace_id == "trace-startup"
+
+
+async def test_启动恢复空列表返回零_AC_12() -> None:
+    flow = _CapturingWorkflow(MemoryRepository())
+    assert await flow.recover_pending("trace-empty") == 0
+    assert flow.calls == []
+
+
+class _Result:
+    def __init__(self, rows: list[Any]) -> None:
+        self._rows = rows
+
+    def scalars(self) -> Any:
+        return iter(self._rows)
+
+
+class _Session:
+    def __init__(self, rows: list[Any]) -> None:
+        self._rows = rows
+        self.statement: Any = None
+
+    async def execute(self, statement: Any) -> _Result:
+        self.statement = statement
+        return _Result(self._rows)
+
+
+async def test_可恢复查询字段映射与状态参数_AC_10() -> None:
+    from services.api.models import CancellationRequest as CancellationRow
+
+    row = CancellationRow(
+        id="task-map",
+        tenant_id="tenant-a",
+        user_id="user-a1",
+        order_id="ORD-10001",
+        state="SUBMITTING",
+        idempotency_key="idem-map",
+        reason_code="SHIPPED",
+        conversation_id="conv-1",
+        last_error_code="DEPENDENCY_TIMEOUT",
+        oms_request_id="oms-1",
+        version=3,
+        expires_at=datetime(2026, 11, 15, 12, 0, tzinfo=UTC),
+    )
+    session = _Session([row])
+    repo = SqlCancellationRepository(session)  # type: ignore[arg-type]
+    items = await repo.list_recoverable()
+    assert len(items) == 1
+    item = items[0]
+    assert item.id == "task-map"
+    assert item.tenant_id == "tenant-a"
+    assert item.user_id == "user-a1"
+    assert item.order_id == "ORD-10001"
+    assert item.state == CancellationState.SUBMITTING
+    assert item.idempotency_key == "idem-map"
+    assert item.expires_at == datetime(2026, 11, 15, 12, 0, tzinfo=UTC)
+    assert item.reason_code == "SHIPPED"
+    assert item.conversation_id == "conv-1"
+    assert item.last_error_code == "DEPENDENCY_TIMEOUT"
+    assert item.oms_request_id == "oms-1"
+    assert item.version == 3
+    params = session.statement.compile().params
+    flattened: set[str] = set()
+    for value in params.values():
+        if isinstance(value, list):
+            flattened.update(value)
+        else:
+            flattened.add(str(value))
+    assert flattened == {"SUBMITTING", "SUBMIT_UNKNOWN"}
