@@ -4,7 +4,7 @@
 用法：
     python3 scripts/check-docs.py
 
-检查项见 docs/process/sdd.md 第 6 节。
+检查项见 docs/process/WORKFLOW.md 第 3、4 节。
 退出码：0 全部通过；1 存在错误。
 """
 
@@ -45,6 +45,14 @@ STATUS_WORDS = {
     "已确认",
     "待开工许可",
     "待评审",
+}
+
+# 上下文预算：超过即失败，防止规则与状态重新膨胀
+CONTEXT_BUDGETS = {
+    "AGENTS.md": 60,
+    "docs/CURRENT.md": 80,
+    "docs/process/WORKFLOW.md": 200,
+    "docs/process/standards.md": 60,
 }
 
 CURRENT_REQUIRED_FIELDS = [
@@ -294,7 +302,7 @@ def check_design_card_gate():
 
 def check_status_vocabulary_sync():
     """sdd.md 状态词表与检查器常量必须一致，避免新增状态时漏改。"""
-    path = os.path.join(ROOT, "docs", "process", "sdd.md")
+    path = os.path.join(ROOT, "docs", "process", "WORKFLOW.md")
     if not os.path.exists(path):
         return
     declared = set()
@@ -304,7 +312,7 @@ def check_status_vocabulary_sync():
         declared |= set(re.findall(r"`([^`]+)`", line))
     unknown = declared - STATUS_WORDS
     if unknown:
-        errors.append(f"docs/process/sdd.md：状态词未加入检查器：{sorted(unknown)}")
+        errors.append(f"docs/process/WORKFLOW.md：状态词未加入检查器：{sorted(unknown)}")
 
 
 def check_review_conclusions():
@@ -332,6 +340,17 @@ def check_review_conclusions():
             card = os.path.join(TASKS_ROOT, spec_name, name)
             if not os.path.exists(card):
                 errors.append(f"{rel(path)}：没有对应的执行卡 {rel(card)}")
+
+
+def check_context_budget():
+    """入口、状态与流程文档有行数上限；超限先删内容，不新增副本。"""
+    for relative, limit in CONTEXT_BUDGETS.items():
+        path = os.path.join(ROOT, relative)
+        if not os.path.exists(path):
+            continue
+        lines = len(read(path).splitlines())
+        if lines > limit:
+            errors.append(f"{relative}：{lines} 行，超过上下文预算 {limit} 行")
 
 
 def check_verification_block():
@@ -362,6 +381,7 @@ def main():
     check_completed_card_reviews()
     check_status_vocabulary_sync()
     check_review_conclusions()
+    check_context_budget()
     check_verification_block()
 
     if errors:
