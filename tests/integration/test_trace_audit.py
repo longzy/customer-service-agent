@@ -274,23 +274,6 @@ def test_取消审计失败返回500而不是200_AC_18(monkeypatch) -> None:
         assert response.status_code == 500
         assert response.json()["code"] == "INTERNAL_ERROR"
 
-    async def cleanup() -> None:
-        engine = create_async_engine(settings.database_url)
-        factory = async_sessionmaker(engine, expire_on_commit=False)
-        try:
-            async with factory() as session:
-                await session.execute(
-                    delete(CancellationRequest).where(
-                        CancellationRequest.order_id == "ORD-10001",
-                        CancellationRequest.trace_id.not_in(["ignored"]),
-                    )
-                )
-                await session.commit()
-        finally:
-            await engine.dispose()
-
-    asyncio.run(cleanup())
-
 
 def test_show_trace_cli_未知trace退出码1_AC_17() -> None:
     result = subprocess.run(
@@ -388,5 +371,68 @@ def test_确认审计失败不推进状态_AC_18(monkeypatch) -> None:
             finally:
                 await engine.dispose()
 
-        assert asyncio.run(current_state()) == "AWAITING_CONFIRMATION"
-        asyncio.run(_cleanup([trace_id], []))
+        try:
+            assert asyncio.run(current_state()) == "AWAITING_CONFIRMATION"
+        finally:
+            asyncio.run(_cleanup([trace_id], []))
+
+
+def test_创建审计失败不落任务_AC_18(monkeypatch) -> None:
+    def fail(*args, **kwargs):
+        raise TraceSinkError("审计写入失败")
+
+    async def count_tasks() -> int:
+        engine = create_async_engine(settings.database_url)
+        factory = async_sessionmaker(engine, expire_on_commit=False)
+        try:
+            async with factory() as session:
+                rows = (
+                    await session.execute(
+                        select(CancellationRequest.id).where(
+                            CancellationRequest.order_id == "ORD-10001"
+                        )
+                    )
+                ).scalars()
+                return len(list(rows))
+        finally:
+            await engine.dispose()
+
+    with _client() as api:
+        _login(api)
+        before = asyncio.run(count_tasks())
+        monkeypatch.setattr("services.api.cancellation_routes.audit_transition", fail)
+        response = api.post("/cancellation-requests", json={"order_id": "ORD-10001"})
+        assert response.status_code == 500
+        after = asyncio.run(count_tasks())
+        assert after == before
+
+
+def test_放弃审计失败不推进状态_AC_18(monkeypatch) -> None:
+    def fail(*args, **kwargs):
+        raise TraceSinkError("审计写入失败")
+
+    with _client() as api:
+        _login(api)
+        created = api.post("/cancellation-requests", json={"order_id": "ORD-10001"}).json()
+        trace_id = created["trace_id"]
+        task_id = created["id"]
+        monkeypatch.setattr("services.api.cancellation_routes.audit_confirmation", fail)
+        response = api.post(f"/cancellation-requests/{task_id}/abandon")
+        assert response.status_code == 500
+
+        async def current_state() -> str:
+            engine = create_async_engine(settings.database_url)
+            factory = async_sessionmaker(engine, expire_on_commit=False)
+            try:
+                async with factory() as session:
+                    value = await session.scalar(
+                        select(CancellationRequest.state).where(CancellationRequest.id == task_id)
+                    )
+                    return str(value)
+            finally:
+                await engine.dispose()
+
+        try:
+            assert asyncio.run(current_state()) == "AWAITING_CONFIRMATION"
+        finally:
+            asyncio.run(_cleanup([trace_id], []))

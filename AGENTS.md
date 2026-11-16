@@ -13,6 +13,7 @@
    - 硬约束：`docs/architecture/invariants.md`、`docs/process/standards.md`。
    - 当前变更：`docs/specs/<spec>/`。
    - 架构取舍：相关 `docs/adr/`。
+   - 事务与 seam 归属：`docs/architecture/overview.md`。
    - 接管：`docs/handoffs/` 最新一篇（归档，不默认加载）。
 
 恢复结果与用户指令冲突时，以用户指令为准，先更新 `docs/CURRENT.md` 再继续。

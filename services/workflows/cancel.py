@@ -173,6 +173,7 @@ class SqlCancellationRepository:
                     state=task.state.value,
                     reason_code=task.reason_code,
                     last_error_code=task.last_error_code,
+                    oms_request_id=task.oms_request_id,
                     version=task.version + 1,
                 )
             ),
@@ -283,7 +284,6 @@ class CancellationWorkflow:
             expires_at=self._now() + self._confirm_timeout,
         )
         await self._repository.create(task)
-        await self._repository.commit()
         if not eligibility["eligible"]:
             target = CancellationState.ELIGIBILITY_REJECTED
             task.reason_code = eligibility["reason_code"]

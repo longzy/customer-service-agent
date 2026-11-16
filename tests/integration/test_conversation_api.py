@@ -40,7 +40,10 @@ def test_查询订单返回结果并落库_AC_01() -> None:
     repo = MemoryRepository()
     app = create_app()
     app.state.model_client = FakeModelClient(
-        {"查 ORD-10001": {"intent": "QUERY_ORDER", "order_id": "ORD-10001"}}
+        {
+            "查 ORD-10001": {"intent": "QUERY_ORDER", "order_id": "ORD-10001"},
+            "取消 ORD-10001": {"intent": "CANCEL_ORDER", "order_id": "ORD-10001"},
+        }
     )
     app.dependency_overrides[get_repository] = lambda: repo
     with TestClient(app) as api:
@@ -134,3 +137,36 @@ def test_取消意图返回确认卡片_AC_04() -> None:
         assert card["order"]["order_id"] == "ORD-10001"
         assert card["order"]["status_text"] == "待发货"
         assert card["order"]["amount_cents"] == 39900
+
+
+def test_消息响应键契约_基座豁免() -> None:
+    repo = MemoryRepository()
+    app = create_app()
+    app.state.model_client = FakeModelClient(
+        {
+            "查 ORD-10001": {"intent": "QUERY_ORDER", "order_id": "ORD-10001"},
+            "取消 ORD-10001": {"intent": "CANCEL_ORDER", "order_id": "ORD-10001"},
+        }
+    )
+    app.dependency_overrides[get_repository] = lambda: repo
+    with TestClient(app) as api:
+        api.post("/session", json={"account_id": "zhang-ming"})
+        body = api.post("/message", json={"content": "查 ORD-10001"}).json()
+        required = {
+            "conversation_id",
+            "trace_id",
+            "reply",
+            "orders",
+            "clarification",
+            "cancellation",
+            "transferred",
+        }
+        assert required <= set(body)
+        assert "validation" not in body
+
+        cancel = api.post("/message", json={"content": "取消 ORD-10001"}).json()
+        assert required <= set(cancel)
+        assert "validation" not in cancel
+        assert {"task_id", "trace_id", "state", "state_text", "order"} <= set(
+            cancel["cancellation"]
+        )

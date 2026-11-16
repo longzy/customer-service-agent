@@ -66,6 +66,7 @@ pnpm -C apps/web install
 # 一键验证：ruff、mypy、pytest（独立测试库）、路由覆盖、追溯、状态、文档、前端
 ./scripts/verify.sh
 ./scripts/verify.sh --no-record   # CI 使用：只验证，不写回状态快照
+./scripts/verify.sh --fast        # 后端快速反馈：ruff/format/mypy/unit
 
 # 单独运行
 UV_CACHE_DIR=./.uv-cache uv run ruff check .

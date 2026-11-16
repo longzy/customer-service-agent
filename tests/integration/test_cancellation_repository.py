@@ -233,3 +233,72 @@ async def test_可恢复查询只返回两种状态并映射字段_AC_10() -> No
 
         await session.execute(delete(CancellationRow).where(CancellationRow.id.in_(ids)))
         await session.commit()
+
+
+async def test_仓储全字段往返_AC_04() -> None:
+    async with session_factory() as session:
+        repo = SqlCancellationRepository(session)
+        task_id = "task-roundtrip"
+        await session.execute(delete(CancellationRow).where(CancellationRow.id == task_id))
+        await session.commit()
+        created = task(
+            id=task_id,
+            state=CancellationState.SUBMITTING,
+            idempotency_key="idem-roundtrip",
+            trace_id="trace-roundtrip",
+            reason_code="SHIPPED",
+            conversation_id="conv-roundtrip",
+            last_error_code="DEPENDENCY_TIMEOUT",
+            oms_request_id="oms-roundtrip",
+            version=4,
+        )
+        await repo.create(created)
+        await repo.commit()
+
+        loaded = await repo.get(task_id, OWNER)
+        assert loaded.id == created.id
+        assert loaded.tenant_id == created.tenant_id
+        assert loaded.user_id == created.user_id
+        assert loaded.order_id == created.order_id
+        assert loaded.state == created.state
+        assert loaded.idempotency_key == created.idempotency_key
+        assert loaded.expires_at == created.expires_at
+        assert loaded.reason_code == created.reason_code
+        assert loaded.conversation_id == created.conversation_id
+        assert loaded.trace_id == created.trace_id
+        assert loaded.last_error_code == created.last_error_code
+        assert loaded.oms_request_id == created.oms_request_id
+        assert loaded.version == created.version
+
+        listed = {item.id: item for item in await repo.list_recoverable()}
+        item = listed[task_id]
+        assert item.tenant_id == created.tenant_id
+        assert item.user_id == created.user_id
+        assert item.order_id == created.order_id
+        assert item.state == created.state
+        assert item.idempotency_key == created.idempotency_key
+        assert item.expires_at == created.expires_at
+        assert item.reason_code == created.reason_code
+        assert item.conversation_id == created.conversation_id
+        assert item.trace_id == "trace-roundtrip"
+        assert item.last_error_code == created.last_error_code
+        assert item.oms_request_id == created.oms_request_id
+        assert item.version == created.version
+
+        loaded.state = CancellationState.SUBMIT_UNKNOWN
+        loaded.reason_code = "FULFILLING"
+        loaded.last_error_code = "INVALID_RESPONSE"
+        loaded.oms_request_id = "oms-roundtrip-2"
+        await repo.save(loaded)
+        await repo.commit()
+
+        saved = await repo.get(task_id, OWNER)
+        assert saved.state == CancellationState.SUBMIT_UNKNOWN
+        assert saved.reason_code == "FULFILLING"
+        assert saved.last_error_code == "INVALID_RESPONSE"
+        assert saved.oms_request_id == "oms-roundtrip-2"
+        assert saved.version == 5
+        assert saved.trace_id == "trace-roundtrip"
+
+        await session.execute(delete(CancellationRow).where(CancellationRow.id == task_id))
+        await session.commit()

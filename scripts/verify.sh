@@ -1,15 +1,34 @@
 #!/bin/sh
 # 本地/CI 统一验证入口。每一步跑一次，结果写入一份摘要。
 # 用法：
-#   ./scripts/verify.sh            # 全量验证并回写 docs/CURRENT.md 的验证块
+#   ./scripts/verify.sh             # 全量验证并回写 docs/CURRENT.md 的验证块
 #   ./scripts/verify.sh --no-record # 只验证，不修改仓库（CI 使用）
+#   ./scripts/verify.sh --fast      # 后端快速反馈：ruff/format/mypy/unit，不写状态
 set -e
 cd "$(git rev-parse --show-toplevel)"
 
 export UV_CACHE_DIR="${UV_CACHE_DIR:-./.uv-cache}"
 RECORD=1
-if [ "${1:-}" = "--no-record" ]; then
-  RECORD=0
+FAST=0
+for arg in "$@"; do
+  case "$arg" in
+    --no-record) RECORD=0 ;;
+    --fast) FAST=1 ;;
+    *) echo "未知参数：$arg" >&2; exit 2 ;;
+  esac
+done
+
+if [ "$FAST" = "1" ]; then
+  echo "== fast: ruff check =="
+  uv run ruff check .
+  echo "== fast: ruff format =="
+  uv run ruff format --check .
+  echo "== fast: mypy =="
+  uv run mypy services
+  echo "== fast: unit tests（独立测试库）=="
+  ./scripts/test-db.sh tests/unit -q
+  echo "fast checks passed"
+  exit 0
 fi
 
 PYTEST_LOG=$(mktemp)

@@ -7,7 +7,7 @@
 - 当前工作：T-13 场景评测（未开工）
 
 <!-- verify:start -->
-- 最近验证：`./scripts/verify.sh` 全部检查通过——pytest 400 passed（独立测试库）、mypy 39 个文件、追溯矩阵通过（21 条 AC）、文档与前端检查通过
+- 最近验证：`./scripts/verify.sh` 全部检查通过——pytest 404 passed（独立测试库）、mypy 39 个文件、追溯矩阵通过（21 条 AC）、文档与前端检查通过
 <!-- verify:end -->
 
 ## 进行中

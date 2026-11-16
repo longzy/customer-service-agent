@@ -93,6 +93,19 @@ Web Chat
   -> Final Response
 ```
 
+### 事务与 seam 归属
+
+| 组件 | 提交什么 | 不负责 |
+|---|---|---|
+| Conversation API | 消息、意图/回复审计 | 工具执行记录 |
+| Cancellation Workflow | 任务状态 + 转换/确认审计 | 工具执行记录、HTTP 响应 |
+| `create_handoff` | 只 `flush`，由调用方提交 | 自己 `commit` |
+| Tool Gateway | `tool_executions`（写前 `started`、完成/拒绝） | 业务事务 |
+| `AsyncTraceSink` | 独立 session 写工具执行记录 | 业务事务/请求 session |
+| 启动恢复 | 逐任务复用 `trace_id` 执行，不新建 `startup-*` | 建立新 trace |
+
+排查提交顺序时先看这张表；新增写入点必须明确归谁提交。Conversation API 与 Workflow 共用请求 session，Workflow 的 `commit` 会一并提交 API 挂起的意图审计。
+
 ## 5. 模型与确定性代码的边界
 
 ### 模型负责
