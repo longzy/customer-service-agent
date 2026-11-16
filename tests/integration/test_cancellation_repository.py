@@ -5,10 +5,10 @@ from datetime import UTC, datetime
 import pytest
 from sqlalchemy import delete
 
-from services.api.auth import Identity
-from services.api.db import session_factory
-from services.api.domain.cancellation import CancellationState
-from services.api.models import CancellationRequest as CancellationRow
+from services.domain.cancellation import CancellationState
+from services.identity import Identity
+from services.platform.db import session_factory
+from services.platform.models import CancellationRequest as CancellationRow
 from services.workflows.cancel import (
     CancellationTask,
     SqlCancellationRepository,

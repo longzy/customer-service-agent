@@ -4,7 +4,7 @@ import inspect
 
 import pytest
 
-from services.api.domain.orders import OrderSummary
+from services.domain.orders import OrderSummary
 from services.errors import DownstreamInvalidResponse
 from services.tools import policy
 from services.tools.policy import evaluate_eligibility

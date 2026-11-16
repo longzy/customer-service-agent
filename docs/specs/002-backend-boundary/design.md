@@ -47,7 +47,7 @@ services/
 | `adapters/oms` | `domain`、`platform`、`contracts`、`errors`、httpx | `api`、`tools`、`workflows` |
 | `tools` | `domain`、`identity`、`platform`、`adapters.oms.port`、`contracts`、`errors` | `api`、`mock_oms`、`adapters.oms.mock`、`adapters.oms.http` |
 | `workflows` | `domain`、`identity`、`platform`、`tools` | `api`、`mock_oms`、具体 Adapter |
-| `agent_runtime` | `domain`、`contracts`、`platform` | `api`、`mock_oms`、SQLAlchemy、FastAPI、具体 Adapter |
+| `agent_runtime` | `domain`、`contracts`、`platform`、`identity`（仅类型） | `api`、`mock_oms`、SQLAlchemy、FastAPI、具体 Adapter |
 
 `api/admin_routes.py` 是开发/测试专用的故障注入入口，允许引用 `adapters.oms.mock.FaultEngine`；生产不注册该路由。
 

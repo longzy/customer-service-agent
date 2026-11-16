@@ -7,9 +7,10 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from services.api.auth import Identity, current_identity
-from services.api.db import get_session
+from services.api.auth_web import current_identity
 from services.api.handoff import create_handoff
+from services.identity import Identity
+from services.platform.db import get_session
 
 router = APIRouter()
 

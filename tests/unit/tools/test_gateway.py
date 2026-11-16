@@ -4,8 +4,8 @@ from typing import Any
 
 import pytest
 
-from services.api.auth import Identity
-from services.api.domain.errors import ErrorCode
+from services.domain.errors import ErrorCode
+from services.identity import Identity
 from services.tools.gateway import (
     DownstreamInvalidResponse,
     GatewayError,
@@ -226,7 +226,7 @@ def test_审计失败按失败关闭处理_AC_18() -> None:
         ownership=ownership,
         audit=broken_audit,
     )
-    from services.api.observability import TraceSinkError
+    from services.platform.observability import TraceSinkError
 
     with pytest.raises(TraceSinkError) as exc:
         tool.invoke("get_order", {"order_id": "ORD-10001"}, IDENTITY, trace_id="t-1")
@@ -432,7 +432,7 @@ def test_网关错误保留状态码与消息_AC_14() -> None:
 
 
 def test_错误封套字段完整_AC_11() -> None:
-    from services.api.domain.errors import SPECS, ErrorCode
+    from services.domain.errors import SPECS, ErrorCode
     from services.tools.gateway import error_envelope
 
     for code, spec in SPECS.items():
@@ -568,7 +568,7 @@ class RecordingSink:
 
 
 def test_工具写前与完成审计_AC_17() -> None:
-    from services.api.observability import use_trace_sink
+    from services.platform.observability import use_trace_sink
 
     recorder = Recorder()
     sink = RecordingSink()
@@ -584,7 +584,7 @@ def test_工具写前与完成审计_AC_17() -> None:
 
 
 def test_工具拒绝写审计_AC_17() -> None:
-    from services.api.observability import use_trace_sink
+    from services.platform.observability import use_trace_sink
 
     sink = RecordingSink()
     with use_trace_sink(sink), pytest.raises(GatewayError):
@@ -598,7 +598,7 @@ def test_工具拒绝写审计_AC_17() -> None:
 
 
 def test_工具失败写审计_AC_17() -> None:
-    from services.api.observability import use_trace_sink
+    from services.platform.observability import use_trace_sink
 
     def boom(payload: dict[str, Any], identity: Identity, trace_id: str) -> None:
         raise RuntimeError("boom")
@@ -613,7 +613,7 @@ def test_工具失败写审计_AC_17() -> None:
 
 
 def test_审计start失败不调用handler_AC_18() -> None:
-    from services.api.observability import TraceSinkError, use_trace_sink
+    from services.platform.observability import TraceSinkError, use_trace_sink
 
     calls: list[str] = []
 
@@ -633,7 +633,7 @@ def test_审计start失败不调用handler_AC_18() -> None:
 
 
 def test_审计finish失败向上抛_AC_18() -> None:
-    from services.api.observability import TraceSinkError, use_trace_sink
+    from services.platform.observability import TraceSinkError, use_trace_sink
 
     class FailingFinish(RecordingSink):
         def finish(self, execution_id: str, **kwargs: Any) -> None:
@@ -644,7 +644,7 @@ def test_审计finish失败向上抛_AC_18() -> None:
 
 
 def test_审计reject失败向上抛_AC_18() -> None:
-    from services.api.observability import TraceSinkError, use_trace_sink
+    from services.platform.observability import TraceSinkError, use_trace_sink
 
     class FailingReject(RecordingSink):
         def reject(self, **kwargs: Any) -> None:
@@ -657,7 +657,7 @@ def test_审计reject失败向上抛_AC_18() -> None:
 
 
 def test_非法参数审计sink记录payload_AC_17() -> None:
-    from services.api.observability import use_trace_sink
+    from services.platform.observability import use_trace_sink
 
     sink = RecordingSink()
     with use_trace_sink(sink), pytest.raises(GatewayError):
@@ -669,7 +669,7 @@ def test_非法参数审计sink记录payload_AC_17() -> None:
 
 
 def test_越权审计sink记录payload_AC_17() -> None:
-    from services.api.observability import use_trace_sink
+    from services.platform.observability import use_trace_sink
 
     sink = RecordingSink()
     with use_trace_sink(sink), pytest.raises(GatewayError):
@@ -681,7 +681,7 @@ def test_越权审计sink记录payload_AC_17() -> None:
 
 
 def test_非对象参数审计sink记录空payload_AC_17() -> None:
-    from services.api.observability import use_trace_sink
+    from services.platform.observability import use_trace_sink
 
     sink = RecordingSink()
     with use_trace_sink(sink), pytest.raises(GatewayError):

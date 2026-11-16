@@ -244,7 +244,7 @@ sequenceDiagram
 - 金额一律为整数分（`amount_cents`），禁止浮点；币种单独字段，三位大写字母。
 - 时间一律为带 `Z` 的 ISO 8601 UTC 字符串；偏移量形式与时间戳数字一律拒绝，展示层再转本地时区。
 - 订单摘要的 `cancelable` 必须由订单状态推导，不得由调用方随意传入。
-- 错误码的七类分类与“可重试 / 对用户可见”属性见 `services/api/domain/errors.py`；越权统一为 `NOT_FOUND_OR_UNAUTHORIZED`。
+- 错误码的七类分类与“可重试 / 对用户可见”属性见 `services/domain/errors.py`；越权统一为 `NOT_FOUND_OR_UNAUTHORIZED`。
 - 字段级正反例由契约测试保证，见 `tests/unit/domain/test_contract_schemas.py`。
 
 ## 5. 数据模型草案
@@ -345,7 +345,7 @@ Agent 输出建议使用结构化动作，例如：
 
 ### 7.1 唯一文案来源
 
-结果文案只有一处：`services/api/domain/cancellation.py` 的 `render_result(state, reason_code)`，返回：
+结果文案只有一处：`services/domain/cancellation.py` 的 `render_result(state, reason_code)`，返回：
 
 - `state_text`：状态标签，取自 `requirements.md` 第 9 节“内部状态与用户可见表达”。
 - `reason_text`：仅 `ELIGIBILITY_REJECTED` 非空，由 `reason_code` 映射；其他状态为 `None`。
@@ -638,7 +638,7 @@ M1 只有一个入口：单页面 Web Chat，一次只处理一个会话。
 | `Secure` | `ENVIRONMENT` 不是 `development`/`test` 时为真；可用 `COOKIE_SECURE` 显式覆盖 | 本机 HTTP 开发不受影响，共享环境强制加密 |
 | `Max-Age` | 等于会话 TTL（8 小时） | 与服务端过期一致 |
 
-配置来源唯一：`services/api/settings.py` 的 `secure_cookie` 属性。路由不得自行判断环境。
+配置来源唯一：`services/platform/settings.py` 的 `secure_cookie` 属性。路由不得自行判断环境。
 
 ### 13.2 跨站写请求
 

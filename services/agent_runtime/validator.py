@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from services.api.domain.cancellation import CancellationState, CancelReason, render_result
+from services.domain.cancellation import CancellationState, CancelReason, render_result
 
 MISMATCH = "REPLY_MISMATCH"
 

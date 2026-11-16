@@ -10,8 +10,8 @@
 import re
 from pathlib import Path
 
-from services.api.domain.cancellation import EXPRESSIONS, CancellationState
-from services.api.domain.orders import OrderStatus
+from services.domain.cancellation import EXPRESSIONS, CancellationState
+from services.domain.orders import OrderStatus
 
 SPEC_DIR = Path("docs/specs/001-order-cancel")
 REQUIREMENTS = (SPEC_DIR / "requirements.md").read_text(encoding="utf-8")

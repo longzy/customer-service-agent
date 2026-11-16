@@ -17,7 +17,7 @@ from uuid import uuid4
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from services.api.models import (
+from services.platform.models import (
     AuditEvent,
     CancellationRequest,
     Conversation,

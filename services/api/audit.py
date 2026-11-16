@@ -5,9 +5,9 @@ from uuid import uuid4
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from services.api.auth import Identity
-from services.api.models import AuditEvent, Handoff
-from services.api.observability import idempotency_digest, redact_event
+from services.identity import Identity
+from services.platform.models import AuditEvent, Handoff
+from services.platform.observability import idempotency_digest, redact_event
 
 
 async def record_audit(

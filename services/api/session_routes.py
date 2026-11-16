@@ -5,15 +5,15 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, ConfigDict
 
-from services.api.auth import (
+from services.api.auth_web import current_identity
+from services.identity import (
     SESSION_COOKIE,
     SESSION_TTL,
     Identity,
     create_session,
-    current_identity,
     destroy_session,
 )
-from services.api.settings import settings
+from services.platform.settings import settings
 
 router = APIRouter()
 

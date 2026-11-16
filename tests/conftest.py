@@ -2,8 +2,8 @@
 
 import pytest
 
-from services.api import auth
-from services.api.settings import settings
+from services import identity as auth
+from services.platform.settings import settings
 
 
 @pytest.fixture(autouse=True)
@@ -21,6 +21,6 @@ def _clear_sessions() -> None:
 async def _dispose_db_engine():
     """避免跨用例复用绑定到旧事件循环的连接池。"""
     yield
-    from services.api.db import engine
+    from services.platform.db import engine
 
     await engine.dispose()

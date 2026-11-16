@@ -6,11 +6,11 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import delete
 
-from services.api.auth import Identity
-from services.api.db import session_factory
 from services.api.handoff import create_handoff
 from services.api.main import create_app
-from services.api.models import (
+from services.identity import Identity
+from services.platform.db import session_factory
+from services.platform.models import (
     CancellationRequest,
     Conversation,
     Handoff,
@@ -76,7 +76,7 @@ def test_转人工后消息被拒绝_AC_13() -> None:
     from sqlalchemy import text
     from sqlalchemy.ext.asyncio import create_async_engine
 
-    from services.api.settings import settings
+    from services.platform.settings import settings
 
     async def setup() -> None:
         engine = create_async_engine(settings.database_url)
@@ -122,7 +122,7 @@ def test_handoff_api_context_and_idempotent_AC_13() -> None:
     from sqlalchemy.ext.asyncio import create_async_engine
 
     from services.agent_runtime.model import FakeModelClient
-    from services.api.settings import settings
+    from services.platform.settings import settings
 
     async def cleanup() -> None:
         engine = create_async_engine(settings.database_url)

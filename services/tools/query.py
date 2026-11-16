@@ -3,7 +3,7 @@
 from collections.abc import Callable
 from typing import Any
 
-from services.api.auth import Identity
+from services.identity import Identity
 from services.mock_oms.service import MockOms
 from services.tools.gateway import OwnershipIndex, ToolGateway, ToolSpec
 

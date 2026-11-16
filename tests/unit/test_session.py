@@ -82,7 +82,7 @@ def test_同租户内切换账号_AC_20() -> None:
 def test_会话过期后失效_AC_20(monkeypatch: pytest.MonkeyPatch) -> None:
     from datetime import timedelta
 
-    from services.api import auth
+    from services import identity as auth
 
     monkeypatch.setattr(auth, "SESSION_TTL", timedelta(seconds=-1))
     with client() as api:

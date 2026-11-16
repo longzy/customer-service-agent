@@ -9,8 +9,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from services.api.db import session_factory
-from services.api.observability import load_trace
+from services.platform.db import session_factory
+from services.platform.observability import load_trace
 
 
 async def run(trace_id: str, tenant_id: str) -> dict[str, object]:

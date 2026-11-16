@@ -22,7 +22,7 @@ def test_startup_recovers_pending_task_AC_12(monkeypatch) -> None:
     from sqlalchemy import text
     from sqlalchemy.ext.asyncio import create_async_engine
 
-    from services.api.settings import settings
+    from services.platform.settings import settings
     from tests.integration.db_utils import db_available
 
     if not db_available():
@@ -77,8 +77,8 @@ def test_startup_recovers_pending_task_AC_12(monkeypatch) -> None:
     async def trace_view():
         from sqlalchemy.ext.asyncio import async_sessionmaker
 
-        from services.api.observability import load_trace
-        from services.api.settings import settings
+        from services.platform.observability import load_trace
+        from services.platform.settings import settings
 
         engine = create_async_engine(settings.database_url)
         factory = async_sessionmaker(engine, expire_on_commit=False)
@@ -100,7 +100,7 @@ async def _cleanup() -> None:
     from sqlalchemy import text
     from sqlalchemy.ext.asyncio import create_async_engine
 
-    from services.api.settings import settings
+    from services.platform.settings import settings
 
     engine = create_async_engine(settings.database_url)
     async with engine.begin() as conn:
@@ -116,8 +116,8 @@ def test_startup_retries_then_accepts_AC_10(monkeypatch) -> None:
     from sqlalchemy.ext.asyncio import create_async_engine
 
     from services.api.main import create_app
-    from services.api.settings import settings
     from services.mock_oms.faults import FaultRule
+    from services.platform.settings import settings
     from tests.integration.db_utils import db_available
 
     if not db_available():
@@ -166,7 +166,7 @@ async def _cleanup_task(task_id: str) -> None:
     from sqlalchemy import text
     from sqlalchemy.ext.asyncio import create_async_engine
 
-    from services.api.settings import settings
+    from services.platform.settings import settings
 
     engine = create_async_engine(settings.database_url)
     async with engine.begin() as conn:

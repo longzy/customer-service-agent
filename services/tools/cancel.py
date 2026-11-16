@@ -3,8 +3,8 @@
 from collections.abc import Callable
 from typing import Any
 
-from services.api.auth import Identity
-from services.api.domain.orders import OrderDetail
+from services.domain.orders import OrderDetail
+from services.identity import Identity
 from services.mock_oms.service import MockOms
 from services.tools.gateway import OwnershipIndex, ToolGateway, ToolSpec
 from services.tools.policy import evaluate_eligibility

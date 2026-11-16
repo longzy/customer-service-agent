@@ -15,8 +15,8 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from services.agent_runtime.model import FakeModelClient
 from services.api.conversation_routes import get_repository
 from services.api.main import create_app
-from services.api.models import AuditEvent, CancellationRequest, ToolExecution
-from services.api.settings import settings
+from services.platform.models import AuditEvent, CancellationRequest, ToolExecution
+from services.platform.settings import settings
 from tests.integration.db_utils import db_available
 
 pytestmark = pytest.mark.skipif(not db_available(), reason="Postgres 不可用")

@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter
 
-from services.api.auth import ACCOUNTS, Identity
+from services.identity import ACCOUNTS, Identity
 
 router = APIRouter()
 

@@ -3,9 +3,9 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from services.api.auth import Identity
 from services.api.cancellation_routes import get_repository
 from services.api.main import create_app
+from services.identity import Identity
 from services.workflows.cancel import (
     CancellationRepository,
     CancellationTask,
@@ -142,7 +142,7 @@ def test_不接受客户端会话标识_AC_04() -> None:
 def test_查询时冲突返回409_基座豁免() -> None:
     from datetime import UTC, datetime
 
-    from services.api.domain.cancellation import CancellationState
+    from services.domain.cancellation import CancellationState
     from services.workflows.cancel import CancellationTask
 
     class ConflictOnSave(MemoryRepository):

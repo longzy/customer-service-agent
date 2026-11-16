@@ -2,7 +2,7 @@
 
 import pytest
 
-from services.api.domain.orders import OrderStatus, is_cancelable
+from services.domain.orders import OrderStatus, is_cancelable
 
 
 def test_未发货订单可取消_AC_04() -> None:

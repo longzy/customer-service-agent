@@ -3,9 +3,9 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from services.api import auth
+from services import identity as auth
 from services.api.main import create_app
-from services.api.settings import Settings, settings
+from services.platform.settings import Settings, settings
 
 
 def client() -> TestClient:

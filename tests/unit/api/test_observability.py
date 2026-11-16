@@ -2,7 +2,7 @@
 
 import logging
 
-from services.api.observability import (
+from services.platform.observability import (
     TraceSinkError,
     idempotency_digest,
     log_event,

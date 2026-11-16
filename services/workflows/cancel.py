@@ -12,9 +12,9 @@ from sqlalchemy import select, update
 from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from services.api.auth import Identity
-from services.api.domain.cancellation import CancellationState, OmsCancelState
-from services.api.models import CancellationRequest as CancellationRow
+from services.domain.cancellation import CancellationState, OmsCancelState
+from services.identity import Identity
+from services.platform.models import CancellationRequest as CancellationRow
 from services.tools.gateway import GatewayError, ToolGateway
 
 logger = logging.getLogger(__name__)

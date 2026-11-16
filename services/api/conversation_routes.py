@@ -13,12 +13,13 @@ from services.agent_runtime.chat import ConversationRepository, ConversationServ
 from services.agent_runtime.intent import IntentError
 from services.agent_runtime.model import ModelError
 from services.api.audit import audit_intent, audit_reply, audit_transition
-from services.api.auth import Identity, current_identity
-from services.api.db import get_session, session_factory
+from services.api.auth_web import current_identity
 from services.api.handoff import create_handoff
-from services.api.models import Conversation, Handoff, Message
-from services.api.observability import AsyncTraceSink, log_event, use_trace_sink
-from services.api.settings import settings
+from services.identity import Identity
+from services.platform.db import get_session, session_factory
+from services.platform.models import Conversation, Handoff, Message
+from services.platform.observability import AsyncTraceSink, log_event, use_trace_sink
+from services.platform.settings import settings
 from services.workflows.cancel import CancellationWorkflow, SqlCancellationRepository
 
 router = APIRouter()

@@ -5,9 +5,9 @@ from typing import Any
 
 import pytest
 
-from services.api.auth import Identity
-from services.api.domain.cancellation import CancellationState
+from services.domain.cancellation import CancellationState
 from services.errors import OrderNotFound
+from services.identity import Identity
 from services.mock_oms.faults import FaultRule
 from services.mock_oms.service import MockOms
 from services.tools.cancel import build_cancel_gateway
@@ -342,7 +342,7 @@ class _Session:
 
 
 async def test_可恢复查询字段映射与状态参数_AC_10() -> None:
-    from services.api.models import CancellationRequest as CancellationRow
+    from services.platform.models import CancellationRequest as CancellationRow
 
     row = CancellationRow(
         id="task-map",
@@ -443,7 +443,7 @@ async def test_放弃写状态转换审计_AC_17() -> None:
 
 
 async def test_审计失败向上抛_AC_18() -> None:
-    from services.api.observability import TraceSinkError
+    from services.platform.observability import TraceSinkError
 
     async def failing(event: dict[str, Any]) -> None:
         raise TraceSinkError("down")
@@ -454,7 +454,7 @@ async def test_审计失败向上抛_AC_18() -> None:
 
 
 async def test_确认审计失败不被吞_AC_18() -> None:
-    from services.api.observability import TraceSinkError
+    from services.platform.observability import TraceSinkError
 
     events: list[dict[str, Any]] = []
 
@@ -521,7 +521,7 @@ async def test_重复确认写幂等确认审计_AC_17() -> None:
 
 
 async def test_确认审计失败不推进状态_AC_18() -> None:
-    from services.api.observability import TraceSinkError
+    from services.platform.observability import TraceSinkError
 
     async def failing(event: dict[str, Any]) -> None:
         raise TraceSinkError("down")

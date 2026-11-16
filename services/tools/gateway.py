@@ -12,21 +12,21 @@ from typing import Any
 
 from jsonschema import Draft202012Validator
 
-from services.api.auth import Identity
-from services.api.domain.errors import ErrorCode, error_spec
-from services.api.observability import TraceSinkError, current_trace_sink
 from services.contracts import (
     build_registry,
     load_domain,
     load_tool_documents,
     validator_for,
 )
+from services.domain.errors import ErrorCode, error_spec
 from services.errors import (
     CancelRejected,
     DownstreamInvalidResponse,
     IdempotencyConflict,
     OrderNotFound,
 )
+from services.identity import Identity
+from services.platform.observability import TraceSinkError, current_trace_sink
 
 IDENTITY_FIELDS = {"tenant_id", "user_id"}
 

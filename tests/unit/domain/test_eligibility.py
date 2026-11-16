@@ -3,7 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
-from services.api.domain.cancellation import CancelEligibility
+from services.domain.cancellation import CancelEligibility
 
 
 def test_合法资格结果通过_AC_04() -> None:

@@ -32,7 +32,7 @@ def test_登录响应包含租户展示名_AC_20() -> None:
 
 # 基座豁免：生产环境门禁不属于 AC-20 的登录场景，但属于 FR-11 的“仅开发期可用”。
 def test_生产环境不挂载账号接口_基座豁免(monkeypatch: pytest.MonkeyPatch) -> None:
-    from services.api.settings import settings
+    from services.platform.settings import settings
 
     monkeypatch.setattr(settings, "environment", "production")
     monkeypatch.setattr(settings, "model_api_key", "test-key")
@@ -42,7 +42,7 @@ def test_生产环境不挂载账号接口_基座豁免(monkeypatch: pytest.Monk
 
 @pytest.mark.parametrize("env", ["production", "prod", ""])
 def test_非开发环境禁止测试账号登录_AC_20(monkeypatch: pytest.MonkeyPatch, env: str) -> None:
-    from services.api.settings import settings
+    from services.platform.settings import settings
 
     monkeypatch.setattr(settings, "environment", env)
     monkeypatch.setattr(settings, "model_api_key", "test-key")
@@ -52,7 +52,7 @@ def test_非开发环境禁止测试账号登录_AC_20(monkeypatch: pytest.Monke
 
 
 def test_未设置环境变量时默认关闭测试账号_AC_20(monkeypatch: pytest.MonkeyPatch) -> None:
-    from services.api.settings import Settings
+    from services.platform.settings import Settings
 
     monkeypatch.delenv("ENVIRONMENT", raising=False)
     fresh = Settings(_env_file=None)

@@ -9,10 +9,10 @@ from uuid import uuid4
 from services.agent_runtime.intent import classify_message
 from services.agent_runtime.types import Intent
 from services.agent_runtime.validator import validate_reply
-from services.api.auth import Identity
-from services.api.domain.cancellation import EXPRESSIONS, render_result
-from services.api.domain.errors import ErrorCode
-from services.api.domain.orders import ORDER_STATUS_TEXT, OrderStatus
+from services.domain.cancellation import EXPRESSIONS, render_result
+from services.domain.errors import ErrorCode
+from services.domain.orders import ORDER_STATUS_TEXT, OrderStatus
+from services.identity import Identity
 from services.tools.gateway import GatewayError, ToolGateway
 
 

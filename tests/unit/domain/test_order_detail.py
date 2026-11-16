@@ -5,7 +5,7 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from services.api.domain.orders import OrderDetail, OrderItem
+from services.domain.orders import OrderDetail, OrderItem
 
 
 def item(**overrides: Any) -> dict[str, Any]:

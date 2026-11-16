@@ -3,7 +3,7 @@
 import socket
 from urllib.parse import urlparse
 
-from services.api.settings import settings
+from services.platform.settings import settings
 
 
 def db_available() -> bool:

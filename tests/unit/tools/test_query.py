@@ -4,9 +4,9 @@ from typing import Any
 
 import pytest
 
-from services.api.auth import Identity
-from services.api.domain.errors import ErrorCode
 from services.contracts import build_registry, load_domain, load_tool_documents, validator_for
+from services.domain.errors import ErrorCode
+from services.identity import Identity
 from services.mock_oms.faults import FaultRule
 from services.mock_oms.service import MockOms
 from services.tools.gateway import GatewayError, ToolGateway

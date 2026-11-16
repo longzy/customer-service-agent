@@ -6,7 +6,7 @@ import pytest
 
 from services.agent_runtime.chat import ConversationService
 from services.agent_runtime.model import FakeModelClient
-from services.api.auth import Identity
+from services.identity import Identity
 from services.mock_oms.service import MockOms
 from services.tools.query import build_query_gateway
 
@@ -107,7 +107,7 @@ async def test_最近订单故障返回通用文案_AC_01() -> None:
 async def test_内部错误不宣称已转人工_AC_01() -> None:
     class InternalErrorGateway:
         def invoke(self, name, payload, identity, trace_id):
-            from services.api.domain.errors import ErrorCode
+            from services.domain.errors import ErrorCode
             from services.tools.gateway import GatewayError, error_envelope
 
             raise GatewayError(500, error_envelope(ErrorCode.INTERNAL_ERROR))
@@ -146,7 +146,7 @@ async def test_取消意图返回卡片数据_AC_04() -> None:
             return SimpleNamespace(
                 id="task-1",
                 state=__import__(
-                    "services.api.domain.cancellation", fromlist=["CancellationState"]
+                    "services.domain.cancellation", fromlist=["CancellationState"]
                 ).CancellationState.AWAITING_CONFIRMATION,
                 reason_code=None,
                 expires_at=datetime(2026, 11, 15, 12, 0, tzinfo=UTC),
@@ -167,7 +167,7 @@ async def test_取消意图返回卡片数据_AC_04() -> None:
 
 
 async def test_取消路径网关错误返回文案_AC_04() -> None:
-    from services.api.domain.errors import ErrorCode
+    from services.domain.errors import ErrorCode
     from services.tools.gateway import GatewayError, error_envelope
 
     class FailingWorkflow:
@@ -189,7 +189,7 @@ async def test_取消意图回复包含下一步_AC_16() -> None:
     from datetime import UTC, datetime
     from types import SimpleNamespace
 
-    from services.api.domain.cancellation import CancellationState
+    from services.domain.cancellation import CancellationState
 
     class FakeWorkflow:
         async def request(self, identity, order_id, trace_id, conversation_id=None):
@@ -217,7 +217,7 @@ async def test_资格拒绝回复带原因文案_AC_16() -> None:
     from datetime import UTC, datetime
     from types import SimpleNamespace
 
-    from services.api.domain.cancellation import CancellationState
+    from services.domain.cancellation import CancellationState
 
     class FakeWorkflow:
         async def request(self, identity, order_id, trace_id, conversation_id=None):
@@ -268,7 +268,7 @@ async def _reply_for(state, reason_code=None):
 
 
 async def test_超时恢复后回复为已受理_AC_10() -> None:
-    from services.api.domain.cancellation import CancellationState
+    from services.domain.cancellation import CancellationState
 
     reply = await _reply_for(CancellationState.ACCEPTED)
     assert reply.reply == "已受理，等待最终取消结果。如需帮助，可转人工。"
@@ -276,7 +276,7 @@ async def test_超时恢复后回复为已受理_AC_10() -> None:
 
 
 async def test_非法响应回复为未知_AC_11() -> None:
-    from services.api.domain.cancellation import CancellationState
+    from services.domain.cancellation import CancellationState
 
     reply = await _reply_for(CancellationState.SUBMIT_UNKNOWN, "INVALID_RESPONSE")
     assert reply.reply == "已提交，正在核实受理结果。如长时间没有结果，可转人工核实。"
@@ -285,7 +285,7 @@ async def test_非法响应回复为未知_AC_11() -> None:
 
 
 async def test_重试耗尽回复人工_AC_11() -> None:
-    from services.api.domain.cancellation import CancellationState
+    from services.domain.cancellation import CancellationState
 
     reply = await _reply_for(CancellationState.MANUAL_REVIEW, "DEPENDENCY_TIMEOUT")
     assert reply.reply == "已转人工处理。人工会尽快核实，请稍候。"

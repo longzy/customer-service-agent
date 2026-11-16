@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from services.agent_runtime.model import FakeModelClient
 from services.api.main import create_app
-from services.api.models import (
+from services.platform.models import (
     AuditEvent,
     CancellationRequest,
     Conversation,
@@ -22,8 +22,8 @@ from services.api.models import (
     Message,
     ToolExecution,
 )
-from services.api.observability import TraceSinkError, load_trace
-from services.api.settings import settings
+from services.platform.observability import TraceSinkError, load_trace
+from services.platform.settings import settings
 from tests.integration.db_utils import db_available
 
 pytestmark = pytest.mark.skipif(not db_available(), reason="Postgres 不可用")
@@ -255,7 +255,7 @@ def test_审计失败返回500而不是200_AC_18(monkeypatch) -> None:
     def fail(*args, **kwargs):
         raise TraceSinkError("审计写入失败")
 
-    monkeypatch.setattr("services.api.observability.AsyncTraceSink.start", fail)
+    monkeypatch.setattr("services.platform.observability.AsyncTraceSink.start", fail)
     with _client() as api:
         _login(api)
         response = api.post("/message", json={"content": "查 ORD-10001"})

@@ -4,9 +4,9 @@ from typing import Any
 
 import pytest
 
-from services.api.auth import Identity
-from services.api.domain.errors import ErrorCode
+from services.domain.errors import ErrorCode
 from services.errors import DownstreamInvalidResponse, OrderNotFound
+from services.identity import Identity
 from services.mock_oms.faults import FaultEngine, FaultRule
 from services.mock_oms.service import MockOms
 from services.tools.gateway import GatewayError, OwnershipIndex, ToolGateway, ToolSpec
@@ -174,7 +174,7 @@ def test_生产环境不挂载故障管理接口_基座豁免(monkeypatch: pytes
     from fastapi.testclient import TestClient
 
     from services.api.main import create_app
-    from services.api.settings import settings
+    from services.platform.settings import settings
 
     monkeypatch.setattr(settings, "environment", "production")
     monkeypatch.setattr(settings, "model_api_key", "test-key")

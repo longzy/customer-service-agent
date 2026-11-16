@@ -8,8 +8,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.api.audit import audit_handoff
-from services.api.auth import Identity
-from services.api.models import CancellationRequest, Conversation, Handoff, Message
+from services.identity import Identity
+from services.platform.models import CancellationRequest, Conversation, Handoff, Message
 
 ORDER_PATTERN = re.compile(r"ORD-\d{4,12}", re.IGNORECASE)
 

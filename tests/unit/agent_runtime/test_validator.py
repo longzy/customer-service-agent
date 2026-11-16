@@ -3,7 +3,7 @@
 import pytest
 
 from services.agent_runtime.validator import MISMATCH, validate_reply
-from services.api.domain.cancellation import CancellationState, render_result
+from services.domain.cancellation import CancellationState, render_result
 
 
 def test_逐字相等通过_AC_16() -> None:

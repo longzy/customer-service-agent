@@ -3,6 +3,7 @@
 - 状态：已批准
 - 批准：2026-11-15（用户确认，含 T-16 登录页）
 - **Input**：`docs/specs/001-order-cancel/requirements.md`、`design.md`
+- **路径注记**：2026-11-16 R0-2 模块迁移后，已完成任务中的 `services/api/*` 路径已按新目录更新。
 - **Prerequisites**：需求与设计均已批准；任务按用户故事分组，每个故事可独立实现与测试
 - **Tests**：按 `docs/process/WORKFLOW.md` 附录 A，测试与实现同属一个任务，先红后绿；不为测试单列任务
 - **执行卡与评审**：任务开工前产出 `docs/tasks/001-order-cancel/T-XX.md`；完成后评审记录写入 `docs/reviews/001-order-cancel/T-XX.md`
@@ -18,7 +19,7 @@
 **Purpose**：工程初始化与基本结构
 
 - [x] T01 创建工程骨架（`pyproject.toml`、`services/`、`apps/web/`、`tests/`、`scripts/`）— 已完成，见 `docs/tasks/001-order-cancel/T-01.md`
-- [x] T02 定义领域类型与 JSON Schema（`services/api/domain/`、`packages/contracts/schemas/`）— 已完成，见 `docs/tasks/001-order-cancel/T-02.md`
+- [x] T02 定义领域类型与 JSON Schema（`services/domain/`、`packages/contracts/schemas/`）— 已完成，见 `docs/tasks/001-order-cancel/T-02.md`
   - _验收: AC-02、AC-04、AC-07、AC-11、AC-16_
 
 ## Phase 2: Foundational（阻塞所有故事）
@@ -27,7 +28,7 @@
 
 - [x] T03 定义 5 个 Tool 契约（`packages/contracts/tools/*.json`）
   - _验收: AC-01、AC-02、AC-04、AC-05、AC-07、AC-09、AC-10、AC-11_
-- [x] T04 [P] 实现认证与租户上下文（`services/api/auth.py`）
+- [x] T04 [P] 实现认证与租户上下文（`services/identity/__init__.py`）
   - _验收: AC-02、AC-03、AC-15_
 - [x] T05 实现授权 Tool Gateway（`services/tools/gateway.py`）— depends on T03、T04
   - _验收: AC-02、AC-03、AC-14、AC-15_
@@ -55,7 +56,7 @@
   - _验收: AC-01、AC-02、AC-03_
 - [x] T09 [P] [US1] 实现查询意图识别与订单澄清（`services/agent_runtime/intent.py`）— depends on T17
   - _验收: AC-01、AC-08_
-- [x] T18 [US1] 实现 Conversation API 与消息持久化（`services/api/conversation_routes.py`、`services/api/models.py`）— depends on T09、T17
+- [x] T18 [US1] 实现 Conversation API 与消息持久化（`services/api/conversation_routes.py`、`services/platform/models.py`）— depends on T09、T17
   - _验收: AC-01、AC-08_
 - [x] T10 [P] [US1] 实现查询结果展示与空态（`apps/web/components/QueryView.tsx`）— depends on T18
   - _验收: AC-01_
@@ -83,7 +84,7 @@
 **Goal**：不可取消有明确原因；未知状态可恢复；可转人工且上下文完整
 **Independent Test**：对已发货订单、注入超时、连续故障分别验证三类结果
 
-- [x] T11 [US5] 实现结果渲染与校验（`services/agent_runtime/validator.py`、`services/agent_runtime/chat.py`、`services/api/domain/cancellation.py`、`services/api/cancellation_routes.py`、`apps/web/components/ConfirmCard.tsx`、`apps/web/components/ChatShell.tsx`）— depends on T08、T14
+- [x] T11 [US5] 实现结果渲染与校验（`services/agent_runtime/validator.py`、`services/agent_runtime/chat.py`、`services/domain/cancellation.py`、`services/api/cancellation_routes.py`、`apps/web/components/ConfirmCard.tsx`、`apps/web/components/ChatShell.tsx`）— depends on T08、T14
   - _验收: AC-10、AC-11、AC-16_
 - [x] T15 [US6] 实现人工转接上下文（`services/api/handoff.py`）— depends on T08、T14
   - _验收: AC-13_
@@ -94,13 +95,13 @@
 
 **Purpose**：跨故事的横切质量
 
-- [x] T12 [P] 加入 Trace 与审计（`services/api/observability.py`、`services/api/audit.py`、`services/api/models.py`、`migrations/versions/`、`services/api/main.py`、`services/api/conversation_routes.py`、`services/api/cancellation_routes.py`、`services/api/handoff.py`、`services/agent_runtime/chat.py`、`services/workflows/cancel.py`、`services/tools/gateway.py`、`scripts/show-trace.py`）— depends on T11
+- [x] T12 [P] 加入 Trace 与审计（`services/platform/observability.py`、`services/api/audit.py`、`services/platform/models.py`、`migrations/versions/`、`services/api/main.py`、`services/api/conversation_routes.py`、`services/api/cancellation_routes.py`、`services/api/handoff.py`、`services/agent_runtime/chat.py`、`services/workflows/cancel.py`、`services/tools/gateway.py`、`scripts/show-trace.py`）— depends on T11
   - _验收: AC-17、AC-18_
 - [x] T13 建立场景评测（`evals/run.py`、`tests/integration/test_eval_scenarios.py`、`scripts/eval.sh`、`scripts/test-db.sh`、`scripts/verify.sh`）— depends on T10、T14、T11、T15、T12
   - _验收: 基座豁免——AC-01 至 AC-21 的聚合报告与多轮场景_
 - [x] T21 [P] G3 突变基线校准与 T-11 证据收口（`tests/unit/tools/test_gateway.py`、`tests/unit/workflows/test_cancel.py`、`tests/integration/test_cancellation_repository.py`、`apps/web/tests/ChatShell.test.tsx`）— 测试-only；depends on T11、T19
   - _验收: 基座豁免——补 AC-05/06/10/11/14 既有断言，不新增行为_
-- [x] T20 [P] 会话安全基线：Cookie `Secure`、跨站写请求拒绝、密钥扫描（`services/api/csrf.py`、`services/api/settings.py`、`scripts/check-secrets.py`）
+- [x] T20 [P] 会话安全基线：Cookie `Secure`、跨站写请求拒绝、密钥扫描（`services/api/csrf.py`、`services/platform/settings.py`、`scripts/check-secrets.py`）
   - _验收: AC-21_
 
 ## Dependencies & Execution Order

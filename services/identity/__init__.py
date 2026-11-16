@@ -1,14 +1,13 @@
-"""开发期身份与会话。
+"""开发期员工身份与会话（纯身份，不依赖 FastAPI）。
 
 账号固定为两个租户各两人；会话保存在内存中，仅用于开发与测试。
 换真实身份提供方时，替换本模块实现即可，接口保持不变。
+HTTP 中间件在 `services/api/auth_web.py`。
 """
 
 import secrets
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-
-from fastapi import HTTPException, Request
 
 SESSION_COOKIE = "sid"
 SESSION_TTL = timedelta(hours=8)
@@ -60,16 +59,3 @@ def get_session(sid: str | None) -> Identity | None:
 def destroy_session(sid: str | None) -> None:
     if sid:
         _sessions.pop(sid, None)
-
-
-async def resolve_identity(request: Request, call_next):  # type: ignore[no-untyped-def]
-    """中间件：把当前身份挂到 request.state，未登录时为 None。"""
-    request.state.identity = get_session(request.cookies.get(SESSION_COOKIE))
-    return await call_next(request)
-
-
-def current_identity(request: Request) -> Identity:
-    identity: Identity | None = getattr(request.state, "identity", None)
-    if identity is None:
-        raise HTTPException(status_code=401, detail="未认证")
-    return identity

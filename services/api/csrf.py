@@ -10,7 +10,7 @@ from urllib.parse import urlsplit
 from fastapi import Request
 from starlette.responses import JSONResponse, Response
 
-from services.api.settings import settings
+from services.platform.settings import settings
 
 UNSAFE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 REJECTION = {"detail": "跨站请求被拒绝"}

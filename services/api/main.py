@@ -15,16 +15,16 @@ from services.agent_runtime.model import build_model_client
 from services.api.account_routes import router as account_router
 from services.api.admin_routes import router as admin_router
 from services.api.audit import audit_transition
-from services.api.auth import resolve_identity
+from services.api.auth_web import resolve_identity
 from services.api.cancellation_routes import router as cancellation_router
 from services.api.conversation_routes import router as conversation_router
 from services.api.csrf import verify_origin
-from services.api.domain.errors import ErrorCode
 from services.api.handoff_routes import router as handoff_router
-from services.api.observability import AsyncTraceSink, TraceSinkError, use_trace_sink
 from services.api.session_routes import router as session_router
-from services.api.settings import settings
+from services.domain.errors import ErrorCode
 from services.mock_oms.service import MockOms
+from services.platform.observability import AsyncTraceSink, TraceSinkError, use_trace_sink
+from services.platform.settings import settings
 from services.tools.cancel import build_cancel_gateway
 from services.tools.gateway import error_envelope
 from services.tools.query import build_query_gateway

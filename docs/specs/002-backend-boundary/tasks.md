@@ -22,7 +22,7 @@
 
 **Goal**：把 `services/api` 中的基础设施、身份与领域类型迁出。
 
-- [ ] T-23 迁移 platform（settings/db/models/observability）、identity（纯身份/session）、domain（orders/cancellation/errors）；FastAPI 中间件拆到 `api/auth_web.py`；更新 `api`/`tools`/`workflows` 与测试的 import
+- [x] T-23 迁移 platform（settings/db/models/observability）、identity（纯身份/session）、domain（orders/cancellation/errors）；FastAPI 中间件拆到 `api/auth_web.py`；更新 `api`/`tools`/`workflows` 与测试的 import
   - 文件：`services/platform/`、`services/identity/`、`services/domain/`、`services/api/auth_web.py`、`services/tools/`、`services/workflows/`、`tests/unit/test_import_boundaries_AC_23.py`、相关测试
   - _验收: AC-23_
 
@@ -52,8 +52,8 @@
 
 **Goal**：删除旧路径，清零基线。
 
-- [ ] T-26 重接 `api`，删除 `services/mock_oms` 与 `services/api/domain`，基线清零，更新 `verify.sh` 的 `prod import` 冒烟
-  - 文件：`services/api/*`、删除 `services/mock_oms/`、删除 `services/api/domain/`、`scripts/import-baseline.txt`、`scripts/verify.sh`、`tests/unit/test_import_boundaries_AC_24.py`
+- [ ] T-26 重接 `api`，确认 `services/api/domain` 已由 T-23 删除，删除 `services/mock_oms`，基线清零，更新 `verify.sh` 的 `prod import` 冒烟
+  - 文件：`services/api/*`、删除 `services/mock_oms/`、确认 `services/api/domain/` 已删除、`scripts/import-baseline.txt`、`scripts/verify.sh`、`tests/unit/test_import_boundaries_AC_24.py`
   - _验收: AC-23、AC-24_
 
 **Checkpoint**：`check-imports --strict` 退出 0；`services.mock_oms` 不再存在；`verify.sh` 不依赖 `OwnershipIndex`。

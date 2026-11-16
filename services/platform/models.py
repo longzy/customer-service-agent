@@ -6,7 +6,7 @@ from uuid import uuid4
 from sqlalchemy import JSON, DateTime, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
-from services.api.db import Base
+from services.platform.db import Base
 
 
 def _now() -> datetime:

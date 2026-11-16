@@ -1,7 +1,7 @@
 """取消资格判定：Policy Engine 是唯一权威，不查询 OMS。"""
 
-from services.api.domain.cancellation import CancelEligibility, CancelReason
-from services.api.domain.orders import OrderDetail, OrderStatus, OrderSummary
+from services.domain.cancellation import CancelEligibility, CancelReason
+from services.domain.orders import OrderDetail, OrderStatus, OrderSummary
 from services.errors import DownstreamInvalidResponse
 
 REASON_BY_STATUS: dict[OrderStatus, CancelReason] = {

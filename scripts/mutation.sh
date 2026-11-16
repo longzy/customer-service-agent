@@ -17,7 +17,7 @@ export ENVIRONMENT="${ENVIRONMENT:-development}"
 threshold_for() { # $1=模块 → 阈值
   case "$1" in
     services.workflows* | services.tools*) echo 80 ;;
-    services.api.domain*) echo 70 ;;
+    services.domain*) echo 70 ;;
     *) echo 80 ;;
   esac
 }
@@ -51,10 +51,10 @@ self_test() {
   sample=$'services.tools.policy.x__mutmut_1: killed\nservices.tools.policy.x__mutmut_2: survived\nservices.tools.policy.x__mutmut_3: killed'
   out=$(score_line "$sample" services.tools.policy)
   [ "$out" = "2 1 66.7 80 未达标" ] || { echo "自检失败：$out"; exit 1; }
-  out=$(score_line "$sample" services.api.domain.orders)
+  out=$(score_line "$sample" services.domain.orders)
   [ "$out" = "0 0 - 70 未生成突变体" ] || { echo "自检失败：$out"; exit 1; }
   [ "$(threshold_for services.workflows.cancel)" = "80" ] || { echo "自检失败：阈值"; exit 1; }
-  [ "$(threshold_for services.api.domain.orders)" = "70" ] || { echo "自检失败：阈值"; exit 1; }
+  [ "$(threshold_for services.domain.orders)" = "70" ] || { echo "自检失败：阈值"; exit 1; }
   echo "mutation.sh 自检通过"
 }
 

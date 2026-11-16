@@ -8,11 +8,12 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.api.audit import audit_confirmation, audit_transition
-from services.api.auth import Identity, current_identity
-from services.api.db import get_session, session_factory
-from services.api.domain.cancellation import render_result
-from services.api.observability import AsyncTraceSink, new_trace_id, use_trace_sink
-from services.api.settings import settings
+from services.api.auth_web import current_identity
+from services.domain.cancellation import render_result
+from services.identity import Identity
+from services.platform.db import get_session, session_factory
+from services.platform.observability import AsyncTraceSink, new_trace_id, use_trace_sink
+from services.platform.settings import settings
 from services.tools.gateway import GatewayError
 from services.workflows.cancel import (
     CancellationRepository,
