@@ -3,7 +3,7 @@
 开始任何分析、修改或命令执行前，先读取：
 
 1. `AGENTS.md`
-2. `docs/process/README.md`
+2. `docs/process/WORKFLOW.md`
 3. `docs/CURRENT.md`
 
 然后按 `AGENTS.md` 的文档权威顺序加载当前任务所需材料。

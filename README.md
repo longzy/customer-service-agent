@@ -1,26 +1,29 @@
-# 电商智能客服 Agent
+# 企业 AI 客服系统
 
-一个以电商客服为业务场景，验证 Agent 业务执行、可靠性、可观测性和质量评估能力的企业级参考项目。
+一个面向企业内部使用的 AI 客服系统：AI 默认自动回复客户并完成订单类任务，客户可随时转人工，人工坐席在工作台接管并闭环。
 
 ## 当前状态
 
 项目阶段与当前进度以 [当前阶段](docs/CURRENT.md) 为准。
 
-首版目标是打通：
+2026-11-16 已做企业化方向重置：此前的消费者 M1 归档为 M1-P 原型，仅保留为工程资产，不作为企业 MVP 出口。
 
-> 查询本人订单 -> 判断未发货订单能否取消 -> 用户确认 -> 幂等提交 -> 查询结果 -> 异常恢复
+企业 M1 目标是打通：
 
-退款、全渠道、多 Agent 自由协作和完整运营后台不在 M1 范围内。
+> 客户匿名聊天 -> AI 自动回复/查单取消 -> 转人工进入队列 -> 坐席登录领取并接管 -> 回复 -> 关闭或转回 AI
+
+新 M1 尚未开始编码；当前 `apps/web` 与 `services/` 仍是 M1-P 原型。退款、主管/管理员、客户账号、全渠道、OIDC/SSO 和真实 OMS 不在 M1 范围内。
 
 ## 文档入口
 
 - [当前阶段](docs/CURRENT.md)
 - [企业化方向重置](docs/initiatives/2026-11-16-enterprise-reset.md)
-- [术语表](docs/GLOSSARY.md)
 - [产品宪章](docs/product/charter.md)
+- [路线图](docs/roadmap.md)
 - [总体架构](docs/architecture/overview.md)
 - [架构不变量](docs/architecture/invariants.md)
-- [路线图](docs/roadmap.md)
+- [ADR-0005 企业客服边界](docs/adr/0005-enterprise-boundary.md)
+- [术语表](docs/GLOSSARY.md)
 - [标准开发工作流](docs/process/WORKFLOW.md)
 - [工程标准 STD](docs/process/standards.md)
 - [开发规范评审（2026-11-16）](docs/reviews/2026-11-16-dev-standards-review.md)
@@ -28,21 +31,21 @@
 - [安全策略](SECURITY.md)
 - [初始技术评审](docs/reviews/2026-11-14-initial-architecture-review.md)
 - [AI Coding 调研](docs/research/ai-coding-new-project-practices-2026-11-14.md)
-- [M1 订单取消规格](docs/specs/001-order-cancel/requirements.md)
-- [M1 界面设计](docs/specs/001-order-cancel/design.md)
+- [M1-P 订单取消规格（归档）](docs/specs/001-order-cancel/requirements.md)
+- [M1-P 界面设计（归档）](docs/specs/001-order-cancel/design.md)
 - [UI 规范与组件规范](docs/design-system/ui-spec.md)
 - [UI 组件参考](docs/design-system/ui-components.html)
-- [M1 工程基线](docs/adr/0004-engineering-baseline.md)
-- [M1 需求（含验收与澄清）](docs/specs/001-order-cancel/requirements.md)
-- [T-01 任务设计卡](docs/tasks/001-order-cancel/T-01.md)
+- [工程基线](docs/adr/0004-engineering-baseline.md)
+- [T-01 任务设计卡（归档）](docs/tasks/001-order-cancel/T-01.md)
 - [任务设计卡模板](docs/templates/task-design-card.md)
 
 ## 项目原则
 
 - 先形成全局基线，再派生当前迭代规格。
-- 一个主 Agent + 领域 Tool + 确定性 Workflow。
+- 真实业务闭环优先于演示；只有 OMS 等外部业务系统允许 Mock。
+- 一个主 Agent + 领域 Tool + 确定性 Workflow + 真实坐席闭环。
 - 模型负责理解和沟通，业务规则和权限由确定性代码执行。
-- 回答正确不等于任务完成；以业务结果和评测证据判定成功。
+- 回答正确不等于任务完成；以岗位端到端走查和评测证据判定成功。
 - 原始评审、架构决策、当前规格和验收用例全部版本化保存。
 
 ## 切换 AI Coding 工具
@@ -52,7 +55,7 @@
 如果工具不会自动读取项目文件，在首次消息中发送：
 
 ```text
-请先读取 AGENTS.md、docs/process/README.md 和 docs/CURRENT.md。
+请先读取 AGENTS.md、docs/process/WORKFLOW.md 和 docs/CURRENT.md。
 在修改任何文件前，用五项摘要确认：当前阶段、已完成、进行中、阻塞、下一步。
 ```
 

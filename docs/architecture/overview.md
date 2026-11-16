@@ -1,199 +1,262 @@
 # 总体架构基线
 
-> 2026-11-16 方向重置：目标架构改为“内部坐席工作台 + 独立客户聊天 + 本地认证/RBAC；仅 OMS 可 Mock”。本文 M1 架构为原型；新边界见 [企业化方向重置](../initiatives/2026-11-16-enterprise-reset.md)。
-
+- 状态：已批准
+- 日期：2026-11-16
+- 批准：2026-11-16（随 ADR-0005 与 R0-1 基线批准）
+- 依据：[产品宪章](../product/charter.md)、[ADR-0005 企业客服边界](../adr/0005-enterprise-boundary.md)
+- 归档：2026-11-14 的消费者 M1 架构对应 M1-P 原型，不再作为新开发依据
 
 ## 1. 架构目标
 
-系统以电商客服为场景，构建一个可执行、可观测、可恢复和可评估的企业级 Agent 工程系统。架构必须同时满足：
+系统以电商客服为场景，构建企业内部 AI 客服系统。架构必须同时满足：
 
-- 多轮对话能够理解用户目标。
-- 业务数据通过受控 Tool 获取。
-- 高风险操作通过确定性 Workflow 执行。
-- 权限、规则和审计在模型之外强制执行。
+- 客户匿名聊天，AI 默认自动回复并完成订单类任务。
+- 客户可随时转人工；转人工必须有队列、坐席和接管，不是死路。
+- 员工身份、会话、队列、接管、回复与审计都是真实业务代码。
+- 权限、规则与审计在模型之外强制执行。
 - 失败能够定位、恢复并转交人工。
 - 模型、Prompt 和 Tool 的变化能够回归评估。
+- 只有 OMS 等外部业务系统允许 Mock。
 
 ## 2. 核心决策
 
-M1 采用：
+沿用 ADR-0001 的执行模型，并补上人机协同边界：
 
-> 单主 Agent + 多个领域 Tool + 显式业务 Workflow。
+> 单主 Agent + 领域 Tool + 显式 Workflow + 真实坐席闭环。
 
-不为商品、订单、物流和售后分别创建独立 Agent。领域能力优先实现为 Tool；只有独立推理、独立上下文和复杂规划确有需要时才拆分子 Agent。
-
-相关决策见 `docs/adr/0001-agent-tool-workflow.md`。
+客户聊天与坐席工作台是两个前端、两个入口；后端是一个模块化单体。领域能力优先实现为 Tool，只有独立推理与上下文确有需要时才拆子 Agent。
 
 ## 3. 逻辑分层
 
 ```mermaid
 flowchart TB
-    Channel[渠道与会话入口]
-    Core[客服业务核心]
-    Runtime[Agent Runtime 与编排]
-    Capability[领域能力]
-    Tool[Tool Registry 与集成]
-    Business[模拟 OMS 业务系统]
-    Governance[治理与安全]
-    Obs[可观测与评估]
+    Chat[客户 Web Chat]
+    Workspace[坐席工作台]
+    API[API 入口与鉴权]
+    Identity[身份与 RBAC]
+    Core[会话·队列·接管]
+    Runtime[Agent Runtime]
+    Workflow[显式 Workflow]
+    Tool[Tool Gateway]
+    Port[OmsPort]
+    Adapter[OMS Adapter]
+    OMS[外部 OMS / Mock]
+    Gov[治理·审计·Trace]
 
-    Channel --> Core
+    Chat --> API
+    Workspace --> API
+    API --> Identity
+    API --> Core
     Core --> Runtime
-    Runtime --> Capability
-    Capability --> Tool
-    Tool --> Business
-    Governance -.横向约束.-> Runtime
-    Governance -.横向约束.-> Tool
-    Obs -.横向观测.-> Runtime
-    Obs -.横向观测.-> Tool
+    Core --> Workflow
+    Runtime --> Tool
+    Workflow --> Tool
+    Tool --> Port
+    Port --> Adapter
+    Adapter --> OMS
+    Gov -.授权与审计.-> API
+    Gov -.观测.-> Runtime
+    Gov -.观测.-> Tool
 ```
 
-### L1 渠道与会话入口
+### L1 入口层
 
-M1 只有 Web Chat。以后增加微信、App 和人工坐席时，通过 Channel Adapter 转换为统一消息格式。
+- **客户 Web Chat**：匿名会话入口，不承载业务规则。
+- **坐席工作台**：员工入口，展示队列、会话、订单与 AI 轨迹。
+- 两个前端只通过 HTTP 与 `packages/contracts` 访问后端。
 
-### L2 客服业务核心
+### L2 业务核心
 
-负责会话、用户身份、订单访问上下文、人工接管和工单。业务事实以数据库为准，不以对话历史为准。
+负责客户会话与消息、员工身份/RBAC/session、交接单、队列、领取、接管、回复、关闭和转回 AI。业务事实以数据库为准，不以对话历史为准。
 
 ### L3 Agent Runtime 与编排
 
-负责意图理解、上下文构建、模型调用、Tool 选择和状态持久化。Runtime 不能自行解释业务资格。
+负责意图理解、上下文构建、模型调用、Tool 选择和回复生成。Runtime 不解释业务资格，也不直接执行写操作。
 
 ### L4 领域能力
 
-M1 仅包括订单查询和订单取消。商品问答、导购、物流和退款在后续里程碑增加。
+M1 包括订单查询与未发货订单取消；退款在 M2，知识在 M3。领域能力通过 Tool 暴露，业务规则在确定性代码中。
 
 ### L5 Tool 与集成
 
-负责 Tool 注册、JSON Schema 校验、授权、超时、重试、结果归一化和 API 适配。
+负责 Tool 注册、JSON Schema 校验、授权、超时、重试、结果归一化和审计。外部业务系统统一经 Port + Adapter 接入。
 
 ### L6 治理与安全
 
-横向覆盖身份、租户隔离、权限、策略、人工审批、审计和敏感信息保护。
+横向覆盖员工认证、RBAC、会话归属、订单访问校验、策略、审计、限速与敏感信息保护。
 
 ### L7 可观测与评估
 
-横向记录用户消息、意图、规划、Tool 调用、API 请求/响应、状态转换和最终结果，并运行离线评测。
+横向记录客户消息、意图、Tool 调用、状态转换、转人工、接管、回复与最终结果，并运行离线评测。
 
 ## 4. M1 请求流程
 
+### 4.1 客户消息与 AI 回复
+
 ```text
 Web Chat
-  -> Conversation API
+  -> Conversation API（匿名 session、限速、消息持久化）
   -> Agent Runtime
-       -> Intent Router
-       -> Context Builder
-       -> Tool Planner
-  -> Authorized Tool Gateway
-       -> list_orders / get_order
-       -> get_cancel_eligibility
-  -> Cancellation Workflow
-       -> user confirmation
-       -> submit_cancel(idempotency_key)
-       -> get_cancel_result
-  -> Result Validator
-  -> Final Response
+       -> 意图与上下文
+       -> Tool Gateway
+            -> OmsPort：查单 / 取消资格
+       -> Cancellation Workflow：确认 / 幂等提交 / 结果查询
+  -> 转人工判定（客户要求 / 低置信 / 高风险 / 规则要求）
+       -> 创建交接单并入队
+  -> 回复客户（AI 回复或“已转人工”）
 ```
 
-### 事务与 seam 归属
+### 4.2 坐席接管与关闭
+
+```text
+坐席登录
+  -> 服务端 session + RBAC（agent）
+  -> 队列：查看可领取会话
+  -> 领取（版本校验，防重复领取）
+  -> 接管（会话归属 + 状态转换 + 审计 + 系统消息“人工已接入”）
+  -> 查看消息、订单、AI Trace、交接单
+  -> 回复；符合条件的取消经确认后由 Workflow 提交
+  -> 关闭会话或转回 AI
+```
+
+### 4.3 订单访问校验
+
+```text
+客户提交订单号 + 下单手机号后四位
+  -> 服务端限速
+  -> OmsPort 校验归属
+  -> 通过：当前会话获得该订单的访问授权
+  -> 失败：统一返回“校验失败”，不区分订单不存在与手机号不匹配
+```
+
+校验结果只在当前会话内复用；不保存完整手机号，只保留校验结果与必要审计字段。
+
+## 5. 事务与 seam 归属
 
 | 组件 | 提交什么 | 不负责 |
 |---|---|---|
-| Conversation API | 消息、意图/回复审计 | 工具执行记录 |
-| Cancellation Workflow | 任务状态 + 转换/确认审计 | 工具执行记录、HTTP 响应 |
+| Conversation API | 会话、消息、意图/回复审计 | 工具执行记录 |
+| Handoff/Queue | 交接单、入队、领取/接管状态与审计 | HTTP 响应 |
+| Identity | 员工账号、服务端 session | 业务会话 |
 | `create_handoff` | 只 `flush`，由调用方提交 | 自己 `commit` |
 | Tool Gateway | `tool_executions`（写前 `started`、完成/拒绝） | 业务事务 |
+| Cancellation Workflow | 任务状态 + 转换/确认审计 | 工具执行记录、HTTP 响应 |
 | `AsyncTraceSink` | 独立 session 写工具执行记录 | 业务事务/请求 session |
+| Outbox worker | 事件领取与投递状态（独立事务） | 业务事务 |
 | 启动恢复 | 逐任务复用 `trace_id` 执行，不新建 `startup-*` | 建立新 trace |
 
-排查提交顺序时先看这张表；新增写入点必须明确归谁提交。Conversation API 与 Workflow 共用请求 session，Workflow 的 `commit` 会一并提交 API 挂起的意图审计。
+排查提交顺序时先看这张表；新增写入点必须明确归谁提交。Conversation API 与 Workflow 共用请求 session 时，Workflow 的 `commit` 会一并提交 API 挂起的意图审计。
 
-## 5. 模型与确定性代码的边界
+## 6. 模型与确定性代码的边界
 
 ### 模型负责
 
-- 识别用户意图和缺失参数。
-- 决定是否需要澄清。
-- 从允许的 Tool 中选择合适的查询能力。
-- 将结构化业务结果转化为清晰、准确的用户表达。
+- 识别客户意图、缺失参数与是否需要澄清。
+- 从允许的 Tool 中选择查询能力。
+- 生成交接单摘要草稿与客户可读回复。
+- 在规则允许时解释业务结果。
 
 ### 确定性代码负责
 
-- 用户身份和租户解析。
-- 订单归属与数据权限。
-- 取消资格和业务规则。
-- 参数 Schema 校验。
-- 用户确认状态。
-- 幂等键生成与去重。
-- Workflow 状态转换、重试、恢复和结果校验。
-- 人工审批与审计。
+- 客户匿名 session 的签发、校验与限速。
+- 员工身份、密码校验、session 与 RBAC。
+- 订单访问校验和会话归属。
+- 订单资格、取消规则、用户确认与幂等。
+- 队列、领取、接管、关闭的状态转换。
+- 转人工触发：客户明确要求、低置信阈值、高风险规则、Workflow 未知状态。
+- 参数 Schema 校验、Workflow 重试/恢复/结果校验。
+- 审计与敏感信息脱敏。
 
-## 6. 数据职责
+模型可以建议转人工，但是否转人工、转给哪个队列由确定性策略决定。
+
+## 7. 数据职责
 
 | 数据 | 权威来源 | 说明 |
 |---|---|---|
-| 对话记录 | PostgreSQL | 用于恢复体验，不替代业务事实 |
-| 当前任务状态 | Workflow 持久化表 | 包含步骤、确认和错误信息 |
-| 订单与取消结果 | 模拟 OMS | Tool 查询，不做本地擅自推断 |
-| Tool 执行记录 | 审计/Trace 存储 | 包含请求标识、耗时和结果分类 |
-| 用户画像 | 后续客户中心 | M1 不建设 |
-| 知识库 | 后续 RAG | M1 不建设 |
+| 客户会话与消息 | PostgreSQL | 支持同一浏览器会话恢复，不替代业务事实 |
+| 匿名客户 session | PostgreSQL + 签名 token | 不保存客户账号；token 不含敏感信息 |
+| 员工账号与密码哈希 | PostgreSQL | 密码算法在 M1 规格确定 |
+| 员工 session | PostgreSQL | 服务端 session，可撤销 |
+| 交接单、队列、领取与接管 | PostgreSQL | 主路径状态，不得只存内存或 Redis |
+| 当前任务状态 | Workflow 持久化表 | 含步骤、确认和错误信息 |
+| 订单与取消结果 | OMS（Mock/Http） | 经 OmsPort 查询，不擅自推断 |
+| Tool 执行记录与审计 | 审计/Trace 存储 | 含请求标识、耗时和结果分类 |
+| 客户画像 | 后续客户中心 | M1 不建设 |
+| 知识库 | 后续 RAG | M3 建设 |
 
-Redis 可用于短期会话缓存，但不得成为取消任务或业务状态的唯一持久化来源。
+Redis 可用于短期缓存或限速，但不得成为会话归属、队列或取消状态的唯一持久化来源。队列先落 PostgreSQL，不引入消息中间件。
 
-## 7. 建议技术基线
+## 8. 技术基线
 
-以下为 M1 拟定方案，需通过 ADR 确认后执行：
+沿用 ADR-0004，不重复锁定版本：
 
-- 后端：Python + FastAPI。
-- 前端：Next.js Web Chat。
-- 数据库：PostgreSQL。
-- 后端依赖管理：优先使用 `uv`。
-- 可观测性：OpenTelemetry + 结构化日志。
-- Agent 运行时：应用自有的窄 Runtime，不将业务状态托付给单一 Agent 框架。
-- Workflow：数据库持久化的显式状态机，M1 不引入重量级工作流平台。
-- 业务系统：本地可控的 Mock OMS。
+- 后端：Python 3.12 + FastAPI。
+- 前端：Next.js（App Router）+ TypeScript strict，包管理用 `pnpm`。
+- 数据库：PostgreSQL 17。
+- 后端依赖管理：`uv`。
+- 契约：OpenAPI 为唯一来源；JSON Schema 只用于 Tool 输入。
+- 可观测：结构化日志 + `trace_id` + OpenTelemetry。
+- Agent 运行时：应用自有的窄 Runtime，不把业务状态托付给单一 Agent 框架。
+- Workflow：数据库持久化的显式状态机，不引入重量级工作流平台。
+- 业务系统：通过 OmsPort 接入；开发与测试用 Mock Adapter。
 
-## 8. 模块边界
+## 9. 模块边界与依赖规则
 
-建议目录只作为后续脚手架方向：
+目标目录（R0-2 先立骨架，M1 规格再补全）：
 
 ```text
-apps/web/                     # Web Chat
-services/api/                 # API、会话和身份入口
-services/agent_runtime/       # 意图、上下文、模型和 Tool 规划
-services/tools/               # Tool Registry 与授权网关
-services/workflows/           # 取消等显式流程
-services/mock_oms/            # 模拟订单业务系统
-packages/contracts/           # OpenAPI、JSON Schema 和生成类型
-evals/                        # 场景集、运行器和报告
+apps/
+  chat/                     # 客户匿名 Web Chat
+  workspace/                # 坐席工作台
+services/
+  api/                      # HTTP 入口、鉴权中间件、DTO
+  platform/                 # 配置、数据库、outbox、worker、trace
+  identity/                 # 员工账号、密码、session、RBAC
+  conversations/            # 会话、消息、交接单、队列、领取/接管
+  agent_runtime/            # 意图、上下文、模型调用、Tool 规划
+  tools/                    # Tool Registry 与授权网关
+  workflows/                # 取消等显式流程
+  adapters/
+    oms/                    # OmsPort + Mock/Http Adapter + factory
+packages/contracts/         # OpenAPI、JSON Schema 与生成类型
+evals/                      # 场景集、运行器和报告
 ```
 
 模块约束：
 
-- `agent_runtime` 不得直接导入 `mock_oms`。
-- `workflows` 只能通过受控 Tool/Adapter 访问业务系统。
-- `apps/web` 不得承载订单业务规则。
+- `apps/*` 只通过 HTTP 与契约访问后端，不承载业务规则。
+- `agent_runtime`/`tools`/`workflows` 不得 import `services.api`。
+- `tools`/`workflows` 不得 import `mock_oms` 或任何具体 OMS Adapter。
+- 只有 `adapters/oms/factory` 读取 OMS 配置并选择 Adapter；生产缺配置启动失败。
 - `packages/contracts` 是跨模块接口的唯一定义来源。
+- 现有 `apps/web` 与 `services/mock_oms` 是 M1-P 资产，R0-2/M1 迁移或退役。
 
-## 9. 演进原则
+## 10. 演进原则
 
-- M1 先验证交易闭环，再扩展知识和售前能力。
-- 多租户、授权、幂等和审计从 M1 开始存在，后续只做增强。
-- 评测集从 M1 建立，不能等到系统“做完”再补。
-- 多 Agent、渠道扩展和复杂运营能力必须由实际需求驱动，不能为架构展示提前引入。
+- 先立模块与依赖边界，再在边界内加功能。
+- 客户闭环与坐席闭环必须同时可走，不把工作台当后续优化。
+- 权限、幂等、审计和 Trace 从 M1 开始存在，后续只增强。
+- 评测集从 M1 建立，不能等系统“做完”再补。
+- 真实 OMS 在契约稳定后接入；Mock 只用于开发和测试。
+- 多 Agent、多渠道和运营能力必须由实际需求驱动，不能为架构展示提前引入。
 
-## 10. 术语
+## 11. 术语
 
-- **OMS（Order Management System，订单管理系统）**：真实电商中保存订单并驱动其状态流转的业务系统，下单、支付、备货、发货、签收和取消都以它为准。本项目里它是“最终说了算”的外部系统。
-- **Mock OMS**：按真实 OMS 行为自行实现的模拟服务，数据可控并可注入故障（超时、重复响应、格式错误、已成功但回包丢失），用于开发和测试；M1 不接入真实 OMS。
+- **客户（customer）**：企业外部消费者。M1 保持匿名，不建客户账号。
+- **匿名会话（anonymous session）**：客户进入 Web Chat 后由服务端签发的会话标识；绑定消息和订单访问授权，不含客户账号。
+- **订单访问校验（order access verification）**：客户提交订单号 + 下单手机号后四位，由服务端向 OMS 校验订单归属的机制。
+- **坐席（agent）**：企业内部客服人员，M1 唯一员工角色，使用本地账号登录工作台。
+- **工作台（workspace）**：坐席前端，展示队列、会话、消息、订单、AI 轨迹与交接单。
+- **交接单（handoff）**：转人工时生成的上下文包，含对话摘要、订单、AI 轨迹与待办；进入队列等待坐席领取。
+- **队列（queue）**：待领取交接单的集合，状态落 PostgreSQL。
+- **接管（takeover）**：坐席取得会话控制权并通知客户“人工已接入”的状态转换。
+- **OMS（Order Management System，订单管理系统）**：真实电商中保存订单并驱动其状态流转的业务系统，下单、支付、备货、发货、签收和取消都以它为准。
+- **Mock OMS**：按真实 OMS 契约实现的模拟适配器，数据可控并可注入故障（超时、重复响应、格式错误、已成功但回包丢失），只用于开发和测试。
+- **OmsPort**：业务模块依赖的订单接口抽象；具体 Adapter 由 factory 选择。
 - **Tool**：Agent 可调用的领域能力接口，带输入 Schema 和授权检查，如 `get_order`。Tool 只查询或执行受限动作，不承载业务规则。
 - **Tool Gateway**：所有 Tool 调用的统一入口，负责鉴权、Schema 校验、身份注入、超时、重试、结果归一化和审计。
 - **Workflow**：用确定性代码实现、状态持久化的业务流程。高风险写操作只能由 Workflow 在满足前置条件后执行。
-- **Agent Runtime**：负责意图理解、上下文构建和 Tool 规划的部分，不解释业务规则，也不直接执行写操作。
+- **Agent Runtime**：负责意图理解、上下文构建、模型调用和 Tool 规划，不解释业务规则，也不直接执行写操作。
 - **幂等键（idempotency key）**：一次业务操作的稳定标识；用同一个键重复提交，业务上只产生一条结果。
-- **用户（user）**：一个人，代表登录身份。M1 中一个用户属于且仅属于一个租户。
-- **租户（tenant）**：一层数据隔离边界，通常对应一家公司或一个店铺。一个租户包含多个用户；不同租户的数据默认完全不可见。
-
-  两者的检查顺序是“先租户、后用户”：会话解析出 `(tenant_id, user_id)` 后，网关用这一对值判断订单是否可见。订单属于同租户的另一个用户时返回“查无此单”（AC-02）；号段跨租户时由服务端拒绝，且请求体不能覆盖租户（AC-03）。
+- **员工账号（employee account）**：内部坐席的登录身份，属于且仅属于一个租户。
+- **租户（tenant）**：数据隔离边界。M1 按单企业单租户部署，代码保留 `tenant_id`，为后续多租户/多团队隔离预留。
