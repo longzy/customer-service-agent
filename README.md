@@ -60,26 +60,32 @@
 环境：Python 3.12（`.python-version`）、Node 22、pnpm 10、PostgreSQL 17（本机服务）。
 
 ```bash
-./scripts/dev.sh
+make dev
 ```
 
 这一条命令会：
 
 - 没有 `.env` 时从 `.env.example` 创建；
 - 创建数据库 `customer_service`（不存在时）并执行迁移；
-- 安装依赖（`--no-install` 可跳过）；
+- 安装依赖；
 - 同时启动 API `http://127.0.0.1:8000` 与 Web `http://localhost:3000`；Ctrl-C 一起停止。
 
 需要自然语言演示时，先在 `.env` 填 `MODEL_API_KEY`；留空会用假模型，只适合测试。数据库连接可在 `.env` 用 `DATABASE_URL` 覆盖。
+
+重复启动可跳过依赖安装：
+
+```bash
+make dev-no-install
+```
 
 ## 验证与测试
 
 ```bash
 # 一键验证：ruff、mypy、pytest（独立测试库）、路由覆盖、追溯、状态、文档、前端
-./scripts/verify.sh
+make verify
 ./scripts/verify.sh --no-record   # CI 使用：只验证，不写回状态快照
-./scripts/verify.sh --fast        # 后端快速反馈：ruff/format/mypy/unit
-./scripts/eval.sh                 # 场景评测：pytest JUnit + AC 报告
+make verify-fast                  # 后端快速反馈
+make eval                         # 场景评测：pytest JUnit + AC 报告
 
 # 单独运行
 UV_CACHE_DIR=./.uv-cache uv run ruff check .
