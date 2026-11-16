@@ -57,13 +57,24 @@
 
 ## 本地运行
 
-环境：Python 3.12（`.python-version`）、Node 22、pnpm 10、PostgreSQL 17（本机服务，库名 `customer_service`）。
+环境：Python 3.12（`.python-version`）、Node 22、pnpm 10、PostgreSQL 17（本机服务）。
 
 ```bash
-# 依赖
-UV_CACHE_DIR=./.uv-cache uv sync
-pnpm -C apps/web install
+./scripts/dev.sh
+```
 
+这一条命令会：
+
+- 没有 `.env` 时从 `.env.example` 创建；
+- 创建数据库 `customer_service`（不存在时）并执行迁移；
+- 安装依赖（`--no-install` 可跳过）；
+- 同时启动 API `http://127.0.0.1:8000` 与 Web `http://localhost:3000`；Ctrl-C 一起停止。
+
+需要自然语言演示时，先在 `.env` 填 `MODEL_API_KEY`；留空会用假模型，只适合测试。数据库连接可在 `.env` 用 `DATABASE_URL` 覆盖。
+
+## 验证与测试
+
+```bash
 # 一键验证：ruff、mypy、pytest（独立测试库）、路由覆盖、追溯、状态、文档、前端
 ./scripts/verify.sh
 ./scripts/verify.sh --no-record   # CI 使用：只验证，不写回状态快照
@@ -80,14 +91,9 @@ python3 scripts/trace.py --strict  # AC ↔ 测试 ↔ 执行卡
 pnpm -C apps/web lint
 pnpm -C apps/web typecheck
 pnpm -C apps/web test
-
-# 启动开发服务器（先准备环境变量）
-cp .env.example .env   # 含 ENVIRONMENT=development；默认 production 会关闭测试账号
-UV_CACHE_DIR=./.uv-cache uv run uvicorn services.api.main:app --reload
-pnpm -C apps/web dev   # 打开 http://localhost:3000，会引导到登录页
 ```
 
-数据库：`createdb customer_service`；连接串默认 `postgresql+asyncpg://ba@127.0.0.1:5432/customer_service`，可用 `.env` 覆盖（见 `.env.example`）。
+数据库默认 `postgresql+asyncpg://ba@127.0.0.1:5432/customer_service`；`dev.sh` 会创建库并迁移，连接串可在 `.env` 用 `DATABASE_URL` 覆盖。
 
 迁移：`uv run alembic revision --autogenerate -m "..."`；表结构随后续任务落地。
 
