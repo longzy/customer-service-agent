@@ -1,6 +1,7 @@
 # M1 需求：企业客服核心闭环
 
-- 状态：等待评审
+- 状态：已批准
+- 批准：2026-11-16（用户确认 M1 requirements；S1.5 可判定）
 - 日期：2026-11-16
 - 级别：T3（员工认证/RBAC、匿名会话、队列权限、订单隐私）
 - 依据：[产品宪章](../../product/charter.md)、[路线图](../../roadmap.md)、[ADR-0005](../../adr/0005-enterprise-boundary.md)、[总体架构](../../architecture/overview.md)、[架构不变量](../../architecture/invariants.md)
