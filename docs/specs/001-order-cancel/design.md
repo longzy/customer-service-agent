@@ -481,7 +481,16 @@ conversation.turn
 - Integration tests：API + Workflow + Mock OMS。
 - Adversarial tests：越权订单号、Prompt 注入、非法 Tool 参数。
 - Fault injection：超时、后端已成功但响应丢失、格式异常。
-- Scenario evals：模型完成多轮澄清和 Tool 选择。
+- Scenario evals：脚本化模型下的多轮编排，以及 pytest AC 聚合报告。
+
+### 9.1 场景评测
+
+- `evals/run.py` 是报告生成器：读取 pytest `--junitxml` 输出，按测试名 `_AC_XX` 聚合为 AC 报告；不重新执行测试。
+- 多轮场景是普通 pytest 集成用例（`tests/integration/test_eval_scenarios.py`），使用 `FakeModelClient` 脚本化重放；测试名带 AC 后缀，自动进入聚合报告。
+- 报告 `evals/reports/latest.json` 每次覆盖，同时写 `evals/reports/<timestamp>.json`；字段含 AC、通过/失败、测试数、失败测试名、多轮场景耗时。
+- 缺失任一 AC、JUnit 解析失败、空测试集、断言失败都退出 1；失败报告照样写。
+- JUnit 固定写到 `evals/reports/latest-junit.xml`。`scripts/eval.sh` 用 `set +e` 先跑 `test-db.sh`（带 JUnit），无论 pytest 是否失败都调用 `evals/run.py`；`verify.sh` 复用同一 JUnit，不重复跑测试。
+- 真实模型不在 T-13 范围；后续另立任务记录模型/提示词版本与趋势。
 
 ## 10. 待确认技术决策
 

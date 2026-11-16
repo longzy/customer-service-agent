@@ -2,6 +2,7 @@
 
 场景评测集与报告。
 
-- 覆盖 AC-01 至 AC-20，按 `docs/specs/001-order-cancel/requirements.md` 第 2 节的场景表组织。
+- 覆盖 AC-01 至 AC-21：`evals/run.py` 聚合 pytest JUnit 的 `_AC_XX` 结果，另含 2–3 条多轮编排场景。
 - 输出场景级通过率与失败节点。
-- 随 T-13 建立，当前为空占位；建立前 AC-17、AC-18 登记在 `scripts/trace-baseline.txt`。
+- 运行：`./scripts/eval.sh`；报告：`evals/reports/latest.json`/`latest.md`。
+- 固定、离线、脚本化模型；真实模型质量另列趋势，不进 M1 门禁。
