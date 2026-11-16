@@ -72,8 +72,8 @@
 
 **Goal**：文档与实际目录一致，回滚可复现。
 
-- [ ] T-28 更新 `overview.md` 目标树，执行 R0-2 起点 SHA 到结束 SHA 的 revert 演练并记录命令/退出码
-  - 文件：`docs/architecture/overview.md`、`docs/reviews/2026-11-16-r0-2-boundary.md`
+- [x] T-28 更新 `overview.md` 目标树，执行 R0-2 起点 SHA 到结束 SHA 的 revert 演练并记录命令/退出码
+  - 文件：`docs/architecture/overview.md`、`docs/reviews/002-backend-boundary/T-28.md`
   - _验收: AC-29_
 
 **Checkpoint**：文档与目录一致；回滚演练全绿并有记录。
