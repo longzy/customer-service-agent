@@ -8,7 +8,7 @@
 - 当前工作：整理 R0 收口结果，准备新 M1 规格
 
 <!-- verify:start -->
-- 最近验证：`./scripts/verify.sh` 全部检查通过——pytest 471 passed（独立测试库）、mypy 45 个文件、追溯矩阵通过（29 条 AC）、文档与前端检查通过
+- 最近验证：`./scripts/verify.sh` 全部检查通过——pytest 472 passed（独立测试库）、mypy 45 个文件、追溯矩阵通过（29 条 AC）、文档与前端检查通过
 <!-- verify:end -->
 
 ## 进行中
