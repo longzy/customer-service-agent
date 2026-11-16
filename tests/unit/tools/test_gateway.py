@@ -9,7 +9,6 @@ from services.identity import Identity
 from services.tools.gateway import (
     DownstreamInvalidResponse,
     GatewayError,
-    OwnershipIndex,
     ToolGateway,
     ToolSpec,
     has_identity_fields,
@@ -34,6 +33,16 @@ DETAIL = {
 }
 
 
+class StubOms:
+    """只实现 ToolGateway 需要的归属闸门。"""
+
+    def __init__(self, visible: set[tuple[str, str, str]] | None = None) -> None:
+        self.visible = visible or set()
+
+    def is_visible(self, access: Any, order_id: str) -> bool:
+        return (access.tenant_id, access.user_id, order_id) in self.visible
+
+
 class Recorder:
     def __init__(self) -> None:
         self.calls: list[tuple[dict[str, Any], Identity]] = []
@@ -48,12 +57,15 @@ class Recorder:
 
 
 def gateway(recorder: Recorder, handler: Any = None, requires_order: bool = True) -> ToolGateway:
-    ownership = OwnershipIndex()
-    ownership.register("ORD-10001", "tenant-a", "user-a1")
-    ownership.register("ORD-10002", "tenant-a", "user-a2")
+    oms = StubOms(
+        {
+            ("tenant-a", "user-a1", "ORD-10001"),
+            ("tenant-a", "user-a2", "ORD-10002"),
+        }
+    )
     return ToolGateway(
         tools=[ToolSpec("get_order", handler or recorder.ok, requires_order=requires_order)],
-        ownership=ownership,
+        oms=oms,
         audit=recorder.audit,
     )
 
@@ -141,7 +153,6 @@ def test_合法调用注入可信身份_AC_15() -> None:
 
 def test_无需归属的工具跳过闸门_AC_14() -> None:
     recorder = Recorder()
-    ownership = OwnershipIndex()
     summary = {
         key: DETAIL[key]
         for key in (
@@ -161,7 +172,7 @@ def test_无需归属的工具跳过闸门_AC_14() -> None:
 
     tool = ToolGateway(
         tools=[ToolSpec("list_recent_orders", list_handler, requires_order=False)],
-        ownership=ownership,
+        oms=StubOms(),
         audit=recorder.audit,
     )
     result = tool.invoke("list_recent_orders", {"limit": 5}, IDENTITY, trace_id="t-1")
@@ -215,15 +226,12 @@ def test_未知异常不泄漏内部细节_AC_14() -> None:
 
 
 def test_审计失败按失败关闭处理_AC_18() -> None:
-    ownership = OwnershipIndex()
-    ownership.register("ORD-10001", "tenant-a", "user-a1")
-
     def broken_audit(event: dict[str, Any]) -> None:
         raise RuntimeError("audit down")
 
     tool = ToolGateway(
         tools=[ToolSpec("get_order", lambda payload, identity, trace_id: payload)],
-        ownership=ownership,
+        oms=StubOms({("tenant-a", "user-a1", "ORD-10001")}),
         audit=broken_audit,
     )
     from services.platform.observability import TraceSinkError
@@ -251,7 +259,7 @@ def test_声明了超时错误码的工具返回DEPENDENCY_TIMEOUT_AC_14() -> No
 
     tool = ToolGateway(
         tools=[ToolSpec("list_recent_orders", timeout, requires_order=False)],
-        ownership=OwnershipIndex(),
+        oms=StubOms(),
         audit=recorder.audit,
     )
     with pytest.raises(GatewayError) as exc:
@@ -449,7 +457,7 @@ def test_初始化缺少契约时失败_基座豁免() -> None:
     with pytest.raises(ValueError, match="缺少契约的工具"):
         ToolGateway(
             tools=[ToolSpec("not_in_contract", lambda payload, identity, trace_id: payload)],
-            ownership=OwnershipIndex(),
+            oms=StubOms(),
         )
 
 

@@ -1,6 +1,6 @@
-"""Mock OMS：进程内订单服务，数据来自 JSON 夹具。
+"""Mock OMS Adapter：进程内订单服务，数据来自 JSON 夹具。
 
-写接口必须携带身份：幂等键以 (tenant_id, idempotency_key) 为唯一键。
+写接口必须携带访问上下文：幂等键以 (tenant_id, idempotency_key) 为唯一键。
 """
 
 import copy
@@ -10,6 +10,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from services.adapters.oms.faults import FaultEngine
+from services.adapters.oms.port import OmsAccess
 from services.contracts import build_registry, load_domain, validator_for
 from services.errors import (
     CancelRejected,
@@ -17,7 +19,6 @@ from services.errors import (
     IdempotencyConflict,
     OrderNotFound,
 )
-from services.mock_oms.faults import FaultEngine
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures" / "orders.json"
 
@@ -29,7 +30,7 @@ def _parse_time(value: str) -> datetime:
     return datetime.fromisoformat(value.replace("Z", "+00:00"))
 
 
-class MockOms:
+class MockOmsAdapter:
     """订单查询与取消提交。数据只读加载，取消结果保存在进程内。"""
 
     def __init__(self, fixtures_path: Path | None = None) -> None:
@@ -61,13 +62,16 @@ class MockOms:
         self._accepted_orders: dict[str, str] = {}
         self.faults = FaultEngine()
 
-    def owns(self, order_id: str, tenant_id: str, user_id: str) -> bool:
-        return self._owners.get(order_id) == (tenant_id, user_id)
+    def _owns(self, order_id: str, access: OmsAccess) -> bool:
+        owner = self._owners.get(order_id)
+        if owner is None or owner[0] != access.tenant_id:
+            return False
+        if access.user_id is not None:
+            return owner[1] == access.user_id
+        return order_id in access.verified_order_ids
 
-    def build_ownership_index(self, index: Any) -> None:
-        """把夹具中的归属写入网关使用的索引，保证只有一份真相。"""
-        for order_id, (tenant_id, user_id) in self._owners.items():
-            index.register(order_id, tenant_id, user_id)
+    def is_visible(self, access: OmsAccess, order_id: str) -> bool:
+        return self._owns(order_id, access)
 
     def _inject(self, tool: str, order_id: str | None = None) -> str | None:
         kind = self.faults.take(tool, order_id)
@@ -81,35 +85,29 @@ class MockOms:
             raise DownstreamInvalidResponse(tool)
         return kind
 
-    def get_order(self, tenant_id: str, user_id: str, order_id: str) -> dict[str, Any]:
+    def get_order(self, access: OmsAccess, order_id: str) -> dict[str, Any]:
         self.calls["get_order"] += 1
         if self._inject("get_order", order_id) == "lost_response":
             raise TimeoutError("get_order")
-        if not self.owns(order_id, tenant_id, user_id):
+        if not self._owns(order_id, access):
             raise OrderNotFound(order_id)
         return copy.deepcopy(self._orders[order_id])
 
-    def list_recent_orders(
-        self, tenant_id: str, user_id: str, limit: int = 5
-    ) -> list[dict[str, Any]]:
+    def list_recent_orders(self, access: OmsAccess, limit: int = 5) -> list[dict[str, Any]]:
+        if limit < 0:
+            raise ValueError("limit 不能为负")
         self.calls["list_recent_orders"] += 1
         if self._inject("list_recent_orders") == "lost_response":
             raise TimeoutError("list_recent_orders")
-        owned = [
-            order
-            for order_id, order in self._orders.items()
-            if self.owns(order_id, tenant_id, user_id)
-        ]
+        owned = [order for order_id, order in self._orders.items() if self._owns(order_id, access)]
         owned.sort(key=lambda order: _parse_time(order["created_at"]), reverse=True)
         return [copy.deepcopy(order) for order in owned[:limit]]
 
-    def submit_cancel(
-        self, tenant_id: str, user_id: str, order_id: str, idempotency_key: str
-    ) -> str:
+    def submit_cancel(self, access: OmsAccess, order_id: str, idempotency_key: str) -> str:
         self.calls["submit_cancel"] += 1
-        if not self.owns(order_id, tenant_id, user_id):
+        if not self._owns(order_id, access):
             raise OrderNotFound(order_id)
-        key = (tenant_id, idempotency_key)
+        key = (access.tenant_id, idempotency_key)
         existing = self._cancel_results.get(key)
         if existing is not None:
             if existing[0] != order_id:

@@ -3,29 +3,29 @@
 from collections.abc import Callable
 from typing import Any
 
+from services.adapters.oms.port import OmsAccess, OmsPort
 from services.domain.orders import OrderDetail
 from services.identity import Identity
-from services.mock_oms.service import MockOms
-from services.tools.gateway import OwnershipIndex, ToolGateway, ToolSpec
+from services.tools.gateway import ToolGateway, ToolSpec
 from services.tools.policy import evaluate_eligibility
 
 
+def _access(identity: Identity) -> OmsAccess:
+    return OmsAccess(tenant_id=identity.tenant_id, user_id=identity.user_id)
+
+
 def build_cancel_gateway(
-    oms: MockOms,
+    oms: OmsPort,
     audit: Callable[[dict[str, Any]], None] | None = None,
     timeout_seconds: float = 2.0,
 ) -> ToolGateway:
-    index = OwnershipIndex()
-    oms.build_ownership_index(index)
-
     def eligibility(payload: dict[str, Any], identity: Identity, trace_id: str) -> Any:
-        order = oms.get_order(identity.tenant_id, identity.user_id, payload["order_id"])
+        order = oms.get_order(_access(identity), payload["order_id"])
         return evaluate_eligibility(OrderDetail.model_validate(order)).model_dump()
 
     def submit(payload: dict[str, Any], identity: Identity, trace_id: str) -> Any:
         state = oms.submit_cancel(
-            identity.tenant_id,
-            identity.user_id,
+            _access(identity),
             payload["order_id"],
             payload["idempotency_key"],
         )
@@ -40,7 +40,7 @@ def build_cancel_gateway(
             ToolSpec("submit_cancel", submit),
             ToolSpec("get_cancel_result", result, requires_order=False),
         ],
-        ownership=index,
+        oms=oms,
         audit=audit,
         timeout_seconds=timeout_seconds,
     )

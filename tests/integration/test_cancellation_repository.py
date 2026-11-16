@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 import pytest
 from sqlalchemy import delete
 
+from services.adapters.oms.port import OmsAccess
 from services.domain.cancellation import CancellationState
 from services.identity import Identity
 from services.platform.db import session_factory
@@ -18,6 +19,11 @@ from services.workflows.cancel import (
 from tests.integration.db_utils import db_available
 
 pytestmark = pytest.mark.skipif(not db_available(), reason="Postgres 不可用")
+
+
+def access() -> OmsAccess:
+    return OmsAccess(tenant_id="tenant-a", user_id="user-a1")
+
 
 OWNER = Identity("zhang-ming", "user-a1", "tenant-a", "张明", "示例商户 A")
 OTHER = Identity("wang-qiang", "user-b1", "tenant-b", "王强", "示例商户 B")
@@ -82,11 +88,11 @@ async def test_真实乐观锁冲突_AC_09() -> None:
 
 
 async def test_启动恢复悬挂任务_AC_10() -> None:
-    from services.mock_oms.service import MockOms
+    from services.adapters.oms.mock import MockOmsAdapter
     from services.tools.cancel import build_cancel_gateway
     from services.workflows.cancel import CancellationWorkflow
 
-    oms = MockOms()
+    oms = MockOmsAdapter()
     async with session_factory() as session:
         repo = SqlCancellationRepository(session)
         await session.execute(delete(CancellationRow).where(CancellationRow.id == "task-recover"))
@@ -99,7 +105,7 @@ async def test_启动恢复悬挂任务_AC_10() -> None:
             )
         )
         await repo.commit()
-        oms.submit_cancel("tenant-a", "user-a1", "ORD-10001", "idem-recover")
+        oms.submit_cancel(access(), "ORD-10001", "idem-recover")
         submits = oms.calls["submit_cancel"]
 
         workflow = CancellationWorkflow(
@@ -117,11 +123,11 @@ async def test_启动恢复悬挂任务_AC_10() -> None:
 
 
 async def test_启动恢复_SUBMITTING与失败转人工_AC_12() -> None:
-    from services.mock_oms.service import MockOms
+    from services.adapters.oms.mock import MockOmsAdapter
     from services.tools.cancel import build_cancel_gateway
     from services.workflows.cancel import CancellationWorkflow
 
-    oms = MockOms()
+    oms = MockOmsAdapter()
     async with session_factory() as session:
         repo = SqlCancellationRepository(session)
         await session.execute(
@@ -143,7 +149,7 @@ async def test_启动恢复_SUBMITTING与失败转人工_AC_12() -> None:
             )
         )
         await repo.commit()
-        oms.submit_cancel("tenant-a", "user-a1", "ORD-10001", "idem-sub")
+        oms.submit_cancel(access(), "ORD-10001", "idem-sub")
 
         workflow = CancellationWorkflow(
             repo,

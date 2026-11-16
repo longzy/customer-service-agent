@@ -4,14 +4,19 @@ from typing import Any
 
 import pytest
 
+from services.adapters.oms.faults import FaultEngine, FaultRule
+from services.adapters.oms.mock import MockOmsAdapter
+from services.adapters.oms.port import OmsAccess
 from services.domain.errors import ErrorCode
 from services.errors import DownstreamInvalidResponse, OrderNotFound
 from services.identity import Identity
-from services.mock_oms.faults import FaultEngine, FaultRule
-from services.mock_oms.service import MockOms
-from services.tools.gateway import GatewayError, OwnershipIndex, ToolGateway, ToolSpec
+from services.tools.gateway import GatewayError, ToolGateway, ToolSpec
 
 IDENTITY = Identity("zhang-ming", "user-a1", "tenant-a", "张明", "示例商户 A")
+
+
+def access(tenant: str = "tenant-a", user: str = "user-a1") -> OmsAccess:
+    return OmsAccess(tenant_id=tenant, user_id=user)
 
 
 def test_规则按次数消耗_基座豁免() -> None:
@@ -44,57 +49,56 @@ def test_延迟可配置到秒级_基座豁免() -> None:
 
 
 def test_超时故障不写入结果_AC_10() -> None:
-    service = MockOms()
+    service = MockOmsAdapter()
     service.faults.add(FaultRule(kind="timeout", tool="submit_cancel"))
     with pytest.raises(TimeoutError):
-        service.submit_cancel("tenant-a", "user-a1", "ORD-10001", "idem-1001-abcdef")
+        service.submit_cancel(access("tenant-a", "user-a1"), "ORD-10001", "idem-1001-abcdef")
     with pytest.raises(OrderNotFound):
         service.get_cancel_result("tenant-a", "idem-1001-abcdef")
 
 
 def test_响应丢失时对方已受理_AC_10() -> None:
-    service = MockOms()
+    service = MockOmsAdapter()
     service.faults.add(FaultRule(kind="lost_response", tool="submit_cancel"))
     with pytest.raises(TimeoutError):
-        service.submit_cancel("tenant-a", "user-a1", "ORD-10001", "idem-1002-abcdef")
+        service.submit_cancel(access("tenant-a", "user-a1"), "ORD-10001", "idem-1002-abcdef")
     assert service.get_cancel_result("tenant-a", "idem-1002-abcdef") == "ACCEPTED"
 
 
 def test_非法响应故障_AC_11() -> None:
-    service = MockOms()
+    service = MockOmsAdapter()
     service.faults.add(FaultRule(kind="invalid_response", tool="get_order"))
     with pytest.raises(DownstreamInvalidResponse):
-        service.get_order("tenant-a", "user-a1", "ORD-10001")
+        service.get_order(access("tenant-a", "user-a1"), "ORD-10001")
 
 
 def test_连续不可用后恢复_AC_12() -> None:
-    service = MockOms()
+    service = MockOmsAdapter()
     service.faults.add(FaultRule(kind="unavailable", tool="get_order", times=2))
     with pytest.raises(ConnectionError):
-        service.get_order("tenant-a", "user-a1", "ORD-10001")
+        service.get_order(access("tenant-a", "user-a1"), "ORD-10001")
     with pytest.raises(ConnectionError):
-        service.get_order("tenant-a", "user-a1", "ORD-10001")
-    assert service.get_order("tenant-a", "user-a1", "ORD-10001")["order_id"] == "ORD-10001"
+        service.get_order(access("tenant-a", "user-a1"), "ORD-10001")
+    assert service.get_order(access("tenant-a", "user-a1"), "ORD-10001")["order_id"] == "ORD-10001"
 
 
-def _gateway(service: MockOms, handler: Any = None) -> ToolGateway:
-    index = OwnershipIndex()
-    service.build_ownership_index(index)
-
+def _gateway(service: MockOmsAdapter, handler: Any = None) -> ToolGateway:
     def submit(payload: dict[str, Any], identity: Identity, trace_id: str) -> str:
         return service.submit_cancel(
-            identity.tenant_id, identity.user_id, payload["order_id"], payload["idempotency_key"]
+            access(identity.tenant_id, identity.user_id),
+            payload["order_id"],
+            payload["idempotency_key"],
         )
 
     return ToolGateway(
         tools=[ToolSpec("submit_cancel", handler or submit)],
-        ownership=index,
+        oms=service,
         audit=lambda event: None,
     )
 
 
 def test_注入故障后经网关得到依赖超时_AC_12() -> None:
-    service = MockOms()
+    service = MockOmsAdapter()
     service.faults.add(FaultRule(kind="timeout", tool="submit_cancel"))
     with pytest.raises(GatewayError) as exc:
         _gateway(service).invoke(
@@ -107,7 +111,7 @@ def test_注入故障后经网关得到依赖超时_AC_12() -> None:
 
 
 def test_注入非法响应后经网关归类_AC_11() -> None:
-    service = MockOms()
+    service = MockOmsAdapter()
     service.faults.add(FaultRule(kind="invalid_response", tool="submit_cancel"))
     with pytest.raises(GatewayError) as exc:
         _gateway(service).invoke(
@@ -120,7 +124,7 @@ def test_注入非法响应后经网关归类_AC_11() -> None:
 
 
 def test_注入不可用后经网关归类_AC_12() -> None:
-    service = MockOms()
+    service = MockOmsAdapter()
     service.faults.add(FaultRule(kind="unavailable", tool="submit_cancel"))
     with pytest.raises(GatewayError) as exc:
         _gateway(service).invoke(
@@ -133,7 +137,7 @@ def test_注入不可用后经网关归类_AC_12() -> None:
 
 
 def test_不可取消经网关归类为OMS拒绝_AC_05() -> None:
-    service = MockOms()
+    service = MockOmsAdapter()
     with pytest.raises(GatewayError) as exc:
         _gateway(service).invoke(
             "submit_cancel",
@@ -157,7 +161,7 @@ def test_管理接口注入的故障影响应用实例_基座豁免() -> None:
             == 204
         )
         with pytest.raises(TimeoutError):
-            api.app.state.oms.get_order("tenant-a", "user-a1", "ORD-10001")
+            api.app.state.oms.get_order(access("tenant-a", "user-a1"), "ORD-10001")
 
 
 def test_管理接口拒绝非法输入_基座豁免() -> None:
@@ -183,10 +187,10 @@ def test_生产环境不挂载故障管理接口_基座豁免(monkeypatch: pytes
 
 
 def test_幂等回放前先校验归属_AC_09() -> None:
-    service = MockOms()
-    service.submit_cancel("tenant-a", "user-a1", "ORD-10001", "idem-3001-abcdef")
+    service = MockOmsAdapter()
+    service.submit_cancel(access("tenant-a", "user-a1"), "ORD-10001", "idem-3001-abcdef")
     with pytest.raises(OrderNotFound):
-        service.submit_cancel("tenant-a", "user-a2", "ORD-10001", "idem-3001-abcdef")
+        service.submit_cancel(access("tenant-a", "user-a2"), "ORD-10001", "idem-3001-abcdef")
 
 
 def test_取消结果接口对未知键返回404_基座豁免() -> None:

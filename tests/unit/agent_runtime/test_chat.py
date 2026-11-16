@@ -4,10 +4,10 @@ from typing import Any
 
 import pytest
 
+from services.adapters.oms.mock import MockOmsAdapter
 from services.agent_runtime.chat import ConversationService
 from services.agent_runtime.model import FakeModelClient
 from services.identity import Identity
-from services.mock_oms.service import MockOms
 from services.tools.query import build_query_gateway
 
 IDENTITY = Identity("zhang-ming", "user-a1", "tenant-a", "张明", "示例商户 A")
@@ -36,7 +36,7 @@ def service(
     model: FakeModelClient, repository: MemoryRepository | None = None
 ) -> tuple[ConversationService, MemoryRepository]:
     repo = repository or MemoryRepository()
-    return ConversationService(repo, model, build_query_gateway(MockOms())), repo
+    return ConversationService(repo, model, build_query_gateway(MockOmsAdapter())), repo
 
 
 async def test_查询订单返回摘要并落库_AC_01() -> None:
@@ -74,7 +74,7 @@ async def test_模型错误向上抛出_AC_01() -> None:
         async def classify(self, message: str) -> dict[str, Any]:
             raise RuntimeError("down")
 
-    chat = ConversationService(MemoryRepository(), Broken(), build_query_gateway(MockOms()))
+    chat = ConversationService(MemoryRepository(), Broken(), build_query_gateway(MockOmsAdapter()))
     with pytest.raises(RuntimeError):
         await chat.handle(IDENTITY, "查 ORD-10001")
 
@@ -90,9 +90,9 @@ async def test_查询结果使用用户文案_AC_01() -> None:
 
 
 async def test_最近订单故障返回通用文案_AC_01() -> None:
-    from services.mock_oms.faults import FaultRule
+    from services.adapters.oms.faults import FaultRule
 
-    oms = MockOms()
+    oms = MockOmsAdapter()
     oms.faults.add(FaultRule(kind="unavailable", tool="list_recent_orders"))
     chat = ConversationService(
         MemoryRepository(),
@@ -155,7 +155,7 @@ async def test_取消意图返回卡片数据_AC_04() -> None:
     chat = ConversationService(
         MemoryRepository(),
         FakeModelClient({"取消 ORD-10001": {"intent": "CANCEL_ORDER", "order_id": "ORD-10001"}}),
-        build_query_gateway(MockOms()),
+        build_query_gateway(MockOmsAdapter()),
         cancellation=FakeWorkflow(),
     )
     reply = await chat.handle(IDENTITY, "取消 ORD-10001")
@@ -177,7 +177,7 @@ async def test_取消路径网关错误返回文案_AC_04() -> None:
     chat = ConversationService(
         MemoryRepository(),
         FakeModelClient({"取消 ORD-10001": {"intent": "CANCEL_ORDER", "order_id": "ORD-10001"}}),
-        build_query_gateway(MockOms()),
+        build_query_gateway(MockOmsAdapter()),
         cancellation=FailingWorkflow(),
     )
     reply = await chat.handle(IDENTITY, "取消 ORD-10001")
@@ -203,7 +203,7 @@ async def test_取消意图回复包含下一步_AC_16() -> None:
     chat = ConversationService(
         MemoryRepository(),
         FakeModelClient({"取消 ORD-10001": {"intent": "CANCEL_ORDER", "order_id": "ORD-10001"}}),
-        build_query_gateway(MockOms()),
+        build_query_gateway(MockOmsAdapter()),
         cancellation=FakeWorkflow(),
     )
     reply = await chat.handle(IDENTITY, "取消 ORD-10001")
@@ -231,7 +231,7 @@ async def test_资格拒绝回复带原因文案_AC_16() -> None:
     chat = ConversationService(
         MemoryRepository(),
         FakeModelClient({"取消 ORD-10003": {"intent": "CANCEL_ORDER", "order_id": "ORD-10003"}}),
-        build_query_gateway(MockOms()),
+        build_query_gateway(MockOmsAdapter()),
         cancellation=FakeWorkflow(),
     )
     reply = await chat.handle(IDENTITY, "取消 ORD-10003")
@@ -261,7 +261,7 @@ async def _reply_for(state, reason_code=None):
     chat = ConversationService(
         MemoryRepository(),
         FakeModelClient({"取消 ORD-10001": {"intent": "CANCEL_ORDER", "order_id": "ORD-10001"}}),
-        build_query_gateway(MockOms()),
+        build_query_gateway(MockOmsAdapter()),
         cancellation=_workflow_for(state, reason_code),
     )
     return await chat.handle(IDENTITY, "取消 ORD-10001")

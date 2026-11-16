@@ -3,7 +3,7 @@
 - 状态：已批准
 - 批准：2026-11-15（用户确认，含 T-16 登录页）
 - **Input**：`docs/specs/001-order-cancel/requirements.md`、`design.md`
-- **路径注记**：2026-11-16 R0-2 模块迁移后，已完成任务中的 `services/api/*` 路径已按新目录更新。
+- **路径注记**：2026-11-16 R0-2 模块迁移后，已完成任务中的 `services/api/*` 与 `services/mock_oms/*` 路径已按新目录更新。
 - **Prerequisites**：需求与设计均已批准；任务按用户故事分组，每个故事可独立实现与测试
 - **Tests**：按 `docs/process/WORKFLOW.md` 附录 A，测试与实现同属一个任务，先红后绿；不为测试单列任务
 - **执行卡与评审**：任务开工前产出 `docs/tasks/001-order-cancel/T-XX.md`；完成后评审记录写入 `docs/reviews/001-order-cancel/T-XX.md`
@@ -32,7 +32,7 @@
   - _验收: AC-02、AC-03、AC-15_
 - [x] T05 实现授权 Tool Gateway（`services/tools/gateway.py`）— depends on T03、T04
   - _验收: AC-02、AC-03、AC-14、AC-15_
-- [x] T06 实现 Mock OMS 与故障注入（`services/mock_oms/`）— depends on T03
+- [x] T06 实现 Mock OMS 与故障注入（`services/adapters/oms/`）— depends on T03
   - _验收: AC-01、AC-05、AC-09、AC-10、AC-11、AC-12_
 
 **Checkpoint**：基础设施就绪，可以开始任一用户故事。

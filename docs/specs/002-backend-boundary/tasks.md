@@ -32,19 +32,19 @@
 
 **Goal**：业务模块只依赖端口。
 
-- [ ] T-24 定义 `OmsPort`/`OmsAccess`，迁移 `MockOmsAdapter` 与夹具，`ToolGateway` 改用端口授权；建立 Mock/Http 共用契约测试矩阵
-  - 文件：`services/adapters/oms/port.py`、`services/adapters/oms/mock.py`、`services/adapters/oms/fixtures/`、`services/tools/gateway.py`、`services/tools/query.py`、`services/tools/cancel.py`、`tests/unit/adapters/test_oms_contract_AC_25.py`、相关测试
-  - _验收: AC-25_
+- [x] T-24 定义 `OmsPort`/`OmsAccess`，迁移 `MockOmsAdapter` 与夹具，`ToolGateway` 改用端口授权；建立 Mock 契约测试骨架（Http 在 T-25 接入）
+  - 文件：`services/adapters/oms/port.py`、`services/adapters/oms/mock.py`、`services/adapters/oms/fixtures/`、`services/tools/gateway.py`、`services/tools/query.py`、`services/tools/cancel.py`、`tests/unit/adapters/test_oms_contract.py`、相关测试
+  - _验收: AC-24_
 
-**Checkpoint**：Mock 与 Http 通过同一组契约用例；`tools`/`workflows` 不再直接依赖具体 Adapter。
+**Checkpoint**：Mock 契约骨架建立；`tools`/`workflows` 不再直接依赖具体 Adapter；Http 等价性在 T-25 判定。
 
 ## Phase 4: Http 与 factory
 
 **Goal**：生产缺配置不回落 Mock。
 
-- [ ] T-25 实现 `HttpOmsAdapter`（可注入 client）、URL 校验、`build_oms`、`create_app(settings)` 与生产启动失败
+- [ ] T-25 实现 `HttpOmsAdapter`（可注入 client）、URL 校验、`build_oms`、`create_app(settings)` 与生产启动失败；把 Http 接入共用契约矩阵
   - 文件：`services/adapters/oms/http.py`、`services/adapters/oms/factory.py`、`services/api/main.py`、`services/platform/settings.py`、`tests/unit/adapters/test_oms_factory_AC_26.py`
-  - _验收: AC-26_
+  - _验收: AC-25、AC-26_
 
 **Checkpoint**：production 空/空白/非法 URL 启动失败；development 空配置走 Mock；production 合法 URL 走 Http。
 

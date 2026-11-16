@@ -4,6 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.exc import OperationalError
 
+from services.adapters.oms.port import OmsAccess
 from services.api.main import create_app
 
 
@@ -115,8 +116,7 @@ def test_startup_retries_then_accepts_AC_10(monkeypatch) -> None:
     from sqlalchemy import text
     from sqlalchemy.ext.asyncio import create_async_engine
 
-    from services.api.main import create_app
-    from services.mock_oms.faults import FaultRule
+    from services.adapters.oms.faults import FaultRule
     from services.platform.settings import settings
     from tests.integration.db_utils import db_available
 
@@ -154,7 +154,9 @@ def test_startup_retries_then_accepts_AC_10(monkeypatch) -> None:
 
     asyncio.run(insert())
     app = create_app()
-    app.state.oms.submit_cancel("tenant-a", "user-a1", "ORD-10001", "idem-retry")
+    app.state.oms.submit_cancel(
+        OmsAccess(tenant_id="tenant-a", user_id="user-a1"), "ORD-10001", "idem-retry"
+    )
     app.state.oms.faults.add(FaultRule(kind="unavailable", tool="get_cancel_result", times=1))
     with TestClient(app) as client:
         assert client.get("/health").status_code == 200

@@ -5,9 +5,9 @@ from typing import Literal
 from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
 
+from services.adapters.oms.faults import FaultKind, FaultRule
+from services.adapters.oms.mock import MockOmsAdapter
 from services.errors import OrderNotFound
-from services.mock_oms.faults import FaultKind, FaultRule
-from services.mock_oms.service import MockOms
 
 router = APIRouter(prefix="/_admin")
 
@@ -39,8 +39,8 @@ class CancelResultPayload(BaseModel):
     state: STATES
 
 
-def _oms(request: Request) -> MockOms:
-    service: MockOms = request.app.state.oms
+def _oms(request: Request) -> MockOmsAdapter:
+    service: MockOmsAdapter = request.app.state.oms
     return service
 
 

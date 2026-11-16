@@ -295,7 +295,7 @@ def test_show_trace_cli_未知trace退出码1_AC_17() -> None:
 
 
 def test_超时恢复链路同trace_AC_17() -> None:
-    from services.mock_oms.faults import FaultRule
+    from services.adapters.oms.faults import FaultRule
 
     with _client() as api:
         _login(api)

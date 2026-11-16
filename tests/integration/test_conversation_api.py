@@ -106,7 +106,7 @@ def test_非法模型输出返回503并保留用户消息_基座豁免() -> None
 
 
 def test_最近订单故障返回可见文案_AC_01() -> None:
-    from services.mock_oms.faults import FaultRule
+    from services.adapters.oms.faults import FaultRule
 
     repo = MemoryRepository()
     app = create_app()

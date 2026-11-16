@@ -1,8 +1,1 @@
 # R0-2 迁移期基线：只减不增；每条对应一个已登记违规，修复后必须删除。
-services/api/admin_routes.py: services.mock_oms.faults [R6]
-services/api/admin_routes.py: services.mock_oms.service [R6]
-services/api/main.py: services.mock_oms.service [R6]
-services/tools/cancel.py: services.mock_oms.service [R2]
-services/tools/cancel.py: services.mock_oms.service [R6]
-services/tools/query.py: services.mock_oms.service [R2]
-services/tools/query.py: services.mock_oms.service [R6]

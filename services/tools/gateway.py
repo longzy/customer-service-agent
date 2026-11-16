@@ -12,6 +12,7 @@ from typing import Any
 
 from jsonschema import Draft202012Validator
 
+from services.adapters.oms.port import OmsAccess, OmsPort
 from services.contracts import (
     build_registry,
     load_domain,
@@ -38,19 +39,6 @@ class ToolSpec:
     name: str
     handler: Callable[[dict[str, Any], Identity, str], Any]
     requires_order: bool = True
-
-
-class OwnershipIndex:
-    """订单归属的本地索引：只回答可见性，不返回订单内容。"""
-
-    def __init__(self) -> None:
-        self._owners: dict[str, tuple[str, str]] = {}
-
-    def register(self, order_id: str, tenant_id: str, user_id: str) -> None:
-        self._owners[order_id] = (tenant_id, user_id)
-
-    def is_visible(self, order_id: str, tenant_id: str, user_id: str) -> bool:
-        return self._owners.get(order_id) == (tenant_id, user_id)
 
 
 class GatewayError(Exception):
@@ -83,7 +71,7 @@ class ToolGateway:
     def __init__(
         self,
         tools: list[ToolSpec],
-        ownership: OwnershipIndex,
+        oms: OmsPort,
         audit: Callable[[dict[str, Any]], None] | None = None,
         timeout_seconds: float = 2.0,
     ) -> None:
@@ -103,7 +91,7 @@ class ToolGateway:
         missing = set(self._tools) - set(self._validators)
         if missing:
             raise ValueError(f"缺少契约的工具：{sorted(missing)}")
-        self._ownership = ownership
+        self._oms = oms
         self._audit = audit or (lambda event: None)
         self._timeout = timeout_seconds
 
@@ -156,7 +144,8 @@ class ToolGateway:
                     payload=safe_payload,
                 )
                 raise GatewayError(422, {"message": "参数非法"})
-            if not self._ownership.is_visible(order_id, identity.tenant_id, identity.user_id):
+            access = OmsAccess(tenant_id=identity.tenant_id, user_id=identity.user_id)
+            if not self._oms.is_visible(access, order_id):
                 self._record(
                     name,
                     identity,

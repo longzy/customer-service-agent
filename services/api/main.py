@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
+from services.adapters.oms.mock import MockOmsAdapter
 from services.agent_runtime.model import build_model_client
 from services.api.account_routes import router as account_router
 from services.api.admin_routes import router as admin_router
@@ -22,7 +23,6 @@ from services.api.csrf import verify_origin
 from services.api.handoff_routes import router as handoff_router
 from services.api.session_routes import router as session_router
 from services.domain.errors import ErrorCode
-from services.mock_oms.service import MockOms
 from services.platform.observability import AsyncTraceSink, TraceSinkError, use_trace_sink
 from services.platform.settings import settings
 from services.tools.cancel import build_cancel_gateway
@@ -107,7 +107,7 @@ def create_app() -> FastAPI:
     async def _trace_sink_error(_request: Request, _error: TraceSinkError) -> JSONResponse:
         return JSONResponse(status_code=500, content=error_envelope(ErrorCode.INTERNAL_ERROR))
 
-    app.state.oms = MockOms()
+    app.state.oms = MockOmsAdapter()
     app.state.model_client = build_model_client(settings)
     app.state.query_gateway = build_query_gateway(app.state.oms)
     app.state.cancel_gateway = build_cancel_gateway(
