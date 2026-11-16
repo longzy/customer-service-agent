@@ -11,7 +11,7 @@
 | Spec | 角色 | 内容 |
 |---|---|---|
 | `003`（本文件） | M1 验收 / 共享契约 | AC-30~49、数据所有权、actor/trace、状态机、迁移/快照/回滚、端到端评测 |
-| `004-m1-customer-chat` | 实现 spec（T3） | 匿名会话、AI 回复、订单校验/查询、转人工创建、客户前端 |
+| `004-m1-customer-chat` | 实现 spec（T3） | 客户登录/session、AI 回复、订单按账号查询、转人工创建、客户前端 |
 | `005-m1-agent-workspace` | 实现 spec（T3） | 员工认证/RBAC、队列/领取/接管/回复/关闭、工作台前端 |
 | `006-m1-cancellation` | 实现 spec（T3） | 客户/坐席取消 actor、确认、幂等、Workflow |
 
@@ -48,17 +48,17 @@ services/
 
 ## 3. 数据所有权与迁移
 
-**M1 使用新的 `service_*` 表**，M1-P 的 `conversations`/`messages`/`handoffs`/`cancellation_requests`/`audit_events` 原样保留，旧路由/旧测试不受影响；M1-P 数据不再写入。这样避免匿名 `user_id` 与旧唯一约束冲突，也避免修改旧表导致 001 测试与 R0-2 快照静默漂移。
+**M1 使用新的 `service_*` 表**，M1-P 的 `conversations`/`messages`/`handoffs`/`cancellation_requests`/`audit_events` 原样保留，旧路由/旧测试不受影响；M1-P 数据不再写入。这样避免 M1 客户账号与旧表 `user_id` 语义/唯一约束冲突，也避免修改旧表导致 001 测试与 R0-2 快照静默漂移。
 
 | 表 | 关键列/约束 |
 |---|---|
-| `service_customer_sessions` | id、tenant_id、nickname?、token_hash UNIQUE、created_at、expires_at、revoked_at、last_seen_at |
-| `service_conversations` | id、tenant_id、customer_session_id、status、assigned_agent_id?、journey_id、created_at、updated_at、closed_at? |
+| `service_customers` | id、tenant_id、username、password_hash、display_name、oms_user_id、active、created_at；UNIQUE(tenant_id, username)、UNIQUE(tenant_id, oms_user_id) |
+| `service_customer_sessions` | id、customer_id、token_hash UNIQUE、created_at、expires_at、revoked_at、last_seen_at |
+| `service_conversations` | id、tenant_id、customer_id、status、assigned_agent_id?、journey_id、created_at、updated_at、closed_at? |
 | `service_messages` | id、conversation_id、author_type（customer/ai/agent/system）、author_id?、content、trace_id、created_at |
-| `service_handoffs` | id、tenant_id、conversation_id、status、reason、priority、summary、context、verified_order_ids、pending_step、claimed_by?、claimed_at?、version、journey_id、created_at、updated_at |
+| `service_handoffs` | id、tenant_id、conversation_id、customer_id、status、reason、priority、summary、context、verified_order_ids、pending_step、claimed_by?、claimed_at?、version、journey_id、created_at、updated_at |
 | `service_employees` | id、tenant_id、username、password_hash、role、display_name、active；UNIQUE(tenant_id, username) |
 | `service_employee_sessions` | id、employee_id、token_hash UNIQUE、created_at、expires_at、revoked_at |
-| `service_order_access_grants` | id、customer_session_id、tenant_id、order_id、verified_at、expires_at；UNIQUE(customer_session_id, order_id) |
 | `service_cancellation_requests` | 006 定义；actor/确认/幂等字段 |
 | `service_model_events` | id、conversation_id、journey_id、event_type、name、status、confidence?、trace_id、created_at |
 | `service_tool_events` | id、conversation_id、journey_id、tool_name、status、error_code、latency_ms、trace_id、created_at |
@@ -70,7 +70,8 @@ services/
 
 - `service_handoffs` 部分唯一索引：`UNIQUE (tenant_id, conversation_id) WHERE status IN ('QUEUED','CLAIMED','ACTIVE')`，保证同一会话同一时刻一张 open 交接单；转回 AI/关闭必须先终态旧单。
 - 新行默认 `status='QUEUED'`、`version=0`、`reason/priority` 非空；旧数据不迁移。
-- `service_conversations` 每个 `customer_session_id` 可有多个会话（新会话），但同一会话只属于一个客户 session。
+- `service_conversations` 部分唯一索引：`UNIQUE (tenant_id, customer_id) WHERE status <> 'CLOSED'`，保证一个客户同时只有一个未关闭会话；登录恢复该会话。
+- 客户账号停用后保留审计；M1 不做删除/注销。
 
 迁移全部加法；不修改旧表；Alembic 只创建新表/索引。R0-2 的 DB/OpenAPI 快照策略见第 11 节。
 
@@ -89,6 +90,9 @@ services/
 | `HUMAN_ACTIVE` | 关闭 | `CLOSED` | 接管坐席 |
 | `HUMAN_ACTIVE` | 转回 AI | `AI_ACTIVE` | 接管坐席 |
 | `CLOSED` | 任意写 | 409 `CONVERSATION_CLOSED` | — |
+
+- 一个客户同时只有一个未关闭会话（部分唯一索引兜底）；登录恢复。
+- `AI_ACTIVE` 空闲 24h 自动关闭；`QUEUED/CLAIMED/HUMAN_ACTIVE` 不因 24h 自动关闭。
 
 ### 4.2 交接单
 
@@ -111,8 +115,8 @@ services/
 class Actor:
     tenant_id: str
     actor_type: Literal["customer", "agent"]
-    actor_id: str  # customer_session_id 或 employee_id
-    customer_session_id: str | None = None
+    actor_id: str  # customer_id 或 employee_id
+    customer_id: str | None = None
     employee_id: str | None = None
 
 
@@ -124,16 +128,16 @@ class ToolContext:
     journey_id: str
 ```
 
-- 客户 `oms_access = OmsAccess(tenant, user_id=None, verified_order_ids=...)`。
+- 客户 `oms_access = OmsAccess(tenant, user_id=customer.oms_user_id)`；订单按账号归属，不使用会话授权表。
 - 坐席 `oms_access = OmsAccess(tenant, user_id=None, verified_order_ids=handoff.verified_order_ids)`；不把坐席当订单归属用户。
 - `ToolGateway.invoke(name, payload, context)`；Tool handlers 用 `context.oms_access`；审计记录 `context.actor`。
 - 旧 M1-P 路径用 `ToolContext` 适配器由 `Identity` 构造，保持 001 测试；新 M1 不依赖旧 `Identity`。
-- 取消 actor 由 `006` 扩展：`service_cancellation_requests` 记 `customer_session_id`、`requested_by`、`confirmed_by`；坐席不能写 `confirmed_by`。
+- 取消 actor 由 `006` 扩展：`service_cancellation_requests` 记 `customer_id`、`requested_by`、`confirmed_by`；坐席不能写 `confirmed_by`。
 
 ## 6. 交接单契约
 
 - 触发由确定性 `HandoffPolicy` + 模型输出：显式转人工、`MANUAL_REVIEW`、同一取消任务连续 2 次 OMS Timeout/Connection、`SUBMIT_UNKNOWN`、模型 10s 超时、置信度 <0.6；优先级按 requirements 6.1。
-- 创建与会话 `AI_ACTIVE→QUEUED` 同事务；写 summary（≤500 字）、context（最近 20 条且≤4000 字）、verified_order_ids、pending_step、reason、priority、journey_id。
+- 创建与会话 `AI_ACTIVE→QUEUED` 同事务；写 customer_id、summary（≤500 字）、context（最近 20 条且≤4000 字）、verified_order_ids、pending_step、reason、priority、journey_id。
 - 摘要可由模型起草，字段/裁剪/脱敏由服务端补齐；脱敏清单按 requirements 6.8。
 - 队列摘要字段：handoff_id、conversation_id、等待秒数、reason、priority、订单数、脱敏末条（≤100 字）；不返回完整消息/订单。
 - `QUEUED` 持久化；无坐席领取不丢失；30d 清理只对终态交接单生效（见第 8 节）。
@@ -160,8 +164,8 @@ class ToolContext:
 
 | 数据 | 条件 | 处理 |
 |---|---|---|
-| `service_customer_sessions` | `expires_at < now` | 硬删除；级联/先删 grants |
-| `service_order_access_grants` | 会话过期 | 硬删除 |
+| `service_customer_sessions` | `expires_at < now` | 硬删除 |
+| `service_customers` | 停用后保留审计 | M1 不删除；`active=false` 拒绝登录 |
 | `service_employee_sessions` | `expires_at < now` | 硬删除 |
 | `service_messages` | 所属会话 `closed_at + 30d < now` | 硬删除 |
 | `service_handoffs` | 终态且 `updated_at + 30d < now` | 硬删除；open 单永不静默删除 |
@@ -176,16 +180,16 @@ class ToolContext:
 
 ## 9. 认证与限速契约（005 细化）
 
-- 客户 session：256-bit token、SHA-256 存储、24h 绝对过期、Cookie `csid` `HttpOnly/SameSite=Lax/Secure(prod)/Max-Age=86400/Path=/`；新会话轮换，旧 token 撤销。
+- 客户登录：预置账号 + scrypt 密码；登录失败 5/15min/账号+IP；客户 session 256-bit token、SHA-256 存储、24h 绝对过期、Cookie `csid` `HttpOnly/SameSite=Lax/Secure(prod)/Max-Age=86400/Path=/`；登录轮换，旧 token 撤销。一个客户一个未关闭会话。
 - 员工：scrypt（N=2^14,r=8,p=1）、8h、登录轮换撤销旧 session、登出立即失效；不存在账号做 dummy scrypt；username 规范化（trim/lower）+ 长度上限。
-- 限速：PostgreSQL 桶；key→阈值/窗口：`msg:{session}` 30/min；`verify:{session}` 5/10min、`verify_ip:{ip}` 20/h；`login:{norm_user}:{ip}` 5/15min；IP 只取直连 peer 或可信代理配置，不信任裸 `X-Forwarded-For`；限速先于业务副作用；429 `RATE_LIMITED` + `Retry-After`。
+- 限速：PostgreSQL 桶；key→阈值/窗口：`msg:{customer_session}` 30/min；`customer_login:{norm_user}:{ip}` 5/15min；`employee_login:{norm_user}:{ip}` 5/15min；IP 只取直连 peer 或可信代理配置，不信任裸 `X-Forwarded-For`；限速先于业务副作用；429 `RATE_LIMITED` + `Retry-After`。
 
 ## 10. API 边界
 
-- 客户：`/customer/sessions`、`/customer/session`、`/customer/messages`、`/customer/conversations/{id}/messages`（带 id 的读取用于隔离测试）、`/customer/orders`、`/customer/orders/{id}`、`/customer/orders/verify`、`/customer/orders/{id}/cancellations`、`/customer/handoff`、`/customer/session/close`。
+- 客户：`POST /customer/sessions`（登录）、`GET /customer/session`、`/customer/messages`、`/customer/conversations/{id}/messages`（带 id 的读取用于隔离测试）、`/customer/orders`、`/customer/orders/{id}`、`/customer/orders/{id}/cancellations`、`/customer/handoff`、`/customer/session/close`。
 - 坐席：`/workspace/sessions`、`/workspace/queue`、`/workspace/queue/{handoff}/claim`、`/workspace/conversations/{id}/takeover`、`/workspace/conversations/{id}`、`/workspace/conversations/{id}/messages`、`/workspace/conversations/{id}/cancellations`、`/workspace/conversations/{id}/close`、`/workspace/conversations/{id}/return-to-ai`。
 - 旧 M1-P 路径保留在 `services/api/legacy/`，仅测试/归档使用；生产不挂载（或 `M1_ENABLED` 控制新路径，旧路径不作为生产回滚身份）。
-- 客户按 `order_id` 查询：未校验 403、他人/跨租户 404；客户按 conversation id 读取：非本人 404。
+- 客户按 `order_id` 查询：未登录 401、他人/跨租户 404；客户按 conversation id 读取：非本人 404。
 
 ## 11. 快照、兼容与 CI
 
@@ -205,6 +209,7 @@ class ToolContext:
 
 | 威胁 | 控制 | 验证 | 残余风险/接受人 |
 |---|---|---|---|
+| 登录爆破/撞库 | scrypt、登录限速、非枚举、账号停用 | AC-30/47 | 弱密码（安全负责人，待批准） |
 | 会话伪造/固定 | 随机 token/哈希/轮换/Cookie 属性 | AC-30/49 | 设备被控（安全负责人，待批准） |
 | 跨会话/跨租户 | 服务端 ownership、404 | AC-33/49 | 内部误配（待批准） |
 | 队列抢占/双坐席 | 部分唯一索引、条件更新、租户条件 | AC-39/40 | DB 故障（待批准） |
