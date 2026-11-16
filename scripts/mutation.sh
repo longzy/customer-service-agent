@@ -68,7 +68,7 @@ if [ "${1:-}" != "--report" ]; then
   uv run mutmut run --max-children 4
 fi
 
-RESULTS=$(uv run mutmut results --all true 2>/dev/null || true)
+RESULTS=$(uv run mutmut results --all true 2>/dev/null | sed 's/^[[:space:]]*//' || true)
 if [ -z "$RESULTS" ]; then
   echo "没有可解析的突变结果；先运行 ./scripts/mutation.sh" >&2
   exit 1

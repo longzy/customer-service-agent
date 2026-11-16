@@ -60,5 +60,5 @@ filterwarnings = [
 [tool.mutmut]
 # 只对确定性核心跑突变：范围与 docs/process/tdd.md 第 5 节一致
 source_paths = ["services/tools", "services/workflows", "services/api/domain"]
-also_copy = ["tests", "packages", "migrations", "scripts", "docs"]
+also_copy = ["tests", "packages", "migrations", "scripts", "docs", "services"]
 pytest_add_cli_args_test_selection = ["tests/unit"]
