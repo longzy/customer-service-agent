@@ -50,6 +50,7 @@ def login(payload: SessionRequest, request: Request, response: Response) -> dict
         SESSION_COOKIE,
         sid,
         httponly=True,
+        secure=settings.secure_cookie,
         samesite="lax",
         max_age=int(SESSION_TTL.total_seconds()),
     )

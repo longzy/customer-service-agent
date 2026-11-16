@@ -16,6 +16,7 @@ from services.api.admin_routes import router as admin_router
 from services.api.auth import resolve_identity
 from services.api.cancellation_routes import router as cancellation_router
 from services.api.conversation_routes import router as conversation_router
+from services.api.csrf import verify_origin
 from services.api.handoff_routes import router as handoff_router
 from services.api.session_routes import router as session_router
 from services.api.settings import settings
@@ -69,6 +70,8 @@ def create_app() -> FastAPI:
     app.state.cancel_gateway = build_cancel_gateway(
         app.state.oms, timeout_seconds=settings.oms_timeout_seconds
     )
+    # 后添加的中间件先执行：先解析身份，再校验来源
+    app.middleware("http")(verify_origin)
     app.middleware("http")(resolve_identity)
     app.include_router(session_router)
     app.include_router(conversation_router)

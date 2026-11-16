@@ -499,3 +499,51 @@ M1 只有一个入口：单页面 Web Chat，一次只处理一个会话。
 - 对话区底色为白，用户消息使用 `--surface-2` 气泡；两者必须保持可分辨的对比。
 - 输入区右下角显示字数上限；等待响应或已转人工时整块置灰并停止可编辑。
 - 强调色只出现在可交互元素与当前状态上，占屏面积不超过 5%。
+
+
+## 13. 会话安全基线
+
+目标：把 AC-21 的三条约束固定在代码与测试里，而不是靠部署说明。
+
+### 13.1 Cookie 属性
+
+| 属性 | 规则 | 依据 |
+|---|---|---|
+| `HttpOnly` | 始终为真 | 前端脚本读不到 `sid` |
+| `SameSite` | 始终为 `Lax` | 阻断跨站携带，同时保留顶层导航 |
+| `Secure` | `ENVIRONMENT` 不是 `development`/`test` 时为真；可用 `COOKIE_SECURE` 显式覆盖 | 本机 HTTP 开发不受影响，共享环境强制加密 |
+| `Max-Age` | 等于会话 TTL（8 小时） | 与服务端过期一致 |
+
+配置来源唯一：`services/api/settings.py` 的 `secure_cookie` 属性。路由不得自行判断环境。
+
+### 13.2 跨站写请求
+
+- 适用范围：`POST`、`PUT`、`PATCH`、`DELETE`。
+- 请求带 `Origin` 时，其主机必须等于请求的 `Host`，或命中 `ALLOWED_ORIGINS`（逗号分隔）。
+- 开发与测试环境默认允许 `http://localhost:3000`、`http://127.0.0.1:3000`：Next 开发服务器把 `/api` 代理到后端，`Origin` 是前端地址而 `Host` 是后端地址。
+- 经反向代理部署时，代理会改写 `Host`，必须把前端公网地址写入 `ALLOWED_ORIGINS`，否则写请求会被拒绝（失败关闭）。
+- 不匹配时返回 403，且不进入路由处理，不产生业务副作用。
+- 请求不带 `Origin` 时放行：命令行与内部调用没有该头；浏览器对跨站写请求一定会带。
+- `GET`/`HEAD`/`OPTIONS` 不受影响。
+
+实现位置：`services/api/csrf.py` 的中间件，在身份解析之后执行。
+
+### 13.3 密钥与调试端点
+
+- 密钥只从环境变量读取，仓库与 CI 都跑 `scripts/check-secrets.py`。
+- `/_admin` 与测试账号接口只在 `development`/`test` 挂载，这一条保持不变；独立鉴权登记为遗留项（见 `docs/process/standards.md` STD-SEC-05）。
+
+### 13.4 测试与证据
+
+| 场景 | 观测点 |
+|---|---|
+| 开发环境登录 | Cookie 不含 `Secure`，含 `HttpOnly`、`SameSite=Lax` |
+| 覆盖为安全模式 | Cookie 含 `Secure` |
+| 生产默认 | `Settings().secure_cookie` 为真 |
+| 同源写请求 | 通过 |
+| 跨源写请求 | 403，且没有副作用 |
+| 本地前端代理来源 | 通过（开发/测试默认白名单） |
+| 不透明来源 `Origin: null` | 403 |
+| 空 `COOKIE_SECURE=` | 按未设置处理，不阻止启动 |
+| 无 `Origin` 的写请求 | 通过（命令行） |
+| 跨源读请求 | 通过 |
