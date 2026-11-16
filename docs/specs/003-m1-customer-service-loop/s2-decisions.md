@@ -13,7 +13,7 @@
 | 1 | 数据所有权 | M1 新建 `service_*` 表；M1-P 旧表/旧路由/旧测试原样保留；一个客户一个未关闭会话用部分唯一索引；同一会话一张 open 交接单用部分唯一索引；不做 `order_access_grants` |
 | 2 | Actor/ToolContext | `Actor(customer_id/employee_id)` + `ToolContext(actor, oms_access, trace_id, journey_id)`；客户 `OmsAccess(tenant, user_id=customer.oms_user_id)`；坐席用交接单 `verified_order_ids`；取消 actor 在 006 |
 | 3 | Legacy/快照 | 旧表/旧路由不动；AC-27/28 改为子集兼容（旧路径/表不变，新 M1 允许）；另加 `openapi-m1.json`/`db-schema-m1.json` 全量快照；`M1_ENABLED` 控制新路由/worker |
-| 4 | 范围/演示 | 003 验收+契约；004 客户聊天；005 坐席工作台；006 取消最后；2 客户+2 坐席，A 全链路/B 隔离 |
+| 4 | 范围/演示 | 003 验收+契约；004 A 转接闭环；005 B 订单；006 C 取消；007 D 硬化；2 客户+2 坐席，A/B 均完整 |
 | 5 | 会话 | 客户登录 24h 绝对 session；一个客户一个未关闭会话，登录恢复；员工 8h；`AI_ACTIVE` 空闲 24h 关闭，`QUEUED/HUMAN_ACTIVE` 不自动关闭 |
 | 6 | 保留/审计 | 会话 24h；消息/交接单终态后 30d；审计 90d；不存完整手机号；审计写失败变更 503 不提交；客户账号停用保留审计 |
 
