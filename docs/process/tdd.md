@@ -4,6 +4,7 @@
 - 批准：2026-11-14（本次会话由用户确认）
 - 日期：2026-11-14
 - 适用：所有包含确定性逻辑的编码任务
+- 迁移状态：迁移中（2026-11-16 起，流程与规则以 `docs/process/WORKFLOW.md`、`docs/process/standards.md` 为准；本文保留seam、红-绿与突变阈值）
 - 关联：`docs/process/sdd.md`（阶段门禁）、`docs/process/README.md`（任务闭环）
 
 ## 给非实现者的速览

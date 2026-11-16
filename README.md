@@ -19,9 +19,14 @@
 - [总体架构](docs/architecture/overview.md)
 - [架构不变量](docs/architecture/invariants.md)
 - [路线图](docs/roadmap.md)
+- [标准开发工作流（草案）](docs/process/WORKFLOW.md)
+- [工程标准 STD（草案）](docs/process/standards.md)
 - [AI Coding 协作规范](docs/process/README.md)
 - [Spec 开发规范](docs/process/sdd.md)
 - [TDD 与突变检查规范](docs/process/tdd.md)
+- [开发规范评审（2026-11-16）](docs/reviews/2026-11-16-dev-standards-review.md)
+- [参与开发](CONTRIBUTING.md)
+- [安全策略](SECURITY.md)
 - [初始技术评审](docs/reviews/2026-11-14-initial-architecture-review.md)
 - [AI Coding 调研](docs/research/ai-coding-new-project-practices-2026-11-14.md)
 - [M1 订单取消规格](docs/specs/001-order-cancel/requirements.md)
@@ -61,14 +66,17 @@
 UV_CACHE_DIR=./.uv-cache uv sync
 pnpm -C apps/web install
 
-# 一键验证：ruff check/format、mypy、pytest、文档检查、前端 lint/format/typecheck/test
+# 一键验证：ruff、mypy、pytest（独立测试库）、路由覆盖、追溯、状态、文档、前端
 ./scripts/verify.sh
+./scripts/verify.sh --no-record   # CI 使用：只验证，不写回状态快照
 
 # 单独运行
 UV_CACHE_DIR=./.uv-cache uv run ruff check .
 UV_CACHE_DIR=./.uv-cache uv run mypy services
-UV_CACHE_DIR=./.uv-cache uv run pytest
+./scripts/test-db.sh -q            # 建测试库、跑迁移、再跑 pytest
 python3 scripts/check-docs.py
+python3 scripts/check-status.py    # CURRENT.md ↔ tasks.md ↔ 执行卡
+python3 scripts/trace.py --strict  # AC ↔ 测试 ↔ 执行卡
 pnpm -C apps/web lint
 pnpm -C apps/web typecheck
 pnpm -C apps/web test
@@ -83,10 +91,13 @@ pnpm -C apps/web dev   # 打开 http://localhost:3000，会引导到登录页
 
 迁移：`uv run alembic revision --autogenerate -m "..."`；表结构随后续任务落地。
 
-提交与推送的门禁由 `.githooks/` 提供，仓库已设置 `core.hooksPath=.githooks`：
+门禁分两层，**服务端 CI 是唯一硬门禁**，本地 hook 只负责早发现：
 
-- `pre-commit`：格式、静态检查、文档检查，约 0.1 秒。
-- `pre-push`：执行完整 `verify.sh`，含全部测试，约 7 秒。
+- 本地 hook（需在新 clone 执行一次 `git config core.hooksPath .githooks`）：
+  - `commit-msg`：校验 Conventional Commits。
+  - `pre-commit`：格式、静态检查、文档、状态与追溯检查。
+  - `pre-push`：执行完整 `verify.sh`。
+- 服务端（`.github/workflows/ci.yml`）：PR 必过 `verify` 与 `frontend-build` 两个 required check。
 
-紧急情况可 `git push --no-verify`，但必须在提交说明或 PR 中写明原因。
+集成测试使用独立测试库（默认 `customer_service_test`），不会再读开发库。紧急情况可 `--no-verify`，但必须在 PR 描述中写明原因，并在 24 小时内补跑完整门禁。
 

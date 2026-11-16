@@ -20,6 +20,8 @@
 | `docs/product/charter.md` | 产品定位、范围和非目标 | 产品范围批准后 |
 | `docs/architecture/` | 总体架构和不变量 | 架构约束变化时 |
 | `docs/adr/` | 架构上重要的决策及后果 | 做出长期决策时 |
+| `docs/process/WORKFLOW.md` | 标准开发工作流：变更分级、门禁阶梯、AI 协作与度量（草案，待批准） | 流程升级获批后 |
+| `docs/process/standards.md` | 工程标准 STD：架构/API/数据/安全/前端/测试/发布等规则与强制点（草案，待批准） | 规则或强制点变化时 |
 | `docs/process/sdd.md` | 规格开发规范：固定路径、必需文件、阶段门禁 | 流程或目录规则变化时 |
 | `docs/process/tdd.md` | 测试先行：seam 约定、红-绿循环、突变检查范围与阈值 | 测试或质量策略变化时 |
 | `docs/specs/<M>/<NNN>-<slug>/` | 一个变更的规格、设计、验收与任务地图 | 变更的需求或设计变化时 |
@@ -31,6 +33,8 @@
 | `docs/reviews/` | 历史评审和当时依据 | 原则上不修改 |
 
 同一含义只保留一个权威位置。根指令文件使用指针，不复制详细规范。
+
+> 迁移说明：`WORKFLOW.md` 与 `standards.md` 已于 2026-11-16 批准，是流程与规则的权威。`sdd.md`、`tdd.md`、`review.md` 进入迁移期，只保留路径与测试细节；冲突时以 `WORKFLOW.md` 与 `standards.md` 为准。合并计划见 `WORKFLOW.md` 第 10 节。
 
 ## 3. 新会话恢复流程
 
