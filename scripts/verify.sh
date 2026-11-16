@@ -54,7 +54,7 @@ echo "== import 边界 =="
 python3 scripts/check-imports.py --strict
 
 echo "== prod import =="
-ENVIRONMENT=test MODEL_API_KEY= uv run --no-dev python -c "import services.api.main"
+ENVIRONMENT=test MODEL_API_KEY= uv run --no-dev python -c "import services.api.main, services.tools.gateway, services.adapters.oms.factory"
 
 echo "== 密钥扫描 =="
 python3 scripts/check-secrets.py

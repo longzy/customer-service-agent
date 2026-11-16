@@ -52,8 +52,8 @@
 
 **Goal**：删除旧路径，清零基线。
 
-- [ ] T-26 重接 `api`，确认 `services/api/domain` 已由 T-23 删除，删除 `services/mock_oms`，基线清零，更新 `verify.sh` 的 `prod import` 冒烟
-  - 文件：`services/api/*`、删除 `services/mock_oms/`、确认 `services/api/domain/` 已删除、`scripts/import-baseline.txt`、`scripts/verify.sh`、`tests/unit/test_import_boundaries_AC_24.py`
+- [x] T-26 收口核验：确认旧 `api/domain` 与 `mock_oms` 包已由 T-23/T-24 删除、基线为 0、`verify.sh` 的 prod import 自包含、API 不再接旧路径
+  - 文件：`scripts/import-baseline.txt`、`scripts/verify.sh`、`tests/unit/test_import_boundaries_AC_24.py`、`docs/CURRENT.md`
   - _验收: AC-23、AC-24_
 
 **Checkpoint**：`check-imports --strict` 退出 0；`services.mock_oms` 不再存在；`verify.sh` 不依赖 `OwnershipIndex`。
