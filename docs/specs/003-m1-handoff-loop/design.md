@@ -1,8 +1,8 @@
 # A 设计：客户 ↔ AI ↔ 人工转接闭环
 
 - 状态：草案
-- 依据：[requirements](requirements.md)、[003 契约](../003-m1-customer-service-loop/design.md)
-- 说明：S1.5 通过后进入 S2；本文件当前为占位。
+- 依据：[requirements](requirements.md)、[ADR-0006](../../adr/0006-customer-login.md)
+- 说明：S1 已批准，S2 待写。
 
 ## S2 必须覆盖
 
@@ -18,4 +18,4 @@
 
 ## 不做
 
-订单（B）、取消（C）、保留清理/全量评测（D）。
+订单（004）、取消（005）、保留清理/全量评测（006）。

@@ -3,7 +3,7 @@
 - 状态：已批准
 - 日期：2026-11-16
 - 批准：2026-11-16（用户确认：预置客户账号 + 密码登录；订单按账号归属）
-- 关联：[产品宪章](../product/charter.md)、[ADR-0005](0005-enterprise-boundary.md)、[M1 requirements](../specs/003-m1-customer-service-loop/requirements.md)
+- 关联：[产品宪章](../product/charter.md)、[ADR-0005](0005-enterprise-boundary.md)、[M1 requirements](../specs/003-m1-handoff-loop/requirements.md)
 - 取代：ADR-0005 中“客户匿名”与“订单号 + 手机尾号校验”相关决策
 
 ## 背景
@@ -52,7 +52,7 @@ ADR-0005 选择匿名客户 + 订单号/手机尾号校验，是为了缩小 M1 
 - 交接单、队列、工作台可以展示客户账号与订单归属，“多用户 + 转人工”可直接演示。
 - INV-01/02/03 需要再次修订：客户从“匿名会话”变为“已认证客户账号”。
 - ADR-0005 的匿名客户与订单尾号决策被本 ADR 取代；其余企业边界（双前端、仅 OMS Mock、RBAC、模块化单体）继续有效。
-- M1 requirements、003 design、A 转接闭环 spec 需要重写并重新走 S1.5/S2。
+- M1 实现按 A/B/C/D 垂直切片；A 为 `003-m1-handoff-loop`。
 - 生产环境的客户认证后续替换为手机 OTP/SSO；M1 的本地账号是演示/内部验证形态。
 
 ## 拒绝的方案
