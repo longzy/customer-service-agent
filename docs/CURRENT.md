@@ -4,21 +4,21 @@
 - 项目阶段：M1 订单查询与未发货订单取消（M0 已满足）
 - 当前状态：进行中
 - 当前 Milestone：M1（规格已批准：`docs/specs/001-order-cancel/`）
-- 当前工作：T-11 结果校验（未开工）
+- 当前工作：T-11 待评审（T2）
 
 <!-- verify:start -->
-- 最近验证：`./scripts/verify.sh` 全部检查通过——pytest 318 passed（独立测试库）、mypy 36 个文件、追溯矩阵通过（21 条 AC）、文档与前端检查通过
+- 最近验证：`./scripts/verify.sh` 全部检查通过——pytest 340 passed（独立测试库）、mypy 37 个文件、追溯矩阵通过（21 条 AC）、文档与前端检查通过
 <!-- verify:end -->
 
 ## 进行中
 
-- T-11 结果校验：`services/agent_runtime/validator.py`，承接 AC-16 的回复校验，未建卡。
+- T-11 结果校验：实现与验证完成，待 2 人独立评审；T2 证据见执行卡第 4 节。
 - T-12 Trace 与审计：请求级 trace_id、审计落盘、日志脱敏，承接 AC-17、AC-18。
 - T-13 场景评测：`evals/` 仍是空占位。
 
 ## 下一步
 
-1. 为 T-11 出执行卡并先红后绿实现。
+1. T-11 进入 2 人独立评审；处理阻断项后更新状态与评审记录。
 2. 完成 T-12，删除 `scripts/trace-baseline.txt` 中两条基线。
 3. 完成 T-13：AC-01 至 AC-21 的可重复评测与阈值。
 4. 在 GitHub 开启分支保护，把 `verify`、`frontend-build` 设为 required check。

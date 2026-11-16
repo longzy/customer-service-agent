@@ -183,3 +183,110 @@ async def test_取消路径网关错误返回文案_AC_04() -> None:
     reply = await chat.handle(IDENTITY, "取消 ORD-10001")
     assert reply.cancellation is None
     assert "服务暂时不可用" in reply.reply
+
+
+async def test_取消意图回复包含下一步_AC_16() -> None:
+    from datetime import UTC, datetime
+    from types import SimpleNamespace
+
+    from services.api.domain.cancellation import CancellationState
+
+    class FakeWorkflow:
+        async def request(self, identity, order_id, trace_id, conversation_id=None):
+            return SimpleNamespace(
+                id="task-1",
+                state=CancellationState.AWAITING_CONFIRMATION,
+                reason_code=None,
+                expires_at=datetime(2026, 11, 15, 12, 0, tzinfo=UTC),
+            )
+
+    chat = ConversationService(
+        MemoryRepository(),
+        FakeModelClient({"取消 ORD-10001": {"intent": "CANCEL_ORDER", "order_id": "ORD-10001"}}),
+        build_query_gateway(MockOms()),
+        cancellation=FakeWorkflow(),
+    )
+    reply = await chat.handle(IDENTITY, "取消 ORD-10001")
+    assert reply.reply == "等待您确认。请在确认卡片中选择“确认取消”或“不取消”。"
+    assert reply.cancellation is not None
+    assert reply.cancellation["next_step"] == "请在确认卡片中选择“确认取消”或“不取消”。"
+    assert reply.cancellation["reason_text"] is None
+
+
+async def test_资格拒绝回复带原因文案_AC_16() -> None:
+    from datetime import UTC, datetime
+    from types import SimpleNamespace
+
+    from services.api.domain.cancellation import CancellationState
+
+    class FakeWorkflow:
+        async def request(self, identity, order_id, trace_id, conversation_id=None):
+            return SimpleNamespace(
+                id="task-2",
+                state=CancellationState.ELIGIBILITY_REJECTED,
+                reason_code="SHIPPED",
+                expires_at=datetime(2026, 11, 15, 12, 0, tzinfo=UTC),
+            )
+
+    chat = ConversationService(
+        MemoryRepository(),
+        FakeModelClient({"取消 ORD-10003": {"intent": "CANCEL_ORDER", "order_id": "ORD-10003"}}),
+        build_query_gateway(MockOms()),
+        cancellation=FakeWorkflow(),
+    )
+    reply = await chat.handle(IDENTITY, "取消 ORD-10003")
+    assert reply.reply == "不可取消，并说明原因：订单已发货。如需进一步处理，可转人工。"
+    assert reply.cancellation is not None
+    assert reply.cancellation["state_text"] == "不可取消，并说明原因"
+    assert reply.cancellation["reason_text"] == "订单已发货"
+
+
+def _workflow_for(state, reason_code=None):
+    from datetime import UTC, datetime
+    from types import SimpleNamespace
+
+    class FakeWorkflow:
+        async def request(self, identity, order_id, trace_id, conversation_id=None):
+            return SimpleNamespace(
+                id="task-1",
+                state=state,
+                reason_code=reason_code,
+                expires_at=datetime(2026, 11, 15, 12, 0, tzinfo=UTC),
+            )
+
+    return FakeWorkflow()
+
+
+async def _reply_for(state, reason_code=None):
+    chat = ConversationService(
+        MemoryRepository(),
+        FakeModelClient({"取消 ORD-10001": {"intent": "CANCEL_ORDER", "order_id": "ORD-10001"}}),
+        build_query_gateway(MockOms()),
+        cancellation=_workflow_for(state, reason_code),
+    )
+    return await chat.handle(IDENTITY, "取消 ORD-10001")
+
+
+async def test_超时恢复后回复为已受理_AC_10() -> None:
+    from services.api.domain.cancellation import CancellationState
+
+    reply = await _reply_for(CancellationState.ACCEPTED)
+    assert reply.reply == "已受理，等待最终取消结果。如需帮助，可转人工。"
+    assert "已取消" not in reply.reply
+
+
+async def test_非法响应回复为未知_AC_11() -> None:
+    from services.api.domain.cancellation import CancellationState
+
+    reply = await _reply_for(CancellationState.SUBMIT_UNKNOWN, "INVALID_RESPONSE")
+    assert reply.reply == "已提交，正在核实受理结果。如长时间没有结果，可转人工核实。"
+    assert "成功" not in reply.reply
+    assert "失败" not in reply.reply
+
+
+async def test_重试耗尽回复人工_AC_11() -> None:
+    from services.api.domain.cancellation import CancellationState
+
+    reply = await _reply_for(CancellationState.MANUAL_REVIEW, "DEPENDENCY_TIMEOUT")
+    assert reply.reply == "已转人工处理。人工会尽快核实，请稍候。"
+    assert "已取消" not in reply.reply

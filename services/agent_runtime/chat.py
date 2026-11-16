@@ -7,8 +7,9 @@ from uuid import uuid4
 
 from services.agent_runtime.intent import classify_message
 from services.agent_runtime.types import Intent
+from services.agent_runtime.validator import validate_reply
 from services.api.auth import Identity
-from services.api.domain.cancellation import EXPRESSIONS
+from services.api.domain.cancellation import EXPRESSIONS, render_result
 from services.api.domain.errors import ErrorCode
 from services.api.domain.orders import ORDER_STATUS_TEXT, OrderStatus
 from services.tools.gateway import GatewayError, ToolGateway
@@ -180,15 +181,18 @@ class ConversationService:
             "amount_cents": order["amount_cents"],
             "currency": order["currency"],
         }
+        copy = render_result(task.state, task.reason_code)
         cancellation = {
             "task_id": task.id,
             "state": task.state.value,
-            "state_text": EXPRESSIONS[task.state],
+            "state_text": copy.state_text,
+            "reason_text": copy.reason_text,
+            "next_step": copy.next_step,
             "reason_code": task.reason_code,
             "expires_at": task.expires_at.isoformat().replace("+00:00", "Z"),
             "order": summary,
         }
-        reply = EXPRESSIONS[task.state]
+        reply = validate_reply(task.state, task.reason_code, EXPRESSIONS[task.state]).reply
         await self._repository.add_message(conversation, "assistant", reply, trace_id)
         return Reply(
             conversation_id=conversation,

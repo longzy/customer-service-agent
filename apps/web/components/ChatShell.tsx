@@ -52,7 +52,13 @@ export function ChatShell({
 
   function updateCard(
     taskId: string,
-    body: { state: string; state_text: string; reason_code: string | null },
+    body: {
+      state: string;
+      state_text: string;
+      reason_code: string | null;
+      reason_text?: string | null;
+      next_step?: string;
+    },
   ) {
     setMessages((items) =>
       items.map((item) =>
@@ -64,6 +70,8 @@ export function ChatShell({
                 state: body.state,
                 state_text: body.state_text,
                 reason_code: body.reason_code,
+                reason_text: body.reason_text ?? null,
+                next_step: body.next_step,
               },
             }
           : item,

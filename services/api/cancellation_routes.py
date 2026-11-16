@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from services.api.auth import Identity, current_identity
 from services.api.db import get_session
-from services.api.domain.cancellation import EXPRESSIONS
+from services.api.domain.cancellation import render_result
 from services.api.settings import settings
 from services.tools.gateway import GatewayError
 from services.workflows.cancel import (
@@ -50,11 +50,14 @@ def _workflow(
 
 def _public(task: CancellationTask) -> dict[str, Any]:
     """只暴露前端需要的字段；幂等键与身份信息不出接口。"""
+    copy = render_result(task.state, task.reason_code)
     return {
         "id": task.id,
         "order_id": task.order_id,
         "state": task.state.value,
-        "state_text": EXPRESSIONS[task.state],
+        "state_text": copy.state_text,
+        "reason_text": copy.reason_text,
+        "next_step": copy.next_step,
         "reason_code": task.reason_code,
         "expires_at": task.expires_at.isoformat().replace("+00:00", "Z"),
     }

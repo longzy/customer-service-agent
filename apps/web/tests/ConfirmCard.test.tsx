@@ -101,3 +101,79 @@ describe("ConfirmCard 终态覆盖", () => {
     expect(screen.queryByRole("button", { name: "确认取消" })).not.toBeInTheDocument();
   });
 });
+
+describe("ConfirmCard 结果文案（AC-16）", () => {
+  const base: Cancellation = {
+    task_id: "task-1",
+    state: "AWAITING_CONFIRMATION",
+    state_text: "等待您确认",
+    reason_code: null,
+    reason_text: null,
+    next_step: "请在确认卡片中选择“确认取消”或“不取消”。",
+    expires_at: "2026-11-15T12:00:00Z",
+    order: {
+      order_id: "ORD-10001",
+      item_summary: "无线耳机 × 1",
+      status_text: "待发货",
+      amount_cents: 39900,
+      currency: "CNY",
+    },
+  };
+
+  it("资格拒绝展示原因与下一步，不展示原因码（AC-16）", () => {
+    render(
+      <ConfirmCard
+        cancellation={{
+          ...base,
+          state: "ELIGIBILITY_REJECTED",
+          state_text: "不可取消，并说明原因",
+          reason_code: "SHIPPED",
+          reason_text: "订单已发货",
+          next_step: "如需进一步处理，可转人工。",
+        }}
+        busy={false}
+        onConfirm={vi.fn()}
+        onAbandon={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("原因：订单已发货")).toBeInTheDocument();
+    expect(screen.getByText("如需进一步处理，可转人工。")).toBeInTheDocument();
+    expect(screen.queryByText(/SHIPPED/)).not.toBeInTheDocument();
+  });
+
+  it("已取消终态展示下一步（AC-16）", () => {
+    render(
+      <ConfirmCard
+        cancellation={{
+          ...base,
+          state: "CANCELLED",
+          state_text: "已取消",
+          next_step: "如需帮助，可转人工。",
+        }}
+        busy={false}
+        onConfirm={vi.fn()}
+        onAbandon={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("已取消")).toBeInTheDocument();
+    expect(screen.getByText("如需帮助，可转人工。")).toBeInTheDocument();
+  });
+
+  it("提交中只展示状态标签（AC-16）", () => {
+    render(
+      <ConfirmCard
+        cancellation={{
+          ...base,
+          state: "SUBMITTING",
+          state_text: "正在提交取消申请",
+          next_step: "请稍候，无需重复提交。",
+        }}
+        busy={false}
+        onConfirm={vi.fn()}
+        onAbandon={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("正在提交取消申请")).toBeInTheDocument();
+    expect(screen.queryByText("请稍候，无需重复提交。")).not.toBeInTheDocument();
+  });
+});

@@ -164,3 +164,23 @@ def test_查询时冲突返回409_基座豁免() -> None:
     with make_client(repo) as api:
         login(api)
         assert api.get("/cancellation-requests/task-expired").status_code == 409
+
+
+def test_资格拒绝返回原因与下一步_AC_16() -> None:
+    with make_client(MemoryRepository()) as api:
+        login(api)
+        body = api.post("/cancellation-requests", json={"order_id": "ORD-10003"}).json()
+        assert body["state"] == "ELIGIBILITY_REJECTED"
+        assert body["reason_code"] == "SHIPPED"
+        assert body["state_text"] == "不可取消，并说明原因"
+        assert body["reason_text"] == "订单已发货"
+        assert body["next_step"] == "如需进一步处理，可转人工。"
+
+
+def test_等待确认返回下一步且无原因_AC_16() -> None:
+    with make_client(MemoryRepository()) as api:
+        login(api)
+        body = api.post("/cancellation-requests", json={"order_id": "ORD-10001"}).json()
+        assert body["state"] == "AWAITING_CONFIRMATION"
+        assert body["reason_text"] is None
+        assert body["next_step"] == "请在确认卡片中选择“确认取消”或“不取消”。"

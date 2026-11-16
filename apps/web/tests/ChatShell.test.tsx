@@ -333,3 +333,89 @@ describe("ChatShell 已转人工的 409", () => {
     expect(screen.getByLabelText("输入消息")).toBeDisabled();
   });
 });
+
+describe("ChatShell 结果文案透传", () => {
+  const cancellation = {
+    task_id: "task-3",
+    state: "AWAITING_CONFIRMATION",
+    state_text: "等待您确认",
+    reason_code: null,
+    next_step: "请在确认卡片中选择“确认取消”或“不取消”。",
+    expires_at: "2026-11-15T12:00:00Z",
+    order: {
+      order_id: "ORD-10001",
+      item_summary: "无线耳机 × 1",
+      status_text: "待发货",
+      amount_cents: 39900,
+      currency: "CNY",
+    },
+  };
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("资格拒绝卡片保留原因与下一步（AC-16）", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          conversation_id: "conv-1",
+          reply: "不可取消，并说明原因：订单已发货。如需进一步处理，可转人工。",
+          orders: [],
+          clarification: [],
+          cancellation: {
+            ...cancellation,
+            state: "ELIGIBILITY_REJECTED",
+            state_text: "不可取消，并说明原因",
+            reason_code: "SHIPPED",
+            reason_text: "订单已发货",
+            next_step: "如需进一步处理，可转人工。",
+          },
+        }),
+        { status: 200 },
+      ),
+    );
+    render(<ChatShell />);
+    fireEvent.change(screen.getByLabelText("输入消息"), {
+      target: { value: "取消 ORD-10003" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "发送" }));
+    expect(await screen.findByText("原因：订单已发货")).toBeInTheDocument();
+    expect(screen.getByText("如需进一步处理，可转人工。")).toBeInTheDocument();
+  });
+
+  it("确认后卡片保留下一步（AC-16）", async () => {
+    vi.spyOn(global, "fetch")
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            conversation_id: "conv-1",
+            reply: "等待您确认。请在确认卡片中选择“确认取消”或“不取消”。",
+            orders: [],
+            clarification: [],
+            cancellation,
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            state: "CANCELLED",
+            state_text: "已取消",
+            reason_code: null,
+            reason_text: null,
+            next_step: "如需帮助，可转人工。",
+          }),
+          { status: 200 },
+        ),
+      );
+    render(<ChatShell />);
+    fireEvent.change(screen.getByLabelText("输入消息"), {
+      target: { value: "取消 ORD-10001" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "发送" }));
+    fireEvent.click(await screen.findByRole("button", { name: "确认取消" }));
+    expect(await screen.findByText("如需帮助，可转人工。")).toBeInTheDocument();
+  });
+});

@@ -11,6 +11,8 @@ export type Cancellation = {
   state: string;
   state_text: string;
   reason_code?: string | null;
+  reason_text?: string | null;
+  next_step?: string;
   expires_at: string;
   order: CancellationOrder;
 };
@@ -41,8 +43,11 @@ export function ConfirmCard({
           {cancellation.state_text}
         </span>
         <span className="order-id">{cancellation.order.order_id}</span>
-        {cancellation.reason_code ? (
-          <span className="hint-text">原因：{cancellation.reason_code}</span>
+        {cancellation.reason_text ? (
+          <span className="hint-text">原因：{cancellation.reason_text}</span>
+        ) : null}
+        {cancellation.next_step ? (
+          <p className="hint-text confirm-next">{cancellation.next_step}</p>
         ) : null}
       </div>
     );

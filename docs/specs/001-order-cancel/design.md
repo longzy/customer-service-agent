@@ -1,7 +1,7 @@
 # M1 技术设计：订单查询与未发货订单取消
 
 - 状态：已批准
-- 批准：2026-11-15（用户确认，含测试账号登录页与 AC-20）；2026-11-16 澄清确认（状态迁移表）
+- 批准：2026-11-15（用户确认，含测试账号登录页与 AC-20）；2026-11-16 澄清确认（状态迁移表与 T-11 结果文案）
 - 变更说明：
   - 2026-11-14 增加取消主流程与超时恢复的时序图，并补 4.1 契约约定。
   - 2026-11-15 第 3 节新增 OMS 侧 `OmsCancelState` 四态；`submit_cancel` 成功响应收敛为 `ACCEPTED`，拒绝与未知改由错误封套表达。
@@ -12,6 +12,7 @@
   - 2026-11-15 第 12 节“不取消”改为发送一次状态收尾请求，失败时等超时转 `ABANDONED`（T-14 决策）。
   - 2026-11-15 第 3 节明确资格 Tool 可读取 OMS 订单事实，但判定只由 Policy Engine 产出（T-08 决策）。
   - 2026-11-16 第 2 节状态迁移由箭头图改为迁移表（澄清，不改行为）。
+  - 2026-11-16 第 7 节补结果文案唯一来源、校验规则、调用位置与冲突优先级；第 12 节终态卡片补原因与下一步（T-11 澄清）。
 - 关联需求：`requirements.md`
 
 ## 1. 设计原则
@@ -109,7 +110,7 @@ sequenceDiagram
     OMS--xWF: 超时（2 秒）
     WF->>WF: SUBMITTING -> SUBMIT_UNKNOWN
     WF->>AU: 记录未知状态与幂等键摘要
-    loop 最多 3 次，退避 1s / 2s / 4s
+    loop 最多 3 次尝试（含首次），退避 1s / 2s / 4s
         WF->>OMS: get_cancel_result(idempotency_key)
         OMS-->>WF: ACCEPTED / CANCELLED / REJECTED / 未知
     end
@@ -229,7 +230,7 @@ sequenceDiagram
 - 幂等键在任务创建时生成，后续重试复用。
 - `COLLECTING` 或 `AWAITING_CONFIRMATION` 超过确认超时未推进，转入 `ABANDONED`；默认 30 分钟，可由环境变量覆盖，测试中设为 1 秒。
 - OMS 单次调用超时 2 秒。
-- 失败重试最多 3 次，间隔 1s / 2s / 4s，耗尽后进入 `MANUAL_REVIEW`。
+- 失败最多 3 次尝试（含首次），间隔 1s / 2s / 4s，耗尽后进入 `MANUAL_REVIEW`。
 - 数据库对 `(tenant_id, idempotency_key)` 建唯一约束。
 - 如果写调用超时，Workflow 进入 `SUBMIT_UNKNOWN`。
 - 恢复器按幂等键调用 `get_cancel_result`。
@@ -335,13 +336,51 @@ Agent 输出建议使用结构化动作，例如：
 
 ## 7. 回复结果校验
 
-最终回复生成前，Result Validator 将模型输出与权威业务结果对照：
+### 7.1 唯一文案来源
 
-- 不得把 `ACCEPTED` 表述为 `CANCELLED`。
-- 不得把 `SUBMIT_UNKNOWN` 表述为失败或成功。
-- `SUBMITTING` 只能表述为“正在提交”；`SUBMIT_UNKNOWN` 只能表述为“已提交，正在核实受理结果”。二者均不得表述为已受理或已取消。
-- 不得声称已退款。
-- 必须包含下一步或人工路径。
+结果文案只有一处：`services/api/domain/cancellation.py` 的 `render_result(state, reason_code)`，返回：
+
+- `state_text`：状态标签，取自 `requirements.md` 第 9 节“内部状态与用户可见表达”。
+- `reason_text`：仅 `ELIGIBILITY_REJECTED` 非空，由 `reason_code` 映射；其他状态为 `None`。
+- `next_step`：每个状态一条固定下一步句。
+- `reply`：`state_text` + 原因（仅资格拒绝）+ `next_step` 的完整句，模板见 `requirements.md` 第 9 节“结果回复模板”。
+
+`services/agent_runtime/validator.py` 的 `validate_reply(state, reason_code, draft)` 只做校验与替换，不维护第二份文案。
+
+`ELIGIBILITY_REJECTED` 的 `state_text` 沿用需求第 9 节表达表的“不可取消，并说明原因”，原因由 `reason_text` 单独展示；标签精简不在 T-11 范围。五类结果名是验收分类，不是逐字文案；`SUBMITTING` 保持“正在提交取消申请”。
+
+### 7.2 校验规则
+
+- 期望值：`render_result(...).reply`。
+- 等价：`draft.strip()` 与期望值逐字相等才算通过；否则替换为期望值，返回 `replaced=True`、`mismatch="REPLY_MISMATCH"`。
+- 不做语义等价、同义词或模型重写；M1 的最终文案必须逐字一致，避免同一状态出现第二种表达。因此 `ACCEPTED` 不可能被表述为 `CANCELLED`，`SUBMIT_UNKNOWN` 不可能被表述为成功或失败。
+- 空草稿、超长草稿、重复草稿一律按不一致替换；不设长度上限，长度不影响判定，只有逐字相等才通过；校验无副作用，可重复调用。
+- 校验是纯函数：无 I/O、无超时；超时场景指上游提交/查询超时，由任务状态承接。
+- 失败关闭：未知状态、`ELIGIBILITY_REJECTED` 缺 `reason_code`、文案表缺项时抛 `ValueError`，不输出兜底文案；接口层按 500 处理，不发送未经校验的回复。这类错误只可能是程序错误，全部 10 个状态的文案由单测在 CI 阻断缺项。
+
+### 7.3 调用位置
+
+| 出口 | 使用方式 | 证据 |
+|---|---|---|
+| `/message` 的取消结果回复 | `ConversationService` 在持久化 assistant 消息前调用 `validate_reply`，持久化替换后的回复 | `/message` 响应与消息表 |
+| `POST/GET /cancellation-requests` | `_public` 用 `render_result` 输出 `state_text`、`reason_text`、`next_step`；不接收草稿 | 接口字段 |
+| `ConfirmCard` 终态 | 展示 `state_text`、`reason_text`、`next_step`；不得展示裸 `reason_code` | 组件测试 |
+
+查询、澄清、转人工与通用错误回复不在本任务范围，沿用现有出口；若后续改由模型生成，必须先接入同一个 `validate_reply`。
+
+### 7.4 冲突与优先级
+
+1. 持久化任务状态是唯一权威；错误码只在 Workflow 内映射为状态，不能覆盖状态。
+2. 终态优先：`ACCEPTED` 查询失败仍为 `ACCEPTED`；`CANCELLED`、`REJECTED` 不被后续错误降级。
+3. 重复确认或重复请求按当前持久化状态渲染，文案不变。
+4. 状态表与草稿冲突时以状态表为准；`state_text` 是标签，不单独作为最终回复发送。
+5. “不得声称已退款”只约束结果回复；确认卡片中的规则说明不算结果回复。
+6. 未知文案按出口归属：任务状态为 `SUBMIT_UNKNOWN` 时用“已提交，正在核实受理结果”；只有传输/依赖异常且拿不到任务状态时，界面才用“状态未知，正在核实”。两者不得互换。
+
+### 7.5 观测
+
+- validator 返回 `replaced` 与 `mismatch`；`response.validate` span 记录 `state`、`reason_code`、`replaced`、`mismatch`，不记录草稿全文。
+- 具体落盘由 T-12 承接；本任务至少保证返回值可观测。
 
 ## 8. 可观测性
 
@@ -430,11 +469,14 @@ M1 只有一个入口：单页面 Web Chat，一次只处理一个会话。
 | 等待响应 | 消息已发送 | 输入区禁用，显示进行中指示 |
 | 输出中 | 非流式等待 | 显示加载态；流式输出列为后续任务 |
 | 等待确认 | 任务进入 `AWAITING_CONFIRMATION` | 展开确认卡片，两个按钮可用 |
-| 已提交、核实中 | 任务进入 `SUBMITTING` 或 `SUBMIT_UNKNOWN` | 提示条“已提交，正在核实受理结果”，确认按钮禁用 |
+| 提交中 | 任务进入 `SUBMITTING` | 提示条“正在提交取消申请”，确认按钮禁用 |
+| 已提交、核实中 | 任务进入 `SUBMIT_UNKNOWN` | 提示条“已提交，正在核实受理结果”，确认按钮禁用 |
 | 已受理 | 任务进入 `ACCEPTED` | 提示条“已受理，等待最终取消结果” |
-| 终态 | `CANCELLED`、`REJECTED`、`ELIGIBILITY_REJECTED`、`ABANDONED` 或 `MANUAL_REVIEW` | 结果条，附下一步说明与人工入口 |
+| 终态 | `CANCELLED`、`REJECTED`、`ELIGIBILITY_REJECTED`、`ABANDONED` 或 `MANUAL_REVIEW` | 结果条，附原因（仅不可取消）、下一步说明与人工入口 |
 
-对外文案必须取自 `requirements.md` 第 9 节的“内部状态与用户可见表达”表，界面不得自造措辞。
+对外文案必须取自 `requirements.md` 第 9 节的“内部状态与用户可见表达”表，完整结果句取自同节“结果回复模板”；界面不得自造措辞。
+
+终态卡片按固定位置展示：`state_text` 原样作为状态 pill；`reason_text` 非空时以“原因：”前缀单独一行；`next_step` 原样作为提示行。前端不得拼接、改写或显示裸 `reason_code`。
 
 任务处于 `COLLECTING` 时，界面停留在“等待响应”或“输出中”，只显示进行中指示，不展示确认控件；`COLLECTING` 不是独立界面状态，但必须被界面显式承接。
 
@@ -443,13 +485,13 @@ M1 只有一个入口：单页面 Web Chat，一次只处理一个会话。
 - 用户必须通过点击“确认取消”完成确认；输入框里的“好的”“可以”不作为确认依据，由 Agent 引导到按钮。
 - 点击“确认取消”后按钮立即禁用并进入“已提交、核实中”，避免重复点击产生第二个请求。
 - **幂等键由后端生成并随任务持久化，前端不得生成、拼接或缓存幂等键。** 网络重试、刷新后重发都由后端按键去重。
-- 点击“不取消”：界面提示“已取消本次操作”，向任务接口发送一次状态收尾请求（不写 OMS）；若该请求失败，任务在确认超时后由后端转为 `ABANDONED`。
+- 点击“不取消”：界面提示“已取消本次操作”，向任务接口发送一次状态收尾请求（不写 OMS）；若该请求失败，任务在确认超时后由后端转为 `ABANDONED`。该提示只描述本次操作，不是订单状态，也不进入结果回复校验。
 - 页面刷新后不恢复历史消息与任务状态（M1 决策：不新增读取接口）；后续补读取接口后再按后端数据恢复，不得凭本地缓存猜测。
 
 ### 5. 错误与未知
 
 - 网络错误：提示“请求未完成”，提供重试；重试沿用同一任务，不新建任务。
-- 后端返回未知或依赖异常：界面显示“状态未知，正在核实”，禁止显示成功或失败。
+- 后端返回未知或依赖异常：界面显示“状态未知，正在核实”，禁止显示成功或失败。这是传输/依赖异常时的界面提示，不是取消任务状态；任务状态文案仍以第 9 节模板为准。
 - 任何情况下界面不得在未取得后端明确结果时宣称“已取消”。
 
 ### 6. 人工接管
@@ -474,6 +516,7 @@ M1 只有一个入口：单页面 Web Chat，一次只处理一个会话。
 | 已发货订单只解释原因，不出现确认按钮 | AC-07 |
 | 未知状态措辞不得成成功或失败 | AC-10、AC-11 |
 | 五种结果表达正确 | AC-16 |
+| 终态展示原因与下一步，不显示裸原因码 | AC-16 |
 | 转人工携带上下文 | AC-13 |
 
 ### 9. 结构参考稿
