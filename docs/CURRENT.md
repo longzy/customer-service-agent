@@ -4,7 +4,7 @@
 - 项目阶段：M1 订单查询与未发货订单取消（M0 已满足）
 - 当前状态：进行中
 - 当前 Milestone：M1（规格已批准：`docs/specs/001-order-cancel/`）
-- 当前工作：T-12 Trace 与审计（未开工）
+- 当前工作：T-12 规格已澄清（待出卡）
 
 <!-- verify:start -->
 - 最近验证：`./scripts/verify.sh` 全部检查通过——pytest 362 passed（独立测试库）、mypy 37 个文件、追溯矩阵通过（21 条 AC）、文档与前端检查通过
@@ -12,12 +12,12 @@
 
 ## 进行中
 
-- T-12 Trace 与审计：请求级 trace_id、审计落盘、日志脱敏，承接 AC-17、AC-18。
+- T-12 Trace 与审计：规格已澄清（AC-17/18 判定表、存储/传播/脱敏契约），待出卡。
 - T-13 场景评测：`evals/` 仍是空占位。
 
 ## 下一步
 
-1. 完成 T-12，删除 `scripts/trace-baseline.txt` 中两条基线。
+1. 为 T-12 出执行卡（T2，迁移 + 后端）并实现；完成后删除 `scripts/trace-baseline.txt` 中两条基线。
 2. 完成 T-13：AC-01 至 AC-21 的可重复评测与阈值。
 3. 在 GitHub 开启分支保护，把 `verify`、`frontend-build` 设为 required check。
 

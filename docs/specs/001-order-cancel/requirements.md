@@ -398,6 +398,38 @@
 
 AC-10 的用户可见部分由本表的“超时后恢复为受理”与“已受理”两行覆盖，不重复展开。
 
+#### AC-17 完整执行链路
+
+| 场景 | 触发 | 期望 trace 内容 | 证据 |
+|---|---|---|---|
+| 查询回合 | `/message` 查询 ORD-10001 | 同一 `trace_id` 下有用户输入、意图、`get_order` 事件（含 `response_redacted`）与助手回复 | `load_trace` 返回消息、tool 事件、业务结果、最终回复 |
+| 直接创建取消 | 未经 `/message` 直接 `POST /cancellation-requests` | 服务端生成并持久化 `trace_id`；响应含 `trace_id`；trace 含资格与任务 | 响应字段 + `load_trace` |
+| 取消链路 | `/message` 发起取消并确认 | 发起时的 `trace_id` 持久化到任务；confirm/abandon 复用同一 trace；含意图、`get_order`、资格、确认、状态转换、`submit_cancel` | 任务 `trace_id` 与首条用户消息一致；事件齐全 |
+| 超时恢复 | submit 超时，查询后得 `ACCEPTED`/`MANUAL_REVIEW` | 同一 trace 下出现 `SUBMIT_UNKNOWN`、结果查询、最终状态；不新建 trace | 事件序列 + 最终状态 |
+| 启动恢复 | 进程启动扫描悬挂任务 | 每个任务使用其持久化的 `trace_id`；不得生成 `startup-*` 新 trace | 任务 trace 前后一致 |
+| 越权拒绝 | 查询他人订单 | 同一 trace 下记录 `NOT_FOUND_OR_UNAUTHORIZED`；不调用 OMS | `tool_executions` 拒绝记录 |
+| 重复确认 | 终态任务再次 confirm | 每次请求写一条 `CONFIRMATION` 事件，重复请求 `result_status=idempotent`；不新增 `WORKFLOW_TRANSITION`/`TOOL_CALL`；状态与回复不变 | 事件类型计数 + 状态 |
+| 缺失 trace | 查询不存在的 `trace_id` | `load_trace` 返回空；CLI 输出空 JSON 并退出码 1；不跨租户返回数据 | 查询 seam |
+
+- trace 查询合并 `messages`（输入与回复正文）、`tool_executions`（工具、结果分类、错误码、耗时、`response_redacted`）、`audit_events`（意图、确认、状态转换、转人工）；按时间排序。
+- “业务响应”以 `tool_executions.response_redacted` 的允许字段表达：`order_id`、`order_status`、`cancelable`、`eligible`、`reason_code`、`state`；不保存完整 Tool/OMS 报文、金额、商品明细或支付信息。
+- 查询必须带租户过滤；M1 只提供开发期 CLI，不暴露 HTTP 或界面。CLI 输出可能含 `messages` 正文，属本地调试输出，不是日志 sink。
+
+#### AC-18 日志敏感信息检查
+
+| 场景 | 输入 | 期望 | 证据 |
+|---|---|---|---|
+| 登录/会话 | 登录与 Cookie | 日志与审计不含 `sid`、Cookie、令牌、密码 | 捕获日志与审计断言 |
+| 消息含手机号 | 用户消息含完整手机号 | `messages` 按会话恢复需要保留正文；日志与审计不含该号码 | 日志/审计字段断言 |
+| 取消含幂等键 | confirm/submit | 只记录 `sha256(key)[:16]` 摘要，不记录原键 | 审计行 |
+| 审计元数据夹带禁用字段 | 注入 token/卡号/地址 | 被允许清单丢弃，不落盘 | 审计行 |
+| 模型/下游报文 | 查询与取消 | 不记录完整 prompt、完整 OMS 响应；只记录状态/错误码/耗时 | 日志/审计 |
+| 审计写失败 | 断审计 sink | API 返回 500 通用错误（`INTERNAL_ERROR`，不暴露审计细节）；不得被业务错误处理转成 200 或 `SUBMIT_UNKNOWN`；写操作由幂等键保护，重试不重复提交；不静默丢审计 | 测试 |
+| 原始幂等键 | `cancellation_requests` 业务列 | 业务表可保留原键用于 OMS 幂等；日志/审计只能出现 `sha256(key)[:16]` | 表列 + 日志/审计断言 |
+
+- AC-18 约束日志与审计，不约束 `messages` 表正文；消息正文不得进入日志或审计。
+- 允许清单见 `design.md` 第 8 节，包含日志字段 `event`；未知字段一律丢弃，不写“原始 payload”。
+
 #### AC-19 未确认的收尾
 
 | 场景 | 输入 | 期望 | 证据 |
@@ -530,3 +562,10 @@ AC-10 的用户可见部分由本表的“超时后恢复为受理”与“已�
 - 答复（2026-11-16）：结果文案由 `render_result` 单出口渲染；草稿逐字不一致即替换；每个状态固定一条下一步；覆盖 `/message`、`/cancellation-requests` 与终态卡片三个出口。
 - 已写回：同文件第 9 节“结果回复模板”、`design.md` 第 7 节。
 - 影响：AC-10、AC-11、AC-16、T-11。
+
+#### C-14 T-12 Trace 存储、传播与脱敏
+
+- 状态：已关闭
+- 答复（2026-11-16）：M1 不引入 OpenTelemetry；`trace_id` 由服务端生成并持久化到取消任务，confirm/abandon 复用；直接创建与启动恢复也有确定 trace 来源；审计落 `audit_events`/`tool_executions`（工具写前 `started`），日志输出 JSON 行；查询用开发期 `scripts/show-trace.py`；日志/审计走允许清单，`messages` 正文不入日志；审计失败按失败关闭。
+- 已写回：`design.md` 第 8 节、本文件 AC-17/AC-18 判定表。
+- 影响：AC-17、AC-18、T-12。

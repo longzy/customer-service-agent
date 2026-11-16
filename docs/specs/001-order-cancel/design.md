@@ -273,6 +273,7 @@ sequenceDiagram
 - `tenant_id`
 - `user_id`
 - `conversation_id`
+- `trace_id`
 - `order_id`
 - `idempotency_key`
 - `state`
@@ -289,10 +290,13 @@ sequenceDiagram
 - `tool_name`
 - `tenant_id`
 - `user_id`
+- `order_id`
+- `idempotency_key_digest`
 - `input_digest`
 - `result_status`
 - `latency_ms`
 - `error_code`
+- `response_redacted`
 - `created_at`
 
 ### `audit_events`
@@ -305,6 +309,9 @@ sequenceDiagram
 - `event_type`
 - `entity_type`
 - `entity_id`
+- `order_id`
+- `idempotency_key_digest`
+- `result_status`
 - `metadata_redacted`
 - `created_at`
 
@@ -384,7 +391,76 @@ Agent 输出建议使用结构化动作，例如：
 
 ## 8. 可观测性
 
-建议 Span：
+M1 目标：AC-17 可还原、AC-18 不泄露。M1 不引入 OpenTelemetry；Span 名称保留为未来映射，不作为本期依赖。
+
+### 8.1 存储与查询
+
+- `trace_id` 由服务端生成（UUIDv4 字符串），不信任客户端；每轮 `/message` 生成一个，取消任务持久化发起时的 trace。
+- 新增表：`tool_executions`、`audit_events`；`cancellation_requests` 增加 `trace_id`；新增迁移 `0006_trace_audit`。
+- `tool_executions` 记录工具名、订单、结果分类、错误码、耗时、输入摘要、幂等键摘要与 `response_redacted`；`result_status` 为 `started`/`ok`/`failed`/`rejected`；不保存完整入参/响应。
+- `response_redacted` 只允许业务结果字段：`order_id`、`order_status`、`cancelable`、`eligible`、`reason_code`、`state`；禁止金额、商品明细、支付信息。
+- `audit_events` 记录意图、确认、状态转换、最终回复、转人工；含 `order_id`、`idempotency_key_digest`、`result_status` 与 `metadata_redacted`（只含允许清单字段）。
+- `load_trace(session, trace_id, tenant_id)` 合并 `messages`、`tool_executions`、`audit_events`、取消任务，按时间排序；未知 trace 返回空 `TraceView`；必须按 `tenant_id` 过滤。
+- 直接 `POST /cancellation-requests` 在响应中返回 `trace_id`；`/message` 已返回 `trace_id`；UI 不展示。
+- 开发期查询 CLI：`scripts/show-trace.py --trace-id ... --tenant-id ...`；输出 JSON，空 trace 输出空 JSON 并以退出码 1 结束；不暴露 HTTP 或界面。
+- CLI 输出是本地调试输出，可能含 `messages` 正文；它不是日志 sink，不受 AC-18 的日志字段约束，但不得接入生产日志。
+
+### 8.2 trace_id 传播
+
+- `/message` 生成 t，`ConversationService` 将 t 传给意图、Tool、消息持久化与审计。
+- `CancellationWorkflow.request` 持久化 t；`confirm`、`abandon`、`get` 读取 `task.trace_id`，不得重新生成 uuid。
+- 直接 `POST /cancellation-requests` 生成 t 并持久化；后续 confirm/abandon 复用。
+- 启动恢复按每个任务的 `trace_id` 使用；`recover_pending` 不再接收全局 `startup-*` trace，主入口不得生成 `startup-{uuid4()}`。
+- Tool 调用一律使用当前 trace；不得在 Gateway 内新建 trace。
+- 重复确认/放弃复用任务 trace；不新增第二条主链路。
+
+### 8.3 审计写入与失败
+
+| event_type | 触发 | 关键字段（允许清单） |
+|---|---|---|
+| `INTENT_CLASSIFIED` | 每轮意图识别 | intent、order_id、needs_clarification |
+| `WORKFLOW_TRANSITION` | 状态变更 | task_id、from_state、to_state、reason_code、result_status |
+| `CONFIRMATION` | confirm/abandon | task_id、action、result_status |
+| `REPLY` | 最终回复 | state、replaced、mismatch |
+| `HANDOFF` | 转人工 | conversation_id、pending_step |
+
+- Tool 调用写 `tool_executions`。Gateway 在 worker 线程通过请求级 `TraceSink` 记录：调用 handler 前 `start` 写 `started` 行并等待落库；handler 成功/失败后 `finish` 更新结果。`start` 失败则不调用 handler 并返回 500；`finish` 失败返回 500，`started` 行保留，由幂等键与恢复查询判定实际结果，不宣称成功。
+- `TraceSink` 由 API 在请求上下文创建；worker 线程通过 `ContextVar` 取得，使用 `run_coroutine_threadsafe` 把写库协程提交回请求事件循环并等待确认；禁止在 Gateway 线程直接建 async session。
+- 工作流状态变更、确认、消息回复、转人工的审计行与对应业务写入在同一个数据库事务内：`CancellationRepository.create/save`、消息 `add_message`、`create_handoff` 内写 `audit_events`；审计失败则回滚并返回 500。
+- 审计失败抛独立 `TraceSinkError`，它不是 `GatewayError`。`ToolGateway._record` 的审计调用必须先 `except TraceSinkError: raise`，其余审计异常一律转 `TraceSinkError`，不得包成 `GatewayError`；`ToolGateway.invoke` 的兜底 `except Exception` 也要先重抛 `TraceSinkError`。
+- `services/api/main.py` 注册 `TraceSinkError` 全局异常处理器，返回 500 `INTERNAL_ERROR`；`/message`、取消接口与 Workflow 的业务错误处理不得捕获它并转成 200 回复或 `SUBMIT_UNKNOWN`。
+- 审计失败时 API 统一返回 500 `INTERNAL_ERROR` 通用错误，不暴露审计细节；写操作由幂等键保护，重试不重复提交；不得静默丢弃审计。
+- 启动恢复遇到 `TraceSinkError` 只记录 warning，保留任务为可恢复状态，不标记成功、不吞掉错误。
+- 重复确认每次请求写一条 `CONFIRMATION` 事件，`result_status=idempotent`；不新增 `WORKFLOW_TRANSITION`/`TOOL_CALL`，状态与回复不变。
+
+### 8.4 日志与脱敏
+
+- 日志为 JSON 行到 stdout；每条至少含 `trace_id`、`event`、`tenant_id`、`user_id`。禁止输出消息/回复正文、完整 prompt、完整 Tool/OMS 报文。
+- 统一 `redact_event` 允许清单：`trace_id`、`event`、`tenant_id`、`user_id`、`account_id`、`order_id`、`task_id`、`conversation_id`、`tool`、`event_type`、`state`、`from_state`、`to_state`、`action`、`result_status`、`error_code`、`reason_code`、`latency_ms`、`idempotency_key_digest`、`replaced`、`mismatch`、`needs_clarification`。
+- 禁止：令牌、密码、`sid`/Cookie、完整卡号、完整手机号、完整地址、完整消息/回复、原始幂等键。
+- 幂等键摘要固定为 `sha256(key).hexdigest()[:16]`；日志/审计只存摘要。`cancellation_requests.idempotency_key` 是业务幂等所需原键，保留在业务表，但不得进入日志/审计。
+- `messages` 正文为会话恢复所需，保留原文；AC-18 只约束日志/审计，但正文不得进入日志/审计。
+
+### 8.5 OpenTelemetry 引入条件
+
+M1 不引入 SDK。满足任一条件时另立 ADR + 依赖审批：
+
+- 出现第二个可部署单元（worker/队列/独立适配服务），需要跨进程传播；
+- 接入真实 OMS/支付/物流，需要 span 级耗时与重试分布；
+- 需要采样、APM 后端、告警或 trace 瀑布图；
+- M2 多渠道/多 Agent，单 trace_id 无法表达父子关系。
+
+未来映射：现有 UUID 可转为 32 位 hex；增加 `span_id`/`parent_span_id`，Span 名称沿用第 8.7 节。
+
+### 8.6 测试
+
+- AC-17：查询、直接创建、取消、超时恢复、启动恢复、越权拒绝、重复确认各一条 `load_trace` 断言；确认链路首条消息与任务 `trace_id` 一致；直接创建响应含 `trace_id`；启动恢复前后任务 trace 不变；未知 trace 返回空且 CLI 退出码 1。
+- AC-18：注入手机号/令牌/卡号/地址/原始幂等键，断言日志与审计不含；原始幂等键只允许出现在 `cancellation_requests`；审计元数据只含允许清单；审计写失败返回 500 且不静默成功。
+- Tool 写前记录：`start` 失败不调用 handler；`finish` 失败保留 `started` 且不宣称成功；恢复查询可判定实际结果。
+- 审计异常不被业务 catch 吞掉：Tool/Workflow/`/message` 的审计失败均返回 500，不返回 200；同事务路径回滚，写前路径保留 `started`。
+- 查询隔离：`load_trace` 带租户过滤，跨租户返回空。
+
+### 8.7 未来 Span 映射
 
 ```text
 conversation.turn
@@ -397,8 +473,6 @@ conversation.turn
   workflow.transition
   response.validate
 ```
-
-日志与审计只记录必要的 ID、状态和错误码。禁止记录：令牌、密码、完整卡号、完整手机号、完整地址；允许记录：订单号、用户 ID、状态、错误码。
 
 ## 9. 测试策略
 
