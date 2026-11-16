@@ -1,0 +1,96 @@
+# R0-2 任务地图：后端模块边界
+
+- 状态：等待评审
+- 日期：2026-11-16
+- 输入：[requirements.md](requirements.md)、[design.md](design.md)
+- 约束：每个任务一个可独立验证的切片；开工前产出 `docs/tasks/002-backend-boundary/T-XX.md`，完成后评审写入 `docs/reviews/002-backend-boundary/`
+- 行为冻结：不改 HTTP 契约、DB schema、Tool 契约、Policy 与 Workflow 状态机
+- AC 编号：全局唯一，本规格使用 AC-22~29
+
+## Phase 1: 边界检查器与基线
+
+**Goal**：先让边界与行为快照可判定，再搬代码。
+
+- [ ] T01 建立 `check-imports.py`（`find_violations(root)` + `--root/--baseline/--strict`）与初始基线；更新全局 AC 命名门禁；在任何移动之前捕获 OpenAPI 与 DB 快照；接入 `verify.sh`
+  - 文件：`scripts/check-imports.py`、`scripts/import-baseline.txt`、`scripts/verify.sh`、`tests/unit/test_naming_convention.py`、`tests/unit/test_import_rules_AC_22.py`、`tests/unit/test_verify_wiring_AC_29.py`、`tests/fixtures/openapi-r0-2.json`、`tests/fixtures/db-schema-r0-2.json`
+  - _验收: AC-22、AC-29_
+
+**Checkpoint**：`check-imports --strict` 对当前树报出已知违规并登记；命名门禁能识别 AC-22~29；其余检查全绿。
+
+## Phase 2: 共享模块拆分
+
+**Goal**：把 `services/api` 中的基础设施、身份与领域类型迁出。
+
+- [ ] T02 迁移 platform（settings/db/models/observability）、identity（纯身份/session）、domain（orders/cancellation/errors）；FastAPI 中间件拆到 `api/auth_web.py`；更新 `api`/`tools`/`workflows` 与测试的 import
+  - 文件：`services/platform/`、`services/identity/`、`services/domain/`、`services/api/auth_web.py`、`services/tools/`、`services/workflows/`、`tests/unit/test_import_boundaries_AC_23.py`、相关测试
+  - _验收: AC-23_
+
+**Checkpoint**：`agent_runtime`/`tools`/`workflows` 不再 import `services.api`；基线中 R1 条目清零。
+
+## Phase 3: OMS 端口与 Mock
+
+**Goal**：业务模块只依赖端口。
+
+- [ ] T03 定义 `OmsPort`/`OmsAccess`，迁移 `MockOmsAdapter` 与夹具，`ToolGateway` 改用端口授权；建立 Mock/Http 共用契约测试矩阵
+  - 文件：`services/adapters/oms/port.py`、`services/adapters/oms/mock.py`、`services/adapters/oms/fixtures/`、`services/tools/gateway.py`、`services/tools/query.py`、`services/tools/cancel.py`、`tests/unit/adapters/test_oms_contract_AC_25.py`、相关测试
+  - _验收: AC-25_
+
+**Checkpoint**：Mock 与 Http 通过同一组契约用例；`tools`/`workflows` 不再直接依赖具体 Adapter。
+
+## Phase 4: Http 与 factory
+
+**Goal**：生产缺配置不回落 Mock。
+
+- [ ] T04 实现 `HttpOmsAdapter`（可注入 client）、URL 校验、`build_oms`、`create_app(settings)` 与生产启动失败
+  - 文件：`services/adapters/oms/http.py`、`services/adapters/oms/factory.py`、`services/api/main.py`、`services/platform/settings.py`、`tests/unit/adapters/test_oms_factory_AC_26.py`
+  - _验收: AC-26_
+
+**Checkpoint**：production 空/空白/非法 URL 启动失败；development 空配置走 Mock；production 合法 URL 走 Http。
+
+## Phase 5: 收口
+
+**Goal**：删除旧路径，清零基线。
+
+- [ ] T05 重接 `api`，删除 `services/mock_oms` 与 `services/api/domain`，基线清零，更新 `verify.sh` 的 `prod import` 冒烟
+  - 文件：`services/api/*`、删除 `services/mock_oms/`、删除 `services/api/domain/`、`scripts/import-baseline.txt`、`scripts/verify.sh`、`tests/unit/test_import_boundaries_AC_24.py`
+  - _验收: AC-23、AC-24_
+
+**Checkpoint**：`check-imports --strict` 退出 0；`services.mock_oms` 不再存在；`verify.sh` 不依赖 `OwnershipIndex`。
+
+## Phase 6: 行为冻结证据
+
+**Goal**：证明移动没有改变契约。
+
+- [ ] T06 建立 OpenAPI 与 DB metadata 对比测试（使用 T01 捕获的快照），显式导入 `platform.models` 并断言表数 > 0；跑全量回归
+  - 文件：`tests/unit/test_contract_snapshot_AC_27.py`、`tests/unit/test_db_schema_AC_28.py`
+  - _验收: AC-27、AC-28_
+
+**Checkpoint**：OpenAPI 与 DB schema 与重构前一致；413 个测试全过。
+
+## Phase 7: 文档与回滚
+
+**Goal**：文档与实际目录一致，回滚可复现。
+
+- [ ] T07 更新 `overview.md` 目标树，执行 R0-2 起点 SHA 到结束 SHA 的 revert 演练并记录命令/退出码
+  - 文件：`docs/architecture/overview.md`、`docs/reviews/2026-11-16-r0-2-boundary.md`
+  - _验收: AC-29_
+
+**Checkpoint**：文档与目录一致；回滚演练全绿并有记录。
+
+## 依赖与并行
+
+```text
+T01 -> T02 -> T03 -> T04 -> T05 -> T06 -> T07
+```
+
+- T02 依赖 T01；T03 依赖 T02；T04 依赖 T03；T05 依赖 T02–T04。
+- T06/T07 依赖 T05；T07 的回滚演练在 T06 快照通过后执行。
+- 不并行搬模块：半迁移状态会让 import 边界与快照都不可判定。
+
+## 完成定义
+
+- 每条 AC 有测试或命令证据，且 `trace.py --strict` 无缺口（基线清零）。
+- `import-baseline.txt` 只保留注释，`check-imports --strict` 退出码 0。
+- OpenAPI 与 DB schema 快照与重构前一致。
+- 现有 413 个测试全过；只改 import 路径，不改断言语义。
+- 独立评审通过，用户批准；R0-2 关闭后更新 `CURRENT.md`。
