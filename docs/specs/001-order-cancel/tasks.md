@@ -83,7 +83,7 @@
 **Goal**：不可取消有明确原因；未知状态可恢复；可转人工且上下文完整
 **Independent Test**：对已发货订单、注入超时、连续故障分别验证三类结果
 
-- [ ] T11 [US5] 实现结果渲染与校验（`services/agent_runtime/validator.py`、`services/agent_runtime/chat.py`、`services/api/domain/cancellation.py`、`services/api/cancellation_routes.py`、`apps/web/components/ConfirmCard.tsx`、`apps/web/components/ChatShell.tsx`）— depends on T08、T14
+- [x] T11 [US5] 实现结果渲染与校验（`services/agent_runtime/validator.py`、`services/agent_runtime/chat.py`、`services/api/domain/cancellation.py`、`services/api/cancellation_routes.py`、`apps/web/components/ConfirmCard.tsx`、`apps/web/components/ChatShell.tsx`）— depends on T08、T14
   - _验收: AC-10、AC-11、AC-16_
 - [x] T15 [US6] 实现人工转接上下文（`services/api/handoff.py`）— depends on T08、T14
   - _验收: AC-13_
