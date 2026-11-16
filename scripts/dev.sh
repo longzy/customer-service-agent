@@ -10,7 +10,7 @@ for arg in "$@"; do
     --no-install) NO_INSTALL=1 ;;
     -h | --help)
       echo "用法：./scripts/dev.sh [--no-install]"
-      echo "  --no-install  跳过 uv sync / pnpm install"
+      echo "  --no-install  强制跳过依赖安装（调试用）"
       exit 0
       ;;
     *) echo "未知参数：$arg" >&2; exit 2 ;;
@@ -38,9 +38,27 @@ if ! psql -d "$DB_NAME" -c "select 1" >/dev/null 2>&1; then
   echo "已创建数据库 $DB_NAME"
 fi
 
-if [ "$NO_INSTALL" = "0" ]; then
+DEPS_HASH_FILE=".dev-deps.sha"
+deps_hash() {
+  if command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 pyproject.toml uv.lock apps/web/package.json apps/web/pnpm-lock.yaml \
+      | shasum -a 256 | awk '{print $1}'
+  else
+    sha256sum pyproject.toml uv.lock apps/web/package.json apps/web/pnpm-lock.yaml \
+      | sha256sum | awk '{print $1}'
+  fi
+}
+
+if [ "$NO_INSTALL" = "1" ]; then
+  echo "跳过依赖安装（--no-install）。"
+elif [ -d .venv ] && [ -d apps/web/node_modules ] && [ -f "$DEPS_HASH_FILE" ] \
+  && [ "$(cat "$DEPS_HASH_FILE")" = "$(deps_hash)" ]; then
+  echo "依赖未变化，跳过安装。"
+else
+  echo "安装/同步依赖..."
   uv sync --frozen
   pnpm -C apps/web install --frozen-lockfile
+  deps_hash >"$DEPS_HASH_FILE"
 fi
 
 uv run alembic upgrade head

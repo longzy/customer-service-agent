@@ -31,3 +31,6 @@ mutants/
 
 # 场景评测报告（可再生成）
 evals/reports/
+
+# 本地依赖指纹
+.dev-deps.sha

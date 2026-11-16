@@ -67,16 +67,10 @@ make dev
 
 - 没有 `.env` 时从 `.env.example` 创建；
 - 创建数据库 `customer_service`（不存在时）并执行迁移；
-- 安装依赖；
+- 安装依赖；依赖未变化时自动跳过；
 - 同时启动 API `http://127.0.0.1:8000` 与 Web `http://localhost:3000`；Ctrl-C 一起停止。
 
 需要自然语言演示时，先在 `.env` 填 `MODEL_API_KEY`；留空会用假模型，只适合测试。数据库连接可在 `.env` 用 `DATABASE_URL` 覆盖。
-
-重复启动可跳过依赖安装：
-
-```bash
-make dev-no-install
-```
 
 ## 验证与测试
 
