@@ -1,6 +1,7 @@
 # M1 设计：企业客服核心闭环
 
-- 状态：等待评审
+- 状态：草案
+- 评审：S2 不通过（2026-11-16，B-01~B-12）；待范围决策/重写
 - 日期：2026-11-16
 - 级别：T3
 - 依据：[requirements.md](requirements.md) AC-30~49；[ADR-0005](../../adr/0005-enterprise-boundary.md)；[总体架构](../../architecture/overview.md)
