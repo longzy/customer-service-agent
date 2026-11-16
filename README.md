@@ -67,6 +67,7 @@ pnpm -C apps/web install
 ./scripts/verify.sh
 ./scripts/verify.sh --no-record   # CI 使用：只验证，不写回状态快照
 ./scripts/verify.sh --fast        # 后端快速反馈：ruff/format/mypy/unit
+./scripts/eval.sh                 # 场景评测：pytest JUnit + AC 报告
 
 # 单独运行
 UV_CACHE_DIR=./.uv-cache uv run ruff check .

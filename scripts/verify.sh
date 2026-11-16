@@ -33,6 +33,9 @@ fi
 
 PYTEST_LOG=$(mktemp)
 trap 'rm -f "$PYTEST_LOG"' EXIT
+REPORTS_DIR="evals/reports"
+JUNIT="$REPORTS_DIR/latest-junit.xml"
+mkdir -p "$REPORTS_DIR"
 
 echo "== ruff check =="
 uv run ruff check .
@@ -50,8 +53,27 @@ echo "== mypy =="
 uv run mypy services
 
 echo "== pytest（独立测试库）=="
-./scripts/test-db.sh -q >"$PYTEST_LOG" 2>&1 || { tail -40 "$PYTEST_LOG"; exit 1; }
-tail -1 "$PYTEST_LOG"
+# pytest 失败也要继续生成 eval 报告，因此这里暂时关闭 set -e 并分别记退出码
+rm -f "$JUNIT"
+set +e
+./scripts/test-db.sh -q --junitxml="$JUNIT" >"$PYTEST_LOG" 2>&1
+PYTEST_STATUS=$?
+set -e
+if [ "$PYTEST_STATUS" -ne 0 ]; then
+  tail -40 "$PYTEST_LOG"
+else
+  tail -1 "$PYTEST_LOG"
+fi
+
+echo "== 场景评测（复用 pytest JUnit）=="
+set +e
+uv run python evals/run.py --junit "$JUNIT" --reports-dir "$REPORTS_DIR"
+EVAL_STATUS=$?
+set -e
+if [ "$PYTEST_STATUS" -ne 0 ] || [ "$EVAL_STATUS" -ne 0 ]; then
+  echo "pytest/eval 失败：pytest=$PYTEST_STATUS eval=$EVAL_STATUS" >&2
+  exit 1
+fi
 
 echo "== route coverage =="
 python3 scripts/check-route-coverage.py

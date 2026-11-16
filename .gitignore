@@ -28,3 +28,6 @@ mutants/
 
 # 每任务 mutation 一次性标记
 .mutation-runs/
+
+# 场景评测报告（可再生成）
+evals/reports/
