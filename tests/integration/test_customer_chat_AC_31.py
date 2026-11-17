@@ -300,6 +300,12 @@ def test_刷新与重新登录恢复消息历史_AC_31() -> None:
         assert empty["after_id"] == history["after_id"]
 
 
+def test_交接单open状态与plan一致_AC_31() -> None:
+    from backend.conversations.statuses import OPEN_HANDOFF_STATUSES
+
+    assert OPEN_HANDOFF_STATUSES == ("QUEUED", "CLAIMED", "ACTIVE")
+
+
 def test_模型默认超时为10秒_AC_31() -> None:
     field = Settings.model_fields["customer_model_timeout_seconds"]
     assert field.default == 10.0

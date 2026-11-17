@@ -119,7 +119,7 @@ export async function getMessages(afterId: number): Promise<MessagePage> {
   return (await response.json()) as MessagePage;
 }
 
-function newIdempotencyKey(): string {
+export function newIdempotencyKey(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
   }

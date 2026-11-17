@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation";
 import {
   ApiError,
   getMessages,
+  newIdempotencyKey,
   sendMessage,
   type Conversation,
   type Customer,
@@ -76,6 +77,9 @@ export function ChatShell({
   const [messageError, setMessageError] = useState<string | null>(null);
 
   const afterIdRef = useRef(conversation?.after_id ?? 0);
+  // 失败后重发同一内容时复用幂等键，避免网络重试造成重复消息。
+  const pendingKeyRef = useRef<string | null>(null);
+  const failedContentRef = useRef<string | null>(null);
   const stoppedRef = useRef(false);
   const mountedRef = useRef(true);
 
@@ -165,11 +169,19 @@ export function ChatShell({
     }
     setSending(true);
     setMessageError(null);
+    const key =
+      pendingKeyRef.current && failedContentRef.current === content
+        ? pendingKeyRef.current
+        : newIdempotencyKey();
+    pendingKeyRef.current = key;
+    failedContentRef.current = content;
     try {
-      const page = await sendMessage(content);
+      const page = await sendMessage(content, key);
       if (!mountedRef.current) {
         return;
       }
+      pendingKeyRef.current = null;
+      failedContentRef.current = null;
       applyPage(page);
       setDraft("");
     } catch (cause) {

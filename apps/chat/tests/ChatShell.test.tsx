@@ -240,6 +240,40 @@ describe("ChatShell", () => {
     expect(screen.getByText("历史 AI 回复")).toBeInTheDocument();
   });
 
+  it("发送失败后重发同一内容复用幂等键", async () => {
+    const fetchMock = vi
+      .spyOn(global, "fetch")
+      .mockResolvedValueOnce(json(emptyPage()))
+      .mockResolvedValueOnce(json({ code: "INTERNAL_ERROR", message: "发送失败" }, 500))
+      .mockResolvedValueOnce(
+        json({
+          conversation_id: "conv-1",
+          status: "AI_ACTIVE",
+          after_id: 2,
+          messages: [message(1, "customer", "重试消息"), message(2, "ai", "收到。")],
+        }),
+      );
+
+    renderShell();
+    expect(await screen.findByText("还没有消息，发送第一条吧")).toBeInTheDocument();
+    const input = screen.getByLabelText("消息");
+    fireEvent.change(input, { target: { value: "重试消息" } });
+    fireEvent.click(screen.getByRole("button", { name: "发送" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("发送失败");
+    fireEvent.click(screen.getByRole("button", { name: "发送" }));
+    expect(await screen.findByText("收到。")).toBeInTheDocument();
+
+    const keys = fetchMock.mock.calls
+      .filter(([, init]) => init?.method === "POST")
+      .map(
+        ([, init]) => (init?.headers as Record<string, string> | undefined)?.["Idempotency-Key"],
+      );
+    expect(keys).toHaveLength(2);
+    expect(keys[0]).toBeTruthy();
+    expect(keys[0]).toBe(keys[1]);
+  });
+
   it("空白、超过 500 字或发送中禁用发送按钮", async () => {
     let resolveSend: (value: Response) => void = () => {};
     const pending = new Promise<Response>((resolve) => {
