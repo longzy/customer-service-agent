@@ -8,7 +8,7 @@
 - 当前工作：F-01 待独立评审；实现与证据见执行卡
 
 <!-- verify:start -->
-- 最近验证：`./scripts/verify.sh` 全部检查通过——pytest 478 passed（独立测试库）、mypy 49 个文件、追溯矩阵通过（10 条 AC）、文档与前端检查通过
+- 最近验证：`./scripts/verify.sh` 全部检查通过——pytest 481 passed（独立测试库）、mypy 52 个文件、追溯矩阵通过（10 条 AC）、文档与前端检查通过
 <!-- verify:end -->
 
 ## 进行中
@@ -41,6 +41,7 @@
 
 ## 待确认决策
 
+- 前端类型由 OpenAPI 生成、CSS 统一用 `docs/design-system/tokens.css`：生成管线未落地，F-01 沿用 M1-P 手写类型/重复变量，登记为 M1 技术债。
 - 清理任务频率与审计归档方式；安全硬化切片确定。
 - 分支保护：升级 GitHub Team、转 Public，或接受未强制。
 

@@ -212,7 +212,7 @@ M1 使用新的 `service_*` 表；M1-P 的旧表/旧路由/旧测试原样保留
 ### 5.1 安全、权限与审计
 
 - 认证/授权/租户隔离：见 3.3.2；所有资源查询带 `tenant_id` + ownership，越权统一 404。
-- 审计事件：`customer.login/logout`、`employee.login/logout`、`handoff.created/claimed`、`conversation.taken_over`、`message.replied`、`conversation.closed/returned_to_ai`、`auth.failed`、`rate_limited`、`forbidden`。
+- 审计事件：`customer.login/logout`、`employee.login/logout`、`handoff.created/claimed`、`conversation.taken_over`、`message.replied`、`conversation.closed/returned_to_ai`、`auth.failed`、`rate_limited`、`forbidden`。F-01 只做认证/session；审计统一由 F-13/AC-39 落地。
 - 审计与业务写同事务；审计失败 → 503，业务回滚；审计只读，无删除接口。
 - 限速：PostgreSQL 桶；`customer_login:{username}:{ip}` 5/15min、`employee_login:{username}:{ip}` 5/15min、`msg:{customer_session}` 30/min；429 `RATE_LIMITED` + `Retry-After`；限速先于业务副作用。
 - IP 只取直连 peer 或可信代理配置；不信任裸 `X-Forwarded-For`。
@@ -246,7 +246,7 @@ M1 使用新的 `service_*` 表；M1-P 的旧表/旧路由/旧测试原样保留
 
 | AC | 事实/契约 | 测试 seam（方式；具体命令在 features 的 Steps） |
 |---|---|---|
-| AC-30 | 客户登录/session/恢复 | API + Cookie + fake clock |
+| AC-30 | 客户登录/session/恢复 | API + Cookie + fake clock + `X-Request-ID` |
 | AC-31 | AI 回复/模型失败 | `FakeModelClient` 正常/失败/低置信 |
 | AC-32 | 转人工意图 | 关键词/模型/低置信/超范围 |
 | AC-33 | 客户甲/乙对等 | 2 客户/2 坐席 |
