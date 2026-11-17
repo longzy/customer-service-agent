@@ -7,6 +7,8 @@ export type Session = components["schemas"]["CustomerSessionResponse"];
 export type Message = components["schemas"]["MessagePublic"];
 export type MessagePage = components["schemas"]["MessagePageResponse"];
 export type MessageAuthor = Message["author_type"];
+type CustomerLoginRequest = components["schemas"]["CustomerLoginRequest"];
+type CustomerMessageRequest = components["schemas"]["CustomerMessageRequest"];
 
 type ErrorBody = {
   code?: unknown;
@@ -56,10 +58,11 @@ export async function getSession(): Promise<Session | null> {
 }
 
 export async function login(username: string, password: string): Promise<Session> {
+  const body: CustomerLoginRequest = { username, password };
   const response = await fetch("/api/customer/sessions", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ username, password }),
+    body: JSON.stringify(body),
   });
   if (!response.ok) {
     throw await readError(response);
@@ -104,13 +107,14 @@ export async function sendMessage(
   content: string,
   idempotencyKey: string = newIdempotencyKey(),
 ): Promise<MessagePage> {
+  const body: CustomerMessageRequest = { content };
   const response = await fetch("/api/customer/messages", {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "Idempotency-Key": idempotencyKey,
     },
-    body: JSON.stringify({ content }),
+    body: JSON.stringify(body),
   });
   if (!response.ok) {
     throw await readError(response);

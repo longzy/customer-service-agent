@@ -74,6 +74,7 @@ SPEC_LAYOUTS = (
 )
 
 GATE_OPEN_STATUSES = ("待开工许可", "已确认")
+REVIEW_REQUIRED = ("## 0. 门禁复核", "## 逐 AC", "## 阻断项", "## 结论")
 SPEC_DIR_PATTERN = re.compile(r"^\d{3}-[a-z0-9-]+$")
 CARD_PATTERN = re.compile(r"^[TF]-\d{2}\.md$")
 
@@ -337,6 +338,11 @@ def check_status_vocabulary_sync():
         errors.append(f"docs/process/WORKFLOW.md：状态词未加入检查器：{sorted(unknown)}")
 
 
+def missing_review_sections(content):
+    """评审记录必须包含的固定小节；只有完成卡才强制。"""
+    return [heading for heading in REVIEW_REQUIRED if heading not in content]
+
+
 def check_review_conclusions():
     """评审结论必须是三种枚举之一，且评审文件不能是孤儿。"""
     if not os.path.isdir(REVIEWS_ROOT):
@@ -357,8 +363,7 @@ def check_review_conclusions():
             # 只有已完成执行卡的评审才强制完整模板；待评审阶段允许草稿。
             if not doc_status(card).startswith("已完成"):
                 continue
-            required = ("## 0. 门禁复核", "## 逐 AC", "## 阻断项", "## 结论")
-            missing = [heading for heading in required if heading not in content]
+            missing = missing_review_sections(content)
             if missing:
                 errors.append(f"{rel(path)}：缺少评审小节 {', '.join(missing)}")
                 if "## 结论" not in content:
