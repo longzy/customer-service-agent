@@ -9,12 +9,14 @@
 import re
 import unicodedata
 from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import uuid4
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.agent_runtime.types import Intent
 from backend.conversations.statuses import OPEN_HANDOFF_STATUSES, QUEUED
 from backend.platform.models import (
     ServiceAiEvent,
@@ -31,6 +33,60 @@ HANDOFF_CONTEXT_CHAR_LIMIT = 4000
 HANDOFF_SUMMARY_CHAR_LIMIT = 500
 HANDOFF_AI_TRACE_LIMIT = 20
 PENDING_STEP = "等待坐席接入"
+
+# plan 3.3.4：关键词未命中时，由模型 intent/confidence 与确定性规则共同判定转人工
+HANDOFF_CONFIDENCE_THRESHOLD = 0.6
+# 模型自述“要人工”：HUMAN_HANDOFF 是 Prompt 约定值，TRANSFER 兼容同义输出
+TRANSFER_INTENTS = frozenset({Intent.HUMAN_HANDOFF.value, "TRANSFER"})
+# 本切片没有订单 Tool：这些意图一律转人工，不把模型回复交给客户
+OUT_OF_SCOPE_INTENTS = frozenset(
+    {
+        Intent.QUERY_ORDER.value,
+        Intent.QUERY_RECENT.value,
+        Intent.CANCEL_ORDER.value,
+        Intent.CONFIRM_CANCEL.value,
+        "OUT_OF_SCOPE",
+    }
+)
+# 常见订单/交易/售后诉求：即使模型误判为 UNKNOWN 也由确定性规则转人工
+OUT_OF_SCOPE_TERMS = (
+    "订单",
+    "单号",
+    "物流",
+    "快递",
+    "包裹",
+    "发货",
+    "收货",
+    "签收",
+    "送达",
+    "配送",
+    "派送",
+    "到货",
+    "运输",
+    "退款",
+    "退货",
+    "换货",
+    "取消",
+    "发票",
+    "支付",
+    "付款",
+    "扣款",
+    "银行卡",
+    "转账",
+    "投诉",
+    "售后",
+)
+ORDER_ID_PATTERN = re.compile(r"(?<![A-Za-z0-9-])ORD-\d{4,12}(?![\d-])", re.IGNORECASE)
+
+
+@dataclass(frozen=True)
+class HandoffDecision:
+    """一次模型输出触发的转人工决定；摘要给坐席看，不含模型回复正文。"""
+
+    reason: str
+    trigger: str
+    summary_hint: str
+
 
 # 只折叠数字相关全角字符用于匹配；输出仍按原文切片，非敏感正文不改写
 _FULLWIDTH_DIGITS = str.maketrans("０１２３４５６７８９＋－　Ｘｘ", "0123456789+- Xx")
@@ -61,6 +117,63 @@ def match_handoff_keyword(text: str) -> str | None:
     """返回命中的关键词；按 HANDOFF_KEYWORDS 顺序取第一个。"""
     normalized = normalize_text(text)
     return next((keyword for keyword in HANDOFF_KEYWORDS if keyword in normalized), None)
+
+
+def match_out_of_scope_term(text: str) -> str | None:
+    """返回命中的订单/超范围词；归一化后匹配，容忍空格与中文标点。"""
+    normalized = normalize_text(text)
+    return next(
+        (term for term in OUT_OF_SCOPE_TERMS if normalize_text(term) in normalized),
+        None,
+    )
+
+
+def decide_model_handoff(
+    *, content: str, intent: str, confidence: float, reply: str
+) -> HandoffDecision | None:
+    """判定关键词未命中的模型输出是否转人工（plan 3.3.4）。
+
+    优先级：订单/超范围文本 > 模型转人工意图 > 模型超范围意图 > 低置信 >
+    模型回复含订单/超范围内容。文本与回复规则是确定性护栏：本切片没有订单 Tool，
+    模型回复里的订单信息不可信，直接丢弃并转人工。
+    """
+    matched_term = match_out_of_scope_term(content)
+    if matched_term is not None:
+        return HandoffDecision(
+            reason="OUT_OF_SCOPE",
+            trigger="out_of_scope",
+            summary_hint=f"问题超出 AI 处理范围（命中“{matched_term}”），已自动转人工",
+        )
+
+    normalized_intent = intent.strip().upper()
+    if normalized_intent in TRANSFER_INTENTS:
+        return HandoffDecision(
+            reason="LOW_CONFIDENCE",
+            trigger="model_intent",
+            summary_hint="客户表达了转人工意愿，已自动转人工",
+        )
+    if normalized_intent in OUT_OF_SCOPE_INTENTS:
+        return HandoffDecision(
+            reason="OUT_OF_SCOPE",
+            trigger="out_of_scope_intent",
+            summary_hint=f"模型判定为超范围问题（{normalized_intent}），已自动转人工",
+        )
+    if confidence < HANDOFF_CONFIDENCE_THRESHOLD:
+        return HandoffDecision(
+            reason="LOW_CONFIDENCE",
+            trigger="low_confidence",
+            summary_hint=f"AI 置信度不足（{confidence:.2f}），已自动转人工",
+        )
+
+    reply_term = match_out_of_scope_term(reply)
+    if reply_term is not None or ORDER_ID_PATTERN.search(reply):
+        detail = f"命中“{reply_term}”" if reply_term is not None else "包含订单号"
+        return HandoffDecision(
+            reason="OUT_OF_SCOPE",
+            trigger="model_out_of_scope",
+            summary_hint=f"模型回复涉及超范围内容（{detail}），已自动转人工",
+        )
+    return None
 
 
 def _mask_matches(text: str, pattern: re.Pattern[str], mask: Callable[[re.Match[str]], str]) -> str:

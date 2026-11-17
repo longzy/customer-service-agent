@@ -17,7 +17,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.agent_runtime.model import ChatModel, ModelError
 from backend.conversations.customer_conversations import latest_message_id
-from backend.conversations.handoffs import create_handoff, match_handoff_keyword
+from backend.conversations.handoffs import (
+    create_handoff,
+    decide_model_handoff,
+    match_handoff_keyword,
+)
 from backend.conversations.statuses import (
     AI_ACTIVE,
     CLOSED,
@@ -201,6 +205,20 @@ async def _queue_for_handoff(
     return notice
 
 
+def _queued_result(
+    conversation: ServiceConversation,
+    customer_message: ServiceMessage,
+    notice: ServiceMessage,
+) -> ChatResult:
+    """所有转人工路径共用的返回结构：客户消息 + 排队系统提示。"""
+    return ChatResult(
+        conversation_id=conversation.id,
+        status=QUEUED,
+        messages=[view_message(customer_message), view_message(notice)],
+        after_id=notice.id,
+    )
+
+
 async def _model_failed(
     db: AsyncSession,
     conversation: ServiceConversation,
@@ -229,12 +247,7 @@ async def _model_failed(
         trace_id=trace_id,
         now=now,
     )
-    return ChatResult(
-        conversation_id=conversation.id,
-        status=QUEUED,
-        messages=[view_message(customer_message), view_message(notice)],
-        after_id=notice.id,
-    )
+    return _queued_result(conversation, customer_message, notice)
 
 
 async def send_customer_message(
@@ -301,12 +314,7 @@ async def send_customer_message(
             now=now,
             matched_keyword=keyword,
         )
-        return ChatResult(
-            conversation_id=conversation.id,
-            status=QUEUED,
-            messages=[view_message(customer_message), view_message(notice)],
-            after_id=notice.id,
-        )
+        return _queued_result(conversation, customer_message, notice)
 
     try:
         reply = await asyncio.wait_for(model.respond(content), timeout=timeout_seconds)
@@ -341,6 +349,25 @@ async def send_customer_message(
         trace_id=trace_id,
         now=now,
     )
+    # plan 3.3.4：低置信/转人工意图/订单/超范围不展示模型回复，直接入队
+    decision = decide_model_handoff(
+        content=content,
+        intent=reply.intent,
+        confidence=reply.confidence,
+        reply=reply.reply,
+    )
+    if decision is not None:
+        notice = await _queue_for_handoff(
+            db,
+            conversation,
+            reason=decision.reason,
+            trigger=decision.trigger,
+            summary_hint=decision.summary_hint,
+            trace_id=trace_id,
+            now=now,
+        )
+        return _queued_result(conversation, customer_message, notice)
+
     ai_message = ServiceMessage(
         conversation_id=conversation.id,
         author_type="ai",
