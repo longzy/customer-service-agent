@@ -99,12 +99,12 @@ Frame（目标/非目标/完成标准）
 docs/specs/<NNN>-<slug>/brief.md      # PR/FAQ + AC 附录
 docs/specs/<NNN>-<slug>/plan.md       # Context/Goals/Design/Alternatives/Cross-cutting
 docs/specs/<NNN>-<slug>/features.md   # plan 批准后生成：description/steps/AC/passes/evidence
-docs/tasks/<spec>/T-XX.md             # 当前 feature 的执行卡
-docs/reviews/<spec>/T-XX.md           # 代码评审记录
+docs/tasks/<spec>/F-XX.md             # 当前 feature 的执行卡
+docs/reviews/<spec>/F-XX.md           # 代码评审记录
 docs/adr/                             # lasting decisions
 ```
 
-- 001/002 历史 spec 仍用 `requirements/design/tasks`，检查器兼容；新 spec 一律用 `brief/plan/features`。
+- 旧 001/002 spec 已删除；新 spec 一律用 `brief/plan/features`。
 - 不新增 `prd.md`、`spec.md`、`design-doc.md` 等平行文档。
 
 ## 5. 状态与门禁

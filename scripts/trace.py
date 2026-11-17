@@ -19,6 +19,7 @@ SPECS = ROOT / "docs" / "specs"
 CARDS = ROOT / "docs" / "tasks"
 BASELINE = ROOT / "scripts" / "trace-baseline.txt"
 AC_ID = re.compile(r"AC[-_](\d{2})")
+LEGACY_AC = {f"AC-{number:02d}" for number in range(1, 30)}
 
 
 def ac_from_requirements(path: Path) -> list[str]:
@@ -52,7 +53,9 @@ def ac_from_tests() -> dict[str, list[str]]:
 
 def ac_from_cards() -> dict[str, list[str]]:
     found: dict[str, set[str]] = {}
-    for path in CARDS.rglob("T-*.md"):
+    for path in CARDS.rglob("*.md"):
+        if not re.match(r"^[TF]-\d{2}\.md$", path.name):
+            continue
         for line in path.read_text(encoding="utf-8").splitlines():
             if line.startswith("- 绑定验收："):
                 for ac in AC_ID.findall(line):
@@ -83,6 +86,8 @@ def main() -> int:
         return 1
 
     tests = ac_from_tests()
+    # 001/002 已删除；AC-01~29 只保留为历史测试标签，不再进入当前追溯矩阵。
+    tests = {ac: files for ac, files in tests.items() if ac not in LEGACY_AC}
     cards = ac_from_cards()
     baseline = read_baseline()
     errors: list[str] = []

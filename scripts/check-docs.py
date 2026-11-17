@@ -75,7 +75,7 @@ SPEC_LAYOUTS = (
 
 GATE_OPEN_STATUSES = ("待开工许可", "已确认")
 SPEC_DIR_PATTERN = re.compile(r"^\d{3}-[a-z0-9-]+$")
-CARD_PATTERN = re.compile(r"^T-\d{2}\.md$")
+CARD_PATTERN = re.compile(r"^[TF]-\d{2}\.md$")
 
 errors = []
 checked = {"links": 0, "files": 0, "acs": 0, "cards": 0, "specs": 0, "skipped": 0, "reviews": 0}

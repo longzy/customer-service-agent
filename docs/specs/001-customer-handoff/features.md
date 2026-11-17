@@ -8,7 +8,7 @@
 - 日期：2026-11-17
 - 依据：`brief.md`、`plan.md`
 - 构建顺序：F-01 → F-02 → … → F-14；同一时间只允许一行从 `false` 改为 `true`。
-- 切片映射：F-01~F-04 ≈ T-29；F-05~F-09 ≈ T-30；F-10~F-14 ≈ T-31。
+- 切片映射：F-01~F-04 ≈ S-01；F-05~F-09 ≈ S-02；F-10~F-14 ≈ S-03。
 
 | ID | Category | Description（端到端行为） | Steps（验证步骤） | AC | Passes | Evidence |
 |---|---|---|---|---|---|---|
@@ -35,4 +35,4 @@
 - `Evidence` 写命令输出摘要、测试名、截图/录像路径、commit；不得手写“已验证”。
 - 不得为了让测试通过而改 `Description`/`Steps`/`AC`；要改先改 `brief.md`/`plan.md` 并重新评审。
 - 横切 AC（审计/限速/越权）已挂到首次触达它的行，不单开“安全行”。
-- `F-xx` 是行为编号；执行卡用 `T-xx`，一卡对应一行，见 `docs/templates/task-design-card.md`。
+- `F-xx` 是行为编号；执行卡用 `F-xx`，一卡对应一行，见 `docs/templates/task-design-card.md`。

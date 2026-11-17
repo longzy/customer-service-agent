@@ -31,12 +31,9 @@
 - [安全策略](SECURITY.md)
 - [初始技术评审](docs/reviews/2026-11-14-initial-architecture-review.md)
 - [AI Coding 调研](docs/research/ai-coding-new-project-practices-2026-11-14.md)
-- [M1-P 订单取消规格（归档）](docs/specs/001-order-cancel/requirements.md)
-- [M1-P 界面设计（归档）](docs/specs/001-order-cancel/design.md)
 - [UI 规范与组件规范](docs/design-system/ui-spec.md)
 - [UI 组件参考](docs/design-system/ui-components.html)
 - [工程基线](docs/adr/0004-engineering-baseline.md)
-- [T-01 任务设计卡（归档）](docs/tasks/001-order-cancel/T-01.md)
 - [任务设计卡模板](docs/templates/task-design-card.md)
 
 ## 项目原则

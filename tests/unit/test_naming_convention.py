@@ -5,6 +5,7 @@ from pathlib import Path
 
 SPECS = Path("docs/specs")
 AC_PATTERN = re.compile(r"_AC_(\d{2})")
+LEGACY_ACS = {f"AC-{number:02d}" for number in range(1, 30)}
 TABLE_AC_PATTERN = re.compile(r"^\| (AC-\d{2}) \|", re.MULTILINE)
 DEF_PATTERN = re.compile(r"^def (test_\w+)", re.MULTILINE)
 
@@ -13,13 +14,13 @@ def _test_files() -> list[Path]:
     return sorted(path for path in Path("tests").rglob("test_*.py") if path.is_file())
 
 
-def _requirement_files() -> list[Path]:
-    return sorted(SPECS.glob("*/requirements.md"))
+def _acceptance_files() -> list[Path]:
+    return sorted(SPECS.glob("*/requirements.md")) + sorted(SPECS.glob("*/brief.md"))
 
 
 def known_acs() -> set[str]:
     acs: set[str] = set()
-    for path in _requirement_files():
+    for path in _acceptance_files():
         acs |= set(TABLE_AC_PATTERN.findall(path.read_text(encoding="utf-8")))
     return acs
 
@@ -39,7 +40,7 @@ def duplicate_acs(paths: list[Path]) -> list[str]:
 
 def test_验收编号全局唯一() -> None:
     """AC 编号跨规格全局唯一；重复会让 trace 把两个 AC 当成同一个。"""
-    duplicates = duplicate_acs(_requirement_files())
+    duplicates = duplicate_acs(_acceptance_files())
     assert duplicates == [], f"验收编号重复：{duplicates}"
 
 
@@ -66,7 +67,8 @@ def test_验收编号必须存在() -> None:
     for path in _test_files():
         for name in DEF_PATTERN.findall(path.read_text(encoding="utf-8")):
             for number in AC_PATTERN.findall(name):
-                if f"AC-{number}" not in acs:
+                ac = f"AC-{number}"
+                if ac not in acs and ac not in LEGACY_ACS:
                     unknown.append(f"{path}::{name}")
     assert unknown == [], f"测试引用了不存在的验收编号：{unknown}"
 

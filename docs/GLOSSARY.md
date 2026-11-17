@@ -59,4 +59,4 @@
 | 场景评测 | 固定夹具下的端到端/多轮评测；用 pytest JUnit 聚合 + 多轮场景 |
 | Trace | 一次请求的完整链路标识；关联消息、工具、状态转换与审计 |
 
-维护：领域术语以 `docs/specs/001-order-cancel/requirements.md` 第 6、9 节为准（M1-P 归档）；企业术语以 [产品宪章](product/charter.md) 与 [ADR-0005](adr/0005-enterprise-boundary.md) 为准；工程术语以 `WORKFLOW.md` 为准。只在首次出现时解释，不重复定义。
+维护：领域术语以 `backend/domain/`、产品宪章与企业术语表为准；M1-P 的 `001-order-cancel` 规格已删除（2026-11-17）。企业术语以 [产品宪章](product/charter.md) 与 [ADR-0005](adr/0005-enterprise-boundary.md) 为准；工程术语以 `WORKFLOW.md` 为准。只在首次出现时解释，不重复定义。

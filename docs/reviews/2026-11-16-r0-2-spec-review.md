@@ -2,7 +2,7 @@
 
 - 日期：2026-11-16
 - 评审者：独立上下文 subagent（`r02-spec-reviewer`，未参与写作、未修改文件）
-- 依据：[WORKFLOW 第 3.1 节](../process/WORKFLOW.md)、[requirements](../specs/002-backend-boundary/requirements.md)、[design](../specs/002-backend-boundary/design.md)、[tasks](../specs/002-backend-boundary/tasks.md)
+- 依据：[WORKFLOW 第 3.1 节](../process/WORKFLOW.md)；原 002 规格的 requirements/design/tasks 已删除（2026-11-17），本文保留为历史评审记录
 - 结论：可判定（3 轮，B1–B6 全部闭合）；规格仍为等待评审，需用户批准
 
 ## 1. 轮次

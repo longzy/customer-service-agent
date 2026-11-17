@@ -4,7 +4,7 @@
 - 批准：2026-11-14（本次会话由用户确认）
 - 日期：2026-11-14
 - 适用：M1 及后续里程碑的前端实现
-- 关联：`docs/specs/001-order-cancel/design.md` 第 12 节（页面与交互规则）、`docs/specs/001-order-cancel/assets/ui-mockup.html`（结构参考稿）
+- 关联：M1-P 的 `001-order-cancel` 规格已删除（2026-11-17）；本文保留为 UI 规范历史参考。
 
 ## 1. 范围与原则
 
