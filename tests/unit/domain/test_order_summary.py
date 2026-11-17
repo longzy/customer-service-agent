@@ -6,7 +6,7 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from services.domain.orders import OrderSummary
+from backend.domain.orders import OrderSummary
 
 
 def payload(**overrides: Any) -> dict[str, Any]:

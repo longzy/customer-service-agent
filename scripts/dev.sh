@@ -80,7 +80,7 @@ trap cleanup EXIT INT TERM
 
 echo "启动 API  http://127.0.0.1:8000"
 echo "启动 Web  http://localhost:3000  （Ctrl-C 同时停止）"
-uv run uvicorn services.api.main:app --reload --port 8000 &
+uv run uvicorn backend.api.main:app --reload --port 8000 &
 BACKEND_PID=$!
 pnpm -C apps/web dev &
 FRONTEND_PID=$!

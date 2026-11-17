@@ -1,4 +1,4 @@
-"""AC-23：agent_runtime、tools、workflows 不得 import services.api。"""
+"""AC-23：agent_runtime、tools、workflows 不得 import backend.api。"""
 
 import importlib.util
 import sys
@@ -22,7 +22,7 @@ def _checker() -> ModuleType:
     return module
 
 
-def test_runtime_layers_do_not_import_services_api_AC_23() -> None:
+def test_runtime_layers_do_not_import_backend_api_AC_23() -> None:
     checker = _checker()
 
     violations = checker.find_violations(ROOT)

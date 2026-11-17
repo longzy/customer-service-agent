@@ -209,7 +209,7 @@ Redis 可用于短期缓存或限速，但不得成为会话归属、队列或�
 apps/
   chat/                     # 客户匿名 Web Chat
   workspace/                # 坐席工作台
-services/
+backend/
   api/                      # HTTP 入口、鉴权中间件、DTO
   platform/                 # 配置、数据库、outbox、worker、trace
   identity/                 # 员工账号、密码、session、RBAC
@@ -225,12 +225,13 @@ evals/                      # 场景集、运行器和报告
 
 模块约束：
 
+- `backend/` 是模块化单体的后端源码根，不是独立微服务；模块边界由本节规则与 `check-imports.py` 强制。
 - `apps/*` 只通过 HTTP 与契约访问后端，不承载业务规则。
-- `agent_runtime`/`tools`/`workflows` 不得 import `services.api`。
+- `agent_runtime`/`tools`/`workflows` 不得 import `backend.api`。
 - `tools`/`workflows` 不得 import `mock_oms` 或任何具体 OMS Adapter。
 - 只有 `adapters/oms/factory` 读取 OMS 配置并选择 Adapter；生产缺配置启动失败。
 - `packages/contracts` 是跨模块接口的唯一定义来源。
-- 现有 `apps/web` 是 M1-P 资产；`mock_oms` 已在 R0-2 迁入 `services/adapters/oms/`。
+- 现有 `apps/web` 是 M1-P 资产；`mock_oms` 已在 R0-2 迁入 `backend/adapters/oms/`。
 
 ## 10. 演进原则
 

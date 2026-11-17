@@ -12,11 +12,11 @@ from fastapi.testclient import TestClient
 from sqlalchemy import delete
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from services.agent_runtime.model import FakeModelClient
-from services.api.conversation_routes import get_repository
-from services.api.main import create_app
-from services.platform.models import AuditEvent, CancellationRequest, ToolExecution
-from services.platform.settings import settings
+from backend.agent_runtime.model import FakeModelClient
+from backend.api.conversation_routes import get_repository
+from backend.api.main import create_app
+from backend.platform.models import AuditEvent, CancellationRequest, ToolExecution
+from backend.platform.settings import settings
 from tests.integration.db_utils import db_available
 
 pytestmark = pytest.mark.skipif(not db_available(), reason="Postgres 不可用")

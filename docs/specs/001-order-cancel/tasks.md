@@ -3,7 +3,7 @@
 - 状态：已批准
 - 批准：2026-11-15（用户确认，含 T-16 登录页）
 - **Input**：`docs/specs/001-order-cancel/requirements.md`、`design.md`
-- **路径注记**：2026-11-16 R0-2 模块迁移后，已完成任务中的 `services/api/*` 与 `services/mock_oms/*` 路径已按新目录更新。
+- **路径注记**：2026-11-16 R0-2 模块迁移后，已完成任务中的 `backend/api/*` 与 `backend/mock_oms/*` 路径已按新目录更新。
 - **Prerequisites**：需求与设计均已批准；任务按用户故事分组，每个故事可独立实现与测试
 - **Tests**：按 `docs/process/WORKFLOW.md` 附录 A，测试与实现同属一个任务，先红后绿；不为测试单列任务
 - **执行卡与评审**：任务开工前产出 `docs/tasks/001-order-cancel/T-XX.md`；完成后评审记录写入 `docs/reviews/001-order-cancel/T-XX.md`
@@ -18,8 +18,8 @@
 
 **Purpose**：工程初始化与基本结构
 
-- [x] T01 创建工程骨架（`pyproject.toml`、`services/`、`apps/web/`、`tests/`、`scripts/`）— 已完成，见 `docs/tasks/001-order-cancel/T-01.md`
-- [x] T02 定义领域类型与 JSON Schema（`services/domain/`、`packages/contracts/schemas/`）— 已完成，见 `docs/tasks/001-order-cancel/T-02.md`
+- [x] T01 创建工程骨架（`pyproject.toml`、`backend/`、`apps/web/`、`tests/`、`scripts/`）— 已完成，见 `docs/tasks/001-order-cancel/T-01.md`
+- [x] T02 定义领域类型与 JSON Schema（`backend/domain/`、`packages/contracts/schemas/`）— 已完成，见 `docs/tasks/001-order-cancel/T-02.md`
   - _验收: AC-02、AC-04、AC-07、AC-11、AC-16_
 
 ## Phase 2: Foundational（阻塞所有故事）
@@ -28,11 +28,11 @@
 
 - [x] T03 定义 5 个 Tool 契约（`packages/contracts/tools/*.json`）
   - _验收: AC-01、AC-02、AC-04、AC-05、AC-07、AC-09、AC-10、AC-11_
-- [x] T04 [P] 实现认证与租户上下文（`services/identity/__init__.py`）
+- [x] T04 [P] 实现认证与租户上下文（`backend/identity/__init__.py`）
   - _验收: AC-02、AC-03、AC-15_
-- [x] T05 实现授权 Tool Gateway（`services/tools/gateway.py`）— depends on T03、T04
+- [x] T05 实现授权 Tool Gateway（`backend/tools/gateway.py`）— depends on T03、T04
   - _验收: AC-02、AC-03、AC-14、AC-15_
-- [x] T06 实现 Mock OMS 与故障注入（`services/adapters/oms/`）— depends on T03
+- [x] T06 实现 Mock OMS 与故障注入（`backend/adapters/oms/`）— depends on T03
   - _验收: AC-01、AC-05、AC-09、AC-10、AC-11、AC-12_
 
 **Checkpoint**：基础设施就绪，可以开始任一用户故事。
@@ -52,11 +52,11 @@
 **Goal**：用户能查询本人订单或最近订单，越权与非法参数被拒绝
 **Independent Test**：用夹具订单调用查询接口，验证返回、越权拒绝与零写操作
 
-- [x] T17 [US1/US2] 实现查询 Tool（`get_order`、`list_recent_orders`）并注册到网关（`services/tools/query.py`）— depends on T05、T06
+- [x] T17 [US1/US2] 实现查询 Tool（`get_order`、`list_recent_orders`）并注册到网关（`backend/tools/query.py`）— depends on T05、T06
   - _验收: AC-01、AC-02、AC-03_
-- [x] T09 [P] [US1] 实现查询意图识别与订单澄清（`services/agent_runtime/intent.py`）— depends on T17
+- [x] T09 [P] [US1] 实现查询意图识别与订单澄清（`backend/agent_runtime/intent.py`）— depends on T17
   - _验收: AC-01、AC-08_
-- [x] T18 [US1] 实现 Conversation API 与消息持久化（`services/api/conversation_routes.py`、`services/platform/models.py`）— depends on T09、T17
+- [x] T18 [US1] 实现 Conversation API 与消息持久化（`backend/api/conversation_routes.py`、`backend/platform/models.py`）— depends on T09、T17
   - _验收: AC-01、AC-08_
 - [x] T10 [P] [US1] 实现查询结果展示与空态（`apps/web/components/QueryView.tsx`）— depends on T18
   - _验收: AC-01_
@@ -68,11 +68,11 @@
 **Goal**：用户确认后安全取消；重复提交为 0；超时能恢复
 **Independent Test**：对可取消订单走完“请求 → 确认 → 提交”，并注入超时验证恢复
 
-- [x] T07 [P] [US3] 实现取消资格 Policy Engine（`services/tools/policy.py`）— depends on T03
+- [x] T07 [P] [US3] 实现取消资格 Policy Engine（`backend/tools/policy.py`）— depends on T03
   - _验收: AC-04、AC-07_
-- [x] T08 [US3] 实现 Cancellation Workflow（`services/workflows/cancel.py`）— depends on T06、T07；含 T-17 登记的网关真实超时（`oms_timeout_seconds`）
+- [x] T08 [US3] 实现 Cancellation Workflow（`backend/workflows/cancel.py`）— depends on T06、T07；含 T-17 登记的网关真实超时（`oms_timeout_seconds`）
   - _验收: AC-04、AC-05、AC-06、AC-09、AC-10、AC-11、AC-12、AC-19_
-- [x] T19 [US3] 启动恢复与并发回归（`services/workflows/cancel.py`）— depends on T08
+- [x] T19 [US3] 启动恢复与并发回归（`backend/workflows/cancel.py`）— depends on T08
   - _验收: AC-10、AC-12_
 - [x] T14 [P] [US3] 实现确认卡片与终态界面（`apps/web/components/ConfirmCard.tsx`）— depends on T10、T08
   - _验收: AC-04、AC-05、AC-06、AC-16、AC-19_
@@ -84,9 +84,9 @@
 **Goal**：不可取消有明确原因；未知状态可恢复；可转人工且上下文完整
 **Independent Test**：对已发货订单、注入超时、连续故障分别验证三类结果
 
-- [x] T11 [US5] 实现结果渲染与校验（`services/agent_runtime/validator.py`、`services/agent_runtime/chat.py`、`services/domain/cancellation.py`、`services/api/cancellation_routes.py`、`apps/web/components/ConfirmCard.tsx`、`apps/web/components/ChatShell.tsx`）— depends on T08、T14
+- [x] T11 [US5] 实现结果渲染与校验（`backend/agent_runtime/validator.py`、`backend/agent_runtime/chat.py`、`backend/domain/cancellation.py`、`backend/api/cancellation_routes.py`、`apps/web/components/ConfirmCard.tsx`、`apps/web/components/ChatShell.tsx`）— depends on T08、T14
   - _验收: AC-10、AC-11、AC-16_
-- [x] T15 [US6] 实现人工转接上下文（`services/api/handoff.py`）— depends on T08、T14
+- [x] T15 [US6] 实现人工转接上下文（`backend/api/handoff.py`）— depends on T08、T14
   - _验收: AC-13_
 
 **Checkpoint**：全部用户故事可独立验证。
@@ -95,13 +95,13 @@
 
 **Purpose**：跨故事的横切质量
 
-- [x] T12 [P] 加入 Trace 与审计（`services/platform/observability.py`、`services/api/audit.py`、`services/platform/models.py`、`migrations/versions/`、`services/api/main.py`、`services/api/conversation_routes.py`、`services/api/cancellation_routes.py`、`services/api/handoff.py`、`services/agent_runtime/chat.py`、`services/workflows/cancel.py`、`services/tools/gateway.py`、`scripts/show-trace.py`）— depends on T11
+- [x] T12 [P] 加入 Trace 与审计（`backend/platform/observability.py`、`backend/api/audit.py`、`backend/platform/models.py`、`migrations/versions/`、`backend/api/main.py`、`backend/api/conversation_routes.py`、`backend/api/cancellation_routes.py`、`backend/api/handoff.py`、`backend/agent_runtime/chat.py`、`backend/workflows/cancel.py`、`backend/tools/gateway.py`、`scripts/show-trace.py`）— depends on T11
   - _验收: AC-17、AC-18_
 - [x] T13 建立场景评测（`evals/run.py`、`tests/integration/test_eval_scenarios.py`、`scripts/eval.sh`、`scripts/test-db.sh`、`scripts/verify.sh`）— depends on T10、T14、T11、T15、T12
   - _验收: 基座豁免——AC-01 至 AC-21 的聚合报告与多轮场景_
 - [x] T21 [P] G3 突变基线校准与 T-11 证据收口（`tests/unit/tools/test_gateway.py`、`tests/unit/workflows/test_cancel.py`、`tests/integration/test_cancellation_repository.py`、`apps/web/tests/ChatShell.test.tsx`）— 测试-only；depends on T11、T19
   - _验收: 基座豁免——补 AC-05/06/10/11/14 既有断言，不新增行为_
-- [x] T20 [P] 会话安全基线：Cookie `Secure`、跨站写请求拒绝、密钥扫描（`services/api/csrf.py`、`services/platform/settings.py`、`scripts/check-secrets.py`）
+- [x] T20 [P] 会话安全基线：Cookie `Secure`、跨站写请求拒绝、密钥扫描（`backend/api/csrf.py`、`backend/platform/settings.py`、`scripts/check-secrets.py`）
   - _验收: AC-21_
 
 ## Dependencies & Execution Order

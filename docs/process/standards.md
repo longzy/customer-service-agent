@@ -12,7 +12,7 @@
 | STD-DATA-05 | 集成测试跑独立 `*_test` 库，禁止静默 skip | `scripts/test-db.sh` + CI |
 | STD-SEC-01 | 身份与租户只从认证上下文获取，正文出现身份字段即拒绝 | `tests/unit/tools/test_gateway.py` |
 | STD-SEC-02 | 非开发/测试环境 Cookie 必须 `Secure` + `HttpOnly` + `SameSite=Lax` | `tests/unit/test_csrf.py` |
-| STD-SEC-03 | 写请求必须校验 `Origin`，跨源拒绝且无副作用 | `services/api/csrf.py` + 测试 |
+| STD-SEC-03 | 写请求必须校验 `Origin`，跨源拒绝且无副作用 | `backend/api/csrf.py` + 测试 |
 | STD-SEC-06 | 入库内容必须过密钥扫描 | `scripts/check-secrets.py`（pre-commit + CI） |
 | STD-TEST-02 | 测试名内嵌 `_AC_XX`，一个测试只追溯一个 AC | `tests/unit/test_naming_convention.py` |
 | STD-TEST-05 | 突变分数：Workflow/Gateway ≥80%，Policy/领域映射 ≥70% | `scripts/mutation.sh`（G3） |

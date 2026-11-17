@@ -7,8 +7,8 @@ import pytest
 # 干净检出/CI 没有 .env 时，模块级 create_app 也应按测试环境启动而不是 production。
 os.environ.setdefault("ENVIRONMENT", "test")
 
-from services import identity as auth
-from services.platform.settings import settings
+from backend import identity as auth
+from backend.platform.settings import settings
 
 
 @pytest.fixture(autouse=True)
@@ -26,6 +26,6 @@ def _clear_sessions() -> None:
 async def _dispose_db_engine():
     """避免跨用例复用绑定到旧事件循环的连接池。"""
     yield
-    from services.platform.db import engine
+    from backend.platform.db import engine
 
     await engine.dispose()

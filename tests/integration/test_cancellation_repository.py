@@ -5,12 +5,12 @@ from datetime import UTC, datetime
 import pytest
 from sqlalchemy import delete
 
-from services.adapters.oms.port import OmsAccess
-from services.domain.cancellation import CancellationState
-from services.identity import Identity
-from services.platform.db import session_factory
-from services.platform.models import CancellationRequest as CancellationRow
-from services.workflows.cancel import (
+from backend.adapters.oms.port import OmsAccess
+from backend.domain.cancellation import CancellationState
+from backend.identity import Identity
+from backend.platform.db import session_factory
+from backend.platform.models import CancellationRequest as CancellationRow
+from backend.workflows.cancel import (
     CancellationTask,
     SqlCancellationRepository,
     TaskConflict,
@@ -88,9 +88,9 @@ async def test_真实乐观锁冲突_AC_09() -> None:
 
 
 async def test_启动恢复悬挂任务_AC_10() -> None:
-    from services.adapters.oms.mock import MockOmsAdapter
-    from services.tools.cancel import build_cancel_gateway
-    from services.workflows.cancel import CancellationWorkflow
+    from backend.adapters.oms.mock import MockOmsAdapter
+    from backend.tools.cancel import build_cancel_gateway
+    from backend.workflows.cancel import CancellationWorkflow
 
     oms = MockOmsAdapter()
     async with session_factory() as session:
@@ -123,9 +123,9 @@ async def test_启动恢复悬挂任务_AC_10() -> None:
 
 
 async def test_启动恢复_SUBMITTING与失败转人工_AC_12() -> None:
-    from services.adapters.oms.mock import MockOmsAdapter
-    from services.tools.cancel import build_cancel_gateway
-    from services.workflows.cancel import CancellationWorkflow
+    from backend.adapters.oms.mock import MockOmsAdapter
+    from backend.tools.cancel import build_cancel_gateway
+    from backend.workflows.cancel import CancellationWorkflow
 
     oms = MockOmsAdapter()
     async with session_factory() as session:

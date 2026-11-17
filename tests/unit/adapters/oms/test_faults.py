@@ -4,13 +4,13 @@ from typing import Any
 
 import pytest
 
-from services.adapters.oms.faults import FaultEngine, FaultRule
-from services.adapters.oms.mock import MockOmsAdapter
-from services.adapters.oms.port import OmsAccess
-from services.domain.errors import ErrorCode
-from services.errors import DownstreamInvalidResponse, OrderNotFound
-from services.identity import Identity
-from services.tools.gateway import GatewayError, ToolGateway, ToolSpec
+from backend.adapters.oms.faults import FaultEngine, FaultRule
+from backend.adapters.oms.mock import MockOmsAdapter
+from backend.adapters.oms.port import OmsAccess
+from backend.domain.errors import ErrorCode
+from backend.errors import DownstreamInvalidResponse, OrderNotFound
+from backend.identity import Identity
+from backend.tools.gateway import GatewayError, ToolGateway, ToolSpec
 
 IDENTITY = Identity("zhang-ming", "user-a1", "tenant-a", "张明", "示例商户 A")
 
@@ -151,7 +151,7 @@ def test_不可取消经网关归类为OMS拒绝_AC_05() -> None:
 def test_管理接口注入的故障影响应用实例_基座豁免() -> None:
     from fastapi.testclient import TestClient
 
-    from services.api.main import create_app
+    from backend.api.main import create_app
 
     with TestClient(create_app()) as api:
         assert (
@@ -167,7 +167,7 @@ def test_管理接口注入的故障影响应用实例_基座豁免() -> None:
 def test_管理接口拒绝非法输入_基座豁免() -> None:
     from fastapi.testclient import TestClient
 
-    from services.api.main import create_app
+    from backend.api.main import create_app
 
     with TestClient(create_app()) as api:
         assert api.post("/_admin/faults", json={"kind": "bogus"}).status_code == 422
@@ -177,8 +177,8 @@ def test_管理接口拒绝非法输入_基座豁免() -> None:
 def test_生产环境不挂载故障管理接口_基座豁免(monkeypatch: pytest.MonkeyPatch) -> None:
     from fastapi.testclient import TestClient
 
-    from services.api.main import create_app
-    from services.platform.settings import settings
+    from backend.api.main import create_app
+    from backend.platform.settings import settings
 
     monkeypatch.setattr(settings, "environment", "production")
     monkeypatch.setattr(settings, "model_api_key", "test-key")
@@ -197,7 +197,7 @@ def test_幂等回放前先校验归属_AC_09() -> None:
 def test_取消结果接口对未知键返回404_基座豁免() -> None:
     from fastapi.testclient import TestClient
 
-    from services.api.main import create_app
+    from backend.api.main import create_app
 
     with TestClient(create_app()) as api:
         response = api.post(

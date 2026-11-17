@@ -2,14 +2,14 @@
 
 import logging
 
-from services.platform.observability import (
+from backend.platform.observability import (
     TraceSinkError,
     idempotency_digest,
     log_event,
     redact_event,
     redact_response,
 )
-from services.tools.gateway import GatewayError
+from backend.tools.gateway import GatewayError
 
 
 def test_审计元数据只保留允许字段_AC_18() -> None:
@@ -85,7 +85,7 @@ def test_审计异常不是网关业务异常_AC_18() -> None:
 
 
 def test_应用创建后配置日志handler_AC_18() -> None:
-    from services.api.main import configure_logging, create_app
+    from backend.api.main import configure_logging, create_app
 
     create_app()
     configure_logging()

@@ -12,7 +12,7 @@ PREFIX = re.compile(r'APIRouter\(prefix="([^"]+)"')
 
 def routes() -> list[str]:
     found: list[str] = []
-    for path in (ROOT / "services" / "api").glob("*.py"):
+    for path in (ROOT / "backend" / "api").glob("*.py"):
         text = path.read_text(encoding="utf-8")
         prefix = PREFIX.search(text)
         base = prefix.group(1) if prefix else ""

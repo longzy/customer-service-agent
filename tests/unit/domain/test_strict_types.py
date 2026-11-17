@@ -9,8 +9,8 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from services.domain.cancellation import CancelEligibility
-from services.domain.orders import OrderDetail, OrderItem, OrderSummary
+from backend.domain.cancellation import CancelEligibility
+from backend.domain.orders import OrderDetail, OrderItem, OrderSummary
 
 
 def summary(**overrides: Any) -> dict[str, Any]:

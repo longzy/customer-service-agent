@@ -3,11 +3,11 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from services.adapters.oms.factory import OmsConfigError, build_oms
-from services.adapters.oms.http import HttpOmsAdapter
-from services.adapters.oms.mock import MockOmsAdapter
-from services.api.main import create_app
-from services.platform.settings import Settings
+from backend.adapters.oms.factory import OmsConfigError, build_oms
+from backend.adapters.oms.http import HttpOmsAdapter
+from backend.adapters.oms.mock import MockOmsAdapter
+from backend.api.main import create_app
+from backend.platform.settings import Settings
 
 
 def test_production_without_oms_url_fails_AC_26() -> None:

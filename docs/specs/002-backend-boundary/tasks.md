@@ -20,20 +20,20 @@
 
 ## Phase 2: 共享模块拆分
 
-**Goal**：把 `services/api` 中的基础设施、身份与领域类型迁出。
+**Goal**：把 `backend/api` 中的基础设施、身份与领域类型迁出。
 
 - [x] T-23 迁移 platform（settings/db/models/observability）、identity（纯身份/session）、domain（orders/cancellation/errors）；FastAPI 中间件拆到 `api/auth_web.py`；更新 `api`/`tools`/`workflows` 与测试的 import
-  - 文件：`services/platform/`、`services/identity/`、`services/domain/`、`services/api/auth_web.py`、`services/tools/`、`services/workflows/`、`tests/unit/test_import_boundaries_AC_23.py`、相关测试
+  - 文件：`backend/platform/`、`backend/identity/`、`backend/domain/`、`backend/api/auth_web.py`、`backend/tools/`、`backend/workflows/`、`tests/unit/test_import_boundaries_AC_23.py`、相关测试
   - _验收: AC-23_
 
-**Checkpoint**：`agent_runtime`/`tools`/`workflows` 不再 import `services.api`；基线中 R1 条目清零。
+**Checkpoint**：`agent_runtime`/`tools`/`workflows` 不再 import `backend.api`；基线中 R1 条目清零。
 
 ## Phase 3: OMS 端口与 Mock
 
 **Goal**：业务模块只依赖端口。
 
 - [x] T-24 定义 `OmsPort`/`OmsAccess`，迁移 `MockOmsAdapter` 与夹具，`ToolGateway` 改用端口授权；建立 Mock 契约测试骨架（Http 在 T-25 接入）
-  - 文件：`services/adapters/oms/port.py`、`services/adapters/oms/mock.py`、`services/adapters/oms/fixtures/`、`services/tools/gateway.py`、`services/tools/query.py`、`services/tools/cancel.py`、`tests/unit/adapters/test_oms_contract_AC_25.py`、相关测试
+  - 文件：`backend/adapters/oms/port.py`、`backend/adapters/oms/mock.py`、`backend/adapters/oms/fixtures/`、`backend/tools/gateway.py`、`backend/tools/query.py`、`backend/tools/cancel.py`、`tests/unit/adapters/test_oms_contract_AC_25.py`、相关测试
   - _验收: AC-24_
 
 **Checkpoint**：Mock 契约骨架建立；`tools`/`workflows` 不再直接依赖具体 Adapter；Http 等价性在 T-25 判定。
@@ -43,7 +43,7 @@
 **Goal**：生产缺配置不回落 Mock。
 
 - [x] T-25 实现 `HttpOmsAdapter`（可注入 client）、URL 校验、`build_oms`、`create_app(settings)` 与生产启动失败；把 Http 接入共用契约矩阵
-  - 文件：`services/adapters/oms/http.py`、`services/adapters/oms/factory.py`、`services/api/main.py`、`services/platform/settings.py`、`tests/unit/adapters/test_oms_contract_AC_25.py`、`tests/unit/adapters/test_oms_factory_AC_26.py`
+  - 文件：`backend/adapters/oms/http.py`、`backend/adapters/oms/factory.py`、`backend/api/main.py`、`backend/platform/settings.py`、`tests/unit/adapters/test_oms_contract_AC_25.py`、`tests/unit/adapters/test_oms_factory_AC_26.py`
   - _验收: AC-25、AC-26_
 
 **Checkpoint**：production 空/空白/非法 URL 启动失败；development 空配置走 Mock；production 合法 URL 走 Http。
@@ -56,7 +56,7 @@
   - 文件：`scripts/import-baseline.txt`、`scripts/verify.sh`、`tests/unit/test_import_boundaries_AC_24.py`、`docs/CURRENT.md`
   - _验收: AC-23、AC-24_
 
-**Checkpoint**：`check-imports --strict` 退出 0；`services.mock_oms` 不再存在；`verify.sh` 不依赖 `OwnershipIndex`。
+**Checkpoint**：`check-imports --strict` 退出 0；`backend.mock_oms` 不再存在；`verify.sh` 不依赖 `OwnershipIndex`。
 
 ## Phase 6: 行为冻结证据
 

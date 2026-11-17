@@ -24,7 +24,7 @@ TASK_FILES = sorted(SPECS.glob("*/tasks.md")) + sorted(SPECS.glob("*/features.md
 CARDS = ROOT / "docs" / "tasks"
 TASK_ID = re.compile(r"T-?(\d{2})")
 PATH_TOKEN = re.compile(r"`([^`\n]+)`")
-PATH_PREFIXES = ("docs/", "services/", "packages/", "tests/", "scripts/", "apps/", "migrations/")
+PATH_PREFIXES = ("docs/", "backend/", "packages/", "tests/", "scripts/", "apps/", "migrations/")
 
 errors: list[str] = []
 

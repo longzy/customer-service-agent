@@ -21,7 +21,7 @@ createdb customer_service       # 开发库
 ./scripts/test-db.sh -q          # 独立测试库：建库 → 迁移 → 测试
 python3 scripts/check-status.py  # CURRENT.md ↔ tasks.md ↔ 执行卡
 python3 scripts/trace.py --strict # AC 追溯矩阵
-./scripts/mutation.sh services.tools.policy  # 突变检查（不进 pre-commit）
+./scripts/mutation.sh backend.tools.policy  # 突变检查（不进 pre-commit）
 ```
 
 提交前 hook 需要在本机安装一次：

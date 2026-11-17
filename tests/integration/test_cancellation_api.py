@@ -3,10 +3,10 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from services.api.cancellation_routes import get_repository
-from services.api.main import create_app
-from services.identity import Identity
-from services.workflows.cancel import (
+from backend.api.cancellation_routes import get_repository
+from backend.api.main import create_app
+from backend.identity import Identity
+from backend.workflows.cancel import (
     CancellationRepository,
     CancellationTask,
     TaskNotFound,
@@ -44,7 +44,7 @@ class ConflictRepository(MemoryRepository):
     async def save(self, task: CancellationTask) -> None:
         self.saves += 1
         if self.saves > 1:
-            from services.workflows.cancel import TaskConflict
+            from backend.workflows.cancel import TaskConflict
 
             raise TaskConflict(task.id)
         await super().save(task)
@@ -142,12 +142,12 @@ def test_不接受客户端会话标识_AC_04() -> None:
 def test_查询时冲突返回409_基座豁免() -> None:
     from datetime import UTC, datetime
 
-    from services.domain.cancellation import CancellationState
-    from services.workflows.cancel import CancellationTask
+    from backend.domain.cancellation import CancellationState
+    from backend.workflows.cancel import CancellationTask
 
     class ConflictOnSave(MemoryRepository):
         async def save(self, task: CancellationTask) -> None:
-            from services.workflows.cancel import TaskConflict
+            from backend.workflows.cancel import TaskConflict
 
             raise TaskConflict(task.id)
 

@@ -45,7 +45,7 @@ select = ["E", "F", "I", "UP", "B", "SIM", "S", "BLE", "ASYNC"]
 [tool.mypy]
 python_version = "3.12"
 strict = true
-files = ["services"]
+files = ["backend"]
 warn_unused_ignores = true
 
 [tool.pytest.ini_options]
@@ -59,6 +59,6 @@ filterwarnings = [
 
 [tool.mutmut]
 # 只对确定性核心跑突变：范围与 docs/process/tdd.md 第 5 节一致
-source_paths = ["services/tools", "services/workflows", "services/domain"]
-also_copy = ["tests", "packages", "migrations", "scripts", "docs", "services"]
+source_paths = ["backend/tools", "backend/workflows", "backend/domain"]
+also_copy = ["tests", "packages", "migrations", "scripts", "docs", "backend"]
 pytest_add_cli_args_test_selection = ["tests/unit"]

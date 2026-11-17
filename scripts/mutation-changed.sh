@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 只对本次改动的核心模块跑突变。
 # 用法：./scripts/mutation-changed.sh
-# 范围：services/tools、services/workflows、services/domain 下变更/新增的 .py。
+# 范围：backend/tools、backend/workflows、backend/domain 下变更/新增的 .py。
 set -euo pipefail
 cd "$(dirname "$0")/.."
 export UV_CACHE_DIR="${UV_CACHE_DIR:-./.uv-cache}"
@@ -9,8 +9,8 @@ export MODEL_API_KEY="${MODEL_API_KEY:-test-key}"
 
 CHANGED_FILES=$(
   {
-    git diff --name-only -- services/tools services/workflows services/domain
-    git ls-files --others --exclude-standard -- services/tools services/workflows services/domain
+    git diff --name-only -- backend/tools backend/workflows backend/domain
+    git ls-files --others --exclude-standard -- backend/tools backend/workflows backend/domain
   } | grep -E '\.py$' | while read -r path; do [ -f "$path" ] && printf '%s\n' "$path"; done | sort -u || true
 )
 if [ -z "$CHANGED_FILES" ]; then
@@ -34,7 +34,7 @@ from pathlib import Path
 paths = [line.strip() for line in sys.argv[1].splitlines() if line.strip()]
 array = ", ".join(f'"{path}"' for path in paths)
 text = Path("pyproject.toml").read_text(encoding="utf-8")
-needle = 'source_paths = ["services/tools", "services/workflows", "services/domain"]'
+needle = 'source_paths = ["backend/tools", "backend/workflows", "backend/domain"]'
 if needle not in text:
     raise SystemExit("找不到 source_paths 配置")
 Path("pyproject.toml").write_text(text.replace(needle, needle + f"\nonly_mutate = [{array}]", 1), encoding="utf-8")

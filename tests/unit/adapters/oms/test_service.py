@@ -4,9 +4,9 @@ import copy
 
 import pytest
 
-from services.adapters.oms.mock import MockOmsAdapter
-from services.adapters.oms.port import OmsAccess
-from services.errors import CancelRejected, IdempotencyConflict, OrderNotFound
+from backend.adapters.oms.mock import MockOmsAdapter
+from backend.adapters.oms.port import OmsAccess
+from backend.errors import CancelRejected, IdempotencyConflict, OrderNotFound
 
 
 def access(tenant: str = "tenant-a", user: str = "user-a1") -> OmsAccess:

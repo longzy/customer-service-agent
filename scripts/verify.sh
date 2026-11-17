@@ -24,7 +24,7 @@ if [ "$FAST" = "1" ]; then
   echo "== fast: ruff format =="
   uv run ruff format --check .
   echo "== fast: mypy =="
-  uv run mypy services
+  uv run mypy backend
   echo "== fast: shell 检查 =="
   python3 scripts/check-shell.py
   echo "== fast: import 边界 =="
@@ -54,13 +54,13 @@ echo "== import 边界 =="
 python3 scripts/check-imports.py --strict
 
 echo "== prod import =="
-ENVIRONMENT=test MODEL_API_KEY= uv run --no-dev python -c "import services.api.main, services.tools.gateway, services.adapters.oms.factory"
+ENVIRONMENT=test MODEL_API_KEY= uv run --no-dev python -c "import backend.api.main, backend.tools.gateway, backend.adapters.oms.factory"
 
 echo "== 密钥扫描 =="
 python3 scripts/check-secrets.py
 
 echo "== mypy =="
-uv run mypy services
+uv run mypy backend
 
 echo "== pytest（独立测试库）=="
 # pytest 失败也要继续生成 eval 报告，因此这里暂时关闭 set -e 并分别记退出码
@@ -110,7 +110,7 @@ echo "== web test =="
 pnpm -C apps/web test
 
 PYTEST_LINE=$(grep -E "[0-9]+ passed" "$PYTEST_LOG" | tail -1)
-MYPY_LINE=$(uv run mypy services 2>&1 | tail -1)
+MYPY_LINE=$(uv run mypy backend 2>&1 | tail -1)
 DOCS_LINE=$(python3 scripts/check-docs.py 2>&1 | tail -1)
 TRACE_LINE=$(python3 scripts/trace.py 2>&1 | tail -1)
 python3 - "$PYTEST_LINE" "$MYPY_LINE" "$DOCS_LINE" "$TRACE_LINE" "$RECORD" <<'PY'

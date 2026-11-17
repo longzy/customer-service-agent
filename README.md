@@ -12,7 +12,7 @@
 
 > 客户匿名聊天 -> AI 自动回复/查单取消 -> 转人工进入队列 -> 坐席登录领取并接管 -> 回复 -> 关闭或转回 AI
 
-新 M1 尚未开始编码；当前 `apps/web` 与 `services/` 仍是 M1-P 原型。退款、主管/管理员、客户账号、全渠道、OIDC/SSO 和真实 OMS 不在 M1 范围内。
+新 M1 尚未开始编码；当前 `apps/web` 与 `backend/` 仍是 M1-P 原型。退款、主管/管理员、客户账号、全渠道、OIDC/SSO 和真实 OMS 不在 M1 范围内。
 
 ## 文档入口
 
@@ -87,7 +87,7 @@ make eval                         # 场景评测：pytest JUnit + AC 报告
 
 # 单独运行
 UV_CACHE_DIR=./.uv-cache uv run ruff check .
-UV_CACHE_DIR=./.uv-cache uv run mypy services
+UV_CACHE_DIR=./.uv-cache uv run mypy backend
 ./scripts/test-db.sh -q            # 建测试库、跑迁移、再跑 pytest
 python3 scripts/check-docs.py
 python3 scripts/check-status.py    # CURRENT.md ↔ tasks.md ↔ 执行卡

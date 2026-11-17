@@ -5,14 +5,14 @@ from typing import Any
 
 import pytest
 
-from services.adapters.oms.faults import FaultRule
-from services.adapters.oms.mock import MockOmsAdapter
-from services.adapters.oms.port import OmsAccess
-from services.domain.cancellation import CancellationState
-from services.errors import OrderNotFound
-from services.identity import Identity
-from services.tools.cancel import build_cancel_gateway
-from services.workflows.cancel import (
+from backend.adapters.oms.faults import FaultRule
+from backend.adapters.oms.mock import MockOmsAdapter
+from backend.adapters.oms.port import OmsAccess
+from backend.domain.cancellation import CancellationState
+from backend.errors import OrderNotFound
+from backend.identity import Identity
+from backend.tools.cancel import build_cancel_gateway
+from backend.workflows.cancel import (
     CancellationRepository,
     CancellationTask,
     CancellationWorkflow,
@@ -290,7 +290,7 @@ class _CapturingWorkflow(CancellationWorkflow):
     ) -> CancellationTask:
         self.calls.append((identity, task, trace_id))
         if task.id == "task-conflict":
-            from services.workflows.cancel import TaskConflict
+            from backend.workflows.cancel import TaskConflict
 
             raise TaskConflict(task.id)
         return task
@@ -347,7 +347,7 @@ class _Session:
 
 
 async def test_可恢复查询字段映射与状态参数_AC_10() -> None:
-    from services.platform.models import CancellationRequest as CancellationRow
+    from backend.platform.models import CancellationRequest as CancellationRow
 
     row = CancellationRow(
         id="task-map",
@@ -448,7 +448,7 @@ async def test_放弃写状态转换审计_AC_17() -> None:
 
 
 async def test_审计失败向上抛_AC_18() -> None:
-    from services.platform.observability import TraceSinkError
+    from backend.platform.observability import TraceSinkError
 
     async def failing(event: dict[str, Any]) -> None:
         raise TraceSinkError("down")
@@ -459,7 +459,7 @@ async def test_审计失败向上抛_AC_18() -> None:
 
 
 async def test_确认审计失败不被吞_AC_18() -> None:
-    from services.platform.observability import TraceSinkError
+    from backend.platform.observability import TraceSinkError
 
     events: list[dict[str, Any]] = []
 
@@ -526,7 +526,7 @@ async def test_重复确认写幂等确认审计_AC_17() -> None:
 
 
 async def test_确认审计失败不推进状态_AC_18() -> None:
-    from services.platform.observability import TraceSinkError
+    from backend.platform.observability import TraceSinkError
 
     async def failing(event: dict[str, Any]) -> None:
         raise TraceSinkError("down")

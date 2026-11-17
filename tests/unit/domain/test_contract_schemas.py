@@ -8,9 +8,9 @@ import pytest
 from jsonschema import Draft202012Validator, FormatChecker
 from pydantic import ValidationError
 
-from services.domain.cancellation import CancelEligibility, CancellationState
-from services.domain.errors import ErrorCode
-from services.domain.orders import OrderDetail, OrderStatus, OrderSummary
+from backend.domain.cancellation import CancelEligibility, CancellationState
+from backend.domain.errors import ErrorCode
+from backend.domain.orders import OrderDetail, OrderStatus, OrderSummary
 
 SCHEMA_PATH = Path("packages/contracts/schemas/domain.json")
 DOCUMENT = json.loads(SCHEMA_PATH.read_text(encoding="utf-8"))

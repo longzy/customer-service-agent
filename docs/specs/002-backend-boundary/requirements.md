@@ -13,7 +13,7 @@
 
 在不改变任何 HTTP 行为、数据库 schema 和现有验收结果的前提下：
 
-- 把原型期集中在 `services/api` 的共享代码拆到 `platform`/`identity`/`domain`/`adapters`；
+- 把原型期集中在 `backend/api` 的共享代码拆到 `platform`/`identity`/`domain`/`adapters`；
 - 用 `scripts/check-imports.py` 把依赖方向变成 CI 可判定规则；
 - 用 `OmsPort` 隔离 OMS，生产缺配置时启动失败，不静默回落 Mock；
 - 为 M1 的员工登录、匿名客户与坐席工作台留出稳定边界。
@@ -33,7 +33,7 @@
 
 作为维护者，我希望新增的越界 import 立即失败，并指出文件与模块，以便边界不随功能开发退化。
 
-- 独立测试：在临时目录构造 `tools -> services.api` 的 import，运行检查器，断言失败。
+- 独立测试：在临时目录构造 `tools -> backend.api` 的 import，运行检查器，断言失败。
 - 验收：AC-22、AC-23、AC-24、AC-29
 
 ### US-02 部署者：生产缺 OMS 配置时启动失败
@@ -62,7 +62,7 @@
 | ID | 需求（EARS） | 验收 |
 |---|---|---|
 | FR-01 | 当运行 `check-imports.py --root <路径>` 时，系统应报告该根下每个越界 import 的文件与模块；存在未登记违规时退出码为 1。 | AC-22 |
-| FR-02 | 当 `agent_runtime`/`tools`/`workflows` 引用 `services.api` 时，检查器应失败。 | AC-23 |
+| FR-02 | 当 `agent_runtime`/`tools`/`workflows` 引用 `backend.api` 时，检查器应失败。 | AC-23 |
 | FR-03 | 当 `tools`/`workflows` 引用 `mock_oms` 或具体 OMS Adapter 时，检查器应失败。 | AC-24 |
 | FR-04 | 当对 Mock 与 Http Adapter 运行同一组 `OmsPort` 契约测试时，两者应给出等价结果与等价错误。 | AC-25 |
 | FR-05 | 当 `OMS_BASE_URL` 非空但不是合法 http/https URL 时，factory 与 `create_app(settings)` 应失败；当 `environment=production` 且为空或全空白时同样失败，错误包含 `OMS_BASE_URL`。 | AC-26 |
@@ -76,13 +76,13 @@
 
 | AC | 场景 | 期望 | 需求 |
 |---|---|---|---|
-| AC-22 | 以临时目录为 `--root`，其中出现 `services/tools/x.py -> services.api.auth` | 检查器失败，输出包含文件、模块与规则 ID，退出码 1；`find_violations(root)` 可直接断言 | FR-01 |
-| AC-23 | 扫描当前 `services/` 生产代码 | `agent_runtime`/`tools`/`workflows` 对 `services.api` 的 import 数为 0 | FR-02 |
-| AC-24 | 扫描当前 `services/` 生产代码 | `tools`/`workflows` 对 `mock_oms` 与具体 Adapter 的 import 数为 0 | FR-03 |
+| AC-22 | 以临时目录为 `--root`，其中出现 `backend/tools/x.py -> backend.api.auth` | 检查器失败，输出包含文件、模块与规则 ID，退出码 1；`find_violations(root)` 可直接断言 | FR-01 |
+| AC-23 | 扫描当前 `backend/` 生产代码 | `agent_runtime`/`tools`/`workflows` 对 `backend.api` 的 import 数为 0 | FR-02 |
+| AC-24 | 扫描当前 `backend/` 生产代码 | `tools`/`workflows` 对 `mock_oms` 与具体 Adapter 的 import 数为 0 | FR-03 |
 | AC-25 | 同一组契约用例分别跑 Mock 与注入 `httpx.MockTransport` 的 Http Adapter | 成功、超时、非法响应、未知结果、重复幂等键五类结果与错误类型一致 | FR-04 |
 | AC-26 | production 空/全空白、development/test 空、production/development 合法 URL、任意环境非法 URL | 空 production→失败；空 development→Mock；合法 URL→Http；非法 URL→失败；错误提到 `OMS_BASE_URL` | FR-05、FR-06 |
 | AC-27 | 重构前后 `app.openapi()` 对比 | 路由、方法、状态码、schema 完全一致 | FR-07 |
-| AC-28 | 显式导入 `services.platform.models` 后，重构前后 `Base.metadata` 对比 | 表数 > 0，且表名、列名、类型、可空、主键一致 | FR-08 |
+| AC-28 | 显式导入 `backend.platform.models` 后，重构前后 `Base.metadata` 对比 | 表数 > 0，且表名、列名、类型、可空、主键一致 | FR-08 |
 | AC-29 | `verify.sh`、基线文件、从 R0-2 起点 SHA revert 的演练 | 检查器接入；有效基线条目为 0；记录起点/结束 SHA、命令与退出码，revert 后全绿 | FR-09、FR-10 |
 
 ## 6. 判定表
@@ -133,8 +133,8 @@
 |---|---|
 | 依赖方向 | `scripts/check-imports.py` 的 `find_violations(root)`、CLI 输出与 `tests/unit/test_import_rules_AC_22.py` |
 | OMS 契约 | `OmsPort` 契约测试（Mock/Http 共用） |
-| 启动行为 | `services/adapters/oms/factory.py::build_oms(settings)`、`create_app(settings)` |
+| 启动行为 | `backend/adapters/oms/factory.py::build_oms(settings)`、`create_app(settings)` |
 | API 行为 | `app.openapi()` 快照测试 |
-| DB 结构 | 显式导入 `services.platform.models` 后的 `Base.metadata` 快照测试 |
+| DB 结构 | 显式导入 `backend.platform.models` 后的 `Base.metadata` 快照测试 |
 | 回归 | `./scripts/verify.sh` |
 | 回滚 | 从 R0-2 起点 SHA 的 `git revert --no-commit start..end` + `verify.sh` 记录 |

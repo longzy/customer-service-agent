@@ -2,7 +2,7 @@
 
 import pytest
 
-from services.domain.cancellation import (
+from backend.domain.cancellation import (
     REASON_TEXT,
     CancellationState,
     CancelReason,

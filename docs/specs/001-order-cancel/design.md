@@ -244,7 +244,7 @@ sequenceDiagram
 - 金额一律为整数分（`amount_cents`），禁止浮点；币种单独字段，三位大写字母。
 - 时间一律为带 `Z` 的 ISO 8601 UTC 字符串；偏移量形式与时间戳数字一律拒绝，展示层再转本地时区。
 - 订单摘要的 `cancelable` 必须由订单状态推导，不得由调用方随意传入。
-- 错误码的七类分类与“可重试 / 对用户可见”属性见 `services/domain/errors.py`；越权统一为 `NOT_FOUND_OR_UNAUTHORIZED`。
+- 错误码的七类分类与“可重试 / 对用户可见”属性见 `backend/domain/errors.py`；越权统一为 `NOT_FOUND_OR_UNAUTHORIZED`。
 - 字段级正反例由契约测试保证，见 `tests/unit/domain/test_contract_schemas.py`。
 
 ## 5. 数据模型草案
@@ -345,14 +345,14 @@ Agent 输出建议使用结构化动作，例如：
 
 ### 7.1 唯一文案来源
 
-结果文案只有一处：`services/domain/cancellation.py` 的 `render_result(state, reason_code)`，返回：
+结果文案只有一处：`backend/domain/cancellation.py` 的 `render_result(state, reason_code)`，返回：
 
 - `state_text`：状态标签，取自 `requirements.md` 第 9 节“内部状态与用户可见表达”。
 - `reason_text`：仅 `ELIGIBILITY_REJECTED` 非空，由 `reason_code` 映射；其他状态为 `None`。
 - `next_step`：每个状态一条固定下一步句。
 - `reply`：`state_text` + 原因（仅资格拒绝）+ `next_step` 的完整句，模板见 `requirements.md` 第 9 节“结果回复模板”。
 
-`services/agent_runtime/validator.py` 的 `validate_reply(state, reason_code, draft)` 只做校验与替换，不维护第二份文案。
+`backend/agent_runtime/validator.py` 的 `validate_reply(state, reason_code, draft)` 只做校验与替换，不维护第二份文案。
 
 `ELIGIBILITY_REJECTED` 的 `state_text` 沿用需求第 9 节表达表的“不可取消，并说明原因”，原因由 `reason_text` 单独展示；标签精简不在 T-11 范围。五类结果名是验收分类，不是逐字文案；`SUBMITTING` 保持“正在提交取消申请”。
 
@@ -428,7 +428,7 @@ M1 目标：AC-17 可还原、AC-18 不泄露。M1 不引入 OpenTelemetry；Spa
 - `TraceSink` 由 API 在请求上下文创建；worker 线程通过 `ContextVar` 取得，使用 `run_coroutine_threadsafe` 把写库协程提交回请求事件循环并等待确认；禁止在 Gateway 线程直接建 async session。
 - 工作流状态变更、确认、消息回复、转人工的审计行与对应业务写入在同一个数据库事务内：`CancellationRepository.create/save`、消息 `add_message`、`create_handoff` 内写 `audit_events`；审计失败则回滚并返回 500。
 - 审计失败抛独立 `TraceSinkError`，它不是 `GatewayError`。`ToolGateway._record` 的审计调用必须先 `except TraceSinkError: raise`，其余审计异常一律转 `TraceSinkError`，不得包成 `GatewayError`；`ToolGateway.invoke` 的兜底 `except Exception` 也要先重抛 `TraceSinkError`。
-- `services/api/main.py` 注册 `TraceSinkError` 全局异常处理器，返回 500 `INTERNAL_ERROR`；`/message`、取消接口与 Workflow 的业务错误处理不得捕获它并转成 200 回复或 `SUBMIT_UNKNOWN`。
+- `backend/api/main.py` 注册 `TraceSinkError` 全局异常处理器，返回 500 `INTERNAL_ERROR`；`/message`、取消接口与 Workflow 的业务错误处理不得捕获它并转成 200 回复或 `SUBMIT_UNKNOWN`。
 - 审计失败时 API 统一返回 500 `INTERNAL_ERROR` 通用错误，不暴露审计细节；写操作由幂等键保护，重试不重复提交；不得静默丢弃审计。
 - 启动恢复遇到 `TraceSinkError` 只记录 warning，保留任务为可恢复状态，不标记成功、不吞掉错误。
 - 重复确认每次请求写一条 `CONFIRMATION` 事件，`result_status=idempotent`；不新增 `WORKFLOW_TRANSITION`/`TOOL_CALL`，状态与回复不变。
@@ -638,7 +638,7 @@ M1 只有一个入口：单页面 Web Chat，一次只处理一个会话。
 | `Secure` | `ENVIRONMENT` 不是 `development`/`test` 时为真；可用 `COOKIE_SECURE` 显式覆盖 | 本机 HTTP 开发不受影响，共享环境强制加密 |
 | `Max-Age` | 等于会话 TTL（8 小时） | 与服务端过期一致 |
 
-配置来源唯一：`services/platform/settings.py` 的 `secure_cookie` 属性。路由不得自行判断环境。
+配置来源唯一：`backend/platform/settings.py` 的 `secure_cookie` 属性。路由不得自行判断环境。
 
 ### 13.2 跨站写请求
 
@@ -650,7 +650,7 @@ M1 只有一个入口：单页面 Web Chat，一次只处理一个会话。
 - 请求不带 `Origin` 时放行：命令行与内部调用没有该头；浏览器对跨站写请求一定会带。
 - `GET`/`HEAD`/`OPTIONS` 不受影响。
 
-实现位置：`services/api/csrf.py` 的中间件，在身份解析之后执行。
+实现位置：`backend/api/csrf.py` 的中间件，在身份解析之后执行。
 
 ### 13.3 密钥与调试端点
 

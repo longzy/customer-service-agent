@@ -34,7 +34,7 @@
 | B2 | 检查器增加 `find_violations(root)` 与 `--root/--baseline`；AC-22 用临时目录 |
 | B3 | AC-25 增加 8 类契约用例；Http Adapter 可注入 `httpx.Client(MockTransport)`；不新增异常类 |
 | B4 | URL 校验对所有环境生效；requirements 6.1、FR-05、AC-26 与 design 5.4/6 同步 |
-| B5 | T-27 先导入 `services.platform.models` 并断言表数 > 0，再比对快照 |
+| B5 | T-27 先导入 `backend.platform.models` 并断言表数 > 0，再比对快照 |
 | B6 | 回滚对象改为 R0-2 起点到结束 SHA；基线出口统一为“只保留注释、有效条目 0”；T-26 更新 `verify.sh` 的 `prod import` 冒烟 |
 
 ## 4. 检查证据

@@ -92,7 +92,7 @@ M1 的员工角色**只有 `agent`**（2026-11-16 确认）。RBAC 在服务端�
 
 规则：
 
-- Mock 只允许出现在 `services/adapters/` 与测试中。
+- Mock 只允许出现在 `backend/adapters/` 与测试中。
 - 业务模块不得 import `mock_oms` 或任何具体 Adapter，只能依赖 `OmsPort`。
 - 生产环境缺少 OMS 配置时必须启动失败，不得静默回落到 Mock。
 

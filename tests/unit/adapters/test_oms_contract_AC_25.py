@@ -9,17 +9,17 @@ from typing import Any, cast
 import httpx
 import pytest
 
-from services.adapters.oms.faults import FaultRule
-from services.adapters.oms.http import HttpOmsAdapter
-from services.adapters.oms.mock import MockOmsAdapter
-from services.adapters.oms.port import OmsAccess, OmsPort
-from services.errors import DownstreamInvalidResponse, IdempotencyConflict, OrderNotFound
+from backend.adapters.oms.faults import FaultRule
+from backend.adapters.oms.http import HttpOmsAdapter
+from backend.adapters.oms.mock import MockOmsAdapter
+from backend.adapters.oms.port import OmsAccess, OmsPort
+from backend.errors import DownstreamInvalidResponse, IdempotencyConflict, OrderNotFound
 
 ACCESS = OmsAccess(tenant_id="tenant-a", user_id="user-a1")
 KEY = "idem-contract-0001"
 FIXTURES = (
     Path(__file__).resolve().parents[3]
-    / "services"
+    / "backend"
     / "adapters"
     / "oms"
     / "fixtures"

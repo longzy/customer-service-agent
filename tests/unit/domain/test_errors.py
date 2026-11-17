@@ -2,7 +2,7 @@
 
 import pytest
 
-from services.domain.errors import ErrorCode, error_spec
+from backend.domain.errors import ErrorCode, error_spec
 
 
 def test_越权统一为查无此单_AC_02() -> None:

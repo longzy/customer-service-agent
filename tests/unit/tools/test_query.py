@@ -4,13 +4,13 @@ from typing import Any
 
 import pytest
 
-from services.adapters.oms.faults import FaultRule
-from services.adapters.oms.mock import MockOmsAdapter
-from services.contracts import build_registry, load_domain, load_tool_documents, validator_for
-from services.domain.errors import ErrorCode
-from services.identity import Identity
-from services.tools.gateway import GatewayError, ToolGateway
-from services.tools.query import SUMMARY_FIELDS, build_query_gateway
+from backend.adapters.oms.faults import FaultRule
+from backend.adapters.oms.mock import MockOmsAdapter
+from backend.contracts import build_registry, load_domain, load_tool_documents, validator_for
+from backend.domain.errors import ErrorCode
+from backend.identity import Identity
+from backend.tools.gateway import GatewayError, ToolGateway
+from backend.tools.query import SUMMARY_FIELDS, build_query_gateway
 
 OWNER = Identity("zhang-ming", "user-a1", "tenant-a", "张明", "示例商户 A")
 SAME_TENANT = Identity("li-hua", "user-a2", "tenant-a", "李华", "示例商户 A")

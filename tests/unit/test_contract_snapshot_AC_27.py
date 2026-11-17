@@ -4,8 +4,8 @@ import json
 from pathlib import Path
 from typing import Any
 
-from services.api.main import create_app
-from services.platform.settings import Settings
+from backend.api.main import create_app
+from backend.platform.settings import Settings
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURE = ROOT / "tests" / "fixtures" / "openapi-r0-2.json"

@@ -6,7 +6,7 @@ from typing import Any
 import httpx
 import pytest
 
-from services.agent_runtime.model import (
+from backend.agent_runtime.model import (
     FakeModelClient,
     ModelConfigError,
     ModelError,
@@ -14,7 +14,7 @@ from services.agent_runtime.model import (
     build_intent_tool,
     build_model_client,
 )
-from services.agent_runtime.types import Intent
+from backend.agent_runtime.types import Intent
 
 
 def transport(handler: Any) -> httpx.MockTransport:

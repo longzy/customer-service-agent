@@ -8,7 +8,7 @@
 
 ## 1. 设计原则
 
-- `services/api` 只做 HTTP：路由、中间件、DTO、依赖装配。
+- `backend/api` 只做 HTTP：路由、中间件、DTO、依赖装配。
 - 领域规则放 `domain`，员工身份放 `identity`，基础设施放 `platform`，外部系统放 `adapters`。
 - `tools`/`workflows` 只依赖端口与领域类型，不依赖 HTTP 层或具体 Adapter。
 - 行为冻结优先于目录整洁；任何改变 OpenAPI/DB schema 的移动都必须停止。
@@ -17,7 +17,7 @@
 ## 2. 目标目录
 
 ```text
-services/
+backend/
   api/                      # FastAPI 路由、中间件、DTO、装配
     auth_web.py             # resolve_identity/current_identity（FastAPI 专用）
   platform/                 # settings、db、SQLAlchemy models、observability、outbox
@@ -34,7 +34,7 @@ services/
   agent_runtime/            # 已无 api/mock_oms 依赖，保持
 ```
 
-与 R0-1 架构树的差异：新增 `services/domain/`，`platform/models.py` 暂存 SQLAlchemy 模型。R0-2 收口时同步更新 `docs/architecture/overview.md`。
+与 R0-1 架构树的差异：新增 `backend/domain/`，`platform/models.py` 暂存 SQLAlchemy 模型。R0-2 收口时同步更新 `docs/architecture/overview.md`。
 
 ## 3. 依赖矩阵
 
@@ -94,13 +94,13 @@ def access_of(identity: Identity) -> OmsAccess:
     return OmsAccess(tenant_id=identity.tenant_id, user_id=identity.user_id)
 ```
 
-`services/tools/gateway.py` 不再 import `services.api.*`；`OwnershipIndex` 删除或移入 Mock Adapter 内部。`scripts/verify.sh` 的 `prod import` 冒烟改为导入 `services.api.main`、`services.tools.gateway` 与 `services.adapters.oms.factory`，不再构造 `OwnershipIndex`。
+`backend/tools/gateway.py` 不再 import `backend.api.*`；`OwnershipIndex` 删除或移入 Mock Adapter 内部。`scripts/verify.sh` 的 `prod import` 冒烟改为导入 `backend.api.main`、`backend.tools.gateway` 与 `backend.adapters.oms.factory`，不再构造 `OwnershipIndex`。
 
 ## 5. Adapter 与 factory
 
 ### 5.1 MockOmsAdapter
 
-- 从 `services/mock_oms/service.py`、`faults.py`、`fixtures/` 迁入 `services/adapters/oms/mock.py` 与 `services/adapters/oms/fixtures/`。
+- 从 `backend/mock_oms/service.py`、`faults.py`、`fixtures/` 迁入 `backend/adapters/oms/mock.py` 与 `backend/adapters/oms/fixtures/`。
 - 类名 `MockOmsAdapter`，保留故障注入：`delay`、`timeout`、`unavailable`、`invalid_response`、`lost_response`。
 - `is_visible` 使用本地夹具归属；不调用外部服务，保持 001 规格 AC-02“未授权不触达 OMS”的语义。
 - `admin_routes` 通过 `app.state.oms` 取 `MockOmsAdapter`，只在开发/测试注册。
@@ -154,7 +154,7 @@ def build_oms(settings: Settings) -> OmsPort:
     raise OmsConfigError(f"environment={settings.environment} 必须配置 OMS_BASE_URL，不能回落 Mock")
 ```
 
-- `OmsConfigError` 定义在 `services/adapters/oms/factory.py`，是启动期配置错误，不进入 API 错误封套。
+- `OmsConfigError` 定义在 `backend/adapters/oms/factory.py`，是启动期配置错误，不进入 API 错误封套。
 - `Settings` 新增 `oms_base_url: str = ""`。
 - `create_app(settings_override: Settings | None = None)` 在构造时调用 `build_oms(settings_override or settings)`；测试传显式 Settings，不依赖模块级单例。
 - 模块级 `app = create_app()` 保留，uvicorn 以非零退出码失败；错误只记录环境名与变量名。
@@ -182,17 +182,17 @@ def build_oms(settings: Settings) -> OmsPort:
 
 | ID | 源 | 禁止 |
 |---|---|---|
-| R1 | `services/agent_runtime`、`services/tools`、`services/workflows` | `services.api` |
-| R2 | `services/tools`、`services/workflows` | `services.mock_oms`、`services.adapters.oms.mock`、`services.adapters.oms.http` |
-| R3 | `services/domain` | `services.api`、`services.platform`、`services.identity`、`services.adapters`、`services.tools`、`services.workflows`、`sqlalchemy`、`fastapi` |
-| R4 | `services/platform` | `services.api`、`services.identity`、`services.domain`、`services.adapters`、`services.tools`、`services.workflows` |
-| R5 | `services/adapters/oms` | `services.api`、`services.tools`、`services.workflows` |
-| R6 | 全 `services/`（排除 `services/mock_oms/` 自身） | `services.mock_oms`（退役后不得再出现） |
+| R1 | `backend/agent_runtime`、`backend/tools`、`backend/workflows` | `backend.api` |
+| R2 | `backend/tools`、`backend/workflows` | `backend.mock_oms`、`backend.adapters.oms.mock`、`backend.adapters.oms.http` |
+| R3 | `backend/domain` | `backend.api`、`backend.platform`、`backend.identity`、`backend.adapters`、`backend.tools`、`backend.workflows`、`sqlalchemy`、`fastapi` |
+| R4 | `backend/platform` | `backend.api`、`backend.identity`、`backend.domain`、`backend.adapters`、`backend.tools`、`backend.workflows` |
+| R5 | `backend/adapters/oms` | `backend.api`、`backend.tools`、`backend.workflows` |
+| R6 | 全 `backend/`（排除 `backend/mock_oms/` 自身） | `backend.mock_oms`（退役后不得再出现） |
 
 ### 7.2 行为
 
 - 纯函数 `find_violations(root: Path) -> list[Violation]` 负责扫描；CLI 只是包装，`--root PATH` 同时决定扫描根与基线的路径基准。AC-22 的临时目录测试直接调用该函数。
-- AST 扫描 `<root>/services/**/*.py`，统计 `Import` 与 `ImportFrom`；`TYPE_CHECKING` 与 `try/except ImportError` 同样计入。
+- AST 扫描 `<root>/backend/**/*.py`，统计 `Import` 与 `ImportFrom`；`TYPE_CHECKING` 与 `try/except ImportError` 同样计入。
 - 相对 import 按源文件包路径解析；动态 `importlib` 不静态检测，评审时人工确认。
 - 默认即严格：违规未登记在 `scripts/import-baseline.txt` → 退出码 1；已登记 → 提示剩余数量；登记但已无违规 → 退出码 1（禁止永久豁免）。`--strict` 是兼容别名，`verify.sh` 显式传入。
 - 基线文件不存在或只有注释 → 视为空基线；`--baseline PATH` 可覆盖默认路径。
@@ -210,7 +210,7 @@ def build_oms(settings: Settings) -> OmsPort:
 2. **T-23 共享模块迁移**：一次迁 `platform`（settings/db/models/observability）、`identity`（纯身份/session）、`domain`（orders/cancellation/errors）；FastAPI 中间件拆到 `api/auth_web.py`；`api`/`tools`/`workflows` 改 import。
 3. **T-24 OMS 端口与 Mock**：定义 `OmsPort`/`OmsAccess`，迁 `MockOmsAdapter` 与夹具，`ToolGateway` 改用端口授权，建立 Mock/Http 共用契约测试。
 4. **T-25 Http 与 factory**：实现 `HttpOmsAdapter`（可注入 client）、URL 校验、`build_oms`、`create_app(settings)` 与生产启动失败。
-5. **T-26 收口**：重接 `api`，删除 `services.mock_oms` 与 `services.api.domain`，基线清零，更新 `verify.sh` 的 `prod import` 冒烟。
+5. **T-26 收口**：重接 `api`，删除 `backend.mock_oms` 与 `backend.api.domain`，基线清零，更新 `verify.sh` 的 `prod import` 冒烟。
 6. **T-27 行为冻结**：显式导入 `platform.models` 后建立 DB metadata 快照对比，并建立 OpenAPI 对比测试、跑全量回归。
 7. **T-28 文档与回滚**：更新 `overview.md`、执行回滚演练并记录 SHA/命令/退出码。
 
@@ -219,7 +219,7 @@ T-23 依赖 T-22；T-24 依赖 T-23；T-25 依赖 T-24；T-26 依赖 T-23–T-25
 ## 9. 行为冻结证据
 
 - **OpenAPI**：在 T-22 任何文件移动之前，由 `create_app(settings_fixture).openapi()` 生成 `tests/fixtures/openapi-r0-2.json`；T-27 比较路由、方法、状态码与 schema。
-- **DB schema**：同样在 T-22 移动之前，显式导入 `services.api.models` 后由 `Base.metadata` 生成 `tests/fixtures/db-schema-r0-2.json`；T-27 先导入 `services.platform.models`，断言表数 > 0，再比较表、列、类型、可空、主键。
+- **DB schema**：同样在 T-22 移动之前，显式导入 `backend.api.models` 后由 `Base.metadata` 生成 `tests/fixtures/db-schema-r0-2.json`；T-27 先导入 `backend.platform.models`，断言表数 > 0，再比较表、列、类型、可空、主键。
 - **现有测试**：413 个测试数量不减少；只允许改 import 路径，不允许改断言语义。
 - **路由覆盖**：`scripts/check-route-coverage.py` 结果不变。
 - **场景评测**：`evals/run.py` 报告不变。
@@ -238,7 +238,7 @@ T-23 依赖 T-22；T-24 依赖 T-23；T-25 依赖 T-24；T-26 依赖 T-23–T-25
 | 风险 | 缓解 |
 |---|---|
 | 移动 Pydantic 模型导致 OpenAPI 组件名变化 | 快照测试；必要时固定 `title`，仍失败则停止并评审 |
-| 33 个测试文件、85 处 `services.api` 引用 | 按任务分批改 import；不改断言 |
+| 33 个测试文件、85 处 `backend.api` 引用 | 按任务分批改 import；不改断言 |
 | Http Adapter 契约是暂定，真实 OMS 未知 | 标记为 R0-2 约定契约；真实接入前另立 ADR |
 | 基线可能变成永久豁免 | 过期基线即失败；R0-2 出口只保留注释，有效条目为 0 |
 | `admin_routes` 依赖 Mock 故障注入 | 仅开发/测试注册；生产不暴露 |

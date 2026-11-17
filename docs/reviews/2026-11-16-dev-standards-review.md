@@ -2,7 +2,7 @@
 
 - 状态：已完成
 - 日期：2026-11-16
-- 评审范围：`AGENTS.md`、`CLAUDE.md`、`GEMINI.md`、`docs/process/**`、`docs/specs/001-order-cancel/**`、`docs/tasks/**`、`docs/reviews/**`、`docs/architecture/**`、`docs/adr/**`、`scripts/**`、`.githooks/**`、`services/**`、`apps/web/**`、`pyproject.toml`
+- 评审范围：`AGENTS.md`、`CLAUDE.md`、`GEMINI.md`、`docs/process/**`、`docs/specs/001-order-cancel/**`、`docs/tasks/**`、`docs/reviews/**`、`docs/architecture/**`、`docs/adr/**`、`scripts/**`、`.githooks/**`、`backend/**`、`apps/web/**`、`pyproject.toml`
 - 方法：全量阅读 + 运行 `./scripts/verify.sh`、`pytest`、`scripts/check-docs.py`、`scripts/check-route-coverage.py`、`scripts/mutation.sh --self-test`；两个独立子上下文分别做代码/安全审计与文档/门禁审计；联网核对主流一手资料（见第 10 节）
 - 限制：未验证 GitHub 仓库的服务端分支保护与 CI 配置（本机无网络访问凭据）；未在第二台机器复现环境
 
@@ -92,7 +92,7 @@
 ### P0-4 安全基线缺失，且缺陷被写进了测试预期
 
 - 现状：
-  - 会话 Cookie 只设 `httponly`、`samesite=lax`，没有 `secure`（`services/api/session_routes.py:49-55`）；`tests/unit/test_session.py:31` 断言 `"secure" not in cookie`，把缺陷固化为预期；
+  - 会话 Cookie 只设 `httponly`、`samesite=lax`，没有 `secure`（`backend/api/session_routes.py:49-55`）；`tests/unit/test_session.py:31` 断言 `"secure" not in cookie`，把缺陷固化为预期；
   - 无 CSRF token/Origin 校验，写操作仅靠 SameSite=Lax 兜底；
   - 无 secret scanning；工作区 `.env` 内有真实模型密钥（未入库，但无任何扫描能阻止下次误提交）；
   - 管理端点 `/_admin/faults` 仅靠环境开关挂载，无独立鉴权。
@@ -108,14 +108,14 @@
 
 ### P1-1 API 契约不可作为契约消费
 
-- 现状：路由没有 `response_model`，返回 `Any`（`services/api/cancellation_routes.py:68`）；业务错误用 FastAPI 默认 `{"detail"}`，网关错误用 `{code,retryable,visible,message}`，同一 API 两套错误格式；无 `/api/v1` 前缀；外部写接口不收 `Idempotency-Key`，幂等键由服务端 `uuid4()` 生成（`services/api/cancellation_routes.py:70`）。
+- 现状：路由没有 `response_model`，返回 `Any`（`backend/api/cancellation_routes.py:68`）；业务错误用 FastAPI 默认 `{"detail"}`，网关错误用 `{code,retryable,visible,message}`，同一 API 两套错误格式；无 `/api/v1` 前缀；外部写接口不收 `Idempotency-Key`，幂等键由服务端 `uuid4()` 生成（`backend/api/cancellation_routes.py:70`）。
 - 影响：AC-09（重复提交只产生一条申请）只在 OMS 侧成立，客户端重试必然新建任务；前端只能手写类型（`apps/web/components/ConfirmCard.tsx:9`）。
 - 主流：OpenAPI 为唯一源 + 生成前端类型；统一 ErrorEnvelope；版本前缀；幂等键走 header。
 - 修复：见 `docs/process/standards.md` 的 STD-API-01..05。
 
 ### P1-2 分层出现环，边界测试只覆盖一条约束
 
-- 现状：`services/tools/gateway.py:14` import `services.api.auth`，`services/workflows/cancel.py:15` import `services/api.models`，而 `services/api/main.py` 又 import tools/workflows，形成 `api → workflows → tools → api` 闭环；`tests/unit/test_package_boundaries.py:6` 只禁止 `agent_runtime` import `mock_oms`/SQLAlchemy，ADR-0004 的四条边界只覆盖一条。
+- 现状：`backend/tools/gateway.py:14` import `backend.api.auth`，`backend/workflows/cancel.py:15` import `backend/api.models`，而 `backend/api/main.py` 又 import tools/workflows，形成 `api → workflows → tools → api` 闭环；`tests/unit/test_package_boundaries.py:6` 只禁止 `agent_runtime` import `mock_oms`/SQLAlchemy，ADR-0004 的四条边界只覆盖一条。
 - 主流：import-linter/依赖方向矩阵，每条架构约束对应一个可执行断言。
 - 修复：把 ADR 边界逐条映射为测试（STD-ARCH-01）。
 
@@ -127,13 +127,13 @@
 
 ### P1-4 突变检查名不副实
 
-- 现状：`pyproject.toml` 的 `source_paths = ["services"]` 让 `mutmut` 变异全部服务代码，而 `tdd.md` 第 5 节声称“只跑 workflows/tools/api.domain”；`scripts/mutation.sh` 只是对全量结果做过滤；阈值只写在文档里，脚本不阻断。
+- 现状：`pyproject.toml` 的 `source_paths = ["backend"]` 让 `mutmut` 变异全部服务代码，而 `tdd.md` 第 5 节声称“只跑 workflows/tools/api.domain”；`scripts/mutation.sh` 只是对全量结果做过滤；阈值只写在文档里，脚本不阻断。
 - 已落地修复（本次）：`source_paths` 收敛为三个核心目录；`mutation.sh` 增加阈值判定、`--report` 与 `--self-test`，阈值 80/80/70 与 `tdd.md` 一致。
 - 剩余：突变尚未进入夜间流水线（应进 G3，不进 pre-commit）。
 
 ### P1-5 可观测与评测“有文档、无实现”
 
-- 现状：INV-13 要求“每次模型、Tool 调用与状态转换可关联到同一链路”，但 `trace_id` 由每个 handler 各自 `uuid4()`（`services/api/cancellation_routes.py:70`），不进日志、不进响应头；`ToolGateway` 默认审计是空函数（`services/tools/gateway.py:105`）；`evals/README.md` 仍指向不存在的 `docs/specs/M1/.../acceptance.md`；`pyproject.toml` 无 OpenTelemetry 依赖。
+- 现状：INV-13 要求“每次模型、Tool 调用与状态转换可关联到同一链路”，但 `trace_id` 由每个 handler 各自 `uuid4()`（`backend/api/cancellation_routes.py:70`），不进日志、不进响应头；`ToolGateway` 默认审计是空函数（`backend/tools/gateway.py:105`）；`evals/README.md` 仍指向不存在的 `docs/specs/M1/.../acceptance.md`；`pyproject.toml` 无 OpenTelemetry 依赖。
 - 主流：request-id 中间件 + 结构化日志字段集 + trace 导出 + 封存评测集；模型/Prompt 变更必须跑 eval。
 - 修复：T-12 落地 trace_id 与脱敏日志；T-13 落地评测；INV-13/16 各自绑定一个测试或脚本（STD-OBS-01/02）。
 
@@ -197,7 +197,7 @@
 | `docs/CURRENT.md:62-77`（原） | “进行中”14 条 | 9 条以“已完成”开头；T-09/T-10 一处写“尚未开始”一处写“已完成” |
 | `docs/CURRENT.md:85-90`（原） | 下一步从 T-10/T-05/T-02 开始 | 三者均已完成；列表编号 1,2,2,3,3,4 |
 | `docs/CURRENT.md`（原） | 未提及剩余任务 | T-11、T-12、T-13 在 `tasks.md` 仍未勾选，状态页不可见 |
-| `docs/specs/001-order-cancel/tasks.md:30` | T04 产出 `services/api/middleware.py` | 文件不存在，实际为 `auth.py`（已修） |
+| `docs/specs/001-order-cancel/tasks.md:30` | T04 产出 `backend/api/middleware.py` | 文件不存在，实际为 `auth.py`（已修） |
 | `docs/tasks/001-order-cancel/T-02.md:110` | 76 passed | 评审记录写 82 passed；卡内证据未回填（历史证据不改写，作为“记录漂移”案例保留） |
 | `docs/tasks/001-order-cancel/T-19.md:120` | 两轮评审 | 评审记录为三轮；卡内结论已改为三轮（已修） |
 | `evals/README.md:5` | `docs/specs/M1/001-order-cancel/acceptance.md`、AC-01~19 | 路径不存在；实际是 `requirements.md`、20 条 AC（已修正路径与数量） |

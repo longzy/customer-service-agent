@@ -16,7 +16,7 @@ M1-P 按消费者聊天实现，21/21 原型验收通过，但产品定义与 Mo
 - 身份、session、坐席与模型 fallback 都是演示级；
 - 验收按 AC 与接口通过，没有按岗位端到端走通。
 
-继续在 `services/api` 上叠加 M2 只会放大错位。需要一份 ADR 固化企业边界，作为 R0-2 与新 M1 的共同前提。
+继续在 `backend/api` 上叠加 M2 只会放大错位。需要一份 ADR 固化企业边界，作为 R0-2 与新 M1 的共同前提。
 
 ## 决策
 
@@ -50,7 +50,7 @@ M1-P 按消费者聊天实现，21/21 原型验收通过，但产品定义与 Mo
 
 约束：
 
-- Mock 只允许存在于 `services/adapters/` 与测试。
+- Mock 只允许存在于 `backend/adapters/` 与测试。
 - 业务模块只依赖 `OmsPort`，不得 import 具体 Adapter 或 `mock_oms`。
 - 生产缺少 OMS 配置时启动失败，不得静默回落 Mock。
 
@@ -61,21 +61,21 @@ M1-P 按消费者聊天实现，21/21 原型验收通过，但产品定义与 Mo
 ```text
 apps/chat/                  # 客户匿名 Web Chat
 apps/workspace/             # 坐席工作台
-services/api/               # HTTP 入口、鉴权中间件、DTO
-services/platform/          # 配置、数据库、outbox、worker、trace
-services/identity/          # 员工账号、密码、session、RBAC
-services/conversations/     # 会话、消息、交接单、队列、领取/接管
-services/agent_runtime/     # 意图、上下文、模型调用、Tool 规划
-services/tools/             # Tool Registry 与授权网关
-services/workflows/         # 取消等显式流程
-services/adapters/oms/      # OmsPort + Mock/Http Adapter + factory
+backend/api/               # HTTP 入口、鉴权中间件、DTO
+backend/platform/          # 配置、数据库、outbox、worker、trace
+backend/identity/          # 员工账号、密码、session、RBAC
+backend/conversations/     # 会话、消息、交接单、队列、领取/接管
+backend/agent_runtime/     # 意图、上下文、模型调用、Tool 规划
+backend/tools/             # Tool Registry 与授权网关
+backend/workflows/         # 取消等显式流程
+backend/adapters/oms/      # OmsPort + Mock/Http Adapter + factory
 packages/contracts/         # 跨模块契约的唯一定义来源
 ```
 
 依赖规则：
 
 - `apps/*` 只通过 HTTP 与契约访问后端。
-- `agent_runtime`/`tools`/`workflows` 不得 import `services.api`。
+- `agent_runtime`/`tools`/`workflows` 不得 import `backend.api`。
 - `tools`/`workflows` 不得 import `mock_oms` 或具体 OMS Adapter。
 - 只有 `adapters/oms/factory` 读取 OMS 配置并选择 Adapter。
 - `packages/contracts` 是跨模块接口的唯一定义来源。
@@ -104,7 +104,7 @@ packages/contracts/         # 跨模块契约的唯一定义来源
 - R0-2 获得明确的目录、依赖与 Mock 规则，可直接写 `check-imports.py`。
 - 新 M1 的范围被限定为“客户 + AI + 坐席”闭环；主管/管理员、客户账号和真实集成延后。
 - 匿名客户查单依赖订单号 + 手机尾号，需要 OMS 提供对应校验能力，并把校验记录纳入审计与脱敏。
-- 现有 `apps/web` 与 `services/mock_oms` 是 M1-P 资产，需要在 R0-2/M1 中迁移或退役，不能作为新边界继续扩展。
+- 现有 `apps/web` 与 `backend/mock_oms` 是 M1-P 资产，需要在 R0-2/M1 中迁移或退役，不能作为新边界继续扩展。
 - `ADR-0002` 的业务场景（未发货订单取消）继续有效；其中“本人订单”的识别方式由本 ADR 改为订单号 + 手机尾号校验。
 
 ## 拒绝的方案

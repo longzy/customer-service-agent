@@ -4,8 +4,8 @@ import json
 from pathlib import Path
 from typing import Any
 
-import services.platform.models  # noqa: F401  显式导入以注册 metadata
-from services.platform.models import Base
+import backend.platform.models  # noqa: F401  显式导入以注册 metadata
+from backend.platform.models import Base
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURE = ROOT / "tests" / "fixtures" / "db-schema-r0-2.json"

@@ -5,7 +5,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from services.platform.settings import settings
+from backend.platform.settings import settings
 
 
 @pytest.mark.asyncio

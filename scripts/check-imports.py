@@ -34,54 +34,54 @@ class Rule:
 RULES = (
     Rule(
         "R1",
-        ("services/agent_runtime", "services/tools", "services/workflows"),
-        ("services.api",),
+        ("backend/agent_runtime", "backend/tools", "backend/workflows"),
+        ("backend.api",),
     ),
     Rule(
         "R2",
-        ("services/tools", "services/workflows"),
+        ("backend/tools", "backend/workflows"),
         (
-            "services.mock_oms",
-            "services.adapters.oms.mock",
-            "services.adapters.oms.http",
+            "backend.mock_oms",
+            "backend.adapters.oms.mock",
+            "backend.adapters.oms.http",
         ),
     ),
     Rule(
         "R3",
-        ("services/domain",),
+        ("backend/domain",),
         (
-            "services.api",
-            "services.platform",
-            "services.identity",
-            "services.adapters",
-            "services.tools",
-            "services.workflows",
+            "backend.api",
+            "backend.platform",
+            "backend.identity",
+            "backend.adapters",
+            "backend.tools",
+            "backend.workflows",
             "sqlalchemy",
             "fastapi",
         ),
     ),
     Rule(
         "R4",
-        ("services/platform",),
+        ("backend/platform",),
         (
-            "services.api",
-            "services.identity",
-            "services.domain",
-            "services.adapters",
-            "services.tools",
-            "services.workflows",
+            "backend.api",
+            "backend.identity",
+            "backend.domain",
+            "backend.adapters",
+            "backend.tools",
+            "backend.workflows",
         ),
     ),
     Rule(
         "R5",
-        ("services/adapters/oms",),
-        ("services.api", "services.tools", "services.workflows"),
+        ("backend/adapters/oms",),
+        ("backend.api", "backend.tools", "backend.workflows"),
     ),
     Rule(
         "R6",
-        ("services",),
-        ("services.mock_oms",),
-        ("services/mock_oms",),
+        ("backend",),
+        ("backend.mock_oms",),
+        ("backend/mock_oms",),
     ),
 )
 
@@ -141,7 +141,7 @@ def _resolve_from(path: Path, root: Path, node: ast.ImportFrom) -> list[str]:
     if node.module:
         module = f"{base}.{node.module}" if base else node.module
         # `from pkg import sub` 可能导入子模块；只把真实存在的 pkg.sub 纳入匹配，
-        # 避免把 `from services.api.auth import Identity` 误报成模块。
+        # 避免把 `from backend.api.auth import Identity` 误报成模块。
         candidates = [module]
         for alias in node.names:
             candidate = f"{module}.{alias.name}"
@@ -163,13 +163,13 @@ def _imports(path: Path, root: Path) -> list[str]:
 
 
 def find_violations(root: Path) -> list[Violation]:
-    """扫描 `<root>/services/**/*.py`，返回全部越界 import。"""
+    """扫描 `<root>/backend/**/*.py`，返回全部越界 import。"""
     root = root.resolve()
-    services = root / "services"
-    if not services.is_dir():
+    backend = root / "backend"
+    if not backend.is_dir():
         return []
     violations: list[Violation] = []
-    for path in sorted(services.rglob("*.py")):
+    for path in sorted(backend.rglob("*.py")):
         if "__pycache__" in path.parts:
             continue
         relative = path.relative_to(root).as_posix()
@@ -229,7 +229,7 @@ def run(root: Path, baseline_path: Path) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="检查 services 的模块依赖边界")
+    parser = argparse.ArgumentParser(description="检查 backend 的模块依赖边界")
     parser.add_argument("--root", type=Path, default=ROOT)
     parser.add_argument("--baseline", type=Path, default=None)
     parser.add_argument("--strict", action="store_true")

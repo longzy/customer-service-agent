@@ -5,9 +5,9 @@ from pathlib import Path
 
 FORBIDDEN_ROOTS = {"sqlalchemy", "asyncpg", "alembic"}
 FORBIDDEN_MODULES = {
-    "services.mock_oms",
-    "services.adapters.oms.mock",
-    "services.adapters.oms.http",
+    "backend.mock_oms",
+    "backend.adapters.oms.mock",
+    "backend.adapters.oms.http",
 }
 
 
@@ -24,7 +24,7 @@ def imported_modules(path: Path) -> list[str]:
 
 def test_agent_runtime_does_not_import_business_or_database() -> None:
     """ADR-0004：agent_runtime 不得 import 具体 OMS Adapter，也不得直连数据库。"""
-    root = Path("services/agent_runtime")
+    root = Path("backend/agent_runtime")
     offenders: list[str] = []
     for path in root.rglob("*.py"):
         for module in imported_modules(path):

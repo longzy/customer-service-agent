@@ -33,7 +33,7 @@ M1 规格已批准，但工程骨架缺少可执行依据：`overview.md` 第 7 
 
 ```text
 pyproject.toml                # 后端与 evals 共用
-services/
+backend/
   api/                        # Conversation API、身份与会话
   agent_runtime/              # 意图、上下文、模型调用、Tool 规划
   tools/                      # Tool Registry 与授权网关
@@ -55,7 +55,7 @@ tests/integration/
 
 ### 编码与检查规范
 
-- Python：`ruff` 统一 lint 与格式化；`mypy` 严格模式覆盖 `services/`。
+- Python：`ruff` 统一 lint 与格式化；`mypy` 严格模式覆盖 `backend/`。
 - TypeScript：`eslint` + `prettier` + `tsc --noEmit`。
 - 命名：Python 用 `snake_case`；TypeScript 变量用 `camelCase`、组件用 `PascalCase`。
 - 测试：`tests/unit` 不得依赖数据库，`tests/integration` 可使用 PostgreSQL。

@@ -216,7 +216,7 @@ def check_task_dirs(specs):
                 errors.append(f"{rel(os.path.join(path, card))}：执行卡命名应为 T-XX.md")
 
 
-PATH_PREFIXES = ("docs/", "services/", "packages/", "tests/", "scripts/", "apps/", "migrations/")
+PATH_PREFIXES = ("docs/", "backend/", "packages/", "tests/", "scripts/", "apps/", "migrations/")
 PATH_TOKEN = re.compile(r"`([^`\n]+)`")
 
 

@@ -34,13 +34,13 @@ def _violations(root: Path) -> list[tuple[str, str, str]]:
 
 
 def test_new_violation_is_reported_AC_22(tmp_path: Path) -> None:
-    _write(tmp_path, "services/tools/x.py", "from services.api.auth import Identity\n")
+    _write(tmp_path, "backend/tools/x.py", "from backend.api.auth import Identity\n")
 
-    assert _violations(tmp_path) == [("services/tools/x.py", "services.api.auth", "R1")]
+    assert _violations(tmp_path) == [("backend/tools/x.py", "backend.api.auth", "R1")]
 
 
 def test_allowed_import_is_not_reported_AC_22(tmp_path: Path) -> None:
-    _write(tmp_path, "services/tools/x.py", "from services.domain.orders import OrderDetail\n")
+    _write(tmp_path, "backend/tools/x.py", "from backend.domain.orders import OrderDetail\n")
 
     assert _violations(tmp_path) == []
 
@@ -48,41 +48,41 @@ def test_allowed_import_is_not_reported_AC_22(tmp_path: Path) -> None:
 def test_type_checking_import_counts_AC_22(tmp_path: Path) -> None:
     _write(
         tmp_path,
-        "services/tools/x.py",
+        "backend/tools/x.py",
         "from typing import TYPE_CHECKING\n"
         "\n"
         "if TYPE_CHECKING:\n"
-        "    from services.api.auth import Identity\n",
+        "    from backend.api.auth import Identity\n",
     )
 
-    assert _violations(tmp_path) == [("services/tools/x.py", "services.api.auth", "R1")]
+    assert _violations(tmp_path) == [("backend/tools/x.py", "backend.api.auth", "R1")]
 
 
 def test_relative_parent_import_is_resolved_AC_22(tmp_path: Path) -> None:
-    _write(tmp_path, "services/tools/x.py", "from ..api import auth\n")
+    _write(tmp_path, "backend/tools/x.py", "from ..api import auth\n")
 
-    assert _violations(tmp_path) == [("services/tools/x.py", "services.api", "R1")]
+    assert _violations(tmp_path) == [("backend/tools/x.py", "backend.api", "R1")]
 
 
 def test_package_from_import_is_reported_AC_22(tmp_path: Path) -> None:
-    _write(tmp_path, "services/api/__init__.py", "")
-    _write(tmp_path, "services/tools/x.py", "from services import api\n")
+    _write(tmp_path, "backend/api/__init__.py", "")
+    _write(tmp_path, "backend/tools/x.py", "from backend import api\n")
 
-    assert ("services/tools/x.py", "services.api", "R1") in _violations(tmp_path)
+    assert ("backend/tools/x.py", "backend.api", "R1") in _violations(tmp_path)
 
 
 def test_package_from_import_mock_oms_is_reported_AC_22(tmp_path: Path) -> None:
-    _write(tmp_path, "services/mock_oms/__init__.py", "")
-    _write(tmp_path, "services/tools/x.py", "from services import mock_oms\n")
+    _write(tmp_path, "backend/mock_oms/__init__.py", "")
+    _write(tmp_path, "backend/tools/x.py", "from backend import mock_oms\n")
 
     found = _violations(tmp_path)
-    assert ("services/tools/x.py", "services.mock_oms", "R2") in found
+    assert ("backend/tools/x.py", "backend.mock_oms", "R2") in found
 
 
 def test_baseline_allows_known_violation_AC_22(tmp_path: Path) -> None:
-    _write(tmp_path, "services/tools/x.py", "from services.api.auth import Identity\n")
+    _write(tmp_path, "backend/tools/x.py", "from backend.api.auth import Identity\n")
     baseline = tmp_path / "baseline.txt"
-    baseline.write_text("services/tools/x.py: services.api.auth [R1] # known\n", encoding="utf-8")
+    baseline.write_text("backend/tools/x.py: backend.api.auth [R1] # known\n", encoding="utf-8")
 
     checker = _checker()
     assert checker.main(["--root", str(tmp_path), "--baseline", str(baseline), "--strict"]) == 0
@@ -90,32 +90,32 @@ def test_baseline_allows_known_violation_AC_22(tmp_path: Path) -> None:
 
 def test_stale_baseline_fails_AC_22(tmp_path: Path) -> None:
     baseline = tmp_path / "baseline.txt"
-    baseline.write_text("services/tools/x.py: services.api.auth [R1] # stale\n", encoding="utf-8")
+    baseline.write_text("backend/tools/x.py: backend.api.auth [R1] # stale\n", encoding="utf-8")
 
     checker = _checker()
     assert checker.main(["--root", str(tmp_path), "--baseline", str(baseline), "--strict"]) == 1
 
 
 def test_new_violation_fails_without_strict_AC_22(tmp_path: Path) -> None:
-    _write(tmp_path, "services/tools/x.py", "from services.api.auth import Identity\n")
+    _write(tmp_path, "backend/tools/x.py", "from backend.api.auth import Identity\n")
 
     checker = _checker()
     assert checker.main(["--root", str(tmp_path)]) == 1
 
 
 def test_cli_output_contains_file_module_rule_AC_22(tmp_path: Path, capsys) -> None:
-    _write(tmp_path, "services/tools/x.py", "from services.api.auth import Identity\n")
+    _write(tmp_path, "backend/tools/x.py", "from backend.api.auth import Identity\n")
 
     checker = _checker()
     assert checker.main(["--root", str(tmp_path)]) == 1
     captured = capsys.readouterr()
-    assert "services/tools/x.py" in captured.out
-    assert "services.api.auth" in captured.out
+    assert "backend/tools/x.py" in captured.out
+    assert "backend.api.auth" in captured.out
     assert "R1" in captured.out
 
 
 def test_checker_error_returns_two_AC_22(tmp_path: Path) -> None:
-    _write(tmp_path, "services/tools/broken.py", "def broken(\n")
+    _write(tmp_path, "backend/tools/broken.py", "def broken(\n")
 
     checker = _checker()
     assert checker.main(["--root", str(tmp_path), "--strict"]) == 2

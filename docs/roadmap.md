@@ -40,7 +40,7 @@
 退出条件：
 
 - `verify.sh` 全绿，API 行为不变；
-- `agent_runtime`/`tools`/`workflows` 不再 import `services.api`；
+- `agent_runtime`/`tools`/`workflows` 不再 import `backend.api`；
 - `tools`/`workflows` 不再 import `mock_oms`；
 - 生产缺 OMS 配置启动失败，不静默回落 Mock。
 

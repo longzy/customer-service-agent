@@ -12,9 +12,9 @@ from fastapi.testclient import TestClient
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
-from services.agent_runtime.model import FakeModelClient
-from services.api.main import create_app
-from services.platform.models import (
+from backend.agent_runtime.model import FakeModelClient
+from backend.api.main import create_app
+from backend.platform.models import (
     AuditEvent,
     CancellationRequest,
     Conversation,
@@ -22,8 +22,8 @@ from services.platform.models import (
     Message,
     ToolExecution,
 )
-from services.platform.observability import TraceSinkError, load_trace
-from services.platform.settings import settings
+from backend.platform.observability import TraceSinkError, load_trace
+from backend.platform.settings import settings
 from tests.integration.db_utils import db_available
 
 pytestmark = pytest.mark.skipif(not db_available(), reason="Postgres 不可用")
@@ -255,7 +255,7 @@ def test_审计失败返回500而不是200_AC_18(monkeypatch) -> None:
     def fail(*args, **kwargs):
         raise TraceSinkError("审计写入失败")
 
-    monkeypatch.setattr("services.platform.observability.AsyncTraceSink.start", fail)
+    monkeypatch.setattr("backend.platform.observability.AsyncTraceSink.start", fail)
     with _client() as api:
         _login(api)
         response = api.post("/message", json={"content": "查 ORD-10001"})
@@ -267,7 +267,7 @@ def test_取消审计失败返回500而不是200_AC_18(monkeypatch) -> None:
     def fail(*args, **kwargs):
         raise TraceSinkError("审计写入失败")
 
-    monkeypatch.setattr("services.api.cancellation_routes.audit_transition", fail)
+    monkeypatch.setattr("backend.api.cancellation_routes.audit_transition", fail)
     with _client() as api:
         _login(api)
         response = api.post("/cancellation-requests", json={"order_id": "ORD-10001"})
@@ -295,7 +295,7 @@ def test_show_trace_cli_未知trace退出码1_AC_17() -> None:
 
 
 def test_超时恢复链路同trace_AC_17() -> None:
-    from services.adapters.oms.faults import FaultRule
+    from backend.adapters.oms.faults import FaultRule
 
     with _client() as api:
         _login(api)
@@ -354,7 +354,7 @@ def test_确认审计失败不推进状态_AC_18(monkeypatch) -> None:
         created = api.post("/cancellation-requests", json={"order_id": "ORD-10001"}).json()
         trace_id = created["trace_id"]
         task_id = created["id"]
-        monkeypatch.setattr("services.api.cancellation_routes.audit_confirmation", fail)
+        monkeypatch.setattr("backend.api.cancellation_routes.audit_confirmation", fail)
         response = api.post(f"/cancellation-requests/{task_id}/confirm")
         assert response.status_code == 500
         assert response.json()["code"] == "INTERNAL_ERROR"
@@ -400,7 +400,7 @@ def test_创建审计失败不落任务_AC_18(monkeypatch) -> None:
     with _client() as api:
         _login(api)
         before = asyncio.run(count_tasks())
-        monkeypatch.setattr("services.api.cancellation_routes.audit_transition", fail)
+        monkeypatch.setattr("backend.api.cancellation_routes.audit_transition", fail)
         response = api.post("/cancellation-requests", json={"order_id": "ORD-10001"})
         assert response.status_code == 500
         after = asyncio.run(count_tasks())
@@ -416,7 +416,7 @@ def test_放弃审计失败不推进状态_AC_18(monkeypatch) -> None:
         created = api.post("/cancellation-requests", json={"order_id": "ORD-10001"}).json()
         trace_id = created["trace_id"]
         task_id = created["id"]
-        monkeypatch.setattr("services.api.cancellation_routes.audit_confirmation", fail)
+        monkeypatch.setattr("backend.api.cancellation_routes.audit_confirmation", fail)
         response = api.post(f"/cancellation-requests/{task_id}/abandon")
         assert response.status_code == 500
 

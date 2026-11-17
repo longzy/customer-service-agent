@@ -11,8 +11,8 @@ import pytest
 from jsonschema import Draft202012Validator
 from referencing import Registry, Resource
 
-from services.domain.cancellation import OmsCancelState
-from services.domain.errors import ErrorCode, error_spec
+from backend.domain.cancellation import OmsCancelState
+from backend.domain.errors import ErrorCode, error_spec
 
 SCHEMA_DIR = Path("packages/contracts/schemas")
 TOOLS_DIR = Path("packages/contracts/tools")

@@ -5,10 +5,10 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from services.agent_runtime.model import FakeModelClient
-from services.api.conversation_routes import get_repository
-from services.api.main import create_app
-from services.tools.query import build_query_gateway
+from backend.agent_runtime.model import FakeModelClient
+from backend.api.conversation_routes import get_repository
+from backend.api.main import create_app
+from backend.tools.query import build_query_gateway
 from tests.integration.db_utils import db_available
 
 pytestmark = pytest.mark.skipif(not db_available(), reason="Postgres 不可用")
@@ -78,7 +78,7 @@ def test_模型不可用返回503且保留用户消息_基座豁免() -> None:
 
     class Broken:
         async def classify(self, message: str) -> dict[str, Any]:
-            from services.agent_runtime.model import ModelError
+            from backend.agent_runtime.model import ModelError
 
             raise ModelError("down")
 
@@ -106,7 +106,7 @@ def test_非法模型输出返回503并保留用户消息_基座豁免() -> None
 
 
 def test_最近订单故障返回可见文案_AC_01() -> None:
-    from services.adapters.oms.faults import FaultRule
+    from backend.adapters.oms.faults import FaultRule
 
     repo = MemoryRepository()
     app = create_app()

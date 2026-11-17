@@ -2,9 +2,9 @@
 
 import pytest
 
-from services.agent_runtime.intent import IntentError, classify_message
-from services.agent_runtime.model import FakeModelClient
-from services.agent_runtime.types import Intent
+from backend.agent_runtime.intent import IntentError, classify_message
+from backend.agent_runtime.model import FakeModelClient
+from backend.agent_runtime.types import Intent
 
 
 def fake(intent: str, order_id: str | None = None) -> FakeModelClient:

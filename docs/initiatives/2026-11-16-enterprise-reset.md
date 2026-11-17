@@ -101,7 +101,7 @@ M1 的 21/21 是**原型验收**，不是企业 MVP 出口。原型按“消费�
 
 - `verify.sh` 仍全绿；
 - API 行为不变；
-- `agent_runtime`/`tools`/`workflows` 不再 import `services.api`；
+- `agent_runtime`/`tools`/`workflows` 不再 import `backend.api`；
 - `tools`/`workflows` 不再 import `mock_oms`；
 - 生产缺 OMS 配置启动失败，不静默回落 mock。
 
@@ -149,7 +149,7 @@ Mock 只能出现在 `adapters/` 与测试；业务上下文不得直接 import 
 
 ## 8. 风险
 
-- 继续在 `services/api` 加功能，会固化 god module；
+- 继续在 `backend/api` 加功能，会固化 god module；
 - 本地认证后续换 OIDC 的迁移成本；
 - Mock OMS 与生产适配器契约漂移；
 - 工作台/队列是主路径，不能当“后续优化”；

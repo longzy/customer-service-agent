@@ -134,7 +134,7 @@ GitHub 官方文档支持仓库级 `.github/copilot-instructions.md`、按路径
 对本项目的含义：
 
 - 根目录放全局硬约束。
-- `services/agent/`、`services/refund/`、`apps/web/` 可分别增加局部规则。
+- `backend/agent/`、`backend/refund/`、`apps/web/` 可分别增加局部规则。
 - 退款、支付和权限相关目录应有更严格的专用说明和测试要求。
 
 ## 三、跨厂商共同趋势

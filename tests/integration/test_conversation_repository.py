@@ -3,10 +3,10 @@
 import pytest
 from sqlalchemy import delete, func, select
 
-from services.api.conversation_routes import SqlConversationRepository
-from services.identity import Identity
-from services.platform.db import session_factory
-from services.platform.models import Conversation, Message
+from backend.api.conversation_routes import SqlConversationRepository
+from backend.identity import Identity
+from backend.platform.db import session_factory
+from backend.platform.models import Conversation, Message
 from tests.integration.db_utils import db_available
 
 pytestmark = pytest.mark.skipif(not db_available(), reason="Postgres 不可用")

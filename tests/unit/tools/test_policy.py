@@ -4,10 +4,10 @@ import inspect
 
 import pytest
 
-from services.domain.orders import OrderSummary
-from services.errors import DownstreamInvalidResponse
-from services.tools import policy
-from services.tools.policy import evaluate_eligibility
+from backend.domain.orders import OrderSummary
+from backend.errors import DownstreamInvalidResponse
+from backend.tools import policy
+from backend.tools.policy import evaluate_eligibility
 
 
 def order(status: str, cancelable: bool = True) -> OrderSummary:

@@ -3,7 +3,7 @@
 #
 # 用法：
 #   ./scripts/mutation.sh                    # 运行并检查全部关键模块
-#   ./scripts/mutation.sh services.tools     # 只检查某个模块
+#   ./scripts/mutation.sh backend.tools     # 只检查某个模块
 #   ./scripts/mutation.sh --report           # 只解析已有结果，不重新运行
 #   ./scripts/mutation.sh --self-test        # 验证解析与阈值逻辑
 #
@@ -16,8 +16,8 @@ export ENVIRONMENT="${ENVIRONMENT:-development}"
 
 threshold_for() { # $1=模块 → 阈值
   case "$1" in
-    services.workflows* | services.tools*) echo 80 ;;
-    services.domain*) echo 70 ;;
+    backend.workflows* | backend.tools*) echo 80 ;;
+    backend.domain*) echo 70 ;;
     *) echo 80 ;;
   esac
 }
@@ -48,13 +48,13 @@ score_line() { # $1=结果文本 $2=模块 → "killed survived score threshold 
 
 self_test() {
   local sample out
-  sample=$'services.tools.policy.x__mutmut_1: killed\nservices.tools.policy.x__mutmut_2: survived\nservices.tools.policy.x__mutmut_3: killed'
-  out=$(score_line "$sample" services.tools.policy)
+  sample=$'backend.tools.policy.x__mutmut_1: killed\nbackend.tools.policy.x__mutmut_2: survived\nbackend.tools.policy.x__mutmut_3: killed'
+  out=$(score_line "$sample" backend.tools.policy)
   [ "$out" = "2 1 66.7 80 未达标" ] || { echo "自检失败：$out"; exit 1; }
-  out=$(score_line "$sample" services.domain.orders)
+  out=$(score_line "$sample" backend.domain.orders)
   [ "$out" = "0 0 - 70 未生成突变体" ] || { echo "自检失败：$out"; exit 1; }
-  [ "$(threshold_for services.workflows.cancel)" = "80" ] || { echo "自检失败：阈值"; exit 1; }
-  [ "$(threshold_for services.domain.orders)" = "70" ] || { echo "自检失败：阈值"; exit 1; }
+  [ "$(threshold_for backend.workflows.cancel)" = "80" ] || { echo "自检失败：阈值"; exit 1; }
+  [ "$(threshold_for backend.domain.orders)" = "70" ] || { echo "自检失败：阈值"; exit 1; }
   echo "mutation.sh 自检通过"
 }
 
@@ -77,7 +77,7 @@ fi
 FILTER="${1:-}"
 [ "$FILTER" = "--report" ] && FILTER=""
 
-MODULES=$(printf '%s\n' "$RESULTS" | grep -oE '^services(\.[a-z_]+){1,2}' | sort -u)
+MODULES=$(printf '%s\n' "$RESULTS" | grep -oE '^backend(\.[a-z_]+){1,2}' | sort -u)
 FAILED=0
 COUNTED=0
 for module in $MODULES; do
