@@ -42,7 +42,7 @@
 
 ## 待确认决策
 
-- 前端类型由 OpenAPI 生成、CSS 统一用 `docs/design-system/tokens.css`：生成管线未落地，F-01 沿用 M1-P 手写类型/重复变量，登记为 M1 技术债。
+- 前端类型由 OpenAPI 生成、CSS 统一用 `docs/design-system/tokens.css` 与 ui-spec 间距/气泡规范：生成管线与样式统一未落地，F-01/F-02 沿用 M1-P 现状，登记为 M1 技术债。
 - 清理任务频率与审计归档方式；安全硬化切片确定。
 - 分支保护：升级 GitHub Team、转 Public，或接受未强制。
 
