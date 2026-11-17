@@ -41,7 +41,7 @@ Frame（目标/非目标/完成标准）
 
 ### 3.1 Frame
 
-产物：`brief.md`（1 页）+ `features.md`（端到端 feature 列表）。
+产物：`brief.md`（1 页，模板 [brief](../templates/brief.md)）+ `features.md`（模板 [features](../templates/features.md)）。
 
 必须写：
 
@@ -55,7 +55,7 @@ Frame（目标/非目标/完成标准）
 
 ### 3.2 Plan
 
-产物：`plan.md`（1–3 页；复杂项目可更长）。
+产物：`plan.md`（1–3 页；模板 [plan](../templates/plan.md)）。
 
 必须写：
 
@@ -71,7 +71,7 @@ Frame（目标/非目标/完成标准）
 
 ### 3.3 Build & Verify
 
-- 一次只做一个 feature；先写失败测试，再实现；
+- 一次只做一个 feature；先写失败测试，再实现；验证方式写在 features 的“验证命令/步骤”列；
 - 每完成一个 feature，更新 `features.md` 的 `passes`；
 - 跑 `./scripts/verify.sh`；关键路径加端到端/浏览器验证；
 - 提交保持小步，main 始终可运行。
