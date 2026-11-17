@@ -2,24 +2,24 @@
 
 - 更新日期：2026-11-17
 - 项目阶段：M1 客户转人工闭环
-- 当前状态：F-02 客户消息与 AI 回复已完成（Standards/Spec 双轴评审通过）
+- 当前状态：F-03 关键词转人工与完整交接单已完成（Standards/Spec 双轴评审通过）
 - 当前 Milestone：M1 企业核心客服闭环（客户转人工闭环）
 - 方向重置：[2026-11-16 企业化方向重置](initiatives/2026-11-16-enterprise-reset.md)
-- 当前工作：下一条 feature（关键词转人工与完整交接单）待建卡开工；F-02 收口完成
+- 当前工作：F-04（低置信/问订单/超范围转人工）待建卡开工；F-03 收口完成
 
 <!-- verify:start -->
-- 最近验证：`./scripts/verify.sh` 全部检查通过——pytest 502 passed（独立测试库）、mypy 54 个文件、追溯矩阵通过（10 条 AC）、文档与前端检查通过
+- 最近验证：`./scripts/verify.sh` 全部检查通过——pytest 561 passed（独立测试库）、mypy 56 个文件、追溯矩阵通过（10 条 AC）、文档与前端检查通过
 <!-- verify:end -->
 
 ## 进行中
 
-- `001-customer-handoff` 客户转人工闭环：下一条 feature（F-03 关键词转人工与完整交接单）待建卡开工。
+- `001-customer-handoff` 客户转人工闭环：下一条 feature（F-04 低置信/问订单/超范围转人工）待建卡开工。
 - 后续切片：订单查询（002）、取消（003）、安全硬化（004），未启动。
 - 分支保护：GitHub 私有仓库套餐限制，待决定是否升级/公开；不阻塞核心业务。
 
 ## 下一步
 
-1. 为 F-03（关键词转人工与完整交接单）建执行卡并开工。
+1. 为 F-04（低置信/问订单/超范围转人工）建执行卡并开工。
 2. 一次只做一个 feature；测试/演示通过才更新 `passes`。
 3. F-13 收口时补登录/消息/转人工审计与限速，并补并发幂等与 seed smoke。
 
@@ -37,6 +37,7 @@
 - F-01：客户 scrypt 登录、24h session 轮换/撤销、会话恢复、跨客户 404、登录限速、请求关联标识；`apps/chat` 登录/会话门禁；13 条 AC-30 测试与双轴评审通过。
 - F-02：客户消息、AI 回复、模型超时/异常自动转人工、`after_id` 真实游标、消息幂等键与客户聊天界面；12 条 AC-31 测试与双轴评审通过。
 - OpenAPI 前端类型：production 形态导出、客户响应/错误模型、`openapi-typescript` 生成 `apps/chat/lib/api-types.ts`，`check-api-types.sh` 接入 verify/pre-commit/CI；ADR-0007。
+- F-03：关键词（转人工/人工客服/真人/找人工）不调用模型直接入队、完整交接单（摘要/最近 20 条/AI 轨迹/原因/待办/脱敏/`order_count=0`）、意图事件与脱敏边界；16 条 AC-32 集成测试 + 33 条纯函数用例与双轴评审通过。
 
 ## 阻塞
 
@@ -44,7 +45,7 @@
 
 ## 待确认决策
 
-- 前端类型由 OpenAPI 生成、CSS 统一用 `docs/design-system/tokens.css` 与 ui-spec 间距/气泡规范：生成管线与样式统一未落地，F-01/F-02 沿用 M1-P 现状，登记为 M1 技术债。
+- 前端类型由 OpenAPI 生成已按 [ADR-0007](adr/0007-openapi-frontend-types.md) 落地；CSS 统一用 `docs/design-system/tokens.css` 与 ui-spec 间距/气泡规范仍未落地，登记为 M1 技术债。
 - 清理任务频率与审计归档方式；安全硬化切片确定。
 - 分支保护：升级 GitHub Team、转 Public，或接受未强制。
 
