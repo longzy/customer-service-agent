@@ -55,6 +55,23 @@
         "title": "CustomerLoginRequest",
         "type": "object"
       },
+      "CustomerMessageRequest": {
+        "additionalProperties": false,
+        "description": "客户消息；身份与会话只能来自服务端 session。",
+        "properties": {
+          "content": {
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Content",
+            "type": "string"
+          }
+        },
+        "required": [
+          "content"
+        ],
+        "title": "CustomerMessageRequest",
+        "type": "object"
+      },
       "FaultPayload": {
         "additionalProperties": false,
         "properties": {
@@ -547,6 +564,93 @@
           }
         },
         "summary": "Read Conversation",
+        "tags": [
+          "customer"
+        ]
+      }
+    },
+    "/customer/messages": {
+      "get": {
+        "operationId": "read_messages_customer_messages_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "after_id",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "After Id",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Read Messages Customer Messages Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Messages",
+        "tags": [
+          "customer"
+        ]
+      },
+      "post": {
+        "operationId": "send_message_customer_messages_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomerMessageRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Send Message Customer Messages Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Send Message",
         "tags": [
           "customer"
         ]

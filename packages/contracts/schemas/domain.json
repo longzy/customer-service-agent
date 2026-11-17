@@ -43,7 +43,8 @@
         "AUTH_FAILED",
         "NOT_FOUND",
         "VALIDATION_ERROR",
-        "RATE_LIMITED"
+        "RATE_LIMITED",
+        "CONVERSATION_CLOSED"
       ]
     },
     "OrderItem": {
@@ -576,6 +577,28 @@
               }
             }
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "const": "CONVERSATION_CLOSED"
+              }
+            },
+            "required": [
+              "code"
+            ]
+          },
+          "then": {
+            "properties": {
+              "retryable": {
+                "const": false
+              },
+              "visible": {
+                "const": true
+              }
+            }
+          }
         }
       ]
     },
@@ -650,6 +673,10 @@
     },
     "RATE_LIMITED": {
       "retryable": true,
+      "visible": true
+    },
+    "CONVERSATION_CLOSED": {
+      "retryable": false,
       "visible": true
     }
   }

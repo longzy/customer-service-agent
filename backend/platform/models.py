@@ -5,9 +5,12 @@ from uuid import uuid4
 
 from sqlalchemy import (
     JSON,
+    BigInteger,
     Boolean,
     DateTime,
+    Float,
     ForeignKey,
+    Identity,
     Index,
     Integer,
     String,
@@ -191,3 +194,75 @@ class ServiceRateLimitBucket(Base):
     bucket_key: Mapped[str] = mapped_column(String(160), primary_key=True)
     window_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), primary_key=True)
     count: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class ServiceMessage(Base):
+    """M1 客户会话消息；id 用 bigserial 作为轮询游标。"""
+
+    __tablename__ = "service_messages"
+    __table_args__ = (Index("ix_service_messages_conversation_id_id", "conversation_id", "id"),)
+
+    id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
+    conversation_id: Mapped[str] = mapped_column(
+        ForeignKey("service_conversations.id", ondelete="CASCADE"), index=True
+    )
+    author_type: Mapped[str] = mapped_column(String(16))
+    author_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    content: Mapped[str] = mapped_column(Text)
+    trace_id: Mapped[str] = mapped_column(String(36), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class ServiceAiEvent(Base):
+    """AI 轨迹：只存事件元数据，不存 prompt/response 正文。"""
+
+    __tablename__ = "service_ai_events"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    conversation_id: Mapped[str] = mapped_column(
+        ForeignKey("service_conversations.id", ondelete="CASCADE"), index=True
+    )
+    journey_id: Mapped[str] = mapped_column(String(36), index=True)
+    event_type: Mapped[str] = mapped_column(String(16))
+    name: Mapped[str] = mapped_column(String(64))
+    status: Mapped[str] = mapped_column(String(16))
+    confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
+    trace_id: Mapped[str] = mapped_column(String(36), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class ServiceHandoff(Base):
+    """转人工交接单；同一会话只允许一张 open 单。"""
+
+    __tablename__ = "service_handoffs"
+    __table_args__ = (
+        Index(
+            "uq_service_handoffs_open_conversation",
+            "tenant_id",
+            "conversation_id",
+            unique=True,
+            postgresql_where=text("status IN ('QUEUED', 'CLAIMED', 'ACTIVE')"),
+        ),
+        Index("ix_service_handoffs_status_created_at", "status", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), index=True)
+    conversation_id: Mapped[str] = mapped_column(
+        ForeignKey("service_conversations.id", ondelete="CASCADE")
+    )
+    customer_id: Mapped[str] = mapped_column(
+        ForeignKey("service_customers.id", ondelete="CASCADE"), index=True
+    )
+    status: Mapped[str] = mapped_column(String(16))
+    reason: Mapped[str] = mapped_column(String(32))
+    priority: Mapped[str] = mapped_column(String(16), default="normal")
+    summary: Mapped[str] = mapped_column(Text, default="")
+    context: Mapped[dict[str, object]] = mapped_column(JSON, default=dict)
+    pending_step: Mapped[str | None] = mapped_column(Text, nullable=True)
+    claimed_by: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    version: Mapped[int] = mapped_column(Integer, default=0)
+    journey_id: Mapped[str] = mapped_column(String(36), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)

@@ -314,6 +314,65 @@
     ],
     "unique_constraints": []
   },
+  "service_ai_events": {
+    "columns": [
+      {
+        "name": "id",
+        "nullable": false,
+        "primary_key": true,
+        "type": "VARCHAR(36)"
+      },
+      {
+        "name": "conversation_id",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(36)"
+      },
+      {
+        "name": "journey_id",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(36)"
+      },
+      {
+        "name": "event_type",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(16)"
+      },
+      {
+        "name": "name",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(64)"
+      },
+      {
+        "name": "status",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(16)"
+      },
+      {
+        "name": "confidence",
+        "nullable": true,
+        "primary_key": false,
+        "type": "FLOAT"
+      },
+      {
+        "name": "trace_id",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(36)"
+      },
+      {
+        "name": "created_at",
+        "nullable": false,
+        "primary_key": false,
+        "type": "DATETIME"
+      }
+    ],
+    "unique_constraints": []
+  },
   "service_conversations": {
     "columns": [
       {
@@ -474,6 +533,154 @@
     "unique_constraints": [
       "uq_service_customers_tenant_username"
     ]
+  },
+  "service_handoffs": {
+    "columns": [
+      {
+        "name": "id",
+        "nullable": false,
+        "primary_key": true,
+        "type": "VARCHAR(36)"
+      },
+      {
+        "name": "tenant_id",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(64)"
+      },
+      {
+        "name": "conversation_id",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(36)"
+      },
+      {
+        "name": "customer_id",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(36)"
+      },
+      {
+        "name": "status",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(16)"
+      },
+      {
+        "name": "reason",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(32)"
+      },
+      {
+        "name": "priority",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(16)"
+      },
+      {
+        "name": "summary",
+        "nullable": false,
+        "primary_key": false,
+        "type": "TEXT"
+      },
+      {
+        "name": "context",
+        "nullable": false,
+        "primary_key": false,
+        "type": "JSON"
+      },
+      {
+        "name": "pending_step",
+        "nullable": true,
+        "primary_key": false,
+        "type": "TEXT"
+      },
+      {
+        "name": "claimed_by",
+        "nullable": true,
+        "primary_key": false,
+        "type": "VARCHAR(36)"
+      },
+      {
+        "name": "claimed_at",
+        "nullable": true,
+        "primary_key": false,
+        "type": "DATETIME"
+      },
+      {
+        "name": "version",
+        "nullable": false,
+        "primary_key": false,
+        "type": "INTEGER"
+      },
+      {
+        "name": "journey_id",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(36)"
+      },
+      {
+        "name": "created_at",
+        "nullable": false,
+        "primary_key": false,
+        "type": "DATETIME"
+      },
+      {
+        "name": "updated_at",
+        "nullable": false,
+        "primary_key": false,
+        "type": "DATETIME"
+      }
+    ],
+    "unique_constraints": []
+  },
+  "service_messages": {
+    "columns": [
+      {
+        "name": "id",
+        "nullable": false,
+        "primary_key": true,
+        "type": "BIGINT"
+      },
+      {
+        "name": "conversation_id",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(36)"
+      },
+      {
+        "name": "author_type",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(16)"
+      },
+      {
+        "name": "author_id",
+        "nullable": true,
+        "primary_key": false,
+        "type": "VARCHAR(36)"
+      },
+      {
+        "name": "content",
+        "nullable": false,
+        "primary_key": false,
+        "type": "TEXT"
+      },
+      {
+        "name": "trace_id",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(36)"
+      },
+      {
+        "name": "created_at",
+        "nullable": false,
+        "primary_key": false,
+        "type": "DATETIME"
+      }
+    ],
+    "unique_constraints": []
   },
   "service_rate_limit_buckets": {
     "columns": [

@@ -17,6 +17,7 @@ class ErrorCode(StrEnum):
     NOT_FOUND = "NOT_FOUND"
     VALIDATION_ERROR = "VALIDATION_ERROR"
     RATE_LIMITED = "RATE_LIMITED"
+    CONVERSATION_CLOSED = "CONVERSATION_CLOSED"
     # 依赖不可用
     DEPENDENCY_UNAVAILABLE = "DEPENDENCY_UNAVAILABLE"
     DEPENDENCY_TIMEOUT = "DEPENDENCY_TIMEOUT"
@@ -43,6 +44,7 @@ SPECS: dict[ErrorCode, ErrorSpec] = {
     ErrorCode.NOT_FOUND: ErrorSpec(False, True, "未找到"),
     ErrorCode.VALIDATION_ERROR: ErrorSpec(False, True, "请求参数不正确"),
     ErrorCode.RATE_LIMITED: ErrorSpec(True, True, "请求过于频繁，请稍后再试"),
+    ErrorCode.CONVERSATION_CLOSED: ErrorSpec(False, True, "会话已结束"),
     ErrorCode.DEPENDENCY_UNAVAILABLE: ErrorSpec(True, True, "服务暂时不可用，请稍后重试"),
     ErrorCode.DEPENDENCY_TIMEOUT: ErrorSpec(True, True, "响应超时，正在重试"),
     ErrorCode.INVALID_RESPONSE: ErrorSpec(True, True, "状态未知，正在核实"),

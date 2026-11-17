@@ -150,3 +150,77 @@ def test_有密钥使用真实客户端_基座豁免() -> None:
         model_name = "m"
 
     assert isinstance(build_model_client(Dev()), OpenAICompatibleClient)
+
+
+async def respond_with(handler: Any, message: str = "你好") -> Any:
+    async with httpx.AsyncClient(transport=transport(handler)) as http:
+        client = OpenAICompatibleClient(
+            base_url="https://example.test/v1", model="m", api_key="k", http=http
+        )
+        return await client.respond(message)
+
+
+def chat_body(payload: dict[str, Any]) -> dict[str, Any]:
+    return {"choices": [{"message": {"content": json.dumps(payload)}}]}
+
+
+async def test_假模型应答包含意图置信度与回复_基座豁免() -> None:
+    client = FakeModelClient(
+        {"你好": {"intent": "UNKNOWN", "confidence": 0.8, "reply": "您好，请讲。"}}
+    )
+    reply = await client.respond("你好")
+    assert (reply.intent, reply.confidence, reply.reply) == ("UNKNOWN", 0.8, "您好，请讲。")
+
+
+async def test_假模型未命中使用默认回复_基座豁免() -> None:
+    reply = await FakeModelClient().respond("随便")
+    assert reply.intent == "UNKNOWN"
+    assert reply.confidence == 0.9
+    assert reply.reply
+
+
+async def test_兼容接口解析聊天回复_基座豁免() -> None:
+    seen: dict[str, Any] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen["body"] = json.loads(request.content)
+        return httpx.Response(
+            200,
+            json=chat_body({"intent": "HUMAN_HANDOFF", "confidence": 0.4, "reply": "稍等。"}),
+        )
+
+    reply = await respond_with(handler)
+    assert (reply.intent, reply.confidence, reply.reply) == ("HUMAN_HANDOFF", 0.4, "稍等。")
+    assert seen["body"]["response_format"] == {"type": "json_object"}
+    assert "tools" not in seen["body"]
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"intent": "", "confidence": 0.5, "reply": "x"},
+        {"intent": "UNKNOWN", "confidence": 1.5, "reply": "x"},
+        {"intent": "UNKNOWN", "confidence": "high", "reply": "x"},
+        {"intent": "UNKNOWN", "confidence": 0.5, "reply": ""},
+    ],
+)
+async def test_聊天回复非法字段统一为模型错误_基座豁免(payload: dict[str, Any]) -> None:
+    with pytest.raises(ModelError):
+        await respond_with(lambda request: httpx.Response(200, json=chat_body(payload)))
+
+
+async def test_假模型故障注入立即失败_基座豁免() -> None:
+    with pytest.raises(ModelError):
+        await FakeModelClient(mode="error").respond("你好")
+
+
+def test_非法假模型模式启动失败_基座豁免() -> None:
+    class Dev:
+        environment = "development"
+        model_api_key = ""
+        model_base_url = "x"
+        model_name = "m"
+        fake_model_mode = "bogus"
+
+    with pytest.raises(ModelConfigError):
+        build_model_client(Dev())

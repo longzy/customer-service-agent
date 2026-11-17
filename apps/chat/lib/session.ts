@@ -17,6 +17,23 @@ export type Session = {
   expires_at: string;
 };
 
+export type MessageAuthor = "customer" | "ai" | "agent" | "system";
+
+export type Message = {
+  id: number;
+  author_type: MessageAuthor;
+  content: string;
+  created_at: string;
+};
+
+// POST /customer/messages 与 GET /customer/messages 共用同一响应形状。
+export type MessagePage = {
+  conversation_id: string;
+  status: string;
+  after_id: number;
+  messages: Message[];
+};
+
 type ErrorBody = {
   code?: unknown;
   message?: unknown;
@@ -92,4 +109,24 @@ export async function getConversation(conversationId: string): Promise<Conversat
   // 后端契约固定返回 {customer, conversation, expires_at}。
   const body = (await response.json()) as Session;
   return body.conversation;
+}
+
+export async function getMessages(afterId: number): Promise<MessagePage> {
+  const response = await fetch(`/api/customer/messages?after_id=${encodeURIComponent(afterId)}`);
+  if (!response.ok) {
+    throw await readError(response);
+  }
+  return (await response.json()) as MessagePage;
+}
+
+export async function sendMessage(content: string): Promise<MessagePage> {
+  const response = await fetch("/api/customer/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content }),
+  });
+  if (!response.ok) {
+    throw await readError(response);
+  }
+  return (await response.json()) as MessagePage;
 }

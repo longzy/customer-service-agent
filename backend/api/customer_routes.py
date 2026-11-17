@@ -3,15 +3,24 @@
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Depends, Query, Request, Response
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.errors import ApiError
+from backend.conversations.customer_chat import (
+    ChatResult,
+    ConversationClosedError,
+    MessageView,
+    list_messages,
+    send_customer_message,
+)
 from backend.conversations.customer_conversations import (
     CustomerConversation,
     get_customer_conversation,
+    get_open_conversation,
     get_or_create_open_conversation,
+    latest_message_id,
 )
 from backend.domain.errors import ErrorCode
 from backend.identity import customer_sessions
@@ -20,6 +29,22 @@ from backend.platform.db import get_session
 from backend.platform.settings import Settings
 
 router = APIRouter(prefix="/customer", tags=["customer"])
+
+
+class CustomerMessageRequest(BaseModel):
+    """客户消息；身份与会话只能来自服务端 session。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    content: str = Field(min_length=1, max_length=500)
+
+    @field_validator("content")
+    @classmethod
+    def _strip_content(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("content 不能为空")
+        return value
 
 
 class CustomerLoginRequest(BaseModel):
@@ -59,6 +84,24 @@ def _payload(
             "after_id": conversation.after_id,
         },
         "expires_at": _utc_text(expires_at),
+    }
+
+
+def _message_json(message: MessageView) -> dict[str, Any]:
+    return {
+        "id": message.id,
+        "author_type": message.author_type,
+        "content": message.content,
+        "created_at": _utc_text(message.created_at),
+    }
+
+
+def _chat_payload(result: ChatResult) -> dict[str, Any]:
+    return {
+        "conversation_id": result.conversation_id,
+        "status": result.status,
+        "after_id": result.after_id,
+        "messages": [_message_json(message) for message in result.messages],
     }
 
 
@@ -168,6 +211,55 @@ async def read_conversation(
     if conversation is None:
         raise ApiError(404, ErrorCode.NOT_FOUND)
     return _payload(session.customer, conversation, session.expires_at)
+
+
+@router.post("/messages")
+async def send_message(
+    payload: CustomerMessageRequest,
+    request: Request,
+    session: CurrentSession,
+    db: Db,
+) -> dict[str, Any]:
+    conversation = await get_open_conversation(db, session.customer.tenant_id, session.customer.id)
+    if conversation is None:
+        raise ApiError(409, ErrorCode.CONVERSATION_CLOSED)
+    trace_id = getattr(request.state, "trace_id", "")
+    try:
+        result = await send_customer_message(
+            db,
+            conversation,
+            customer_id=session.customer.id,
+            content=payload.content,
+            model=request.app.state.model_client,
+            timeout_seconds=settings_of(request).customer_model_timeout_seconds,
+            trace_id=trace_id,
+            now=customer_sessions.utc_now(),
+        )
+    except ConversationClosedError:
+        raise ApiError(409, ErrorCode.CONVERSATION_CLOSED) from None
+    return _chat_payload(result)
+
+
+@router.get("/messages")
+async def read_messages(
+    session: CurrentSession,
+    db: Db,
+    after_id: int = Query(default=0, ge=0),
+) -> dict[str, Any]:
+    conversation = await get_open_conversation(db, session.customer.tenant_id, session.customer.id)
+    if conversation is None:
+        raise ApiError(409, ErrorCode.CONVERSATION_CLOSED)
+    messages = await list_messages(db, conversation.id, after_id)
+    latest = (
+        messages[-1].id if messages else max(after_id, await latest_message_id(db, conversation.id))
+    )
+    await db.commit()
+    return {
+        "conversation_id": conversation.id,
+        "status": conversation.status,
+        "after_id": latest,
+        "messages": [_message_json(message) for message in messages],
+    }
 
 
 @router.delete("/sessions", status_code=204)

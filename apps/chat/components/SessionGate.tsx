@@ -120,6 +120,7 @@ export function SessionGate() {
 
   return (
     <ChatShell
+      key={conversation?.id ?? "none"}
       customer={session.customer}
       conversation={conversation}
       conversationNotFound={conversationNotFound}

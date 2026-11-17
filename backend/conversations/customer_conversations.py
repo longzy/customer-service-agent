@@ -9,10 +9,10 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from uuid import uuid4
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.platform.models import ServiceConversation
+from backend.platform.models import ServiceConversation, ServiceMessage
 
 CONVERSATION_IDLE_TIMEOUT = timedelta(hours=24)
 STATUS_AI_ACTIVE = "AI_ACTIVE"
@@ -26,9 +26,15 @@ class CustomerConversation:
     after_id: int
 
 
-def view(row: ServiceConversation) -> CustomerConversation:
-    # service_messages 在 F-02 落地；本切片还没有消息，after_id 固定 0。
-    return CustomerConversation(id=row.id, status=row.status, after_id=0)
+def view(row: ServiceConversation, after_id: int) -> CustomerConversation:
+    return CustomerConversation(id=row.id, status=row.status, after_id=after_id)
+
+
+async def latest_message_id(db: AsyncSession, conversation_id: str) -> int:
+    value = await db.scalar(
+        select(func.max(ServiceMessage.id)).where(ServiceMessage.conversation_id == conversation_id)
+    )
+    return int(value or 0)
 
 
 async def _open_conversation(
@@ -47,6 +53,13 @@ async def _open_conversation(
     return (await db.execute(statement)).scalar_one_or_none()
 
 
+async def get_open_conversation(
+    db: AsyncSession, tenant_id: str, customer_id: str
+) -> ServiceConversation | None:
+    """只读当前未关闭会话；不存在时返回 None，由调用方决定 404/409。"""
+    return await _open_conversation(db, tenant_id, customer_id)
+
+
 async def get_or_create_open_conversation(
     db: AsyncSession, tenant_id: str, customer_id: str, now: datetime
 ) -> CustomerConversation:
@@ -58,7 +71,7 @@ async def get_or_create_open_conversation(
             and existing.last_activity_at + CONVERSATION_IDLE_TIMEOUT <= now
         )
         if not stale:
-            return view(existing)
+            return view(existing, await latest_message_id(db, existing.id))
         existing.status = STATUS_CLOSED
         existing.closed_at = now
         existing.updated_at = now
@@ -75,7 +88,7 @@ async def get_or_create_open_conversation(
     )
     db.add(created)
     await db.flush()
-    return view(created)
+    return view(created, 0)
 
 
 async def get_customer_conversation(
@@ -88,4 +101,6 @@ async def get_customer_conversation(
         ServiceConversation.customer_id == customer_id,
     )
     row = (await db.execute(statement)).scalar_one_or_none()
-    return view(row) if row is not None else None
+    if row is None:
+        return None
+    return view(row, await latest_message_id(db, row.id))

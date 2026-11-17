@@ -53,6 +53,10 @@ class Settings(BaseSettings):
     m1_tenant_id: str = "tenant-a"
     # 演示账号密码只从 .env 读取，不提交；种子脚本缺失时失败
     demo_password: str = ""
+    # 客户聊天模型单次调用上限；plan 3.3.4 固定 10s，测试可注入更短值
+    customer_model_timeout_seconds: float = 10.0
+    # 仅开发/测试的假模型行为：none / error / timeout，用于人工演示失败路径
+    fake_model_mode: str = "none"
     model_base_url: str = "https://api.openai.com/v1"
     model_name: str = "gpt-4o-mini"
     model_api_key: str = ""
