@@ -23,8 +23,6 @@ type ErrorBody = {
   detail?: unknown;
 };
 
-type ConversationBody = Conversation | { conversation?: Conversation };
-
 const FALLBACK_ERROR = "请求失败，请稍后再试";
 
 export class ApiError extends Error {
@@ -91,12 +89,7 @@ export async function getConversation(conversationId: string): Promise<Conversat
   if (!response.ok) {
     throw await readError(response);
   }
-  const body = (await response.json()) as ConversationBody;
-  if (body && typeof body === "object" && "conversation" in body) {
-    const nested = (body as { conversation?: Conversation }).conversation;
-    if (nested) {
-      return nested;
-    }
-  }
-  return body as Conversation;
+  // 后端契约固定返回 {customer, conversation, expires_at}。
+  const body = (await response.json()) as Session;
+  return body.conversation;
 }

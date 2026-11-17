@@ -8,21 +8,14 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.errors import ApiError
-from backend.domain.errors import ErrorCode
-from backend.identity.customer_sessions import (
-    CUSTOMER_COOKIE,
-    CUSTOMER_SESSION_TTL,
-    Customer,
+from backend.conversations.customer_conversations import (
     CustomerConversation,
-    ExpiredSessionError,
-    InvalidSessionError,
-    RateLimitedError,
-    ResolvedCustomerSession,
     get_customer_conversation,
-    login_customer,
-    logout_customer,
-    resolve_customer_session,
+    get_or_create_open_conversation,
 )
+from backend.domain.errors import ErrorCode
+from backend.identity import customer_sessions
+from backend.identity.customer_sessions import Customer, ResolvedCustomerSession
 from backend.platform.db import get_session
 from backend.platform.settings import Settings
 
@@ -76,9 +69,9 @@ def _client_ip(request: Request) -> str:
 
 def _set_cookie(response: Response, token: str, active: Settings) -> None:
     response.set_cookie(
-        CUSTOMER_COOKIE,
+        customer_sessions.CUSTOMER_COOKIE,
         token,
-        max_age=int(CUSTOMER_SESSION_TTL.total_seconds()),
+        max_age=int(customer_sessions.CUSTOMER_SESSION_TTL.total_seconds()),
         httponly=True,
         secure=active.secure_cookie,
         samesite="lax",
@@ -95,14 +88,16 @@ async def current_customer_session(
     request: Request,
     db: Annotated[AsyncSession, Depends(get_session)],
 ) -> ResolvedCustomerSession:
-    token = request.cookies.get(CUSTOMER_COOKIE)
+    token = request.cookies.get(customer_sessions.CUSTOMER_COOKIE)
     if not token:
         raise ApiError(401, ErrorCode.SESSION_INVALID)
     try:
-        return await resolve_customer_session(db, settings_of(request).m1_tenant_id, token)
-    except ExpiredSessionError:
+        return await customer_sessions.resolve_customer_session(
+            db, settings_of(request).m1_tenant_id, token
+        )
+    except customer_sessions.ExpiredSessionError:
         raise ApiError(401, ErrorCode.SESSION_EXPIRED) from None
-    except InvalidSessionError:
+    except customer_sessions.InvalidSessionError:
         raise ApiError(401, ErrorCode.SESSION_INVALID) from None
 
 
@@ -118,14 +113,14 @@ async def login(
     db: Db,
 ) -> dict[str, Any]:
     try:
-        result = await login_customer(
+        result = await customer_sessions.login_customer(
             db,
             settings_of(request).m1_tenant_id,
             payload.username,
             payload.password,
             _client_ip(request),
         )
-    except RateLimitedError as error:
+    except customer_sessions.RateLimitedError as error:
         raise ApiError(
             429,
             ErrorCode.RATE_LIMITED,
@@ -133,13 +128,27 @@ async def login(
         ) from None
     if result is None:
         raise ApiError(401, ErrorCode.AUTH_FAILED)
+    conversation = await get_or_create_open_conversation(
+        db,
+        result.customer.tenant_id,
+        result.customer.id,
+        customer_sessions.utc_now(),
+    )
+    await db.commit()
     _set_cookie(response, result.token, settings_of(request))
-    return _payload(result.customer, result.conversation, result.expires_at)
+    return _payload(result.customer, conversation, result.expires_at)
 
 
 @router.get("/session")
-async def current_session(session: CurrentSession) -> dict[str, Any]:
-    return _payload(session.customer, session.conversation, session.expires_at)
+async def current_session(session: CurrentSession, db: Db) -> dict[str, Any]:
+    conversation = await get_or_create_open_conversation(
+        db,
+        session.customer.tenant_id,
+        session.customer.id,
+        customer_sessions.utc_now(),
+    )
+    await db.commit()
+    return _payload(session.customer, conversation, session.expires_at)
 
 
 @router.get("/conversations/{conversation_id}")
@@ -154,6 +163,8 @@ async def read_conversation(
         session.customer.id,
         conversation_id,
     )
+    # 读取也会刷新 last_seen_at；保持 GET 幂等但落库。
+    await db.commit()
     if conversation is None:
         raise ApiError(404, ErrorCode.NOT_FOUND)
     return _payload(session.customer, conversation, session.expires_at)
@@ -165,7 +176,7 @@ async def logout(
     response: Response,
     db: Db,
 ) -> None:
-    token = request.cookies.get(CUSTOMER_COOKIE)
+    token = request.cookies.get(customer_sessions.CUSTOMER_COOKIE)
     if token:
-        await logout_customer(db, token)
-    response.delete_cookie(CUSTOMER_COOKIE, path="/")
+        await customer_sessions.logout_customer(db, token)
+    response.delete_cookie(customer_sessions.CUSTOMER_COOKIE, path="/")

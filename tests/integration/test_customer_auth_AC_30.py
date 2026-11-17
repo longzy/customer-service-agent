@@ -4,7 +4,8 @@
 """
 
 import asyncio
-from datetime import timedelta
+import uuid
+from datetime import UTC, datetime, timedelta
 from http.cookies import SimpleCookie
 from typing import Any
 
@@ -20,6 +21,7 @@ from backend.identity.customer_sessions import (
     hash_token,
 )
 from backend.identity.passwords import hash_password
+from backend.platform.db import get_session
 from backend.platform.models import (
     ServiceConversation,
     ServiceCustomer,
@@ -98,6 +100,13 @@ def session_rows() -> list[ServiceCustomerSession]:
     return asyncio.run(_with_db(read))
 
 
+def conversation_rows() -> list[ServiceConversation]:
+    async def read(db: Any) -> list[ServiceConversation]:
+        return list((await db.execute(select(ServiceConversation))).scalars())
+
+    return asyncio.run(_with_db(read))
+
+
 def test_登录成功返回会话并设置安全Cookie_AC_30() -> None:
     with api_client() as api:
         response = login(api)
@@ -155,6 +164,8 @@ def test_刷新与重新登录恢复同一未关闭会话_旧token失效_AC_30()
     active = [row for row in session_rows() if row.revoked_at is None]
     assert len(active) == 1
     assert active[0].token_hash == hash_token(second_token)
+    assert len(conversation_rows()) == 1
+    assert conversation_rows()[0].id == conversation_id
 
 
 def test_登出撤销session且旧cookie再访问401_AC_30() -> None:
@@ -172,20 +183,6 @@ def test_登出撤销session且旧cookie再访问401_AC_30() -> None:
         assert after.json()["code"] == "SESSION_INVALID"
 
     assert all(row.revoked_at is not None for row in session_rows())
-
-
-def test_过期session返回SESSION_EXPIRED_AC_30(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    monkeypatch.setattr(
-        "backend.identity.customer_sessions.CUSTOMER_SESSION_TTL",
-        timedelta(seconds=-1),
-    )
-    with api_client() as api:
-        login(api)
-        response = api.get("/customer/session")
-    assert response.status_code == 401
-    assert response.json()["code"] == "SESSION_EXPIRED"
 
 
 def test_错误密码与未知账号统一401_空字段422_AC_30() -> None:
@@ -261,13 +258,77 @@ def test_登录连续失败超限返回429_AC_30() -> None:
         assert int(limited.headers["Retry-After"]) > 0
 
 
-def test_生产配置Cookie带Secure_AC_30() -> None:
-    active = Settings(environment="development", cookie_secure=True, m1_enabled=True)
+def test_生产环境Cookie默认Secure_AC_30() -> None:
+    active = Settings(
+        environment="production",
+        m1_enabled=True,
+        database_url=settings.database_url,
+        oms_base_url="https://oms.example.com",
+        model_api_key="test-key",
+    )
     with api_client(active) as api:
         response = login(api)
     jar = SimpleCookie()
     jar.load(response.headers["set-cookie"])
     assert jar[CUSTOMER_COOKIE]["secure"] is True
+
+
+def test_24h绝对过期不因刷新滑动_AC_30(monkeypatch: pytest.MonkeyPatch) -> None:
+    base = datetime(2026, 11, 17, 3, 0, 0, tzinfo=UTC)
+    monkeypatch.setattr("backend.identity.customer_sessions.utc_now", lambda: base)
+    with api_client() as api:
+        response = login(api)
+        assert response.json()["expires_at"] == "2026-11-18T03:00:00Z"
+
+        monkeypatch.setattr(
+            "backend.identity.customer_sessions.utc_now",
+            lambda: base + timedelta(hours=23),
+        )
+        assert api.get("/customer/session").status_code == 200
+
+        monkeypatch.setattr(
+            "backend.identity.customer_sessions.utc_now",
+            lambda: base + timedelta(hours=24, seconds=1),
+        )
+        expired = api.get("/customer/session")
+    assert expired.status_code == 401
+    assert expired.json()["code"] == "SESSION_EXPIRED"
+
+
+def test_依赖故障返回5xx封套_AC_30() -> None:
+    app = create_app()
+
+    async def broken_db() -> Any:
+        raise RuntimeError("database down")
+
+    app.dependency_overrides[get_session] = broken_db
+    with TestClient(app, raise_server_exceptions=False) as api:
+        response = api.post(
+            "/customer/sessions",
+            json={"username": "customer_a", "password": DEMO_CREDENTIAL},
+        )
+    assert response.status_code == 500
+    assert response.json()["code"] == "INTERNAL_ERROR"
+    assert response.json()["visible"] is False
+
+
+def test_请求关联标识透传或生成_基座豁免() -> None:
+    with api_client() as api:
+        passed = api.get("/health", headers={"X-Request-ID": "trace-abc_1"})
+        generated = api.get("/health")
+    assert passed.headers["X-Request-ID"] == "trace-abc_1"
+    assert uuid.UUID(generated.headers["X-Request-ID"])
+
+
+def test_旧路由422响应格式不被新封套改写_基座豁免() -> None:
+    with api_client() as api:
+        response = api.post(
+            "/session",
+            json={"account_id": "zhang-ming", "tenant_id": "tenant-b"},
+        )
+    assert response.status_code == 422
+    assert "detail" in response.json()
+    assert "code" not in response.json()
 
 
 def test_M1关闭时客户路由不挂载_AC_30() -> None:

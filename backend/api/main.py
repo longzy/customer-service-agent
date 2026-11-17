@@ -6,7 +6,8 @@ import sys
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Response
+from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
@@ -25,6 +26,7 @@ from backend.api.csrf import verify_origin
 from backend.api.customer_routes import router as customer_router
 from backend.api.errors import ApiError, api_error_handler
 from backend.api.handoff_routes import router as handoff_router
+from backend.api.request_id import attach_request_id
 from backend.api.session_routes import router as session_router
 from backend.domain.errors import ErrorCode
 from backend.platform.observability import AsyncTraceSink, TraceSinkError, use_trace_sink
@@ -122,9 +124,16 @@ def create_app(settings_override: Settings | None = None) -> FastAPI:
         return await api_error_handler(request, error)
 
     @app.exception_handler(RequestValidationError)
-    async def _validation_error(_request: Request, _error: RequestValidationError) -> JSONResponse:
-        # 新 M1 API 统一错误封套；旧测试只断言状态码。
-        return JSONResponse(status_code=422, content=error_envelope(ErrorCode.VALIDATION_ERROR))
+    async def _validation_error(request: Request, error: RequestValidationError) -> Response:
+        # 只有新 M1 客户 API 使用统一封套；旧 M1-P 路由保持原响应格式。
+        if request.url.path.startswith("/customer/"):
+            return JSONResponse(status_code=422, content=error_envelope(ErrorCode.VALIDATION_ERROR))
+        return await request_validation_exception_handler(request, error)
+
+    @app.exception_handler(Exception)
+    async def _unhandled_error(_request: Request, error: Exception) -> JSONResponse:
+        logger.exception("未处理异常", exc_info=error)
+        return JSONResponse(status_code=500, content=error_envelope(ErrorCode.INTERNAL_ERROR))
 
     app.state.oms = build_oms(active)
     app.state.model_client = build_model_client(active)
@@ -132,9 +141,10 @@ def create_app(settings_override: Settings | None = None) -> FastAPI:
     app.state.cancel_gateway = build_cancel_gateway(
         app.state.oms, timeout_seconds=active.oms_timeout_seconds
     )
-    # 后添加的中间件先执行：先解析身份，再校验来源
+    # 后添加的中间件先执行：请求关联标识最外层，最后解析身份、校验来源
     app.middleware("http")(verify_origin)
     app.middleware("http")(resolve_identity)
+    app.middleware("http")(attach_request_id)
     if active.m1_enabled:
         app.include_router(customer_router)
     app.include_router(session_router)
