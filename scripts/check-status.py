@@ -4,7 +4,7 @@
 CURRENT.md 是给人看的一页状态，但它的每个事实都必须能从产物推导出来。
 本脚本检查四件事：
 
-1. 状态与事实一致：执行卡状态、CURRENT.md 三处不能互相矛盾。
+1. 状态与事实一致：执行卡状态、features 的 `Passes`、CURRENT.md 三处不能互相矛盾。
 2. 引用的任务必须存在：CURRENT.md 里出现的 F-XX（或历史 T-XX）必须能在执行卡中找到。
 3. 未完成任务不能消失：未完成的执行卡必须出现在 CURRENT.md 的进行中/阻塞/下一步。
 4. 列表编号连续：手工追加导致 2、2、3、3 的序号重复会被拦下。
@@ -25,6 +25,7 @@ CARDS = ROOT / "docs" / "tasks"
 TASK_ID = re.compile(r"\b([TF])-(\d{2})\b")
 CARD_FILE = re.compile(r"^[TF]-\d{2}\.md$")
 CHECKBOX = re.compile(r"- \[([ x])\] (T-\d{2})\b")
+FEATURE_ROW = re.compile(r"^\| (F-\d{2}) \|")
 PATH_TOKEN = re.compile(r"`([^`\n]+)`")
 PATH_PREFIXES = ("docs/", "backend/", "packages/", "tests/", "scripts/", "apps/", "migrations/")
 
@@ -82,12 +83,19 @@ def main() -> int:
 
     closed: set[str] = set()
     opened: set[str] = set()
+    passed_features: set[str] = set()
     for tasks_text in task_texts.values():
         for line in tasks_text.splitlines():
             match = CHECKBOX.match(line)
-            if not match:
+            if match:
+                (closed if match.group(1) == "x" else opened).add(match.group(2))
                 continue
-            (closed if match.group(1) == "x" else opened).add(match.group(2))
+            feature = FEATURE_ROW.match(line)
+            if not feature:
+                continue
+            cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+            if len(cells) >= 7 and cells[5] == "true":
+                passed_features.add(feature.group(1))
 
     cards: dict[str, str] = {}
     for path in card_paths():
@@ -97,20 +105,21 @@ def main() -> int:
     for card, status in cards.items():
         if not status.startswith("已完成"):
             opened.add(card)
+        elif card in passed_features:
+            closed.add(card)
 
     sections = {name: section(text, name) for name in ("已完成", "进行中", "阻塞", "下一步")}
     mentioned = {match.group(0) for body in sections.values() for match in TASK_ID.finditer(body)}
-    known = closed | opened | set(cards)
+    known = closed | opened | set(cards) | passed_features
 
     for task in sorted(mentioned - known):
         errors.append(f"docs/CURRENT.md：引用了不存在的任务 {task}")
 
-    for task in sorted(closed & set(cards)):
-        if not cards[task].startswith("已完成"):
-            errors.append(f"{task}：tasks.md 已勾选，但执行卡状态为「{cards[task] or '未声明'}」")
+    for task in sorted(passed_features - set(cards)):
+        errors.append(f"{task}：features Passes=true，但没有执行卡")
     for task in sorted(set(cards) - closed):
         if cards[task].startswith("已完成"):
-            errors.append(f"{task}：执行卡已完成，但 tasks.md 未勾选")
+            errors.append(f"{task}：执行卡已完成，但 tasks.md 未勾选或 features Passes 未置 true")
 
     for task in sorted({match.group(0) for match in TASK_ID.finditer(sections["已完成"])}):
         if task not in closed:
