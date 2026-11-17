@@ -17,16 +17,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.agent_runtime.model import ChatModel, ModelError
 from backend.conversations.customer_conversations import latest_message_id
+from backend.conversations.handoffs import create_handoff, match_handoff_keyword
 from backend.conversations.statuses import (
     AI_ACTIVE,
     CLOSED,
-    OPEN_HANDOFF_STATUSES,
     QUEUED,
 )
 from backend.platform.models import (
     ServiceAiEvent,
     ServiceConversation,
-    ServiceHandoff,
     ServiceMessage,
 )
 
@@ -146,20 +145,23 @@ async def _record_ai_event(
     confidence: float | None,
     trace_id: str,
     now: datetime,
+    event_type: str = "model",
+    name: str = "customer_chat",
 ) -> None:
     db.add(
         ServiceAiEvent(
             id=str(uuid4()),
             conversation_id=conversation.id,
             journey_id=conversation.journey_id,
-            event_type="model",
-            name="customer_chat",
+            event_type=event_type,
+            name=name,
             status=status,
             confidence=confidence,
             trace_id=trace_id,
             created_at=now,
         )
     )
+    await db.flush()
 
 
 async def _queue_for_handoff(
@@ -167,42 +169,24 @@ async def _queue_for_handoff(
     conversation: ServiceConversation,
     *,
     reason: str,
-    context: dict[str, object],
-    summary: str,
+    trigger: str,
+    summary_hint: str,
     trace_id: str,
     now: datetime,
+    matched_keyword: str | None = None,
 ) -> ServiceMessage:
-    existing = (
-        await db.execute(
-            select(ServiceHandoff.id).where(
-                ServiceHandoff.tenant_id == conversation.tenant_id,
-                ServiceHandoff.conversation_id == conversation.id,
-                ServiceHandoff.status.in_(OPEN_HANDOFF_STATUSES),
-            )
-        )
-    ).scalar_one_or_none()
-    if existing is None:
-        db.add(
-            ServiceHandoff(
-                id=str(uuid4()),
-                tenant_id=conversation.tenant_id,
-                conversation_id=conversation.id,
-                customer_id=conversation.customer_id,
-                status=QUEUED,
-                reason=reason,
-                priority="normal",
-                summary=summary,
-                context=context,
-                pending_step="等待坐席接入",
-                version=0,
-                journey_id=conversation.journey_id,
-                created_at=now,
-                updated_at=now,
-            )
-        )
     conversation.status = QUEUED
     conversation.updated_at = now
     conversation.last_activity_at = now
+    await create_handoff(
+        db,
+        conversation,
+        reason=reason,
+        trigger=trigger,
+        now=now,
+        summary_hint=summary_hint,
+        matched_keyword=matched_keyword,
+    )
     notice = ServiceMessage(
         conversation_id=conversation.id,
         author_type="system",
@@ -240,8 +224,8 @@ async def _model_failed(
         db,
         conversation,
         reason="MODEL_UNAVAILABLE",
-        context={"order_count": 0, "trigger": trigger},
-        summary=summary,
+        trigger=trigger,
+        summary_hint=summary,
         trace_id=trace_id,
         now=now,
     )
@@ -292,6 +276,36 @@ async def send_customer_message(
             status=conversation.status,
             messages=[view_message(customer_message)],
             after_id=customer_message.id,
+        )
+
+    # plan 3.3.4：关键词优先，命中后不调用模型
+    keyword = match_handoff_keyword(content)
+    if keyword is not None:
+        await _record_ai_event(
+            db,
+            conversation,
+            status="matched",
+            confidence=None,
+            trace_id=trace_id,
+            now=now,
+            event_type="intent",
+            name="handoff_keyword",
+        )
+        notice = await _queue_for_handoff(
+            db,
+            conversation,
+            reason="CUSTOMER_REQUEST",
+            trigger="keyword",
+            summary_hint="",
+            trace_id=trace_id,
+            now=now,
+            matched_keyword=keyword,
+        )
+        return ChatResult(
+            conversation_id=conversation.id,
+            status=QUEUED,
+            messages=[view_message(customer_message), view_message(notice)],
+            after_id=notice.id,
         )
 
     try:
