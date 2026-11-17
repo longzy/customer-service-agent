@@ -1,9 +1,58 @@
-# A 设计：客户 ↔ AI ↔ 人工转接闭环
+# 客户转人工闭环设计：客户 ↔ AI ↔ 人工转接闭环
 
 - 状态：等待评审
 - 日期：2026-11-17
-- 依据：[requirements](requirements.md)、[ADR-0006](../../adr/0006-customer-login.md)
-- 范围：只设计 A；订单（004）、取消（005）、保留/全量评测（006）不做。
+- 依据：[brief](brief.md)、[ADR-0006](../../adr/0006-customer-login.md)
+- 范围：只设计本切片；订单（004）、取消（005）、保留/全量评测（006）不做。
+
+## 0. 人读摘要
+
+### 0.1 目标与非目标
+
+本切片只证明：客户登录 -> AI 对话 -> 消息触发转人工 -> 坐席领取/接管/回复 -> 关闭或转回 AI。
+不做订单、取消、保留清理、全量评测。
+
+### 0.2 两分钟故事
+
+客户甲登录，发“我的订单到哪了”。
+本切片还不支持查单，AI 回：“当前还不支持查单，我帮你转人工。”
+客户甲看到“已进入队列”。
+坐席 1 登录，队列看到客户甲、等待 12 秒、原因“超出当前能力”。
+领取后客户甲看到“人工已接入”；坐席回复“您好，我是坐席 1”。
+坐席关闭后，客户甲再发消息，看到“会话已结束”。
+
+客户乙登录，也能完整走登录、聊天、转人工、被接管、回复、关闭、转回。
+
+### 0.3 关键取舍
+
+| 决策 | 选择 | 放弃 | 原因 |
+|---|---|---|---|
+| 转人工触发 | 消息 + 关键词/模型 intent | 按钮 | 客户用自然语言就能切换；少一个 UI 控件 |
+| 前端 | 两个 Next app | 一个 app 两个路由 | 客户/员工认证与部署边界不同 |
+| 数据 | 新 `service_*` 表 | 复用 M1-P 旧表 | 旧 `user_id`/唯一约束会把本切片拖回兼容债 |
+| 队列 | 领取优先 | 自动分配 | M1 没有 presence/分配规则 |
+| 客户关闭 | 任意未关闭状态可关 | 仅坐席可关 | 客户不能被卡在队列里 |
+| 空闲关闭 | 登录/读状态时惰性检查 | 后台 worker | 本切片不引入 worker |
+| 消息更新 | 3s 轮询 + `after_id` | WebSocket | 先证明闭环，不做实时推送 |
+
+### 0.4 用户看到什么
+
+| 场景 | 客户看到 | 坐席看到 |
+|---|---|---|
+| 登录失败 | 账号或密码不正确 | — |
+| 客户转人工 | 已进入队列，请稍候 | 队列出现该客户 |
+| 坐席领取后 | 正在接入人工 | 会话归我 |
+| 坐席接管后 | 人工已接入 | 会话归我 |
+| 会话关闭后再发 | 会话已结束 | 只读 |
+| 队列为空 | — | 暂无待接入会话 |
+| 请求过频 | 请求过于频繁，请稍后再试 | — |
+
+### 0.5 演示脚本
+
+1. 客户甲登录，发消息，AI 回复；发“转人工”，看到“已进入队列”。
+2. 坐席 1 登录，队列看到客户甲，领取，接管；客户甲看到“人工已接入”。
+3. 坐席 1 回复，客户甲 3 秒内看到；坐席关闭；客户甲再发，看到“会话已结束”。
+4. 客户乙登录，重复 1–3；坐席 2 接管，证明甲乙隔离、两个坐席不抢同一会话。
 
 ## 1. 模块与依赖
 
@@ -46,7 +95,7 @@ M1 使用新的 `service_*` 表；M1-P 的旧表/旧路由/旧测试原样保留
 - `service_conversations`：`UNIQUE (tenant_id, customer_id) WHERE status <> 'CLOSED'`，保证一个客户一个未关闭会话。
 - `service_handoffs`：`UNIQUE (tenant_id, conversation_id) WHERE status IN ('QUEUED','CLAIMED','ACTIVE')`，同一会话一张 open 交接单。
 - `service_messages(conversation_id, id)`、`service_handoffs(status, created_at)`、`service_audit_events(journey_id, created_at)` 索引。
-- 不做 `order_access_grants`；A 无订单。
+- 不做 `order_access_grants`；本切片无订单。
 
 ## 3. 状态机
 
@@ -66,7 +115,7 @@ M1 使用新的 `service_*` 表；M1-P 的旧表/旧路由/旧测试原样保留
 
 - 交接单状态：`QUEUED → CLAIMED → ACTIVE → CLOSED`，与会话同事务更新；关闭/转回必须终态旧交接单。
 - 一个客户同时只有一个未关闭会话；登录恢复；不做历史列表。
-- `AI_ACTIVE` 空闲 24h 自动关闭：在登录、`GET /customer/session`、发消息时惰性检查 `last_activity_at + 24h < now`，同事务关闭；A 不引入后台 worker。`QUEUED/CLAIMED/HUMAN_ACTIVE` 不因 24h 自动关闭。
+- `AI_ACTIVE` 空闲 24h 自动关闭：在登录、`GET /customer/session`、发消息时惰性检查 `last_activity_at + 24h < now`，同事务关闭；本切片不引入后台 worker。`QUEUED/CLAIMED/HUMAN_ACTIVE` 不因 24h 自动关闭。
 - 客户可在任意未关闭状态关闭；交接单/队列同事务关闭。
 - 转回 AI 后同一会话恢复历史；再次转人工新建交接单，旧单必须已终态。
 
@@ -115,7 +164,7 @@ M1 使用新的 `service_*` 表；M1-P 的旧表/旧路由/旧测试原样保留
 
 - 关键词（normalize 后）：`转人工`、`人工客服`、`真人`、`找人工`；命中直接创建 `CUSTOMER_REQUEST` 交接单，不调用模型。
 - 未命中：`agent_runtime` 调用模型，返回 `{intent, confidence, reply}`；`intent=transfer` 或 `confidence < 0.6` → `LOW_CONFIDENCE`；模型 10s 超时/异常 → `MODEL_UNAVAILABLE`；检测到订单/超范围 → `OUT_OF_SCOPE`。
-- A 没有订单 Tool；AI 不得编造订单信息；超范围直接转人工。
+- 本切片没有订单 Tool；AI 不得编造订单信息；超范围直接转人工。
 - 交接单：customer_id、summary≤500、context（最近 20 条且≤4000 字）、AI 轨迹、reason、priority、pending_step；`order_count=0`；脱敏。
 - AI 轨迹写 `service_ai_events`：`event_type`（model/intent）、name、status、confidence、trace_id；不存 prompt/response 正文。
 
@@ -183,7 +232,7 @@ M1 使用新的 `service_*` 表；M1-P 的旧表/旧路由/旧测试原样保留
 | 客户登录/session/恢复 | API + Cookie + fake clock；AC-30 |
 | AI 回复/模型失败 | `FakeModelClient` 正常/失败/低置信；AC-31/32 |
 | 转人工意图 | 关键词/模型/低置信/超范围；AC-32 |
-| A/B 对等 | 2 客户/2 坐席；AC-33 |
+| 客户甲/乙对等 | 2 客户/2 坐席；AC-33 |
 | 员工登录/RBAC | API + 越权；AC-34 |
 | 队列/领取 | 并发 claim、FIFO、跨租户；AC-35 |
 | 接管/上下文 | 状态机 + 系统消息 + 404/409；AC-36 |
@@ -198,7 +247,7 @@ M1 使用新的 `service_*` 表；M1-P 的旧表/旧路由/旧测试原样保留
 |---|---|---|
 | T-29 | AC-30、31、32 | identity 客户/员工账号+session；conversations 会话/消息/转人工；apps/chat |
 | T-30 | AC-34、35、36 | workspace 登录/队列/领取/接管；apps/workspace |
-| T-31 | AC-33、37、38、39 | 回复/轮询/关闭/转回、A/B 端到端、审计/限速 |
+| T-31 | AC-33、37、38、39 | 回复/轮询/关闭/转回、客户甲/乙端到端、审计/限速 |
 
 ## 14. 回滚
 
@@ -210,4 +259,4 @@ M1 使用新的 `service_*` 表；M1-P 的旧表/旧路由/旧测试原样保留
 
 - 演示账号命名、登录页文案。
 - 模型配置/成本；UI 样式。
-- 队列等待/SLA 展示（A 只显示“排队中”，不做位置）。
+- 队列等待/SLA 展示（本切片只显示“排队中”，不做位置）。

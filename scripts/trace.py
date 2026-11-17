@@ -75,7 +75,9 @@ def read_baseline() -> dict[str, str]:
 
 def main() -> int:
     strict = "--strict" in sys.argv
-    requirements = [p for p in SPECS.glob("*/requirements.md")]
+    requirements = [p for p in SPECS.glob("*/requirements.md")] + [
+        p for p in SPECS.glob("*/brief.md")
+    ]
     if not requirements:
         print("没有找到需求文档")
         return 1

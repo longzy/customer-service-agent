@@ -20,7 +20,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 CURRENT = ROOT / "docs" / "CURRENT.md"
 SPECS = ROOT / "docs" / "specs"
-TASK_FILES = sorted(SPECS.glob("*/tasks.md"))
+TASK_FILES = sorted(SPECS.glob("*/tasks.md")) + sorted(SPECS.glob("*/features.md"))
 CARDS = ROOT / "docs" / "tasks"
 TASK_ID = re.compile(r"T-?(\d{2})")
 PATH_TOKEN = re.compile(r"`([^`\n]+)`")

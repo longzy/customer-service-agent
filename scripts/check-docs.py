@@ -68,7 +68,10 @@ CURRENT_REQUIRED_FIELDS = [
     "待确认决策",
 ]
 
-SPEC_REQUIRED_FILES = ["requirements.md", "design.md", "tasks.md"]
+SPEC_LAYOUTS = (
+    {"brief": "brief.md", "plan": "plan.md", "features": "features.md"},
+    {"brief": "requirements.md", "plan": "design.md", "features": "tasks.md"},
+)
 
 GATE_OPEN_STATUSES = ("待开工许可", "已确认")
 SPEC_DIR_PATTERN = re.compile(r"^\d{3}-[a-z0-9-]+$")
@@ -152,26 +155,45 @@ def spec_dirs():
     return found
 
 
+def spec_layout(path):
+    """返回完整布局；若有部分文件，返回最接近布局及缺失项。"""
+    partial = None
+    for layout in SPEC_LAYOUTS:
+        present = [value for value in layout.values() if os.path.exists(os.path.join(path, value))]
+        if len(present) == len(layout):
+            return layout, []
+        if present and partial is None:
+            missing = [value for value in layout.values() if value not in present]
+            partial = (layout, missing)
+    return partial if partial else (None, [])
+
+
 def check_spec_structure(specs):
     for name, path in specs:
         checked["specs"] += 1
-        for required in SPEC_REQUIRED_FILES:
-            if not os.path.exists(os.path.join(path, required)):
-                errors.append(f"docs/specs/{name}：缺少必需文件 {required}")
+        layout, missing = spec_layout(path)
+        if layout is None:
+            errors.append(
+                f"docs/specs/{name}：缺少完整布局（brief.md/plan.md/features.md，"
+                "历史 spec 可用 requirements.md/design.md/tasks.md）"
+            )
+        elif missing:
+            errors.append(f"docs/specs/{name}：缺少 {', '.join(missing)}")
 
 
 def check_ac_coverage(specs):
     for name, path in specs:
-        requirements = os.path.join(path, "requirements.md")
-        tasks = os.path.join(path, "tasks.md")
-        if not (os.path.exists(requirements) and os.path.exists(tasks)):
+        layout, missing = spec_layout(path)
+        if layout is None or missing:
             continue
-        acs = sorted(set(re.findall(r"\bAC-\d{2}\b", read(requirements))))
-        tasks_text = read(tasks)
+        brief = os.path.join(path, layout["brief"])
+        features = os.path.join(path, layout["features"])
+        acs = sorted(set(re.findall(r"\bAC-\d{2}\b", read(brief))))
+        features_text = read(features)
         checked["acs"] += len(acs)
         for ac in acs:
-            if ac not in tasks_text:
-                errors.append(f"docs/specs/{name}/tasks.md：缺少对 {ac} 的引用")
+            if ac not in features_text:
+                errors.append(f"docs/specs/{name}/{layout['features']}：缺少对 {ac} 的引用")
 
 
 def check_task_dirs(specs):
