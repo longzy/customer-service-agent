@@ -9,7 +9,7 @@
 
 ```text
 Frame（目标/非目标/完成标准）
-  -> Plan（1–3 页方案与取舍）
+  -> Plan（Context/Goals/Design/Alternatives/Cross-cutting）
   -> Build & Verify（一次一个垂直 feature）
   -> Review & Ship（代码评审 + 人工走查）
 ```
@@ -33,7 +33,7 @@ Frame（目标/非目标/完成标准）
 | 级别 | 判据（满足任一） | 产物 | 评审 |
 |---|---|---|---|
 | T0 | 注释、措辞、格式、补丁 | 无 | 自审 |
-| T1 | 单个可观察行为，不动契约/迁移/权限/依赖 | brief/plan 可合并为一段 | 1 人代码评审 |
+| T1 | 单个可观察行为，不动契约/迁移/权限/依赖 | brief/plan 可合并为一段；不单出 features | 1 人代码评审 |
 | T2 | 跨层、契约、迁移、新依赖、新模块 | brief + plan + features | 代码评审 + 测试 |
 | T3 | 权限、租户、资金、不可逆、模型/Prompt | 上述 + 威胁模型/回滚 | 独立安全评审 + 业务批准 |
 
@@ -41,38 +41,44 @@ Frame（目标/非目标/完成标准）
 
 ### 3.1 Frame
 
-产物：`brief.md`（1 页，模板 [brief](../templates/brief.md)）+ `features.md`（模板 [features](../templates/features.md)）。
+产物：`brief.md`（PR ≤1 页 + FAQ ≤5 页，模板 [brief](../templates/brief.md)）。
 
 必须写：
 
-- 问题、目标、非目标；
-- 2 分钟用户故事：谁、看到什么、发生什么；
-- done-when：测试/演示/指标；
+- PR/FAQ：客户、问题、方案、引语（无真实访谈写“待补”，不得编造）、成功度量、非目标、备选方案；
+- AC 附录：可判定、可追溯的验收编号（`scripts/trace.py` 的输入）；
 - 风险级别与理由；
-- feature 列表：每条是穿过 DB/API/UI/tests 的垂直路径，标明验证方式。
+- 垂直切片表（可选）：切片/顺序/blocking edge；这是范围决策，不是可执行 feature。
 
-完成标志：**用户能复述“做什么、不做什么、怎么算完成”**。AC 表可作附录，不是 Frame 的主角。
+完成标志：**用户能复述“为谁、做什么、不做什么、怎么算完成”**；AC 可判定、可追溯；有垂直切片时覆盖全部 AC。
 
 ### 3.2 Plan
 
-产物：`plan.md`（1–3 页；模板 [plan](../templates/plan.md)）。
+产物：`plan.md`（T2 1–3 页，T3 按需扩展，附录不计；模板 [plan](../templates/plan.md)）。
 
-必须写：
+必须写（Google Design Doc 五节，另列未决问题）：
 
-- context、goals、non-goals；
-- 方案与**取舍/替代方案**；
-- 数据/API/状态机/并发；
-- 失败路径与**用户可见文案**；
-- 测试 seam、风险、回滚。
+- Context and Scope、Goals and Non-Goals；
+- The Design：模块/数据/API/状态机/并发/失败路径；
+- Alternatives Considered：至少 1 个真实备选及不选原因；
+- Cross-cutting Concerns：安全/权限/审计、可观测性/测试 seam、风险/回滚；T3 加威胁模型与越权矩阵；
+- 未决问题：评审前清零。
 
-设计文档只在有歧义/有取舍时写；没有取舍的机械改动直接在 feature 里做。T3 加威胁模型、越权矩阵、回滚；评审一次，不按阶段重复评审。
+设计文档只在有歧义/有取舍时写；没有取舍的机械改动直接在 feature 里做；评审一次，不按阶段重复评审。
 
 完成标志：**未决项为空；每个关键决策有 why/替代方案；reviewer 能按 plan 实现。**
 
+#### 3.2.1 生成 features（Plan 批准后）
+
+- 从 plan 的契约与 brief 的 AC/垂直切片（若有）派生 `features.md`（模板 [features](../templates/features.md)）：`F-xx` + `Steps` + `AC` + `Passes: false` + `Evidence: —`；
+- 生成后检查每个 AC 至少一行、每行有可执行 `Steps`；`check-docs.py` 强制 AC 覆盖；
+- 不单独设 features 评审会；覆盖或粒度不对，退回改 plan/切片，不靠评审会补。
+
 ### 3.3 Build & Verify
 
-- 一次只做一个 feature；先写失败测试，再实现；验证方式写在 features 的“验证命令/步骤”列；
-- 每完成一个 feature，更新 `features.md` 的 `passes`；
+- 一次只做一个 feature；先写失败测试，再实现；验证方式写在 features 的 `Steps` 列；
+- 每完成一个 feature，`Steps` 全绿、`Evidence` 非空后才把 `passes` 改为 `true`；
+- 不得改 `Description`/`Steps`/`AC` 来迁就实现；要改先改 brief/plan 并重新评审；
 - 跑 `./scripts/verify.sh`；关键路径加端到端/浏览器验证；
 - 提交保持小步，main 始终可运行。
 
@@ -81,7 +87,7 @@ Frame（目标/非目标/完成标准）
 ### 3.4 Review & Ship
 
 - 独立上下文代码评审：看 diff、测试、越权/失败路径；
-- 人工走查：按 brief 的 2 分钟故事走一遍；
+- 人工走查：按 features 的 `Steps` 逐行演示；
 - lasting decisions 写 ADR；更新 plan/features，不让文档腐烂；
 - 发布后清理过期文档与 feature 状态。
 
@@ -90,9 +96,9 @@ Frame（目标/非目标/完成标准）
 ## 4. 产物路径
 
 ```text
-docs/specs/<NNN>-<slug>/brief.md      # 1 页目标/故事/done-when
-docs/specs/<NNN>-<slug>/plan.md       # 方案/取舍/契约
-docs/specs/<NNN>-<slug>/features.md   # 垂直 feature + passes
+docs/specs/<NNN>-<slug>/brief.md      # PR/FAQ + AC 附录
+docs/specs/<NNN>-<slug>/plan.md       # Context/Goals/Design/Alternatives/Cross-cutting
+docs/specs/<NNN>-<slug>/features.md   # plan 批准后生成：description/steps/AC/passes/evidence
 docs/tasks/<spec>/T-XX.md             # 当前 feature 的执行卡
 docs/reviews/<spec>/T-XX.md           # 代码评审记录
 docs/adr/                             # lasting decisions
@@ -108,10 +114,10 @@ docs/adr/                             # lasting decisions
 门禁：
 
 - G0：在 milestone 内，风险级别已定；
-- G1：brief 的 done-when 可验证；
+- G1：brief 的成功度量与 AC 可验证，且每个 AC 在 features 有引用；
 - G2：`verify.sh` 全绿；
 - G3：T3 的安全评审/回滚通过；
-- G4：用户走查通过。
+- G4：按 features 的 `Steps` 走查通过。
 
 实现者不得为自己的改动签字；代码评审用独立上下文。
 
@@ -137,7 +143,7 @@ docs/adr/                             # lasting decisions
 | 旧 | 新 |
 |---|---|
 | S0 登记/S1 规格 | Frame |
-| S1.5 可判定性评审 | 并入 Frame 的 done-when 检查 |
+| S1.5 可判定性评审 | 并入 Frame 的成功度量与 AC 检查 |
 | S2 设计 | Plan |
 | S3 任务地图/S4 卡/S5 红绿 | Build & Verify |
 | S6 验证/S7 盲评/S8 发布 | Review & Ship |
