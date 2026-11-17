@@ -306,10 +306,12 @@ def test_依赖故障返回5xx封套_AC_30() -> None:
         response = api.post(
             "/customer/sessions",
             json={"username": "customer_a", "password": DEMO_CREDENTIAL},
+            headers={"X-Request-ID": "trace-5xx"},
         )
     assert response.status_code == 500
     assert response.json()["code"] == "INTERNAL_ERROR"
     assert response.json()["visible"] is False
+    assert response.headers["X-Request-ID"] == "trace-5xx"
 
 
 def test_请求关联标识透传或生成_基座豁免() -> None:

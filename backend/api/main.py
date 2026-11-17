@@ -131,9 +131,15 @@ def create_app(settings_override: Settings | None = None) -> FastAPI:
         return await request_validation_exception_handler(request, error)
 
     @app.exception_handler(Exception)
-    async def _unhandled_error(_request: Request, error: Exception) -> JSONResponse:
-        logger.exception("未处理异常", exc_info=error)
-        return JSONResponse(status_code=500, content=error_envelope(ErrorCode.INTERNAL_ERROR))
+    async def _unhandled_error(request: Request, error: Exception) -> JSONResponse:
+        trace_id = getattr(request.state, "trace_id", None)
+        logger.exception("未处理异常 trace_id=%s", trace_id, exc_info=error)
+        headers = {"X-Request-ID": trace_id} if trace_id else None
+        return JSONResponse(
+            status_code=500,
+            content=error_envelope(ErrorCode.INTERNAL_ERROR),
+            headers=headers,
+        )
 
     app.state.oms = build_oms(active)
     app.state.model_client = build_model_client(active)
