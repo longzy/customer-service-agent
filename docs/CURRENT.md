@@ -2,10 +2,10 @@
 
 - 更新日期：2026-11-17
 - 项目阶段：M1 客户转人工闭环
-- 当前状态：F-01 客户登录/会话恢复/登出实现完成，待独立评审
+- 当前状态：F-01 客户登录/会话恢复/登出已完成（Standards/Spec 双轴评审通过）
 - 当前 Milestone：M1 企业核心客服闭环（客户转人工闭环）
 - 方向重置：[2026-11-16 企业化方向重置](initiatives/2026-11-16-enterprise-reset.md)
-- 当前工作：F-01 待独立评审；实现与证据见执行卡
+- 当前工作：下一条 feature（客户消息与 AI 回复）待建卡开工；F-01 收口完成
 
 <!-- verify:start -->
 - 最近验证：`./scripts/verify.sh` 全部检查通过——pytest 481 passed（独立测试库）、mypy 52 个文件、追溯矩阵通过（10 条 AC）、文档与前端检查通过
@@ -13,15 +13,15 @@
 
 ## 进行中
 
-- `001-customer-handoff` 客户转人工闭环：F-01 已实现，AC-30 的 13 条定向测试与全量 `verify.sh` 通过，待独立上下文评审。
+- `001-customer-handoff` 客户转人工闭环：客户登录/会话恢复切片已完成；下一条 feature（客户消息与 AI 回复）待建卡开工。
 - 后续切片：订单查询（002）、取消（003）、安全硬化（004），未启动。
 - 分支保护：GitHub 私有仓库套餐限制，待决定是否升级/公开；不阻塞核心业务。
 
 ## 下一步
 
-1. 独立上下文评审 F-01，结论写入 `docs/reviews/001-customer-handoff/F-01.md`；通过后再勾 `已完成`。
-2. 评审通过后按 features 的下一条实现客户消息与 AI 回复。
-3. 一次只做一个 feature；测试/演示通过才更新 `passes`。
+1. 为下一条 feature（客户消息与 AI 回复）建执行卡并开工。
+2. 一次只做一个 feature；测试/演示通过才更新 `passes`。
+3. F-13 收口时补登录/登出/401/403/429 审计，并按评审记录补 `after_id` 真实游标与 seed smoke。
 
 ## 已完成
 
@@ -34,6 +34,7 @@
 - 流程：S0–S8 替换为 Frame → Plan → Build & Verify → Review & Ship；新 spec 使用 `brief/plan/features`。
 - 目录：`services/` → `backend/`；import、pyproject、mypy、mutmut、检查器、脚本、测试与文档同步，全量 verify 通过。
 - 模板：`brief`（PR/FAQ）、`plan`（Google Design Doc）、`features`（Anthropic feature list）按主流结构重写；新增模板契约测试；features 改为 plan 批准后生成。001 的 brief/plan 已按新模板重排并批准。
+- F-01：客户 scrypt 登录、24h session 轮换/撤销、会话恢复、跨客户 404、登录限速、请求关联标识；`apps/chat` 登录/会话门禁；13 条 AC-30 测试与双轴评审通过。
 
 ## 阻塞
 
