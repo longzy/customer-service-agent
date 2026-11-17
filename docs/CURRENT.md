@@ -36,6 +36,7 @@
 - 模板：`brief`（PR/FAQ）、`plan`（Google Design Doc）、`features`（Anthropic feature list）按主流结构重写；新增模板契约测试；features 改为 plan 批准后生成。001 的 brief/plan 已按新模板重排并批准。
 - F-01：客户 scrypt 登录、24h session 轮换/撤销、会话恢复、跨客户 404、登录限速、请求关联标识；`apps/chat` 登录/会话门禁；13 条 AC-30 测试与双轴评审通过。
 - F-02：客户消息、AI 回复、模型超时/异常自动转人工、`after_id` 真实游标、消息幂等键与客户聊天界面；12 条 AC-31 测试与双轴评审通过。
+- OpenAPI 前端类型：production 形态导出、客户响应/错误模型、`openapi-typescript` 生成 `apps/chat/lib/api-types.ts`，`check-api-types.sh` 接入 verify/pre-commit/CI；ADR-0007。
 
 ## 阻塞
 
