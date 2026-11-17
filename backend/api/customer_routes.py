@@ -1,6 +1,6 @@
 """客户 API：登录、当前会话恢复、按所有权读取会话与登出。"""
 
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Annotated, Any
 from uuid import uuid4
 
@@ -17,6 +17,7 @@ from backend.api.customer_schemas import (
     MessagePublic,
 )
 from backend.api.errors import ApiError
+from backend.api.session_http import client_ip, set_session_cookie, settings_of, utc_text
 from backend.conversations.customer_chat import (
     ChatResult,
     ConversationClosedError,
@@ -36,7 +37,6 @@ from backend.domain.errors import ErrorCode
 from backend.identity import customer_sessions
 from backend.identity.customer_sessions import Customer, ResolvedCustomerSession
 from backend.platform.db import get_session
-from backend.platform.settings import Settings
 
 router = APIRouter(prefix="/customer", tags=["customer"])
 
@@ -82,10 +82,6 @@ class CustomerLoginRequest(BaseModel):
         return value
 
 
-def _utc_text(value: datetime) -> str:
-    return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
-
-
 def _payload(
     customer: Customer, conversation: CustomerConversation, expires_at: datetime
 ) -> CustomerSessionResponse:
@@ -101,7 +97,7 @@ def _payload(
             status=conversation.status,  # type: ignore[arg-type]
             after_id=conversation.after_id,
         ),
-        expires_at=_utc_text(expires_at),
+        expires_at=utc_text(expires_at),
     )
 
 
@@ -110,7 +106,7 @@ def _message_json(message: MessageView) -> MessagePublic:
         id=message.id,
         author_type=message.author_type,  # type: ignore[arg-type]
         content=message.content,
-        created_at=_utc_text(message.created_at),
+        created_at=utc_text(message.created_at),
     )
 
 
@@ -121,28 +117,6 @@ def _chat_payload(result: ChatResult) -> MessagePageResponse:
         after_id=result.after_id,
         messages=[_message_json(message) for message in result.messages],
     )
-
-
-def _client_ip(request: Request) -> str:
-    """只信任直连 peer；不解析裸 X-Forwarded-For。"""
-    return request.client.host if request.client is not None else "unknown"
-
-
-def _set_cookie(response: Response, token: str, active: Settings) -> None:
-    response.set_cookie(
-        customer_sessions.CUSTOMER_COOKIE,
-        token,
-        max_age=int(customer_sessions.CUSTOMER_SESSION_TTL.total_seconds()),
-        httponly=True,
-        secure=active.secure_cookie,
-        samesite="lax",
-        path="/",
-    )
-
-
-def settings_of(request: Request) -> Settings:
-    active: Settings = request.app.state.settings
-    return active
 
 
 async def current_customer_session(
@@ -182,7 +156,7 @@ async def login(
             settings_of(request).m1_tenant_id,
             payload.username,
             payload.password,
-            _client_ip(request),
+            client_ip(request),
         )
     except customer_sessions.RateLimitedError as error:
         raise ApiError(
@@ -199,7 +173,13 @@ async def login(
         customer_sessions.utc_now(),
     )
     await db.commit()
-    _set_cookie(response, result.token, settings_of(request))
+    set_session_cookie(
+        response,
+        name=customer_sessions.CUSTOMER_COOKIE,
+        token=result.token,
+        ttl=customer_sessions.CUSTOMER_SESSION_TTL,
+        active=settings_of(request),
+    )
     return _payload(result.customer, conversation, result.expires_at)
 
 

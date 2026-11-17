@@ -12,12 +12,12 @@
 
 ```bash
 # 改了后端请求/响应/错误封套后
-pnpm -C packages/contracts generate     # 生成 apps/chat/lib/api-types.ts
+pnpm -C packages/contracts generate     # 生成 apps/chat 与 apps/workspace 的类型
 ./scripts/check-api-types.sh            # 校验 OpenAPI 快照 + 生成物是否最新
 ```
 
-- `apps/chat/lib/session.ts` 只做 `components["schemas"][...]` 别名；**不手写响应字段**。
-- `apps/chat/lib/api-types.ts` 是生成物，不手改，不进入 Prettier。
+- `apps/chat/lib/session.ts`、`apps/workspace/lib/session.ts` 只做 `components["schemas"][...]` 别名；**不手写响应字段**。
+- `apps/chat/lib/api-types.ts`、`apps/workspace/lib/api-types.ts` 是生成物，不手改，不进入 Prettier。
 - `apps/web` 是 M1-P 归档原型，保留手写类型；新 M1 前端不复制这个例外。
 - 金额统一整数分；时间为带 `Z` 的 ISO 8601 UTC 字符串；未知字段一律拒绝。
 - 完整决策见 [ADR-0007](../../docs/adr/0007-openapi-frontend-types.md)。

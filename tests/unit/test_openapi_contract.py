@@ -8,6 +8,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[2]
 SPEC = ROOT / "packages" / "contracts" / "openapi.json"
 TYPES = ROOT / "apps" / "chat" / "lib" / "api-types.ts"
+WORKSPACE_TYPES = ROOT / "apps" / "workspace" / "lib" / "api-types.ts"
 
 EXPECTED = {
     "/customer/sessions": "CustomerSessionResponse",
@@ -65,5 +66,23 @@ def test_生成类型包含客户契约_基座豁免() -> None:
         "ErrorEnvelope",
         '"AI_ACTIVE"',
     ):
+        assert name in content
+    assert "Do not make direct changes" in content
+
+
+def test_工作台契约进入生成类型_基座豁免() -> None:
+    document = _document()
+    login = document["paths"]["/workspace/sessions"]["post"]
+    response = login["responses"]["200"]["content"]["application/json"]["schema"]
+    assert response["$ref"].endswith("/EmployeeSessionResponse")
+    assert (
+        document["components"]["schemas"]["EmployeeSessionResponse"]["additionalProperties"]
+        is False
+    )
+    assert "/workspace/session" in document["paths"]
+    assert "/workspace/conversations/{conversation_id}" in document["paths"]
+
+    content = WORKSPACE_TYPES.read_text(encoding="utf-8")
+    for name in ("EmployeeSessionResponse", "EmployeePublic", "WorkspaceConversationResponse"):
         assert name in content
     assert "Do not make direct changes" in content

@@ -124,6 +124,18 @@ pnpm -C apps/chat typecheck
 echo "== chat test =="
 pnpm -C apps/chat test
 
+echo "== workspace lint =="
+pnpm -C apps/workspace lint
+
+echo "== workspace format =="
+pnpm -C apps/workspace exec prettier --check .
+
+echo "== workspace typecheck =="
+pnpm -C apps/workspace typecheck
+
+echo "== workspace test =="
+pnpm -C apps/workspace test
+
 PYTEST_LINE=$(grep -E "[0-9]+ passed" "$PYTEST_LOG" | tail -1)
 MYPY_LINE=$(uv run mypy backend 2>&1 | tail -1)
 DOCS_LINE=$(python3 scripts/check-docs.py 2>&1 | tail -1)

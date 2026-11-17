@@ -1,0 +1,8 @@
+node_modules/
+.next/
+coverage/
+*.tsbuildinfo
+pnpm-lock.yaml
+
+# OpenAPI 生成物，格式由生成器决定
+lib/api-types.ts

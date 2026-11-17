@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""创建/重置 M1 演示客户账号：customer_a、customer_b。
+"""创建/重置 M1 演示账号：客户 customer_a/customer_b，坐席 agent_1/agent_2。
 
 用法：在 `.env` 设置 `DEMO_PASSWORD` 后运行 `python scripts/seed_demo.py`。
 密码不落仓库、不打印；脚本可重复执行（按 tenant_id + username 幂等）。
@@ -17,12 +17,16 @@ from sqlalchemy import select  # noqa: E402
 
 from backend.identity.passwords import hash_password  # noqa: E402
 from backend.platform.db import session_factory  # noqa: E402
-from backend.platform.models import ServiceCustomer  # noqa: E402
+from backend.platform.models import ServiceCustomer, ServiceEmployee  # noqa: E402
 from backend.platform.settings import Settings  # noqa: E402
 
 DEMO_CUSTOMERS: tuple[tuple[str, str], ...] = (
     ("customer_a", "客户甲"),
     ("customer_b", "客户乙"),
+)
+DEMO_EMPLOYEES: tuple[tuple[str, str], ...] = (
+    ("agent_1", "坐席 1"),
+    ("agent_2", "坐席 2"),
 )
 
 
@@ -55,6 +59,31 @@ async def seed(active: Settings) -> list[str]:
             row.display_name = display_name
             row.active = True
             changed.append(f"{username}（重置密码）")
+        for username, display_name in DEMO_EMPLOYEES:
+            statement = select(ServiceEmployee).where(
+                ServiceEmployee.tenant_id == active.m1_tenant_id,
+                ServiceEmployee.username == username,
+            )
+            row = (await db.execute(statement)).scalar_one_or_none()
+            if row is None:
+                db.add(
+                    ServiceEmployee(
+                        id=str(uuid4()),
+                        tenant_id=active.m1_tenant_id,
+                        username=username,
+                        password_hash=hash_password(password),
+                        role="agent",
+                        display_name=display_name,
+                        active=True,
+                    )
+                )
+                changed.append(f"{username}（坐席，新建）")
+                continue
+            row.password_hash = hash_password(password)
+            row.display_name = display_name
+            row.role = "agent"
+            row.active = True
+            changed.append(f"{username}（坐席，重置密码）")
         await db.commit()
     return changed
 
@@ -62,7 +91,7 @@ async def seed(active: Settings) -> list[str]:
 def main() -> int:
     active = Settings()
     changed = asyncio.run(seed(active))
-    print("演示客户账号已就绪：")
+    print("演示账号已就绪：")
     for item in changed:
         print(f"  - {item}")
     print(f"租户：{active.m1_tenant_id}；密码来自 DEMO_PASSWORD，未显示。")

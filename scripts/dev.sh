@@ -43,11 +43,13 @@ deps_hash() {
   if command -v shasum >/dev/null 2>&1; then
     shasum -a 256 pyproject.toml uv.lock apps/web/package.json apps/web/pnpm-lock.yaml \
       apps/chat/package.json apps/chat/pnpm-lock.yaml \
+      apps/workspace/package.json apps/workspace/pnpm-lock.yaml \
       packages/contracts/package.json packages/contracts/pnpm-lock.yaml \
       | shasum -a 256 | awk '{print $1}'
   else
     sha256sum pyproject.toml uv.lock apps/web/package.json apps/web/pnpm-lock.yaml \
       apps/chat/package.json apps/chat/pnpm-lock.yaml \
+      apps/workspace/package.json apps/workspace/pnpm-lock.yaml \
       packages/contracts/package.json packages/contracts/pnpm-lock.yaml \
       | sha256sum | awk '{print $1}'
   fi
@@ -56,6 +58,7 @@ deps_hash() {
 if [ "$NO_INSTALL" = "1" ]; then
   echo "跳过依赖安装（--no-install）。"
 elif [ -d .venv ] && [ -d apps/web/node_modules ] && [ -d apps/chat/node_modules ] \
+  && [ -d apps/workspace/node_modules ] \
   && [ -d packages/contracts/node_modules ] && [ -f "$DEPS_HASH_FILE" ] \
   && [ "$(cat "$DEPS_HASH_FILE")" = "$(deps_hash)" ]; then
   echo "依赖未变化，跳过安装。"
@@ -64,6 +67,7 @@ else
   uv sync --frozen
   pnpm -C apps/web install --frozen-lockfile
   pnpm -C apps/chat install --frozen-lockfile
+  pnpm -C apps/workspace install --frozen-lockfile
   pnpm -C packages/contracts install --frozen-lockfile
   deps_hash >"$DEPS_HASH_FILE"
 fi
@@ -75,21 +79,27 @@ if [ -z "${MODEL_API_KEY:-}" ]; then
 fi
 
 BACKEND_PID=""
-FRONTEND_PID=""
+CHAT_PID=""
+WORKSPACE_PID=""
 cleanup() {
   trap - EXIT INT TERM
   [ -n "$BACKEND_PID" ] && kill "$BACKEND_PID" 2>/dev/null || true
-  [ -n "$FRONTEND_PID" ] && kill "$FRONTEND_PID" 2>/dev/null || true
+  [ -n "$CHAT_PID" ] && kill "$CHAT_PID" 2>/dev/null || true
+  [ -n "$WORKSPACE_PID" ] && kill "$WORKSPACE_PID" 2>/dev/null || true
   [ -n "$BACKEND_PID" ] && wait "$BACKEND_PID" 2>/dev/null || true
-  [ -n "$FRONTEND_PID" ] && wait "$FRONTEND_PID" 2>/dev/null || true
+  [ -n "$CHAT_PID" ] && wait "$CHAT_PID" 2>/dev/null || true
+  [ -n "$WORKSPACE_PID" ] && wait "$WORKSPACE_PID" 2>/dev/null || true
 }
 trap cleanup EXIT INT TERM
 
-echo "启动 API   http://127.0.0.1:8000"
-echo "启动 Chat  http://localhost:3000  （Ctrl-C 同时停止）"
+echo "启动 API       http://127.0.0.1:8000"
+echo "启动 Chat      http://localhost:3000"
+echo "启动 Workspace http://localhost:3001  （Ctrl-C 同时停止）"
 uv run uvicorn backend.api.main:app --reload --port 8000 &
 BACKEND_PID=$!
 pnpm -C apps/chat dev &
-FRONTEND_PID=$!
+CHAT_PID=$!
+PORT=3001 pnpm -C apps/workspace dev &
+WORKSPACE_PID=$!
 
-wait "$BACKEND_PID" "$FRONTEND_PID"
+wait "$BACKEND_PID" "$CHAT_PID" "$WORKSPACE_PID"

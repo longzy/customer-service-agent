@@ -158,6 +158,39 @@ class ServiceCustomerSession(Base):
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+class ServiceEmployee(Base):
+    """M1 员工账号；M1 仅 `agent` 角色。"""
+
+    __tablename__ = "service_employees"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "username", name="uq_service_employees_tenant_username"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), index=True)
+    username: Mapped[str] = mapped_column(String(64))
+    password_hash: Mapped[str] = mapped_column(String(256))
+    role: Mapped[str] = mapped_column(String(32), default="agent")
+    display_name: Mapped[str] = mapped_column(String(64))
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class ServiceEmployeeSession(Base):
+    """员工登录 session；只存 token 的 SHA-256，8h 绝对过期。"""
+
+    __tablename__ = "service_employee_sessions"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    employee_id: Mapped[str] = mapped_column(
+        ForeignKey("service_employees.id", ondelete="CASCADE"), index=True
+    )
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
 class ServiceConversation(Base):
     """客户会话；同一客户同时只能有一个未关闭会话。"""
 

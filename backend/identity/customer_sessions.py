@@ -6,22 +6,20 @@
 - 登录与恢复只 flush，调用方负责提交。
 """
 
-import hashlib
 import secrets
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from uuid import uuid4
 
 from sqlalchemy import select, update
-from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.identity.passwords import verify_dummy_password, verify_password
-from backend.platform.models import (
-    ServiceCustomer,
-    ServiceCustomerSession,
-    ServiceRateLimitBucket,
-)
+from backend.identity.rate_limit import RateLimitedError as RateLimitedError
+from backend.identity.rate_limit import consume_fixed_window
+from backend.identity.tokens import hash_token as hash_token
+from backend.identity.tokens import utc_now as utc_now
+from backend.platform.models import ServiceCustomer, ServiceCustomerSession
 
 CUSTOMER_SESSION_TTL = timedelta(hours=24)
 LOGIN_LIMIT = 5
@@ -35,14 +33,6 @@ class InvalidSessionError(Exception):
 
 class ExpiredSessionError(Exception):
     """session 已过期；与 InvalidSession 分开，便于返回不同错误码。"""
-
-
-class RateLimitedError(Exception):
-    """登录尝试超过窗口上限。"""
-
-    def __init__(self, retry_after_seconds: int) -> None:
-        super().__init__("rate limited")
-        self.retry_after_seconds = retry_after_seconds
 
 
 @dataclass(frozen=True)
@@ -66,40 +56,15 @@ class ResolvedCustomerSession:
     expires_at: datetime
 
 
-def utc_now() -> datetime:
-    return datetime.now(UTC)
-
-
-def hash_token(token: str) -> str:
-    """token 只以 SHA-256 入库；256-bit 随机量无需再加盐。"""
-    return hashlib.sha256(token.encode("utf-8")).hexdigest()
-
-
 async def _check_login_rate_limit(db: AsyncSession, username: str, ip: str) -> None:
     """固定窗口 5/15min；先写桶再校验业务，超限直接 429。"""
-    now = utc_now()
-    window_seconds = int(LOGIN_WINDOW.total_seconds())
-    # 按整数秒对齐窗口，避免浮点误差把同一窗口拆成多个桶。
-    epoch = int(now.timestamp())
-    window_start = datetime.fromtimestamp(epoch - epoch % window_seconds, UTC)
-    key = f"customer_login:{username.strip().lower()}:{ip}"
-    statement = (
-        insert(ServiceRateLimitBucket)
-        .values(bucket_key=key, window_start=window_start, count=1)
-        .on_conflict_do_update(
-            index_elements=[
-                ServiceRateLimitBucket.bucket_key,
-                ServiceRateLimitBucket.window_start,
-            ],
-            set_={"count": ServiceRateLimitBucket.count + 1},
-        )
-        .returning(ServiceRateLimitBucket.count)
+    await consume_fixed_window(
+        db,
+        bucket_key=f"customer_login:{username.strip().lower()}:{ip}",
+        limit=LOGIN_LIMIT,
+        window=LOGIN_WINDOW,
+        now=utc_now(),
     )
-    count = (await db.execute(statement)).scalar_one()
-    await db.commit()
-    if count > LOGIN_LIMIT:
-        retry_after = int((window_start + LOGIN_WINDOW - now).total_seconds())
-        raise RateLimitedError(max(retry_after, 1))
 
 
 async def _lookup_customer(

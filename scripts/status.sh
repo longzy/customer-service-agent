@@ -5,7 +5,7 @@ cd "$(git rev-parse --show-toplevel)"
 export UV_CACHE_DIR="${UV_CACHE_DIR:-./.uv-cache}"
 
 echo "== 端口 =="
-for port in 3000 8000; do
+for port in 3000 3001 8000; do
   if lsof -tiTCP:"$port" -sTCP:LISTEN >/dev/null 2>&1; then
     echo "  $port: 监听中（$(lsof -tiTCP:"$port" -sTCP:LISTEN | tr '\n' ' ')）"
   else

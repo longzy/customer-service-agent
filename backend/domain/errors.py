@@ -15,6 +15,7 @@ class ErrorCode(StrEnum):
     SESSION_EXPIRED = "SESSION_EXPIRED"
     AUTH_FAILED = "AUTH_FAILED"
     NOT_FOUND = "NOT_FOUND"
+    FORBIDDEN = "FORBIDDEN"
     VALIDATION_ERROR = "VALIDATION_ERROR"
     RATE_LIMITED = "RATE_LIMITED"
     CONVERSATION_CLOSED = "CONVERSATION_CLOSED"
@@ -42,6 +43,7 @@ SPECS: dict[ErrorCode, ErrorSpec] = {
     ErrorCode.SESSION_EXPIRED: ErrorSpec(False, True, "登录已过期，请重新登录"),
     ErrorCode.AUTH_FAILED: ErrorSpec(False, True, "账号或密码不正确"),
     ErrorCode.NOT_FOUND: ErrorSpec(False, True, "未找到"),
+    ErrorCode.FORBIDDEN: ErrorSpec(False, True, "无权访问"),
     ErrorCode.VALIDATION_ERROR: ErrorSpec(False, True, "请求参数不正确"),
     ErrorCode.RATE_LIMITED: ErrorSpec(True, True, "请求过于频繁，请稍后再试"),
     ErrorCode.CONVERSATION_CLOSED: ErrorSpec(False, True, "会话已结束"),

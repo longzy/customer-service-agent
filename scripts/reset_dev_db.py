@@ -86,7 +86,7 @@ def _run(command: list[str]) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description="重建本地开发库")
     parser.add_argument("--yes", action="store_true", help="跳过交互确认")
-    parser.add_argument("--keep-servers", action="store_true", help="不停止 3000/8000")
+    parser.add_argument("--keep-servers", action="store_true", help="不停止 3000/3001/8000")
     args = parser.parse_args()
     os.environ.setdefault("UV_CACHE_DIR", str(ROOT / ".uv-cache"))
 

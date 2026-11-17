@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "scripts": {
-    "generate": "openapi-typescript openapi.json -o ../../apps/chat/lib/api-types.ts"
+    "generate": "openapi-typescript openapi.json -o ../../apps/chat/lib/api-types.ts && openapi-typescript openapi.json -o ../../apps/workspace/lib/api-types.ts"
   },
   "devDependencies": {
     "openapi-typescript": "^7.13.0"

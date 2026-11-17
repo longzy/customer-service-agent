@@ -1,6 +1,5 @@
 # 客户转人工闭环（003）的 AC；测试落地后逐条删除，切片出口清零。
 AC-33: 客户转人工闭环规划中，待 Build & Verify 测试
-AC-34: 客户转人工闭环规划中，待 Build & Verify 测试
 AC-35: 客户转人工闭环规划中，待 Build & Verify 测试
 AC-36: 客户转人工闭环规划中，待 Build & Verify 测试
 AC-37: 客户转人工闭环规划中，待 Build & Verify 测试

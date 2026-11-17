@@ -28,6 +28,7 @@ from backend.api.errors import ApiError, api_error_handler
 from backend.api.handoff_routes import router as handoff_router
 from backend.api.request_id import attach_request_id
 from backend.api.session_routes import router as session_router
+from backend.api.workspace_routes import router as workspace_router
 from backend.domain.errors import ErrorCode
 from backend.platform.observability import AsyncTraceSink, TraceSinkError, use_trace_sink
 from backend.platform.settings import Settings, settings
@@ -126,7 +127,7 @@ def create_app(settings_override: Settings | None = None) -> FastAPI:
     @app.exception_handler(RequestValidationError)
     async def _validation_error(request: Request, error: RequestValidationError) -> Response:
         # 只有新 M1 客户 API 使用统一封套；旧 M1-P 路由保持原响应格式。
-        if request.url.path.startswith("/customer/"):
+        if request.url.path.startswith(("/customer/", "/workspace/")):
             return JSONResponse(status_code=422, content=error_envelope(ErrorCode.VALIDATION_ERROR))
         return await request_validation_exception_handler(request, error)
 
@@ -153,6 +154,7 @@ def create_app(settings_override: Settings | None = None) -> FastAPI:
     app.middleware("http")(attach_request_id)
     if active.m1_enabled:
         app.include_router(customer_router)
+        app.include_router(workspace_router)
     app.include_router(session_router)
     app.include_router(conversation_router)
     app.include_router(cancellation_router)

@@ -5,7 +5,14 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 TEST_ENVIRONMENTS = {"development", "test"}
 # 本地开发默认的前端地址：Next 开发服务器通过 /api 反向代理到后端
-DEV_FRONTEND_ORIGINS = frozenset({"http://localhost:3000", "http://127.0.0.1:3000"})
+DEV_FRONTEND_ORIGINS = frozenset(
+    {
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:3001",
+        "http://127.0.0.1:3001",
+    }
+)
 
 
 class Settings(BaseSettings):

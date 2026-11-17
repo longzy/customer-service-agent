@@ -12,7 +12,7 @@
 
 > 客户匿名聊天 -> AI 自动回复/查单取消 -> 转人工进入队列 -> 坐席登录领取并接管 -> 回复 -> 关闭或转回 AI
 
-新 M1 已从 F-01（客户登录/会话恢复/登出）开始实现：`apps/chat` 是新客户入口，`apps/web` 与旧 `backend/` 路由保留为 M1-P 资产。退款、主管/管理员、客户自助注册、全渠道、OIDC/SSO 和真实 OMS 不在 M1 范围内。
+M1 正在按 F-01→F-14 实现：`apps/chat` 是客户入口，`apps/workspace` 是坐席工作台，`apps/web` 与旧 `backend/` 路由保留为 M1-P 资产。退款、主管/管理员、客户自助注册、全渠道、OIDC/SSO 和真实 OMS 不在 M1 范围内。
 
 ## 文档入口
 
@@ -69,16 +69,16 @@ make dev
 - 没有 `.env` 时从 `.env.example` 创建；
 - 创建数据库 `customer_service`（不存在时）并执行迁移；
 - 安装依赖；依赖未变化时自动跳过；
-- 同时启动 API `http://127.0.0.1:8000` 与客户 Chat `http://localhost:3000`；Ctrl-C 一起停止。
+- 同时启动 API `http://127.0.0.1:8000`、客户 Chat `http://localhost:3000` 与坐席工作台 `http://localhost:3001`；Ctrl-C 一起停止。
 
 需要自然语言演示时，先在 `.env` 填 `MODEL_API_KEY`；留空会用假模型，只适合测试。数据库连接可在 `.env` 用 `DATABASE_URL` 覆盖。
 
-M1 演示账号：`customer_a`/`customer_b`；密码由 `.env` 的 `DEMO_PASSWORD` 决定，运行 `uv run python scripts/seed_demo.py` 创建或重置，密码不提交。
+M1 演示账号：客户 `customer_a`/`customer_b`，坐席 `agent_1`/`agent_2`；密码由 `.env` 的 `DEMO_PASSWORD` 决定，运行 `uv run python scripts/seed_demo.py` 创建或重置，密码不提交。
 
-排障：`make status` 查看端口/数据库/迁移/模型/契约；`make dev-stop` 停止本地 3000/8000。
+排障：`make status` 查看端口/数据库/迁移/模型/契约；`make dev-stop` 停止本地 3000/3001/8000。
 演示模型失败：把 `.env` 的 `MODEL_API_KEY` 置空，设 `FAKE_MODEL_MODE=timeout`（或 `error`），再 `make dev`。
 
-演示数据可随时回到干净起点：`make dev-reset`（停 3000/8000、重建开发库、迁移并重播种；非交互运行用 `make dev-reset ARGS=--yes`）。开发库视为可抛弃资源，不要在里面存长期数据；不要手写 `DELETE`/`UPDATE` 修改演示库，需要重置时只用该命令；生产环境与远端数据库会被脚本拒绝。
+演示数据可随时回到干净起点：`make dev-reset`（停 3000/3001/8000、重建开发库、迁移并重播种；非交互运行用 `make dev-reset ARGS=--yes`）。开发库视为可抛弃资源，不要在里面存长期数据；不要手写 `DELETE`/`UPDATE` 修改演示库，需要重置时只用该命令；生产环境与远端数据库会被脚本拒绝。
 
 ## 验证与测试
 
@@ -104,6 +104,9 @@ pnpm -C apps/web test
 pnpm -C apps/chat lint
 pnpm -C apps/chat typecheck
 pnpm -C apps/chat test
+pnpm -C apps/workspace lint
+pnpm -C apps/workspace typecheck
+pnpm -C apps/workspace test
 ```
 
 需要保留日志时用 `make verify-check`，或 `./scripts/verify.sh --no-record > /tmp/verify.log 2>&1; echo $?`；不要把 verify 接入 `| tail`，管道会吞掉退出码。
