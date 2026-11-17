@@ -1,36 +1,20 @@
 {
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/contracts/domain.json",
+  "title": "M1 领域契约",
   "$defs": {
-    "CancelEligibility": {
-      "additionalProperties": false,
-      "properties": {
-        "eligible": {
-          "type": "boolean"
-        },
-        "reason_code": {
-          "$ref": "#/$defs/CancelReason"
-        },
-        "requires_confirmation": {
-          "type": "boolean"
-        }
-      },
-      "required": [
-        "eligible",
-        "reason_code",
-        "requires_confirmation"
-      ],
-      "type": "object"
-    },
-    "CancelReason": {
+    "OrderStatus": {
+      "type": "string",
       "enum": [
-        "UNFULFILLED",
+        "PAID_UNFULFILLED",
         "FULFILLING",
         "SHIPPED",
         "DELIVERED",
         "CANCELLED"
-      ],
-      "type": "string"
+      ]
     },
     "CancellationState": {
+      "type": "string",
       "enum": [
         "COLLECTING",
         "AWAITING_CONFIRMATION",
@@ -42,10 +26,10 @@
         "REJECTED",
         "MANUAL_REVIEW",
         "ABANDONED"
-      ],
-      "type": "string"
+      ]
     },
     "ErrorCode": {
+      "type": "string",
       "enum": [
         "ELIGIBILITY_REJECTED",
         "OMS_REJECTED",
@@ -62,11 +46,252 @@
         "VALIDATION_ERROR",
         "RATE_LIMITED",
         "CONVERSATION_CLOSED"
+      ]
+    },
+    "OrderItem": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sku",
+        "name",
+        "quantity",
+        "unit_amount_cents"
       ],
-      "type": "string"
+      "properties": {
+        "sku": {
+          "type": "string",
+          "minLength": 1
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "quantity": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "unit_amount_cents": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "OrderSummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "order_id",
+        "item_summary",
+        "order_status",
+        "cancelable",
+        "amount_cents",
+        "currency",
+        "created_at"
+      ],
+      "properties": {
+        "order_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "item_summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "order_status": {
+          "$ref": "#/$defs/OrderStatus"
+        },
+        "cancelable": {
+          "type": "boolean"
+        },
+        "amount_cents": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "created_at": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$",
+          "format": "date-time"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "order_status": {
+                "const": "PAID_UNFULFILLED"
+              }
+            },
+            "required": [
+              "order_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "cancelable": {
+                "const": true
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "cancelable": {
+                "const": false
+              }
+            }
+          }
+        }
+      ]
+    },
+    "OrderDetail": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "order_id",
+        "item_summary",
+        "order_status",
+        "cancelable",
+        "amount_cents",
+        "currency",
+        "created_at",
+        "items",
+        "paid_at",
+        "shipped_at"
+      ],
+      "properties": {
+        "order_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "item_summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "order_status": {
+          "$ref": "#/$defs/OrderStatus"
+        },
+        "cancelable": {
+          "type": "boolean"
+        },
+        "amount_cents": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "created_at": {
+          "type": "string",
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$"
+        },
+        "items": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/OrderItem"
+          }
+        },
+        "paid_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "shipped_at": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "order_status": {
+                "const": "PAID_UNFULFILLED"
+              }
+            },
+            "required": [
+              "order_status"
+            ]
+          },
+          "then": {
+            "properties": {
+              "cancelable": {
+                "const": true
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "cancelable": {
+                "const": false
+              }
+            }
+          }
+        }
+      ]
+    },
+    "CancelEligibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "eligible",
+        "reason_code",
+        "requires_confirmation"
+      ],
+      "properties": {
+        "eligible": {
+          "type": "boolean"
+        },
+        "reason_code": {
+          "$ref": "#/$defs/CancelReason"
+        },
+        "requires_confirmation": {
+          "type": "boolean"
+        }
+      }
     },
     "ErrorEnvelope": {
+      "type": "object",
       "additionalProperties": false,
+      "required": [
+        "code",
+        "retryable",
+        "visible",
+        "message"
+      ],
+      "properties": {
+        "code": {
+          "$ref": "#/$defs/ErrorCode"
+        },
+        "retryable": {
+          "type": "boolean"
+        },
+        "visible": {
+          "type": "boolean"
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
       "allOf": [
         {
           "if": {
@@ -398,291 +623,30 @@
             }
           }
         }
-      ],
-      "properties": {
-        "code": {
-          "$ref": "#/$defs/ErrorCode"
-        },
-        "message": {
-          "minLength": 1,
-          "type": "string"
-        },
-        "retryable": {
-          "type": "boolean"
-        },
-        "visible": {
-          "type": "boolean"
-        }
-      },
-      "required": [
-        "code",
-        "retryable",
-        "visible",
-        "message"
-      ],
-      "type": "object"
+      ]
     },
     "OmsCancelState": {
+      "type": "string",
       "enum": [
         "ACCEPTED",
         "CANCELLED",
         "REJECTED",
         "UNKNOWN"
-      ],
-      "type": "string"
+      ]
     },
-    "OrderDetail": {
-      "additionalProperties": false,
-      "allOf": [
-        {
-          "else": {
-            "properties": {
-              "cancelable": {
-                "const": false
-              }
-            }
-          },
-          "if": {
-            "properties": {
-              "order_status": {
-                "const": "PAID_UNFULFILLED"
-              }
-            },
-            "required": [
-              "order_status"
-            ]
-          },
-          "then": {
-            "properties": {
-              "cancelable": {
-                "const": true
-              }
-            }
-          }
-        }
-      ],
-      "properties": {
-        "amount_cents": {
-          "minimum": 0,
-          "type": "integer"
-        },
-        "cancelable": {
-          "type": "boolean"
-        },
-        "created_at": {
-          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$",
-          "type": "string"
-        },
-        "currency": {
-          "pattern": "^[A-Z]{3}$",
-          "type": "string"
-        },
-        "item_summary": {
-          "minLength": 1,
-          "type": "string"
-        },
-        "items": {
-          "items": {
-            "$ref": "#/$defs/OrderItem"
-          },
-          "type": "array"
-        },
-        "order_id": {
-          "minLength": 1,
-          "type": "string"
-        },
-        "order_status": {
-          "$ref": "#/$defs/OrderStatus"
-        },
-        "paid_at": {
-          "anyOf": [
-            {
-              "format": "date-time",
-              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        },
-        "shipped_at": {
-          "anyOf": [
-            {
-              "format": "date-time",
-              "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ]
-        }
-      },
-      "required": [
-        "order_id",
-        "item_summary",
-        "order_status",
-        "cancelable",
-        "amount_cents",
-        "currency",
-        "created_at",
-        "items",
-        "paid_at",
-        "shipped_at"
-      ],
-      "type": "object"
-    },
-    "OrderItem": {
-      "additionalProperties": false,
-      "properties": {
-        "name": {
-          "minLength": 1,
-          "type": "string"
-        },
-        "quantity": {
-          "minimum": 1,
-          "type": "integer"
-        },
-        "sku": {
-          "minLength": 1,
-          "type": "string"
-        },
-        "unit_amount_cents": {
-          "minimum": 0,
-          "type": "integer"
-        }
-      },
-      "required": [
-        "sku",
-        "name",
-        "quantity",
-        "unit_amount_cents"
-      ],
-      "type": "object"
-    },
-    "OrderStatus": {
+    "CancelReason": {
+      "type": "string",
       "enum": [
-        "PAID_UNFULFILLED",
+        "UNFULFILLED",
         "FULFILLING",
         "SHIPPED",
         "DELIVERED",
         "CANCELLED"
-      ],
-      "type": "string"
-    },
-    "OrderSummary": {
-      "additionalProperties": false,
-      "allOf": [
-        {
-          "else": {
-            "properties": {
-              "cancelable": {
-                "const": false
-              }
-            }
-          },
-          "if": {
-            "properties": {
-              "order_status": {
-                "const": "PAID_UNFULFILLED"
-              }
-            },
-            "required": [
-              "order_status"
-            ]
-          },
-          "then": {
-            "properties": {
-              "cancelable": {
-                "const": true
-              }
-            }
-          }
-        }
-      ],
-      "properties": {
-        "amount_cents": {
-          "minimum": 0,
-          "type": "integer"
-        },
-        "cancelable": {
-          "type": "boolean"
-        },
-        "created_at": {
-          "format": "date-time",
-          "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?Z$",
-          "type": "string"
-        },
-        "currency": {
-          "pattern": "^[A-Z]{3}$",
-          "type": "string"
-        },
-        "item_summary": {
-          "minLength": 1,
-          "type": "string"
-        },
-        "order_id": {
-          "minLength": 1,
-          "type": "string"
-        },
-        "order_status": {
-          "$ref": "#/$defs/OrderStatus"
-        }
-      },
-      "required": [
-        "order_id",
-        "item_summary",
-        "order_status",
-        "cancelable",
-        "amount_cents",
-        "currency",
-        "created_at"
-      ],
-      "type": "object"
+      ]
     }
   },
-  "$id": "https://example.local/contracts/domain.json",
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "M1 领域契约",
   "x-error-specs": {
-    "AUTH_FAILED": {
-      "retryable": false,
-      "visible": true
-    },
-    "CONVERSATION_CLOSED": {
-      "retryable": false,
-      "visible": true
-    },
-    "DEPENDENCY_TIMEOUT": {
-      "retryable": true,
-      "visible": true
-    },
-    "DEPENDENCY_UNAVAILABLE": {
-      "retryable": true,
-      "visible": true
-    },
     "ELIGIBILITY_REJECTED": {
-      "retryable": false,
-      "visible": true
-    },
-    "FORBIDDEN": {
-      "retryable": false,
-      "visible": true
-    },
-    "INTERNAL_ERROR": {
-      "retryable": false,
-      "visible": false
-    },
-    "INVALID_RESPONSE": {
-      "retryable": true,
-      "visible": true
-    },
-    "NOT_FOUND": {
-      "retryable": false,
-      "visible": true
-    },
-    "NOT_FOUND_OR_UNAUTHORIZED": {
       "retryable": false,
       "visible": true
     },
@@ -690,19 +654,55 @@
       "retryable": false,
       "visible": true
     },
-    "RATE_LIMITED": {
+    "NOT_FOUND_OR_UNAUTHORIZED": {
+      "retryable": false,
+      "visible": true
+    },
+    "DEPENDENCY_UNAVAILABLE": {
       "retryable": true,
+      "visible": true
+    },
+    "DEPENDENCY_TIMEOUT": {
+      "retryable": true,
+      "visible": true
+    },
+    "INVALID_RESPONSE": {
+      "retryable": true,
+      "visible": true
+    },
+    "INTERNAL_ERROR": {
+      "retryable": false,
+      "visible": false
+    },
+    "SESSION_INVALID": {
+      "retryable": false,
       "visible": true
     },
     "SESSION_EXPIRED": {
       "retryable": false,
       "visible": true
     },
-    "SESSION_INVALID": {
+    "AUTH_FAILED": {
+      "retryable": false,
+      "visible": true
+    },
+    "NOT_FOUND": {
+      "retryable": false,
+      "visible": true
+    },
+    "FORBIDDEN": {
       "retryable": false,
       "visible": true
     },
     "VALIDATION_ERROR": {
+      "retryable": false,
+      "visible": true
+    },
+    "RATE_LIMITED": {
+      "retryable": true,
+      "visible": true
+    },
+    "CONVERSATION_CLOSED": {
       "retryable": false,
       "visible": true
     }

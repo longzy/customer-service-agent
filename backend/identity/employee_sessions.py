@@ -3,7 +3,7 @@
 - 密码：scrypt；账号不存在时也走一次 dummy 校验，统一 401。
 - session：8h 绝对过期；登录轮换（撤销该员工全部旧 session）；只存 token 哈希。
 - 角色不是 `agent` 时抛 `ForbiddenRoleError`，不创建 session。
-- 只 flush；调用方负责提交。
+- 登录与解析只 flush；登出自行提交，API 层不重复提交。
 """
 
 import secrets

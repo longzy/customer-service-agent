@@ -3,7 +3,7 @@
 - 密码：scrypt；账号不存在时也走一次 dummy 校验，统一 401。
 - session：24h 绝对过期；登录轮换（撤销该客户全部旧 session）；只存 token 哈希。
 - 不创建/关闭业务会话；会话归属 `backend/conversations/`，由 API 层编排。
-- 登录与恢复只 flush，调用方负责提交。
+- 登录与恢复只 flush，调用方负责提交；登出自行提交。
 """
 
 import secrets

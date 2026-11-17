@@ -3,6 +3,9 @@
 集成测试跑在独立测试库；所有断言都通过真实 HTTP 路由与数据库完成。
 """
 
+import os
+import subprocess
+import sys
 from datetime import UTC, datetime, timedelta
 from http.cookies import SimpleCookie
 from typing import Any
@@ -16,7 +19,7 @@ from backend.identity.employee_sessions import (
     EMPLOYEE_SESSION_TTL,
     hash_token,
 )
-from backend.platform.models import ServiceEmployeeSession
+from backend.platform.models import ServiceCustomer, ServiceEmployee, ServiceEmployeeSession
 from backend.platform.settings import Settings, settings
 from tests.integration.db_utils import db_available
 from tests.integration.workspace_support import (
@@ -71,7 +74,6 @@ def test_坐席登录成功返回员工并设置8h安全Cookie_AC_34() -> None:
     assert len(rows) == 1
     assert rows[0].token_hash == hash_token(token)
     assert len(rows[0].token_hash) == 64
-    assert token not in rows[0].token_hash
 
 
 def test_cookie不包含客户身份且员工会话独立_AC_34() -> None:
@@ -86,7 +88,7 @@ def test_cookie不包含客户身份且员工会话独立_AC_34() -> None:
 
 def test_刷新与重新登录恢复同一员工_旧token失效_AC_34() -> None:
     with api_client() as api:
-        first = login_employee(api)
+        first = login_employee(api, "agent_1")
         employee_id = first.json()["employee"]["id"]
         first_token = api.cookies.get(EMPLOYEE_COOKIE)
 
@@ -94,7 +96,11 @@ def test_刷新与重新登录恢复同一员工_旧token失效_AC_34() -> None:
         assert restored.status_code == 200
         assert restored.json()["employee"]["id"] == employee_id
 
-        login_employee(api)
+        # 另一个坐席的 session 不应被 agent_1 的登录轮换掉
+        login_employee(api, "agent_2")
+        agent_2_token = api.cookies.get(EMPLOYEE_COOKIE)
+
+        login_employee(api, "agent_1")
         second_token = api.cookies.get(EMPLOYEE_COOKIE)
         assert second_token != first_token
 
@@ -105,12 +111,18 @@ def test_刷新与重新登录恢复同一员工_旧token失效_AC_34() -> None:
         assert stale.json()["code"] == "SESSION_INVALID"
 
         api.cookies.clear()
+        api.cookies.set(EMPLOYEE_COOKIE, agent_2_token)
+        assert api.get("/workspace/session").status_code == 200
+        assert api.get("/workspace/session").json()["employee"]["username"] == "agent_2"
+
+        api.cookies.clear()
         api.cookies.set(EMPLOYEE_COOKIE, second_token)
         assert api.get("/workspace/session").status_code == 200
 
     active = [row for row in session_rows() if row.revoked_at is None]
-    assert len(active) == 1
-    assert active[0].token_hash == hash_token(second_token)
+    assert len([row for row in active if row.employee_id == "emp-agent_1"]) == 1
+    assert len([row for row in active if row.employee_id == "emp-agent_2"]) == 1
+    assert any(row.token_hash == hash_token(second_token) for row in active)
 
 
 def test_8h绝对过期不因刷新滑动_AC_34(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -292,3 +304,36 @@ def test_本人已分配会话可读_未领取和他人会话404_AC_34() -> None
     assert unclaimed.json() == other.json() == cross.json() == missing.json()
     assert agents_own.status_code == 200
     assert agents_mine.status_code == 404
+
+
+def test_种子脚本创建两个坐席且可重复执行_AC_34() -> None:
+    cleanup_workspace_db()
+    env = {**os.environ, "DEMO_PASSWORD": DEMO_CREDENTIAL}
+    first = subprocess.run(
+        [sys.executable, "scripts/seed_demo.py"],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert first.returncode == 0, first.stderr
+    assert DEMO_CREDENTIAL not in first.stdout
+
+    employees = rows_of(ServiceEmployee)
+    assert sorted(row.username for row in employees) == ["agent_1", "agent_2"]
+    assert {row.role for row in employees} == {"agent"}
+    assert {row.display_name for row in employees} == {"坐席 1", "坐席 2"}
+    assert sorted(row.username for row in rows_of(ServiceCustomer)) == [
+        "customer_a",
+        "customer_b",
+    ]
+
+    second = subprocess.run(
+        [sys.executable, "scripts/seed_demo.py"],
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert second.returncode == 0, second.stderr
+    assert len(rows_of(ServiceEmployee)) == 2
