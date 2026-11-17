@@ -8,72 +8,35 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import delete, select, update
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+from sqlalchemy import update
 
 from backend.agent_runtime.model import FakeModelClient, ModelError
 from backend.api.main import create_app
 from backend.identity.customer_sessions import CUSTOMER_COOKIE
-from backend.identity.passwords import hash_password
 from backend.platform.models import (
     ServiceAiEvent,
     ServiceConversation,
-    ServiceCustomer,
-    ServiceCustomerSession,
     ServiceHandoff,
     ServiceMessage,
-    ServiceRateLimitBucket,
 )
 from backend.platform.settings import Settings, settings
+from tests.integration.customer_support import (
+    cleanup_customer_db,
+    login_customer,
+    prepare_customer_db,
+    rows_of,
+    with_db,
+)
 from tests.integration.db_utils import db_available
 
 pytestmark = pytest.mark.skipif(not db_available(), reason="Postgres 不可用")
 
-DEMO_CREDENTIAL = "demo-login-value"
-
-
-async def _with_db(action: Any) -> Any:
-    engine = create_async_engine(settings.database_url)
-    try:
-        maker = async_sessionmaker(engine, expire_on_commit=False)
-        async with maker() as db:
-            return await action(db)
-    finally:
-        await engine.dispose()
-
-
-async def _reset(db: Any) -> None:
-    await db.execute(delete(ServiceMessage))
-    await db.execute(delete(ServiceAiEvent))
-    await db.execute(delete(ServiceHandoff))
-    await db.execute(delete(ServiceCustomerSession))
-    await db.execute(delete(ServiceConversation))
-    await db.execute(delete(ServiceCustomer))
-    await db.execute(delete(ServiceRateLimitBucket))
-    await db.commit()
-
-
-async def _seed(db: Any) -> None:
-    for username, display_name in (("customer_a", "客户甲"), ("customer_b", "客户乙")):
-        db.add(
-            ServiceCustomer(
-                id=f"cust-{username}",
-                tenant_id=settings.m1_tenant_id,
-                username=username,
-                password_hash=hash_password(DEMO_CREDENTIAL),
-                display_name=display_name,
-                active=True,
-            )
-        )
-    await db.commit()
-
 
 @pytest.fixture(autouse=True)
 def demo_customers() -> Any:
-    asyncio.run(_with_db(_reset))
-    asyncio.run(_with_db(_seed))
+    prepare_customer_db()
     yield
-    asyncio.run(_with_db(_reset))
+    cleanup_customer_db()
 
 
 class SlowModel:
@@ -98,12 +61,7 @@ def model_app(responses: dict[str, dict[str, Any]]) -> Any:
 
 
 def login(api: TestClient, username: str = "customer_a") -> Any:
-    response = api.post(
-        "/customer/sessions",
-        json={"username": username, "password": DEMO_CREDENTIAL},
-    )
-    assert response.status_code == 200, response.text
-    return response
+    return login_customer(api, username)
 
 
 def send(api: TestClient, content: str, key: str | None = None) -> Any:
@@ -115,10 +73,7 @@ def send(api: TestClient, content: str, key: str | None = None) -> Any:
 
 
 def rows(model: Any) -> list[Any]:
-    async def read(db: Any) -> list[Any]:
-        return list((await db.execute(select(model))).scalars())
-
-    return asyncio.run(_with_db(read))
+    return rows_of(model)
 
 
 def set_conversation_status(conversation_id: str, status: str) -> None:
@@ -130,7 +85,7 @@ def set_conversation_status(conversation_id: str, status: str) -> None:
         )
         await db.commit()
 
-    asyncio.run(_with_db(write))
+    asyncio.run(with_db(write))
 
 
 def test_普通消息落库并返回AI回复_AC_31() -> None:
@@ -372,7 +327,7 @@ def test_发消息时AI空闲24h惰性关闭并新建会话_AC_31() -> None:
             )
             await db.commit()
 
-        asyncio.run(_with_db(age))
+        asyncio.run(with_db(age))
         response = send(api, "你好")
         assert response.status_code == 200
         new_id = response.json()["conversation_id"]

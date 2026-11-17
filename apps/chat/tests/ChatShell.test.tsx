@@ -18,7 +18,7 @@ const customer = {
   display_name: "客户甲",
 };
 
-const conversation = { id: "conv-1", status: "AI_ACTIVE", after_id: 0 };
+const conversation = { id: "conv-1", status: "AI_ACTIVE", after_id: 0 } as const;
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {

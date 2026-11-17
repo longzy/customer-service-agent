@@ -34,3 +34,6 @@ evals/reports/
 
 # 本地依赖指纹
 .dev-deps.sha
+
+# npm 本地缓存（仅排障）
+.npm-cache/

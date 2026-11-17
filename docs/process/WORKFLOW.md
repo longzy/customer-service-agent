@@ -79,13 +79,14 @@ Frame（目标/非目标/完成标准）
 - 一次只做一个 feature；先写失败测试，再实现；验证方式写在 features 的 `Steps` 列；
 - 每完成一个 feature，`Steps` 全绿、`Evidence` 非空后才把 `passes` 改为 `true`；
 - 不得改 `Description`/`Steps`/`AC` 来迁就实现；要改先改 brief/plan 并重新评审；
-- 跑 `./scripts/verify.sh`；关键路径加端到端/浏览器验证；
+- 跑 `./scripts/verify.sh`；关键路径加端到端/浏览器验证；API 契约变更必须跑 `./scripts/check-api-types.sh`（verify 已包含）；
 - 提交保持小步，main 始终可运行。
 
 完成标志：**feature 的验证命令通过；用户可演示该 feature；没有静默跳过。**
 
 ### 3.4 Review & Ship
 
+- 评审按 [review 模板](../templates/review.md) 与 [review checklist](../process/review-checklist.md) 输出；先复核门禁，再逐 AC 给证据；
 - 独立上下文代码评审：看 diff、测试、越权/失败路径；
 - 人工走查：按 features 的 `Steps` 逐行演示；
 - lasting decisions 写 ADR；更新 plan/features，不让文档腐烂；

@@ -62,6 +62,9 @@ python3 scripts/check-secrets.py
 echo "== mypy =="
 uv run mypy backend
 
+echo "== OpenAPI 类型 =="
+./scripts/check-api-types.sh
+
 echo "== pytest（独立测试库）=="
 # pytest 失败也要继续生成 eval 报告，因此这里暂时关闭 set -e 并分别记退出码
 rm -f "$JUNIT"

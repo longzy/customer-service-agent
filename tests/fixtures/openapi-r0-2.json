@@ -31,6 +31,37 @@
         "title": "CancelResultPayload",
         "type": "object"
       },
+      "ConversationPublic": {
+        "additionalProperties": false,
+        "properties": {
+          "after_id": {
+            "title": "After Id",
+            "type": "integer"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "AI_ACTIVE",
+              "QUEUED",
+              "CLAIMED",
+              "HUMAN_ACTIVE",
+              "CLOSED"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "after_id"
+        ],
+        "title": "ConversationPublic",
+        "type": "object"
+      },
       "CustomerLoginRequest": {
         "additionalProperties": false,
         "description": "只接受用户名/密码；租户与客户 id 只能来自服务端配置与 session。",
@@ -70,6 +101,87 @@
           "content"
         ],
         "title": "CustomerMessageRequest",
+        "type": "object"
+      },
+      "CustomerPublic": {
+        "additionalProperties": false,
+        "properties": {
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "tenant_id": {
+            "title": "Tenant Id",
+            "type": "string"
+          },
+          "username": {
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tenant_id",
+          "username",
+          "display_name"
+        ],
+        "title": "CustomerPublic",
+        "type": "object"
+      },
+      "CustomerSessionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "conversation": {
+            "$ref": "#/components/schemas/ConversationPublic"
+          },
+          "customer": {
+            "$ref": "#/components/schemas/CustomerPublic"
+          },
+          "expires_at": {
+            "title": "Expires At",
+            "type": "string"
+          }
+        },
+        "required": [
+          "customer",
+          "conversation",
+          "expires_at"
+        ],
+        "title": "CustomerSessionResponse",
+        "type": "object"
+      },
+      "ErrorEnvelope": {
+        "additionalProperties": false,
+        "description": "所有新 M1 API 的错误封套。",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "retryable": {
+            "title": "Retryable",
+            "type": "boolean"
+          },
+          "visible": {
+            "title": "Visible",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "code",
+          "retryable",
+          "visible",
+          "message"
+        ],
+        "title": "ErrorEnvelope",
         "type": "object"
       },
       "FaultPayload": {
@@ -164,6 +276,80 @@
           }
         },
         "title": "HandoffPayload",
+        "type": "object"
+      },
+      "MessagePageResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "after_id": {
+            "title": "After Id",
+            "type": "integer"
+          },
+          "conversation_id": {
+            "title": "Conversation Id",
+            "type": "string"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/MessagePublic"
+            },
+            "title": "Messages",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "AI_ACTIVE",
+              "QUEUED",
+              "CLAIMED",
+              "HUMAN_ACTIVE",
+              "CLOSED"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "conversation_id",
+          "status",
+          "after_id",
+          "messages"
+        ],
+        "title": "MessagePageResponse",
+        "type": "object"
+      },
+      "MessagePublic": {
+        "additionalProperties": false,
+        "properties": {
+          "author_type": {
+            "enum": [
+              "customer",
+              "ai",
+              "agent",
+              "system"
+            ],
+            "title": "Author Type",
+            "type": "string"
+          },
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "author_type",
+          "content",
+          "created_at"
+        ],
+        "title": "MessagePublic",
         "type": "object"
       },
       "MessageRequest": {
@@ -544,13 +730,31 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Read Conversation Customer Conversations  Conversation Id  Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/CustomerSessionResponse"
                 }
               }
             },
             "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
           },
           "422": {
             "content": {
@@ -590,13 +794,31 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Read Messages Customer Messages Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/MessagePageResponse"
                 }
               }
             },
             "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
           },
           "422": {
             "content": {
@@ -644,23 +866,41 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Send Message Customer Messages Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/MessagePageResponse"
                 }
               }
             },
             "description": "Successful Response"
           },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
           "422": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Unprocessable Entity"
           }
         },
         "summary": "Send Message",
@@ -677,13 +917,21 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Current Session Customer Session Get",
-                  "type": "object"
+                  "$ref": "#/components/schemas/CustomerSessionResponse"
                 }
               }
             },
             "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
           }
         },
         "summary": "Current Session",
@@ -722,23 +970,41 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
-                  "title": "Response Login Customer Sessions Post",
-                  "type": "object"
+                  "$ref": "#/components/schemas/CustomerSessionResponse"
                 }
               }
             },
             "description": "Successful Response"
           },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
           "422": {
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
+                  "$ref": "#/components/schemas/ErrorEnvelope"
                 }
               }
             },
-            "description": "Validation Error"
+            "description": "Unprocessable Entity"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Too Many Requests"
           }
         },
         "summary": "Login",

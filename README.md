@@ -75,6 +75,9 @@ make dev
 
 M1 演示账号：`customer_a`/`customer_b`；密码由 `.env` 的 `DEMO_PASSWORD` 决定，运行 `uv run python scripts/seed_demo.py` 创建或重置，密码不提交。
 
+排障：`make status` 查看端口/数据库/迁移/模型/契约；`make dev-stop` 停止本地 3000/8000。
+演示模型失败：把 `.env` 的 `MODEL_API_KEY` 置空，设 `FAKE_MODEL_MODE=timeout`（或 `error`），再 `make dev`。
+
 ## 验证与测试
 
 ```bash
@@ -91,6 +94,7 @@ UV_CACHE_DIR=./.uv-cache uv run mypy backend
 python3 scripts/check-docs.py
 python3 scripts/check-status.py    # CURRENT.md ↔ tasks.md ↔ 执行卡
 python3 scripts/trace.py --strict  # AC ↔ 测试 ↔ 执行卡
+./scripts/check-api-types.sh       # OpenAPI ↔ 前端生成类型
 pnpm -C apps/web lint
 pnpm -C apps/web typecheck
 pnpm -C apps/web test

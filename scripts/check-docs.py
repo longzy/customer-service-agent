@@ -350,18 +350,25 @@ def check_review_conclusions():
                 continue
             path = os.path.join(base, name)
             content = read(path)
-            if "## 结论" not in content:
-                errors.append(f"{rel(path)}：缺少「## 结论」小节")
+            card = os.path.join(TASKS_ROOT, spec_name, name)
+            if not os.path.exists(card):
+                errors.append(f"{rel(path)}：没有对应的执行卡 {rel(card)}")
                 continue
+            # 只有已完成执行卡的评审才强制完整模板；待评审阶段允许草稿。
+            if not doc_status(card).startswith("已完成"):
+                continue
+            required = ("## 0. 门禁复核", "## 逐 AC", "## 阻断项", "## 结论")
+            missing = [heading for heading in required if heading not in content]
+            if missing:
+                errors.append(f"{rel(path)}：缺少评审小节 {', '.join(missing)}")
+                if "## 结论" not in content:
+                    continue
             tail = content.split("## 结论", 1)[1]
             first = next((line.strip() for line in tail.splitlines() if line.strip()), "")
             if not first.startswith(("通过", "有条件通过", "不通过")):
                 errors.append(
                     f"{rel(path)}：结论必须为通过/有条件通过/不通过，当前为「{first[:20]}」"
                 )
-            card = os.path.join(TASKS_ROOT, spec_name, name)
-            if not os.path.exists(card):
-                errors.append(f"{rel(path)}：没有对应的执行卡 {rel(card)}")
 
 
 def check_context_budget():

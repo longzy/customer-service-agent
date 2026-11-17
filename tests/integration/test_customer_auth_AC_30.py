@@ -3,7 +3,6 @@
 集成测试跑在独立测试库；所有断言都通过真实 HTTP 路由与数据库完成。
 """
 
-import asyncio
 import uuid
 from datetime import UTC, datetime, timedelta
 from http.cookies import SimpleCookie
@@ -11,8 +10,6 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import delete, select
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from backend.api.main import create_app
 from backend.identity.customer_sessions import (
@@ -20,64 +17,29 @@ from backend.identity.customer_sessions import (
     CUSTOMER_SESSION_TTL,
     hash_token,
 )
-from backend.identity.passwords import hash_password
 from backend.platform.db import get_session
-from backend.platform.models import (
-    ServiceConversation,
-    ServiceCustomer,
-    ServiceCustomerSession,
-    ServiceRateLimitBucket,
-)
+from backend.platform.models import ServiceConversation, ServiceCustomerSession
 from backend.platform.settings import Settings, settings
+from tests.integration.customer_support import (
+    DEMO_CREDENTIAL,
+    cleanup_customer_db,
+    login_customer,
+    prepare_customer_db,
+    rows_of,
+)
 from tests.integration.db_utils import db_available
 
 pytestmark = pytest.mark.skipif(not db_available(), reason="Postgres 不可用")
 
-DEMO_CREDENTIAL = "demo-login-value"
 CUSTOMER_A = ("customer_a", "客户甲")
 CUSTOMER_B = ("customer_b", "客户乙")
 
 
-async def _with_db(action: Any) -> Any:
-    """每次开独立 engine，避免 TestClient 与测试库操作跨事件循环复用连接池。"""
-    engine = create_async_engine(settings.database_url)
-    try:
-        maker = async_sessionmaker(engine, expire_on_commit=False)
-        async with maker() as db:
-            return await action(db)
-    finally:
-        await engine.dispose()
-
-
-async def _reset(db: Any) -> None:
-    await db.execute(delete(ServiceCustomerSession))
-    await db.execute(delete(ServiceConversation))
-    await db.execute(delete(ServiceCustomer))
-    await db.execute(delete(ServiceRateLimitBucket))
-    await db.commit()
-
-
-async def _seed(db: Any) -> None:
-    for username, display_name in (CUSTOMER_A, CUSTOMER_B):
-        db.add(
-            ServiceCustomer(
-                id=f"cust-{username}",
-                tenant_id=settings.m1_tenant_id,
-                username=username,
-                password_hash=hash_password(DEMO_CREDENTIAL),
-                display_name=display_name,
-                active=True,
-            )
-        )
-    await db.commit()
-
-
 @pytest.fixture(autouse=True)
 def demo_customers() -> Any:
-    asyncio.run(_with_db(_reset))
-    asyncio.run(_with_db(_seed))
+    prepare_customer_db()
     yield
-    asyncio.run(_with_db(_reset))
+    cleanup_customer_db()
 
 
 def api_client(active: Settings | None = None) -> TestClient:
@@ -85,26 +47,15 @@ def api_client(active: Settings | None = None) -> TestClient:
 
 
 def login(api: TestClient, username: str = "customer_a") -> Any:
-    response = api.post(
-        "/customer/sessions",
-        json={"username": username, "password": DEMO_CREDENTIAL},
-    )
-    assert response.status_code == 200, response.text
-    return response
+    return login_customer(api, username)
 
 
 def session_rows() -> list[ServiceCustomerSession]:
-    async def read(db: Any) -> list[ServiceCustomerSession]:
-        return list((await db.execute(select(ServiceCustomerSession))).scalars())
-
-    return asyncio.run(_with_db(read))
+    return rows_of(ServiceCustomerSession)
 
 
 def conversation_rows() -> list[ServiceConversation]:
-    async def read(db: Any) -> list[ServiceConversation]:
-        return list((await db.execute(select(ServiceConversation))).scalars())
-
-    return asyncio.run(_with_db(read))
+    return rows_of(ServiceConversation)
 
 
 def test_登录成功返回会话并设置安全Cookie_AC_30() -> None:

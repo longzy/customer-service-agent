@@ -13,6 +13,7 @@ CURRENT.md 是给人看的一页状态，但它的每个事实都必须能从产
 用法：python3 scripts/check-status.py
 """
 
+import argparse
 import re
 import sys
 from pathlib import Path
@@ -20,7 +21,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 CURRENT = ROOT / "docs" / "CURRENT.md"
 SPECS = ROOT / "docs" / "specs"
-TASK_FILES = sorted(SPECS.glob("*/tasks.md")) + sorted(SPECS.glob("*/features.md"))
+TASK_FILES: list[Path] = []
 CARDS = ROOT / "docs" / "tasks"
 TASK_ID = re.compile(r"\b([TF])-(\d{2})\b")
 CARD_FILE = re.compile(r"^[TF]-\d{2}\.md$")
@@ -30,6 +31,16 @@ PATH_TOKEN = re.compile(r"`([^`\n]+)`")
 PATH_PREFIXES = ("docs/", "backend/", "packages/", "tests/", "scripts/", "apps/", "migrations/")
 
 errors: list[str] = []
+
+
+def configure(root: Path) -> None:
+    """允许测试用临时仓库根目录运行，不依赖调用点位置。"""
+    global ROOT, CURRENT, SPECS, TASK_FILES, CARDS
+    ROOT = root.resolve()
+    CURRENT = ROOT / "docs" / "CURRENT.md"
+    SPECS = ROOT / "docs" / "specs"
+    TASK_FILES = sorted(SPECS.glob("*/tasks.md")) + sorted(SPECS.glob("*/features.md"))
+    CARDS = ROOT / "docs" / "tasks"
 
 
 def card_paths() -> list[Path]:
@@ -76,7 +87,11 @@ def check_duplicate_task_ids() -> None:
             errors.append(f"{task}：跨规格重复使用（{'、'.join(sorted(names))}）")
 
 
-def main() -> int:
+def main(argv=None) -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--root", type=Path, default=ROOT)
+    args = parser.parse_args(argv)
+    configure(args.root)
     text = CURRENT.read_text(encoding="utf-8")
     task_texts = {path: path.read_text(encoding="utf-8") for path in TASK_FILES}
     check_duplicate_task_ids()

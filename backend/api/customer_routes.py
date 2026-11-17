@@ -8,6 +8,14 @@ from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.api.customer_schemas import (
+    ConversationPublic,
+    CustomerPublic,
+    CustomerSessionResponse,
+    ErrorEnvelope,
+    MessagePageResponse,
+    MessagePublic,
+)
 from backend.api.errors import ApiError
 from backend.conversations.customer_chat import (
     ChatResult,
@@ -31,6 +39,14 @@ from backend.platform.db import get_session
 from backend.platform.settings import Settings
 
 router = APIRouter(prefix="/customer", tags=["customer"])
+
+ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
+    401: {"model": ErrorEnvelope},
+    404: {"model": ErrorEnvelope},
+    409: {"model": ErrorEnvelope},
+    422: {"model": ErrorEnvelope},
+    429: {"model": ErrorEnvelope},
+}
 
 
 class CustomerMessageRequest(BaseModel):
@@ -72,39 +88,39 @@ def _utc_text(value: datetime) -> str:
 
 def _payload(
     customer: Customer, conversation: CustomerConversation, expires_at: datetime
-) -> dict[str, Any]:
-    return {
-        "customer": {
-            "id": customer.id,
-            "tenant_id": customer.tenant_id,
-            "username": customer.username,
-            "display_name": customer.display_name,
-        },
-        "conversation": {
-            "id": conversation.id,
-            "status": conversation.status,
-            "after_id": conversation.after_id,
-        },
-        "expires_at": _utc_text(expires_at),
-    }
+) -> CustomerSessionResponse:
+    return CustomerSessionResponse(
+        customer=CustomerPublic(
+            id=customer.id,
+            tenant_id=customer.tenant_id,
+            username=customer.username,
+            display_name=customer.display_name,
+        ),
+        conversation=ConversationPublic(
+            id=conversation.id,
+            status=conversation.status,  # type: ignore[arg-type]
+            after_id=conversation.after_id,
+        ),
+        expires_at=_utc_text(expires_at),
+    )
 
 
-def _message_json(message: MessageView) -> dict[str, Any]:
-    return {
-        "id": message.id,
-        "author_type": message.author_type,
-        "content": message.content,
-        "created_at": _utc_text(message.created_at),
-    }
+def _message_json(message: MessageView) -> MessagePublic:
+    return MessagePublic(
+        id=message.id,
+        author_type=message.author_type,  # type: ignore[arg-type]
+        content=message.content,
+        created_at=_utc_text(message.created_at),
+    )
 
 
-def _chat_payload(result: ChatResult) -> dict[str, Any]:
-    return {
-        "conversation_id": result.conversation_id,
-        "status": result.status,
-        "after_id": result.after_id,
-        "messages": [_message_json(message) for message in result.messages],
-    }
+def _chat_payload(result: ChatResult) -> MessagePageResponse:
+    return MessagePageResponse(
+        conversation_id=result.conversation_id,
+        status=result.status,  # type: ignore[arg-type]
+        after_id=result.after_id,
+        messages=[_message_json(message) for message in result.messages],
+    )
 
 
 def _client_ip(request: Request) -> str:
@@ -150,13 +166,16 @@ CurrentSession = Annotated[ResolvedCustomerSession, Depends(current_customer_ses
 Db = Annotated[AsyncSession, Depends(get_session)]
 
 
-@router.post("/sessions")
+@router.post(
+    "/sessions",
+    responses={401: ERROR_RESPONSES[401], 422: ERROR_RESPONSES[422], 429: ERROR_RESPONSES[429]},
+)
 async def login(
     payload: CustomerLoginRequest,
     request: Request,
     response: Response,
     db: Db,
-) -> dict[str, Any]:
+) -> CustomerSessionResponse:
     try:
         result = await customer_sessions.login_customer(
             db,
@@ -184,8 +203,8 @@ async def login(
     return _payload(result.customer, conversation, result.expires_at)
 
 
-@router.get("/session")
-async def current_session(session: CurrentSession, db: Db) -> dict[str, Any]:
+@router.get("/session", responses={401: ERROR_RESPONSES[401]})
+async def current_session(session: CurrentSession, db: Db) -> CustomerSessionResponse:
     conversation = await get_or_create_open_conversation(
         db,
         session.customer.tenant_id,
@@ -196,12 +215,15 @@ async def current_session(session: CurrentSession, db: Db) -> dict[str, Any]:
     return _payload(session.customer, conversation, session.expires_at)
 
 
-@router.get("/conversations/{conversation_id}")
+@router.get(
+    "/conversations/{conversation_id}",
+    responses={401: ERROR_RESPONSES[401], 404: ERROR_RESPONSES[404]},
+)
 async def read_conversation(
     conversation_id: str,
     session: CurrentSession,
     db: Db,
-) -> dict[str, Any]:
+) -> CustomerSessionResponse:
     conversation = await get_customer_conversation(
         db,
         session.customer.tenant_id,
@@ -215,14 +237,17 @@ async def read_conversation(
     return _payload(session.customer, conversation, session.expires_at)
 
 
-@router.post("/messages")
+@router.post(
+    "/messages",
+    responses={401: ERROR_RESPONSES[401], 409: ERROR_RESPONSES[409], 422: ERROR_RESPONSES[422]},
+)
 async def send_message(
     payload: CustomerMessageRequest,
     request: Request,
     session: CurrentSession,
     db: Db,
     idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=64),
-) -> dict[str, Any]:
+) -> MessagePageResponse:
     now = customer_sessions.utc_now()
     conversation = await get_sendable_conversation(
         db, session.customer.tenant_id, session.customer.id, now
@@ -248,12 +273,12 @@ async def send_message(
     return _chat_payload(result)
 
 
-@router.get("/messages")
+@router.get("/messages", responses={401: ERROR_RESPONSES[401], 409: ERROR_RESPONSES[409]})
 async def read_messages(
     session: CurrentSession,
     db: Db,
     after_id: int = Query(default=0, ge=0),
-) -> dict[str, Any]:
+) -> MessagePageResponse:
     conversation = await get_open_conversation(db, session.customer.tenant_id, session.customer.id)
     if conversation is None:
         # 已关闭会话仍可读历史；读接口不返回 409。

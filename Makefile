@@ -1,9 +1,11 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help dev verify verify-fast eval
+.PHONY: help dev dev-stop status verify verify-fast eval
 
 help: ## 显示可用命令
 	@echo "make dev          启动 API + Web（自动准备 .env、数据库、依赖）"
+	@echo "make dev-stop     停止本地 3000/8000 监听进程"
+	@echo "make status       查看端口/数据库/迁移/模型/契约状态"
 	@echo "make verify       全量验证"
 	@echo "make verify-fast  后端快速检查"
 	@echo "make eval         场景评测"

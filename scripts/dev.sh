@@ -43,10 +43,12 @@ deps_hash() {
   if command -v shasum >/dev/null 2>&1; then
     shasum -a 256 pyproject.toml uv.lock apps/web/package.json apps/web/pnpm-lock.yaml \
       apps/chat/package.json apps/chat/pnpm-lock.yaml \
+      packages/contracts/package.json packages/contracts/pnpm-lock.yaml \
       | shasum -a 256 | awk '{print $1}'
   else
     sha256sum pyproject.toml uv.lock apps/web/package.json apps/web/pnpm-lock.yaml \
       apps/chat/package.json apps/chat/pnpm-lock.yaml \
+      packages/contracts/package.json packages/contracts/pnpm-lock.yaml \
       | sha256sum | awk '{print $1}'
   fi
 }
@@ -54,7 +56,7 @@ deps_hash() {
 if [ "$NO_INSTALL" = "1" ]; then
   echo "跳过依赖安装（--no-install）。"
 elif [ -d .venv ] && [ -d apps/web/node_modules ] && [ -d apps/chat/node_modules ] \
-  && [ -f "$DEPS_HASH_FILE" ] \
+  && [ -d packages/contracts/node_modules ] && [ -f "$DEPS_HASH_FILE" ] \
   && [ "$(cat "$DEPS_HASH_FILE")" = "$(deps_hash)" ]; then
   echo "依赖未变化，跳过安装。"
 else
@@ -62,6 +64,7 @@ else
   uv sync --frozen
   pnpm -C apps/web install --frozen-lockfile
   pnpm -C apps/chat install --frozen-lockfile
+  pnpm -C packages/contracts install --frozen-lockfile
   deps_hash >"$DEPS_HASH_FILE"
 fi
 

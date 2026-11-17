@@ -1,38 +1,12 @@
-export type Customer = {
-  id: string;
-  tenant_id: string;
-  username: string;
-  display_name: string;
-};
+import type { components } from "./api-types";
 
-export type Conversation = {
-  id: string;
-  status: string;
-  after_id: number;
-};
-
-export type Session = {
-  customer: Customer;
-  conversation: Conversation;
-  expires_at: string;
-};
-
-export type MessageAuthor = "customer" | "ai" | "agent" | "system";
-
-export type Message = {
-  id: number;
-  author_type: MessageAuthor;
-  content: string;
-  created_at: string;
-};
-
-// POST /customer/messages 与 GET /customer/messages 共用同一响应形状。
-export type MessagePage = {
-  conversation_id: string;
-  status: string;
-  after_id: number;
-  messages: Message[];
-};
+// 统一从 FastAPI OpenAPI 生成；不要在本文件手写响应字段。
+export type Customer = components["schemas"]["CustomerPublic"];
+export type Conversation = components["schemas"]["ConversationPublic"];
+export type Session = components["schemas"]["CustomerSessionResponse"];
+export type Message = components["schemas"]["MessagePublic"];
+export type MessagePage = components["schemas"]["MessagePageResponse"];
+export type MessageAuthor = Message["author_type"];
 
 type ErrorBody = {
   code?: unknown;
