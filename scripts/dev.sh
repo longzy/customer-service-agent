@@ -42,22 +42,26 @@ DEPS_HASH_FILE=".dev-deps.sha"
 deps_hash() {
   if command -v shasum >/dev/null 2>&1; then
     shasum -a 256 pyproject.toml uv.lock apps/web/package.json apps/web/pnpm-lock.yaml \
+      apps/chat/package.json apps/chat/pnpm-lock.yaml \
       | shasum -a 256 | awk '{print $1}'
   else
     sha256sum pyproject.toml uv.lock apps/web/package.json apps/web/pnpm-lock.yaml \
+      apps/chat/package.json apps/chat/pnpm-lock.yaml \
       | sha256sum | awk '{print $1}'
   fi
 }
 
 if [ "$NO_INSTALL" = "1" ]; then
   echo "跳过依赖安装（--no-install）。"
-elif [ -d .venv ] && [ -d apps/web/node_modules ] && [ -f "$DEPS_HASH_FILE" ] \
+elif [ -d .venv ] && [ -d apps/web/node_modules ] && [ -d apps/chat/node_modules ] \
+  && [ -f "$DEPS_HASH_FILE" ] \
   && [ "$(cat "$DEPS_HASH_FILE")" = "$(deps_hash)" ]; then
   echo "依赖未变化，跳过安装。"
 else
   echo "安装/同步依赖..."
   uv sync --frozen
   pnpm -C apps/web install --frozen-lockfile
+  pnpm -C apps/chat install --frozen-lockfile
   deps_hash >"$DEPS_HASH_FILE"
 fi
 
@@ -78,11 +82,11 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-echo "启动 API  http://127.0.0.1:8000"
-echo "启动 Web  http://localhost:3000  （Ctrl-C 同时停止）"
+echo "启动 API   http://127.0.0.1:8000"
+echo "启动 Chat  http://localhost:3000  （Ctrl-C 同时停止）"
 uv run uvicorn backend.api.main:app --reload --port 8000 &
 BACKEND_PID=$!
-pnpm -C apps/web dev &
+pnpm -C apps/chat dev &
 FRONTEND_PID=$!
 
 wait "$BACKEND_PID" "$FRONTEND_PID"

@@ -55,6 +55,7 @@ jobs:
         run: |
           uv sync --frozen
           pnpm -C apps/web install --frozen-lockfile
+          pnpm -C apps/chat install --frozen-lockfile
       - name: 全量验证（不写回状态文件）
         run: ./scripts/verify.sh --no-record
 
@@ -70,7 +71,9 @@ jobs:
         with:
           version: 10
       - run: pnpm -C apps/web install --frozen-lockfile
+      - run: pnpm -C apps/chat install --frozen-lockfile
       - run: pnpm -C apps/web build
+      - run: pnpm -C apps/chat build
 
   audit:
     name: audit（观察期）
@@ -90,3 +93,4 @@ jobs:
         with:
           version: 10
       - run: pnpm -C apps/web audit --audit-level high
+      - run: pnpm -C apps/chat audit --audit-level high

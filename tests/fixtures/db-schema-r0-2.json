@@ -314,6 +314,190 @@
     ],
     "unique_constraints": []
   },
+  "service_conversations": {
+    "columns": [
+      {
+        "name": "id",
+        "nullable": false,
+        "primary_key": true,
+        "type": "VARCHAR(36)"
+      },
+      {
+        "name": "tenant_id",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(64)"
+      },
+      {
+        "name": "customer_id",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(36)"
+      },
+      {
+        "name": "status",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(16)"
+      },
+      {
+        "name": "assigned_employee_id",
+        "nullable": true,
+        "primary_key": false,
+        "type": "VARCHAR(36)"
+      },
+      {
+        "name": "journey_id",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(36)"
+      },
+      {
+        "name": "created_at",
+        "nullable": false,
+        "primary_key": false,
+        "type": "DATETIME"
+      },
+      {
+        "name": "updated_at",
+        "nullable": false,
+        "primary_key": false,
+        "type": "DATETIME"
+      },
+      {
+        "name": "closed_at",
+        "nullable": true,
+        "primary_key": false,
+        "type": "DATETIME"
+      },
+      {
+        "name": "last_activity_at",
+        "nullable": false,
+        "primary_key": false,
+        "type": "DATETIME"
+      }
+    ],
+    "unique_constraints": []
+  },
+  "service_customer_sessions": {
+    "columns": [
+      {
+        "name": "id",
+        "nullable": false,
+        "primary_key": true,
+        "type": "VARCHAR(36)"
+      },
+      {
+        "name": "customer_id",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(36)"
+      },
+      {
+        "name": "token_hash",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(64)"
+      },
+      {
+        "name": "created_at",
+        "nullable": false,
+        "primary_key": false,
+        "type": "DATETIME"
+      },
+      {
+        "name": "expires_at",
+        "nullable": false,
+        "primary_key": false,
+        "type": "DATETIME"
+      },
+      {
+        "name": "revoked_at",
+        "nullable": true,
+        "primary_key": false,
+        "type": "DATETIME"
+      },
+      {
+        "name": "last_seen_at",
+        "nullable": true,
+        "primary_key": false,
+        "type": "DATETIME"
+      }
+    ],
+    "unique_constraints": []
+  },
+  "service_customers": {
+    "columns": [
+      {
+        "name": "id",
+        "nullable": false,
+        "primary_key": true,
+        "type": "VARCHAR(36)"
+      },
+      {
+        "name": "tenant_id",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(64)"
+      },
+      {
+        "name": "username",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(64)"
+      },
+      {
+        "name": "password_hash",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(256)"
+      },
+      {
+        "name": "display_name",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(64)"
+      },
+      {
+        "name": "active",
+        "nullable": false,
+        "primary_key": false,
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "created_at",
+        "nullable": false,
+        "primary_key": false,
+        "type": "DATETIME"
+      }
+    ],
+    "unique_constraints": [
+      "uq_service_customers_tenant_username"
+    ]
+  },
+  "service_rate_limit_buckets": {
+    "columns": [
+      {
+        "name": "bucket_key",
+        "nullable": false,
+        "primary_key": true,
+        "type": "VARCHAR(160)"
+      },
+      {
+        "name": "window_start",
+        "nullable": false,
+        "primary_key": true,
+        "type": "DATETIME"
+      },
+      {
+        "name": "count",
+        "nullable": false,
+        "primary_key": false,
+        "type": "INTEGER"
+      }
+    ],
+    "unique_constraints": []
+  },
   "tool_executions": {
     "columns": [
       {

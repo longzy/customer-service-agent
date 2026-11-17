@@ -37,7 +37,13 @@
         "DEPENDENCY_UNAVAILABLE",
         "DEPENDENCY_TIMEOUT",
         "INVALID_RESPONSE",
-        "INTERNAL_ERROR"
+        "INTERNAL_ERROR",
+        "SESSION_INVALID",
+        "SESSION_EXPIRED",
+        "AUTH_FAILED",
+        "NOT_FOUND",
+        "VALIDATION_ERROR",
+        "RATE_LIMITED"
       ]
     },
     "OrderItem": {
@@ -438,6 +444,138 @@
               }
             }
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "const": "SESSION_INVALID"
+              }
+            },
+            "required": [
+              "code"
+            ]
+          },
+          "then": {
+            "properties": {
+              "retryable": {
+                "const": false
+              },
+              "visible": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "const": "SESSION_EXPIRED"
+              }
+            },
+            "required": [
+              "code"
+            ]
+          },
+          "then": {
+            "properties": {
+              "retryable": {
+                "const": false
+              },
+              "visible": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "const": "AUTH_FAILED"
+              }
+            },
+            "required": [
+              "code"
+            ]
+          },
+          "then": {
+            "properties": {
+              "retryable": {
+                "const": false
+              },
+              "visible": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "const": "NOT_FOUND"
+              }
+            },
+            "required": [
+              "code"
+            ]
+          },
+          "then": {
+            "properties": {
+              "retryable": {
+                "const": false
+              },
+              "visible": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "const": "VALIDATION_ERROR"
+              }
+            },
+            "required": [
+              "code"
+            ]
+          },
+          "then": {
+            "properties": {
+              "retryable": {
+                "const": false
+              },
+              "visible": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "const": "RATE_LIMITED"
+              }
+            },
+            "required": [
+              "code"
+            ]
+          },
+          "then": {
+            "properties": {
+              "retryable": {
+                "const": true
+              },
+              "visible": {
+                "const": true
+              }
+            }
+          }
         }
       ]
     },
@@ -489,6 +627,30 @@
     "INTERNAL_ERROR": {
       "retryable": false,
       "visible": false
+    },
+    "SESSION_INVALID": {
+      "retryable": false,
+      "visible": true
+    },
+    "SESSION_EXPIRED": {
+      "retryable": false,
+      "visible": true
+    },
+    "AUTH_FAILED": {
+      "retryable": false,
+      "visible": true
+    },
+    "NOT_FOUND": {
+      "retryable": false,
+      "visible": true
+    },
+    "VALIDATION_ERROR": {
+      "retryable": false,
+      "visible": true
+    },
+    "RATE_LIMITED": {
+      "retryable": true,
+      "visible": true
     }
   }
 }

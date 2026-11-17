@@ -31,6 +31,30 @@
         "title": "CancelResultPayload",
         "type": "object"
       },
+      "CustomerLoginRequest": {
+        "additionalProperties": false,
+        "description": "只接受用户名/密码；租户与客户 id 只能来自服务端配置与 session。",
+        "properties": {
+          "password": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Password",
+            "type": "string"
+          },
+          "username": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "password"
+        ],
+        "title": "CustomerLoginRequest",
+        "type": "object"
+      },
       "FaultPayload": {
         "additionalProperties": false,
         "properties": {
@@ -482,6 +506,128 @@
           }
         },
         "summary": "Confirm Request"
+      }
+    },
+    "/customer/conversations/{conversation_id}": {
+      "get": {
+        "operationId": "read_conversation_customer_conversations__conversation_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conversation_id",
+            "required": true,
+            "schema": {
+              "title": "Conversation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Read Conversation Customer Conversations  Conversation Id  Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Conversation",
+        "tags": [
+          "customer"
+        ]
+      }
+    },
+    "/customer/session": {
+      "get": {
+        "operationId": "current_session_customer_session_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Current Session Customer Session Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Current Session",
+        "tags": [
+          "customer"
+        ]
+      }
+    },
+    "/customer/sessions": {
+      "delete": {
+        "operationId": "logout_customer_sessions_delete",
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Logout",
+        "tags": [
+          "customer"
+        ]
+      },
+      "post": {
+        "operationId": "login_customer_sessions_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomerLoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "title": "Response Login Customer Sessions Post",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Login",
+        "tags": [
+          "customer"
+        ]
       }
     },
     "/handoff": {

@@ -7,6 +7,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -21,6 +22,8 @@ from backend.api.auth_web import resolve_identity
 from backend.api.cancellation_routes import router as cancellation_router
 from backend.api.conversation_routes import router as conversation_router
 from backend.api.csrf import verify_origin
+from backend.api.customer_routes import router as customer_router
+from backend.api.errors import ApiError, api_error_handler
 from backend.api.handoff_routes import router as handoff_router
 from backend.api.session_routes import router as session_router
 from backend.domain.errors import ErrorCode
@@ -114,6 +117,15 @@ def create_app(settings_override: Settings | None = None) -> FastAPI:
     async def _trace_sink_error(_request: Request, _error: TraceSinkError) -> JSONResponse:
         return JSONResponse(status_code=500, content=error_envelope(ErrorCode.INTERNAL_ERROR))
 
+    @app.exception_handler(ApiError)
+    async def _api_error(request: Request, error: ApiError) -> JSONResponse:
+        return await api_error_handler(request, error)
+
+    @app.exception_handler(RequestValidationError)
+    async def _validation_error(_request: Request, _error: RequestValidationError) -> JSONResponse:
+        # 新 M1 API 统一错误封套；旧测试只断言状态码。
+        return JSONResponse(status_code=422, content=error_envelope(ErrorCode.VALIDATION_ERROR))
+
     app.state.oms = build_oms(active)
     app.state.model_client = build_model_client(active)
     app.state.query_gateway = build_query_gateway(app.state.oms)
@@ -123,6 +135,8 @@ def create_app(settings_override: Settings | None = None) -> FastAPI:
     # 后添加的中间件先执行：先解析身份，再校验来源
     app.middleware("http")(verify_origin)
     app.middleware("http")(resolve_identity)
+    if active.m1_enabled:
+        app.include_router(customer_router)
     app.include_router(session_router)
     app.include_router(conversation_router)
     app.include_router(cancellation_router)

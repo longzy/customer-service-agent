@@ -109,6 +109,18 @@ pnpm -C apps/web typecheck
 echo "== web test =="
 pnpm -C apps/web test
 
+echo "== chat lint =="
+pnpm -C apps/chat lint
+
+echo "== chat format =="
+pnpm -C apps/chat exec prettier --check .
+
+echo "== chat typecheck =="
+pnpm -C apps/chat typecheck
+
+echo "== chat test =="
+pnpm -C apps/chat test
+
 PYTEST_LINE=$(grep -E "[0-9]+ passed" "$PYTEST_LOG" | tail -1)
 MYPY_LINE=$(uv run mypy backend 2>&1 | tail -1)
 DOCS_LINE=$(python3 scripts/check-docs.py 2>&1 | tail -1)

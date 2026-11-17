@@ -3,7 +3,18 @@
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from sqlalchemy import JSON, DateTime, ForeignKey, String, Text, UniqueConstraint
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from backend.platform.db import Base
@@ -109,3 +120,74 @@ class AuditEvent(Base):
     result_status: Mapped[str] = mapped_column(String(16))
     metadata_redacted: Mapped[dict[str, object]] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class ServiceCustomer(Base):
+    """M1 客户账号；M1-P 的匿名会话表保持不动。"""
+
+    __tablename__ = "service_customers"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "username", name="uq_service_customers_tenant_username"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), index=True)
+    username: Mapped[str] = mapped_column(String(64))
+    password_hash: Mapped[str] = mapped_column(String(256))
+    display_name: Mapped[str] = mapped_column(String(64))
+    active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class ServiceCustomerSession(Base):
+    """客户登录 session；只存 token 的 SHA-256。"""
+
+    __tablename__ = "service_customer_sessions"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    customer_id: Mapped[str] = mapped_column(
+        ForeignKey("service_customers.id", ondelete="CASCADE"), index=True
+    )
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class ServiceConversation(Base):
+    """客户会话；同一客户同时只能有一个未关闭会话。"""
+
+    __tablename__ = "service_conversations"
+    __table_args__ = (
+        Index(
+            "uq_service_conversations_open_customer",
+            "tenant_id",
+            "customer_id",
+            unique=True,
+            postgresql_where=text("status <> 'CLOSED'"),
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), index=True)
+    customer_id: Mapped[str] = mapped_column(
+        ForeignKey("service_customers.id", ondelete="CASCADE"), index=True
+    )
+    status: Mapped[str] = mapped_column(String(16))
+    assigned_employee_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    journey_id: Mapped[str] = mapped_column(String(36), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_activity_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class ServiceRateLimitBucket(Base):
+    """PostgreSQL 固定窗口限速桶；先于业务副作用写入。"""
+
+    __tablename__ = "service_rate_limit_buckets"
+
+    bucket_key: Mapped[str] = mapped_column(String(160), primary_key=True)
+    window_start: Mapped[datetime] = mapped_column(DateTime(timezone=True), primary_key=True)
+    count: Mapped[int] = mapped_column(Integer, default=0)

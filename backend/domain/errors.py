@@ -10,6 +10,13 @@ class ErrorCode(StrEnum):
     OMS_REJECTED = "OMS_REJECTED"
     # 越权：不区分“不存在”与“无权”，避免探测订单是否存在
     NOT_FOUND_OR_UNAUTHORIZED = "NOT_FOUND_OR_UNAUTHORIZED"
+    # 认证、授权与请求边界（M1 客户/员工 API）
+    SESSION_INVALID = "SESSION_INVALID"
+    SESSION_EXPIRED = "SESSION_EXPIRED"
+    AUTH_FAILED = "AUTH_FAILED"
+    NOT_FOUND = "NOT_FOUND"
+    VALIDATION_ERROR = "VALIDATION_ERROR"
+    RATE_LIMITED = "RATE_LIMITED"
     # 依赖不可用
     DEPENDENCY_UNAVAILABLE = "DEPENDENCY_UNAVAILABLE"
     DEPENDENCY_TIMEOUT = "DEPENDENCY_TIMEOUT"
@@ -30,6 +37,12 @@ SPECS: dict[ErrorCode, ErrorSpec] = {
     ErrorCode.ELIGIBILITY_REJECTED: ErrorSpec(False, True, "该订单不能取消"),
     ErrorCode.OMS_REJECTED: ErrorSpec(False, True, "订单系统拒绝取消"),
     ErrorCode.NOT_FOUND_OR_UNAUTHORIZED: ErrorSpec(False, True, "查无此单"),
+    ErrorCode.SESSION_INVALID: ErrorSpec(False, True, "登录已失效，请重新登录"),
+    ErrorCode.SESSION_EXPIRED: ErrorSpec(False, True, "登录已过期，请重新登录"),
+    ErrorCode.AUTH_FAILED: ErrorSpec(False, True, "账号或密码不正确"),
+    ErrorCode.NOT_FOUND: ErrorSpec(False, True, "未找到"),
+    ErrorCode.VALIDATION_ERROR: ErrorSpec(False, True, "请求参数不正确"),
+    ErrorCode.RATE_LIMITED: ErrorSpec(True, True, "请求过于频繁，请稍后再试"),
     ErrorCode.DEPENDENCY_UNAVAILABLE: ErrorSpec(True, True, "服务暂时不可用，请稍后重试"),
     ErrorCode.DEPENDENCY_TIMEOUT: ErrorSpec(True, True, "响应超时，正在重试"),
     ErrorCode.INVALID_RESPONSE: ErrorSpec(True, True, "状态未知，正在核实"),

@@ -47,6 +47,12 @@ class Settings(BaseSettings):
         return items
 
     confirm_timeout_minutes: int = 30
+    # M1 新路由总开关：回滚时置 false，M1-P 旧路由保持可用
+    m1_enabled: bool = True
+    # M1 单租户部署；登录按该租户解析客户账号
+    m1_tenant_id: str = "tenant-a"
+    # 演示账号密码只从 .env 读取，不提交；种子脚本缺失时失败
+    demo_password: str = ""
     model_base_url: str = "https://api.openai.com/v1"
     model_name: str = "gpt-4o-mini"
     model_api_key: str = ""

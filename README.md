@@ -12,7 +12,7 @@
 
 > 客户匿名聊天 -> AI 自动回复/查单取消 -> 转人工进入队列 -> 坐席登录领取并接管 -> 回复 -> 关闭或转回 AI
 
-新 M1 尚未开始编码；当前 `apps/web` 与 `backend/` 仍是 M1-P 原型。退款、主管/管理员、客户账号、全渠道、OIDC/SSO 和真实 OMS 不在 M1 范围内。
+新 M1 已从 F-01（客户登录/会话恢复/登出）开始实现：`apps/chat` 是新客户入口，`apps/web` 与旧 `backend/` 路由保留为 M1-P 资产。退款、主管/管理员、客户自助注册、全渠道、OIDC/SSO 和真实 OMS 不在 M1 范围内。
 
 ## 文档入口
 
@@ -69,9 +69,11 @@ make dev
 - 没有 `.env` 时从 `.env.example` 创建；
 - 创建数据库 `customer_service`（不存在时）并执行迁移；
 - 安装依赖；依赖未变化时自动跳过；
-- 同时启动 API `http://127.0.0.1:8000` 与 Web `http://localhost:3000`；Ctrl-C 一起停止。
+- 同时启动 API `http://127.0.0.1:8000` 与客户 Chat `http://localhost:3000`；Ctrl-C 一起停止。
 
 需要自然语言演示时，先在 `.env` 填 `MODEL_API_KEY`；留空会用假模型，只适合测试。数据库连接可在 `.env` 用 `DATABASE_URL` 覆盖。
+
+M1 演示账号：`customer_a`/`customer_b`；密码由 `.env` 的 `DEMO_PASSWORD` 决定，运行 `uv run python scripts/seed_demo.py` 创建或重置，密码不提交。
 
 ## 验证与测试
 
@@ -92,6 +94,9 @@ python3 scripts/trace.py --strict  # AC ↔ 测试 ↔ 执行卡
 pnpm -C apps/web lint
 pnpm -C apps/web typecheck
 pnpm -C apps/web test
+pnpm -C apps/chat lint
+pnpm -C apps/chat typecheck
+pnpm -C apps/chat test
 ```
 
 数据库默认 `postgresql+asyncpg://ba@127.0.0.1:5432/customer_service`；`dev.sh` 会创建库并迁移，连接串可在 `.env` 用 `DATABASE_URL` 覆盖。

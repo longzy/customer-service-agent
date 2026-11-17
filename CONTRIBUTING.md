@@ -10,6 +10,7 @@
 ```bash
 UV_CACHE_DIR=./.uv-cache uv sync
 pnpm -C apps/web install
+pnpm -C apps/chat install
 createdb customer_service       # 开发库
 ```
 
