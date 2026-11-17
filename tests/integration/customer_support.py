@@ -80,6 +80,7 @@ def login_customer(api: TestClient, username: str = "customer_a") -> Any:
 
 def rows_of(model: Any) -> list[Any]:
     async def read(db: Any) -> list[Any]:
-        return list((await db.execute(select(model))).scalars())
+        # 按主键排序：DELETE/INSERT 后 seq scan 顺序不稳定，消息顺序断言会抖动
+        return list((await db.execute(select(model).order_by(model.id))).scalars())
 
     return asyncio.run(with_db(read))
