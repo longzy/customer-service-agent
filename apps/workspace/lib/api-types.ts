@@ -229,6 +229,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspace/queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read Queue */
+        get: operations["read_queue_workspace_queue_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspace/session": {
         parameters: {
             query?: never;
@@ -442,6 +459,33 @@ export interface components {
              * @enum {string}
              */
             status: "AI_ACTIVE" | "QUEUED" | "CLAIMED" | "HUMAN_ACTIVE" | "CLOSED";
+        };
+        /**
+         * WorkspaceQueueItem
+         * @description 队列摘要：领取前只暴露判断“接谁”所需的最小信息。
+         */
+        WorkspaceQueueItem: {
+            /** Conversation Id */
+            conversation_id: string;
+            /** Customer Display Name */
+            customer_display_name: string;
+            /** Customer Username */
+            customer_username: string;
+            /** Handoff Id */
+            handoff_id: string;
+            /** Last Message */
+            last_message: string;
+            /** Order Count */
+            order_count: number;
+            /** Reason */
+            reason: string;
+            /** Waiting Seconds */
+            waiting_seconds: number;
+        };
+        /** WorkspaceQueueResponse */
+        WorkspaceQueueResponse: {
+            /** Items */
+            items: components["schemas"]["WorkspaceQueueItem"][];
         };
     };
     responses: never;
@@ -1052,6 +1096,44 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_queue_workspace_queue_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceQueueResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
         };

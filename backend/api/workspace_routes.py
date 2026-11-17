@@ -13,8 +13,13 @@ from backend.api.workspace_schemas import (
     EmployeePublic,
     EmployeeSessionResponse,
     WorkspaceConversationResponse,
+    WorkspaceQueueItem,
+    WorkspaceQueueResponse,
 )
-from backend.conversations.workspace_conversations import get_assigned_conversation
+from backend.conversations.workspace_conversations import (
+    get_assigned_conversation,
+    list_queued_handoffs,
+)
 from backend.domain.errors import ErrorCode
 from backend.identity import employee_sessions
 from backend.identity.employee_sessions import Employee, ResolvedEmployeeSession
@@ -121,6 +126,26 @@ async def login(
 @router.get("/session", responses={401: ERROR_RESPONSES[401], 403: ERROR_RESPONSES[403]})
 async def current_session(session: CurrentEmployee) -> EmployeeSessionResponse:
     return _session_payload(session)
+
+
+@router.get("/queue", responses={401: ERROR_RESPONSES[401], 403: ERROR_RESPONSES[403]})
+async def read_queue(session: CurrentEmployee, db: Db) -> WorkspaceQueueResponse:
+    items = await list_queued_handoffs(db, session.employee.tenant_id)
+    return WorkspaceQueueResponse(
+        items=[
+            WorkspaceQueueItem(
+                handoff_id=item.handoff_id,
+                conversation_id=item.conversation_id,
+                customer_username=item.customer_username,
+                customer_display_name=item.customer_display_name,
+                waiting_seconds=item.waiting_seconds,
+                reason=item.reason,
+                order_count=item.order_count,
+                last_message=item.last_message,
+            )
+            for item in items
+        ]
+    )
 
 
 @router.get(

@@ -550,6 +550,75 @@
         ],
         "title": "WorkspaceConversationResponse",
         "type": "object"
+      },
+      "WorkspaceQueueItem": {
+        "additionalProperties": false,
+        "description": "队列摘要：领取前只暴露判断“接谁”所需的最小信息。",
+        "properties": {
+          "conversation_id": {
+            "title": "Conversation Id",
+            "type": "string"
+          },
+          "customer_display_name": {
+            "title": "Customer Display Name",
+            "type": "string"
+          },
+          "customer_username": {
+            "title": "Customer Username",
+            "type": "string"
+          },
+          "handoff_id": {
+            "title": "Handoff Id",
+            "type": "string"
+          },
+          "last_message": {
+            "title": "Last Message",
+            "type": "string"
+          },
+          "order_count": {
+            "minimum": 0.0,
+            "title": "Order Count",
+            "type": "integer"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "waiting_seconds": {
+            "minimum": 0.0,
+            "title": "Waiting Seconds",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "handoff_id",
+          "conversation_id",
+          "customer_username",
+          "customer_display_name",
+          "waiting_seconds",
+          "reason",
+          "order_count",
+          "last_message"
+        ],
+        "title": "WorkspaceQueueItem",
+        "type": "object"
+      },
+      "WorkspaceQueueResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceQueueItem"
+            },
+            "title": "Items",
+            "type": "array"
+          }
+        },
+        "required": [
+          "items"
+        ],
+        "title": "WorkspaceQueueResponse",
+        "type": "object"
       }
     }
   },
@@ -1356,6 +1425,47 @@
           }
         },
         "summary": "Read Conversation",
+        "tags": [
+          "workspace"
+        ]
+      }
+    },
+    "/workspace/queue": {
+      "get": {
+        "operationId": "read_queue_workspace_queue_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceQueueResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          }
+        },
+        "summary": "Read Queue",
         "tags": [
           "workspace"
         ]

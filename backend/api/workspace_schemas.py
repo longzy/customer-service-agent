@@ -46,3 +46,24 @@ class WorkspaceConversationResponse(BaseModel):
 
     id: str
     status: ConversationStatus
+
+
+class WorkspaceQueueItem(BaseModel):
+    """队列摘要：领取前只暴露判断“接谁”所需的最小信息。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    handoff_id: str
+    conversation_id: str
+    customer_username: str
+    customer_display_name: str
+    waiting_seconds: int = Field(ge=0)
+    reason: str
+    order_count: int = Field(ge=0)
+    last_message: str
+
+
+class WorkspaceQueueResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    items: list[WorkspaceQueueItem]

@@ -2,26 +2,27 @@
 
 - 更新日期：2026-11-17
 - 项目阶段：M1 客户转人工闭环
-- 当前状态：F-05 坐席登录/RBAC 已完成（Standards/Spec 双轴评审通过）；F-06 待开工
+- 当前状态：F-06 队列 FIFO/摘要已实现，待独立评审；F-05 已完成
 - 当前 Milestone：M1 企业核心客服闭环（客户转人工闭环）
 - 方向重置：[2026-11-16 企业化方向重置](initiatives/2026-11-16-enterprise-reset.md)
-- 当前工作：F-06（队列/领取）待开工；F-05 收口完成
+- 当前工作：F-06（队列 FIFO/摘要）实现与验证完成，待评审；F-07 待开工
 
 <!-- verify:start -->
-- 最近验证：`./scripts/verify.sh` 全部检查通过——pytest 619 passed（独立测试库）、mypy 63 个文件、追溯矩阵通过（10 条 AC）、文档与前端检查通过
+- 最近验证：`./scripts/verify.sh` 全部检查通过——pytest 628 passed（独立测试库）、mypy 63 个文件、追溯矩阵通过（10 条 AC）、文档与前端检查通过
 <!-- verify:end -->
 
 ## 进行中
 
-- `001-customer-handoff` 客户转人工闭环：F-06（队列/领取）待开工。
+- `001-customer-handoff` 客户转人工闭环：F-06（队列 FIFO/摘要）待评审；F-07（并发领取）待开工。
 - 后续切片：订单查询（002）、取消（003）、安全硬化（004），未启动。
 - 分支保护：GitHub 私有仓库套餐限制，待决定是否升级/公开；不阻塞核心业务。
 
 ## 下一步
 
-1. 按 F-06（队列/领取）开工；一次只做一个 feature。
-2. 测试/演示通过才更新 features 的 `passes`；API 契约变更跑 `check-api-types.sh`。
-3. F-13 收口时补登录/消息/转人工审计与限速，并补并发幂等与 seed smoke。
+1. F-06 独立上下文评审（Standards/Spec 双轴）；通过后收口 features/CURRENT 并提交。
+2. F-07（队列领取/并发）开工；一次只做一个 feature。
+3. 测试/演示通过才更新 features 的 `passes`；API 契约变更跑 `check-api-types.sh`。
+4. F-13 收口时补登录/消息/转人工审计与限速，并补并发幂等与 seed smoke。
 
 ## 已完成
 
