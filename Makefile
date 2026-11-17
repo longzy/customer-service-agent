@@ -3,7 +3,7 @@
 .PHONY: help dev dev-stop dev-reset status verify verify-check verify-fast eval
 
 help: ## 显示可用命令
-	@echo "make dev          启动 API + Web（自动准备 .env、数据库、依赖）"
+	@echo "make dev          启动 API + Chat + Workspace（自动准备 .env、数据库、依赖）"
 	@echo "make dev-stop     停止本地 3000/8000 监听进程"
 	@echo "make dev-reset    重建本地开发库（停服务、迁移、重播种；需确认）"
 	@echo "make status       查看端口/数据库/迁移/模型/契约状态"

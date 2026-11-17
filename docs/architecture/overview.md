@@ -207,7 +207,7 @@ Redis 可用于短期缓存或限速，但不得成为会话归属、队列或�
 
 ```text
 apps/
-  chat/                     # 客户匿名 Web Chat
+  chat/                     # 客户 Web Chat（预置账号登录）
   workspace/                # 坐席工作台
 backend/
   api/                      # HTTP 入口、鉴权中间件、DTO
