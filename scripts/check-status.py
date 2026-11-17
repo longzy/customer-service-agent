@@ -84,6 +84,7 @@ def main() -> int:
     closed: set[str] = set()
     opened: set[str] = set()
     passed_features: set[str] = set()
+    feature_ids: set[str] = set()
     for tasks_text in task_texts.values():
         for line in tasks_text.splitlines():
             match = CHECKBOX.match(line)
@@ -93,6 +94,7 @@ def main() -> int:
             feature = FEATURE_ROW.match(line)
             if not feature:
                 continue
+            feature_ids.add(feature.group(1))
             cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
             if len(cells) >= 7 and cells[5] == "true":
                 passed_features.add(feature.group(1))
@@ -110,7 +112,7 @@ def main() -> int:
 
     sections = {name: section(text, name) for name in ("已完成", "进行中", "阻塞", "下一步")}
     mentioned = {match.group(0) for body in sections.values() for match in TASK_ID.finditer(body)}
-    known = closed | opened | set(cards) | passed_features
+    known = closed | opened | set(cards) | feature_ids
 
     for task in sorted(mentioned - known):
         errors.append(f"docs/CURRENT.md：引用了不存在的任务 {task}")
