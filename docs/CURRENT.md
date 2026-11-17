@@ -46,6 +46,7 @@
 ## 待确认决策
 
 - 前端类型由 OpenAPI 生成已按 [ADR-0007](adr/0007-openapi-frontend-types.md) 落地；CSS 统一用 `docs/design-system/tokens.css` 与 ui-spec 间距/气泡规范仍未落地，登记为 M1 技术债。
+- PII 脱敏范围：M1 仅覆盖大陆手机号（`+86`/分隔/全角）、邮箱、18 位身份证（含 `X/x`）；银行卡、护照、座机、非大陆号码等格式透传，归 004 安全硬化。
 - 清理任务频率与审计归档方式；安全硬化切片确定。
 - 分支保护：升级 GitHub Team、转 Public，或接受未强制。
 

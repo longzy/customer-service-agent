@@ -79,7 +79,12 @@ def _mask_matches(text: str, pattern: re.Pattern[str], mask: Callable[[re.Match[
 
 
 def redact_text(text: str) -> str:
-    """脱敏手机号、邮箱与 18 位身份证号，兼容 +86、分隔符与全角数字。"""
+    """脱敏手机号、邮箱与 18 位身份证号，兼容 +86、分隔符与全角数字。
+
+    支持范围（契约）：大陆手机号（`+86`、空格/短横/点号/括号/全角数字）、
+    邮箱、18 位身份证（含 `X/x` 与分隔符）。其他格式（银行卡、护照、座机、
+    非大陆号码等）按原文透传，属于 004 安全硬化范围，不在 M1 承诺内。
+    """
     redacted = _mask_matches(
         text, ID_CARD_PATTERN, lambda match: f"{match.group(1)}********{match.group(6)}"
     )
