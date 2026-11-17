@@ -132,6 +132,7 @@ M1 使用新的 `service_*` 表；M1-P 的旧表/旧路由/旧测试原样保留
 | POST | `/customer/sessions` | 登录；返回客户/会话/状态；Set-Cookie |
 | DELETE | `/customer/sessions` | 登出，撤销 session |
 | GET | `/customer/session` | 当前客户、会话、状态、`after_id` |
+| GET | `/customer/conversations/{conversation_id}` | 按所有权读取指定会话；他人/不存在 404（AC-30、AC-33） |
 | POST | `/customer/messages` | 发消息；返回新消息 + AI 回复/排队状态 |
 | GET | `/customer/messages?after_id=` | 轮询消息 |
 | POST | `/customer/session/close` | 客户关闭任意未关闭会话 |
