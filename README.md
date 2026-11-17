@@ -78,11 +78,14 @@ M1 演示账号：`customer_a`/`customer_b`；密码由 `.env` 的 `DEMO_PASSWOR
 排障：`make status` 查看端口/数据库/迁移/模型/契约；`make dev-stop` 停止本地 3000/8000。
 演示模型失败：把 `.env` 的 `MODEL_API_KEY` 置空，设 `FAKE_MODEL_MODE=timeout`（或 `error`），再 `make dev`。
 
+演示数据可随时回到干净起点：`make dev-reset`（停 3000/8000、重建开发库、迁移并重播种；非交互运行用 `make dev-reset ARGS=--yes`）。开发库视为可抛弃资源，不要在里面存长期数据；不要手写 `DELETE`/`UPDATE` 修改演示库，需要重置时只用该命令；生产环境与远端数据库会被脚本拒绝。
+
 ## 验证与测试
 
 ```bash
 # 一键验证：ruff、mypy、pytest（独立测试库）、路由覆盖、追溯、状态、文档、前端
-make verify
+make verify-check                 # 实现过程：全量验证，不写回 CURRENT（保留退出码）
+make verify                       # 收口：全量验证并写回 CURRENT
 ./scripts/verify.sh --no-record   # CI 使用：只验证，不写回状态快照
 make verify-fast                  # 后端快速反馈
 make eval                         # 场景评测：pytest JUnit + AC 报告
@@ -102,6 +105,8 @@ pnpm -C apps/chat lint
 pnpm -C apps/chat typecheck
 pnpm -C apps/chat test
 ```
+
+需要保留日志时用 `make verify-check`，或 `./scripts/verify.sh --no-record > /tmp/verify.log 2>&1; echo $?`；不要把 verify 接入 `| tail`，管道会吞掉退出码。
 
 数据库默认 `postgresql+asyncpg://ba@127.0.0.1:5432/customer_service`；`dev.sh` 会创建库并迁移，连接串可在 `.env` 用 `DATABASE_URL` 覆盖。
 

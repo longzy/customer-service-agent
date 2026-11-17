@@ -80,6 +80,7 @@ Frame（目标/非目标/完成标准）
 - 每完成一个 feature，`Steps` 全绿、`Evidence` 非空后才把 `passes` 改为 `true`；
 - 不得改 `Description`/`Steps`/`AC` 来迁就实现；要改先改 brief/plan 并重新评审；
 - 跑 `./scripts/verify.sh`；关键路径加端到端/浏览器验证；API 契约变更必须跑 `./scripts/check-api-types.sh`（verify 已包含）；
+- 实现过程用 `make verify-check`（不写 CURRENT、保留退出码）；演示数据重置统一用 `make dev-reset`，不手写 `DELETE`/`UPDATE` 修改开发库；
 - 提交保持小步，main 始终可运行。
 
 完成标志：**feature 的验证命令通过；用户可演示该 feature；没有静默跳过。**
