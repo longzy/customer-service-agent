@@ -11,7 +11,7 @@ from fastapi import Request
 from starlette.responses import Response
 
 REQUEST_ID_HEADER = "X-Request-ID"
-_VALID = re.compile(r"^[A-Za-z0-9._:-]{1,128}$")
+_VALID = re.compile(r"^[A-Za-z0-9._:-]{1,36}$")
 
 
 def resolve_request_id(raw: str | None) -> str:

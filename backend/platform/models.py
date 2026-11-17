@@ -200,7 +200,16 @@ class ServiceMessage(Base):
     """M1 客户会话消息；id 用 bigserial 作为轮询游标。"""
 
     __tablename__ = "service_messages"
-    __table_args__ = (Index("ix_service_messages_conversation_id_id", "conversation_id", "id"),)
+    __table_args__ = (
+        Index("ix_service_messages_conversation_id_id", "conversation_id", "id"),
+        Index(
+            "uq_service_messages_idempotency",
+            "conversation_id",
+            "idempotency_key",
+            unique=True,
+            postgresql_where=text("idempotency_key IS NOT NULL"),
+        ),
+    )
 
     id: Mapped[int] = mapped_column(BigInteger, Identity(), primary_key=True)
     conversation_id: Mapped[str] = mapped_column(
@@ -209,6 +218,7 @@ class ServiceMessage(Base):
     author_type: Mapped[str] = mapped_column(String(16))
     author_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     content: Mapped[str] = mapped_column(Text)
+    idempotency_key: Mapped[str | None] = mapped_column(String(64), nullable=True)
     trace_id: Mapped[str] = mapped_column(String(36), index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 

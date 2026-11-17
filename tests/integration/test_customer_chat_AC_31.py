@@ -2,6 +2,8 @@
 
 import asyncio
 import time
+import uuid
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
@@ -104,8 +106,12 @@ def login(api: TestClient, username: str = "customer_a") -> Any:
     return response
 
 
-def send(api: TestClient, content: str) -> Any:
-    return api.post("/customer/messages", json={"content": content})
+def send(api: TestClient, content: str, key: str | None = None) -> Any:
+    return api.post(
+        "/customer/messages",
+        json={"content": content},
+        headers={"Idempotency-Key": key or f"test-{uuid.uuid4()}"},
+    )
 
 
 def rows(model: Any) -> list[Any]:
@@ -259,7 +265,9 @@ def test_关闭会话写消息返回409_AC_31() -> None:
         response = send(api, "你好")
         assert response.status_code == 409
         assert response.json()["code"] == "CONVERSATION_CLOSED"
-        assert api.get("/customer/messages").status_code == 409
+        history = api.get("/customer/messages")
+        assert history.status_code == 200
+        assert history.json()["status"] == "CLOSED"
 
     assert rows(ServiceMessage) == []
 
@@ -290,6 +298,83 @@ def test_刷新与重新登录恢复消息历史_AC_31() -> None:
         empty = api.get("/customer/messages", params={"after_id": history["after_id"]}).json()
         assert empty["messages"] == []
         assert empty["after_id"] == history["after_id"]
+
+
+def test_模型默认超时为10秒_AC_31() -> None:
+    field = Settings.model_fields["customer_model_timeout_seconds"]
+    assert field.default == 10.0
+
+
+def test_同一幂等键重试不重复落库与调模型_AC_31() -> None:
+    calls: list[str] = []
+
+    class CountingModel:
+        async def respond(self, message: str) -> Any:
+            from backend.agent_runtime.model import ChatReply
+
+            calls.append(message)
+            return ChatReply(intent="UNKNOWN", confidence=0.9, reply="您好。")
+
+    app = create_app()
+    app.state.model_client = CountingModel()
+    with api_client(app) as api:
+        login(api)
+        first = send(api, "你好", key="idem-1")
+        second = send(api, "你好", key="idem-1")
+        assert first.status_code == 200
+        assert second.status_code == 200
+        assert second.json()["messages"] == first.json()["messages"]
+        assert second.json()["after_id"] == first.json()["after_id"]
+
+        missing = api.post("/customer/messages", json={"content": "没有幂等键"})
+        assert missing.status_code == 422
+        assert missing.json()["code"] == "VALIDATION_ERROR"
+
+    assert calls == ["你好"]
+    assert [row.author_type for row in rows(ServiceMessage)] == ["customer", "ai"]
+
+
+def test_长请求关联标识不会写爆trace列_基座豁免() -> None:
+    app = model_app({"你好": {"intent": "UNKNOWN", "confidence": 0.9, "reply": "您好。"}})
+    with api_client(app) as api:
+        login(api)
+        response = api.post(
+            "/customer/messages",
+            json={"content": "你好"},
+            headers={
+                "Idempotency-Key": "idem-long-trace",
+                "X-Request-ID": "x" * 37,
+            },
+        )
+        assert response.status_code == 200, response.text
+        assert response.headers["X-Request-ID"] != "x" * 37
+        assert len(response.headers["X-Request-ID"]) <= 36
+    assert len(rows(ServiceMessage)[0].trace_id) <= 36
+
+
+def test_发消息时AI空闲24h惰性关闭并新建会话_AC_31() -> None:
+    app = model_app({"你好": {"intent": "UNKNOWN", "confidence": 0.9, "reply": "您好。"}})
+    with api_client(app) as api:
+        login(api)
+        old_id = api.get("/customer/session").json()["conversation"]["id"]
+
+        async def age(db: Any) -> None:
+            await db.execute(
+                update(ServiceConversation)
+                .where(ServiceConversation.id == old_id)
+                .values(last_activity_at=datetime.now(UTC) - timedelta(hours=25))
+            )
+            await db.commit()
+
+        asyncio.run(_with_db(age))
+        response = send(api, "你好")
+        assert response.status_code == 200
+        new_id = response.json()["conversation_id"]
+        assert new_id != old_id
+
+    conversations = {row.id: row for row in rows(ServiceConversation)}
+    assert conversations[old_id].status == "CLOSED"
+    assert conversations[new_id].status == "AI_ACTIVE"
 
 
 def test_客户之间的消息互相隔离_AC_31() -> None:

@@ -3,6 +3,8 @@
 - 客户消息先落库再调用模型，超时/异常也保留输入。
 - 只有 AI_ACTIVE 会话调用模型；排队/人工中只落库，不重复触发 AI。
 - 模型 10s 超时或异常：写 AI 事件、建一张 open 交接单、会话转 QUEUED、写系统提示。
+- 同一会话内同一幂等键只产生一条客户消息；重放返回原消息及其后非客户消息。
+- 本模块只 flush，由 API 层统一 commit。
 """
 
 import asyncio
@@ -14,6 +16,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.agent_runtime.model import ChatModel, ModelError
+from backend.conversations.customer_conversations import latest_message_id
+from backend.conversations.statuses import (
+    AI_ACTIVE,
+    CLOSED,
+    OPEN_HANDOFF_STATUSES,
+    QUEUED,
+)
 from backend.platform.models import (
     ServiceAiEvent,
     ServiceConversation,
@@ -21,10 +30,6 @@ from backend.platform.models import (
     ServiceMessage,
 )
 
-STATUS_AI_ACTIVE = "AI_ACTIVE"
-STATUS_QUEUED = "QUEUED"
-STATUS_CLOSED = "CLOSED"
-OPEN_HANDOFF_STATUSES = ("QUEUED", "CLAIMED", "ACTIVE")
 QUEUE_NOTICE = "排队中，请稍候"
 
 
@@ -71,6 +76,66 @@ async def list_messages(
     )
     rows = (await db.execute(statement)).scalars().all()
     return [view_message(row) for row in rows]
+
+
+async def read_customer_messages(
+    db: AsyncSession, conversation: ServiceConversation, after_id: int
+) -> ChatResult:
+    messages = await list_messages(db, conversation.id, after_id)
+    if messages:
+        latest = messages[-1].id
+    else:
+        latest = max(after_id, await latest_message_id(db, conversation.id))
+    return ChatResult(
+        conversation_id=conversation.id,
+        status=conversation.status,
+        messages=messages,
+        after_id=latest,
+    )
+
+
+async def _replay(
+    db: AsyncSession, conversation: ServiceConversation, idempotency_key: str
+) -> ChatResult | None:
+    """同一幂等键重放：返回原客户消息及其后的非客户消息，直到下一条客户消息。"""
+    original = (
+        await db.execute(
+            select(ServiceMessage).where(
+                ServiceMessage.conversation_id == conversation.id,
+                ServiceMessage.author_type == "customer",
+                ServiceMessage.idempotency_key == idempotency_key,
+            )
+        )
+    ).scalar_one_or_none()
+    if original is None:
+        return None
+    rows = (
+        (
+            await db.execute(
+                select(ServiceMessage)
+                .where(
+                    ServiceMessage.conversation_id == conversation.id,
+                    ServiceMessage.id >= original.id,
+                )
+                .order_by(ServiceMessage.id)
+                .limit(20)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    messages: list[MessageView] = []
+    for row in rows:
+        if messages and row.author_type == "customer":
+            break
+        messages.append(view_message(row))
+    after_id = messages[-1].id if messages else original.id
+    return ChatResult(
+        conversation_id=conversation.id,
+        status=conversation.status,
+        messages=messages,
+        after_id=after_id,
+    )
 
 
 async def _record_ai_event(
@@ -123,7 +188,7 @@ async def _queue_for_handoff(
                 tenant_id=conversation.tenant_id,
                 conversation_id=conversation.id,
                 customer_id=conversation.customer_id,
-                status=STATUS_QUEUED,
+                status=QUEUED,
                 reason=reason,
                 priority="normal",
                 summary=summary,
@@ -135,7 +200,7 @@ async def _queue_for_handoff(
                 updated_at=now,
             )
         )
-    conversation.status = STATUS_QUEUED
+    conversation.status = QUEUED
     conversation.updated_at = now
     conversation.last_activity_at = now
     notice = ServiceMessage(
@@ -143,6 +208,7 @@ async def _queue_for_handoff(
         author_type="system",
         author_id=None,
         content=QUEUE_NOTICE,
+        idempotency_key=None,
         trace_id=trace_id,
         created_at=now,
     )
@@ -151,18 +217,58 @@ async def _queue_for_handoff(
     return notice
 
 
+async def _model_failed(
+    db: AsyncSession,
+    conversation: ServiceConversation,
+    *,
+    event_status: str,
+    trigger: str,
+    summary: str,
+    trace_id: str,
+    now: datetime,
+    customer_message: ServiceMessage,
+) -> ChatResult:
+    await _record_ai_event(
+        db,
+        conversation,
+        status=event_status,
+        confidence=None,
+        trace_id=trace_id,
+        now=now,
+    )
+    notice = await _queue_for_handoff(
+        db,
+        conversation,
+        reason="MODEL_UNAVAILABLE",
+        context={"order_count": 0, "trigger": trigger},
+        summary=summary,
+        trace_id=trace_id,
+        now=now,
+    )
+    return ChatResult(
+        conversation_id=conversation.id,
+        status=QUEUED,
+        messages=[view_message(customer_message), view_message(notice)],
+        after_id=notice.id,
+    )
+
+
 async def send_customer_message(
     db: AsyncSession,
     conversation: ServiceConversation,
     *,
     customer_id: str,
     content: str,
+    idempotency_key: str,
     model: ChatModel,
     timeout_seconds: float,
     trace_id: str,
     now: datetime,
 ) -> ChatResult:
-    if conversation.status == STATUS_CLOSED:
+    replay = await _replay(db, conversation, idempotency_key)
+    if replay is not None:
+        return replay
+    if conversation.status == CLOSED:
         raise ConversationClosedError
 
     customer_message = ServiceMessage(
@@ -170,75 +276,47 @@ async def send_customer_message(
         author_type="customer",
         author_id=customer_id,
         content=content,
+        idempotency_key=idempotency_key,
         trace_id=trace_id,
         created_at=now,
     )
     db.add(customer_message)
     await db.flush()
-    messages = [view_message(customer_message)]
 
-    if conversation.status != STATUS_AI_ACTIVE:
+    if conversation.status != AI_ACTIVE:
         conversation.updated_at = now
         conversation.last_activity_at = now
-        await db.commit()
+        await db.flush()
         return ChatResult(
             conversation_id=conversation.id,
             status=conversation.status,
-            messages=messages,
+            messages=[view_message(customer_message)],
             after_id=customer_message.id,
         )
 
     try:
         reply = await asyncio.wait_for(model.respond(content), timeout=timeout_seconds)
     except TimeoutError:
-        await _record_ai_event(
+        return await _model_failed(
             db,
             conversation,
-            status="timeout",
-            confidence=None,
-            trace_id=trace_id,
-            now=now,
-        )
-        notice = await _queue_for_handoff(
-            db,
-            conversation,
-            reason="MODEL_UNAVAILABLE",
-            context={"order_count": 0, "trigger": "model_timeout"},
+            event_status="timeout",
+            trigger="model_timeout",
             summary="模型调用超时，已自动转人工。",
             trace_id=trace_id,
             now=now,
-        )
-        await db.commit()
-        return ChatResult(
-            conversation_id=conversation.id,
-            status=STATUS_QUEUED,
-            messages=[messages[0], view_message(notice)],
-            after_id=notice.id,
+            customer_message=customer_message,
         )
     except ModelError:
-        await _record_ai_event(
+        return await _model_failed(
             db,
             conversation,
-            status="error",
-            confidence=None,
-            trace_id=trace_id,
-            now=now,
-        )
-        notice = await _queue_for_handoff(
-            db,
-            conversation,
-            reason="MODEL_UNAVAILABLE",
-            context={"order_count": 0, "trigger": "model_error"},
+            event_status="error",
+            trigger="model_error",
             summary="模型服务不可用，已自动转人工。",
             trace_id=trace_id,
             now=now,
-        )
-        await db.commit()
-        return ChatResult(
-            conversation_id=conversation.id,
-            status=STATUS_QUEUED,
-            messages=[messages[0], view_message(notice)],
-            after_id=notice.id,
+            customer_message=customer_message,
         )
 
     await _record_ai_event(
@@ -254,6 +332,7 @@ async def send_customer_message(
         author_type="ai",
         author_id=None,
         content=reply.reply,
+        idempotency_key=None,
         trace_id=trace_id,
         created_at=now,
     )
@@ -261,10 +340,9 @@ async def send_customer_message(
     conversation.updated_at = now
     conversation.last_activity_at = now
     await db.flush()
-    await db.commit()
     return ChatResult(
         conversation_id=conversation.id,
         status=conversation.status,
-        messages=[messages[0], view_message(ai_message)],
+        messages=[view_message(customer_message), view_message(ai_message)],
         after_id=ai_message.id,
     )

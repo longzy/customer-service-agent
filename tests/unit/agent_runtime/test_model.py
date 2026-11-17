@@ -191,8 +191,12 @@ async def test_兼容接口解析聊天回复_基座豁免() -> None:
 
     reply = await respond_with(handler)
     assert (reply.intent, reply.confidence, reply.reply) == ("HUMAN_HANDOFF", 0.4, "稍等。")
-    assert seen["body"]["response_format"] == {"type": "json_object"}
-    assert "tools" not in seen["body"]
+    body = seen["body"]
+    assert body["response_format"] == {"type": "json_object"}
+    assert "tools" not in body
+    system_prompt = body["messages"][0]["content"]
+    assert "电商客服" in system_prompt
+    assert "intent" in system_prompt and "confidence" in system_prompt and "reply" in system_prompt
 
 
 @pytest.mark.parametrize(

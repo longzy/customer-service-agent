@@ -1,7 +1,7 @@
 """客户会话的读取与恢复；归属 conversations 模块，不放在 identity。
 
 - 一个客户同时只有一个未关闭会话。
-- AI_ACTIVE 空闲 24h 在登录/读状态时惰性关闭，不引入后台 worker。
+- AI_ACTIVE 空闲 24h 在登录、读状态、发消息时惰性关闭，不引入后台 worker。
 - 调用方负责提交事务；本模块只 flush。
 """
 
@@ -12,11 +12,10 @@ from uuid import uuid4
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.conversations.statuses import AI_ACTIVE, CLOSED
 from backend.platform.models import ServiceConversation, ServiceMessage
 
 CONVERSATION_IDLE_TIMEOUT = timedelta(hours=24)
-STATUS_AI_ACTIVE = "AI_ACTIVE"
-STATUS_CLOSED = "CLOSED"
 
 
 @dataclass(frozen=True)
@@ -37,7 +36,7 @@ async def latest_message_id(db: AsyncSession, conversation_id: str) -> int:
     return int(value or 0)
 
 
-async def _open_conversation(
+async def _find_open(
     db: AsyncSession, tenant_id: str, customer_id: str
 ) -> ServiceConversation | None:
     statement = (
@@ -45,7 +44,7 @@ async def _open_conversation(
         .where(
             ServiceConversation.tenant_id == tenant_id,
             ServiceConversation.customer_id == customer_id,
-            ServiceConversation.status != STATUS_CLOSED,
+            ServiceConversation.status != CLOSED,
         )
         .order_by(ServiceConversation.created_at.desc())
         .limit(1)
@@ -56,31 +55,44 @@ async def _open_conversation(
 async def get_open_conversation(
     db: AsyncSession, tenant_id: str, customer_id: str
 ) -> ServiceConversation | None:
-    """只读当前未关闭会话；不存在时返回 None，由调用方决定 404/409。"""
-    return await _open_conversation(db, tenant_id, customer_id)
+    """当前未关闭会话；不存在时返回 None（可能已关闭）。"""
+    return await _find_open(db, tenant_id, customer_id)
 
 
-async def get_or_create_open_conversation(
-    db: AsyncSession, tenant_id: str, customer_id: str, now: datetime
-) -> CustomerConversation:
-    """返回该客户未关闭会话；没有或 AI 空闲超时则新建。"""
-    existing = await _open_conversation(db, tenant_id, customer_id)
-    if existing is not None:
-        stale = (
-            existing.status == STATUS_AI_ACTIVE
-            and existing.last_activity_at + CONVERSATION_IDLE_TIMEOUT <= now
+async def get_latest_conversation(
+    db: AsyncSession, tenant_id: str, customer_id: str
+) -> ServiceConversation | None:
+    """最近一条会话，含已关闭；用于读历史。"""
+    statement = (
+        select(ServiceConversation)
+        .where(
+            ServiceConversation.tenant_id == tenant_id,
+            ServiceConversation.customer_id == customer_id,
         )
-        if not stale:
-            return view(existing, await latest_message_id(db, existing.id))
-        existing.status = STATUS_CLOSED
-        existing.closed_at = now
-        existing.updated_at = now
-        await db.flush()
+        .order_by(ServiceConversation.created_at.desc())
+        .limit(1)
+    )
+    return (await db.execute(statement)).scalar_one_or_none()
+
+
+def _is_stale(row: ServiceConversation, now: datetime) -> bool:
+    return row.status == AI_ACTIVE and row.last_activity_at + CONVERSATION_IDLE_TIMEOUT <= now
+
+
+def _close(row: ServiceConversation, now: datetime) -> None:
+    row.status = CLOSED
+    row.closed_at = now
+    row.updated_at = now
+
+
+async def _create(
+    db: AsyncSession, tenant_id: str, customer_id: str, now: datetime
+) -> ServiceConversation:
     created = ServiceConversation(
         id=str(uuid4()),
         tenant_id=tenant_id,
         customer_id=customer_id,
-        status=STATUS_AI_ACTIVE,
+        status=AI_ACTIVE,
         journey_id=str(uuid4()),
         created_at=now,
         updated_at=now,
@@ -88,7 +100,30 @@ async def get_or_create_open_conversation(
     )
     db.add(created)
     await db.flush()
-    return view(created, 0)
+    return created
+
+
+async def get_sendable_conversation(
+    db: AsyncSession, tenant_id: str, customer_id: str, now: datetime
+) -> ServiceConversation | None:
+    """发消息用：AI_ACTIVE 空闲超时就关闭并新建；显式关闭返回 None。"""
+    existing = await _find_open(db, tenant_id, customer_id)
+    if existing is None:
+        return None
+    if not _is_stale(existing, now):
+        return existing
+    _close(existing, now)
+    await db.flush()
+    return await _create(db, tenant_id, customer_id, now)
+
+
+async def get_or_create_open_conversation(
+    db: AsyncSession, tenant_id: str, customer_id: str, now: datetime
+) -> CustomerConversation:
+    """登录/读状态用：没有未关闭会话或 AI 空闲超时则新建。"""
+    sendable = await get_sendable_conversation(db, tenant_id, customer_id, now)
+    row = sendable or await _create(db, tenant_id, customer_id, now)
+    return view(row, await latest_message_id(db, row.id))
 
 
 async def get_customer_conversation(

@@ -119,10 +119,23 @@ export async function getMessages(afterId: number): Promise<MessagePage> {
   return (await response.json()) as MessagePage;
 }
 
-export async function sendMessage(content: string): Promise<MessagePage> {
+function newIdempotencyKey(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `idem-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+export async function sendMessage(
+  content: string,
+  idempotencyKey: string = newIdempotencyKey(),
+): Promise<MessagePage> {
   const response = await fetch("/api/customer/messages", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: {
+      "Content-Type": "application/json",
+      "Idempotency-Key": idempotencyKey,
+    },
     body: JSON.stringify({ content }),
   });
   if (!response.ok) {

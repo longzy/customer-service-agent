@@ -2,8 +2,9 @@
 
 from datetime import UTC, datetime
 from typing import Annotated, Any
+from uuid import uuid4
 
-from fastapi import APIRouter, Depends, Query, Request, Response
+from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,15 +13,16 @@ from backend.conversations.customer_chat import (
     ChatResult,
     ConversationClosedError,
     MessageView,
-    list_messages,
+    read_customer_messages,
     send_customer_message,
 )
 from backend.conversations.customer_conversations import (
     CustomerConversation,
     get_customer_conversation,
+    get_latest_conversation,
     get_open_conversation,
     get_or_create_open_conversation,
-    latest_message_id,
+    get_sendable_conversation,
 )
 from backend.domain.errors import ErrorCode
 from backend.identity import customer_sessions
@@ -219,24 +221,30 @@ async def send_message(
     request: Request,
     session: CurrentSession,
     db: Db,
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=64),
 ) -> dict[str, Any]:
-    conversation = await get_open_conversation(db, session.customer.tenant_id, session.customer.id)
+    now = customer_sessions.utc_now()
+    conversation = await get_sendable_conversation(
+        db, session.customer.tenant_id, session.customer.id, now
+    )
     if conversation is None:
         raise ApiError(409, ErrorCode.CONVERSATION_CLOSED)
-    trace_id = getattr(request.state, "trace_id", "")
+    trace_id = getattr(request.state, "trace_id", None) or str(uuid4())
     try:
         result = await send_customer_message(
             db,
             conversation,
             customer_id=session.customer.id,
             content=payload.content,
+            idempotency_key=idempotency_key,
             model=request.app.state.model_client,
             timeout_seconds=settings_of(request).customer_model_timeout_seconds,
             trace_id=trace_id,
-            now=customer_sessions.utc_now(),
+            now=now,
         )
     except ConversationClosedError:
         raise ApiError(409, ErrorCode.CONVERSATION_CLOSED) from None
+    await db.commit()
     return _chat_payload(result)
 
 
@@ -248,18 +256,15 @@ async def read_messages(
 ) -> dict[str, Any]:
     conversation = await get_open_conversation(db, session.customer.tenant_id, session.customer.id)
     if conversation is None:
+        # 已关闭会话仍可读历史；读接口不返回 409。
+        conversation = await get_latest_conversation(
+            db, session.customer.tenant_id, session.customer.id
+        )
+    if conversation is None:
         raise ApiError(409, ErrorCode.CONVERSATION_CLOSED)
-    messages = await list_messages(db, conversation.id, after_id)
-    latest = (
-        messages[-1].id if messages else max(after_id, await latest_message_id(db, conversation.id))
-    )
+    result = await read_customer_messages(db, conversation, after_id)
     await db.commit()
-    return {
-        "conversation_id": conversation.id,
-        "status": conversation.status,
-        "after_id": latest,
-        "messages": [_message_json(message) for message in messages],
-    }
+    return _chat_payload(result)
 
 
 @router.delete("/sessions", status_code=204)

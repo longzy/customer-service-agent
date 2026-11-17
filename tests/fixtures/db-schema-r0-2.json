@@ -668,6 +668,12 @@
         "type": "TEXT"
       },
       {
+        "name": "idempotency_key",
+        "nullable": true,
+        "primary_key": false,
+        "type": "VARCHAR(64)"
+      },
+      {
         "name": "trace_id",
         "nullable": false,
         "primary_key": false,
