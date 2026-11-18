@@ -10,8 +10,7 @@
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from sqlalchemy import select
-from sqlalchemy.dialects.postgresql import distinct_on
+from sqlalchemy import ScalarSelect, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.conversations.handoffs import redact_text
@@ -69,37 +68,24 @@ def _waiting_seconds(created_at: datetime, now: datetime) -> int:
     return max(0, int((now - created_at).total_seconds()))
 
 
-def _order_count(context: object) -> int:
-    if not isinstance(context, dict):
-        return 0
-    value = context.get("order_count", 0)
-    if isinstance(value, bool) or not isinstance(value, int):
-        return 0
-    return max(0, value)
-
-
-async def _last_customer_messages(db: AsyncSession, conversation_ids: list[str]) -> dict[str, str]:
-    """每个会话最后一条客户消息；系统“排队中”提示不占用队列摘要。"""
-    if not conversation_ids:
-        return {}
-    rows = (
-        await db.execute(
-            select(ServiceMessage.conversation_id, ServiceMessage.content)
-            .where(
-                ServiceMessage.conversation_id.in_(conversation_ids),
-                ServiceMessage.author_type == "customer",
-            )
-            # PostgreSQL DISTINCT ON：每个会话只取最后一条客户消息，不把整段历史读进内存。
-            .ext(distinct_on(ServiceMessage.conversation_id))
-            .order_by(ServiceMessage.conversation_id, ServiceMessage.id.desc())
+def _last_customer_message() -> ScalarSelect[str]:
+    """相关标量子查询：每个会话最后一条客户消息；系统“排队中”提示不占用摘要。"""
+    return (
+        select(ServiceMessage.content)
+        .where(
+            ServiceMessage.conversation_id == ServiceHandoff.conversation_id,
+            ServiceMessage.author_type == "customer",
         )
-    ).all()
-    return {conversation_id: content for conversation_id, content in rows}
+        .order_by(ServiceMessage.id.desc())
+        .limit(1)
+        .correlate(ServiceHandoff)
+        .scalar_subquery()
+    )
 
 
 async def list_queued_handoffs(db: AsyncSession, tenant_id: str) -> list[QueueItem]:
     statement = (
-        select(ServiceHandoff, ServiceCustomer)
+        select(ServiceHandoff, ServiceCustomer, _last_customer_message())
         .join(ServiceCustomer, ServiceCustomer.id == ServiceHandoff.customer_id)
         .where(
             ServiceHandoff.tenant_id == tenant_id,
@@ -109,9 +95,6 @@ async def list_queued_handoffs(db: AsyncSession, tenant_id: str) -> list[QueueIt
         .order_by(ServiceHandoff.created_at, ServiceHandoff.id)
     )
     rows = (await db.execute(statement)).all()
-    last_messages = await _last_customer_messages(
-        db, [handoff.conversation_id for handoff, _customer in rows]
-    )
     now = utc_now()
     return [
         QueueItem(
@@ -121,10 +104,9 @@ async def list_queued_handoffs(db: AsyncSession, tenant_id: str) -> list[QueueIt
             customer_display_name=customer.display_name,
             waiting_seconds=_waiting_seconds(handoff.created_at, now),
             reason=handoff.reason,
-            order_count=_order_count(handoff.context),
-            last_message=redact_text(last_messages.get(handoff.conversation_id, ""))[
-                :QUEUE_LAST_MESSAGE_CHAR_LIMIT
-            ],
+            # plan 3.3.5：本切片无订单 Tool，队列摘要的 order_count 恒为 0。
+            order_count=0,
+            last_message=redact_text(last_message or "")[:QUEUE_LAST_MESSAGE_CHAR_LIMIT],
         )
-        for handoff, customer in rows
+        for handoff, customer, last_message in rows
     ]

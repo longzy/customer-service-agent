@@ -132,19 +132,7 @@ async def current_session(session: CurrentEmployee) -> EmployeeSessionResponse:
 async def read_queue(session: CurrentEmployee, db: Db) -> WorkspaceQueueResponse:
     items = await list_queued_handoffs(db, session.employee.tenant_id)
     return WorkspaceQueueResponse(
-        items=[
-            WorkspaceQueueItem(
-                handoff_id=item.handoff_id,
-                conversation_id=item.conversation_id,
-                customer_username=item.customer_username,
-                customer_display_name=item.customer_display_name,
-                waiting_seconds=item.waiting_seconds,
-                reason=item.reason,
-                order_count=item.order_count,
-                last_message=item.last_message,
-            )
-            for item in items
-        ]
+        items=[WorkspaceQueueItem.model_validate(item, from_attributes=True) for item in items]
     )
 
 

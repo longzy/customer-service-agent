@@ -21,6 +21,7 @@ from tests.integration.workspace_support import (
     login_employee,
     prepare_workspace_db,
     rows_of,
+    seed_customer,
     seed_queued_handoff,
     set_employee_role,
 )
@@ -155,6 +156,7 @@ def test_队列摘要含账号等待原因脱敏末条与订单数_AC_35(
         reason="LOW_CONFIDENCE",
         created_at=BASE,
         order_count=0,
+        earlier_messages=("较早一条，手机 13700001111",),
         last_message=content,
     )
     freeze_queue_clock(monkeypatch, BASE + timedelta(seconds=42))
@@ -180,6 +182,8 @@ def test_队列摘要含账号等待原因脱敏末条与订单数_AC_35(
     assert "u***@example.com" in item["last_message"]
     assert "138-1234-5678" not in item["last_message"]
     assert "user@example.com" not in item["last_message"]
+    assert "较早一条" not in item["last_message"]
+    assert "13700001111" not in item["last_message"]
     assert "泄露标记ABC" not in response.text
 
 
@@ -220,12 +224,20 @@ def test_队列只返回同租户交接单_AC_35(monkeypatch: pytest.MonkeyPatch
         customer_id="cust-customer_a",
         created_at=BASE,
     )
+    seed_customer("cust-tenant-b", "customer_c", tenant_id="tenant-b", display_name="客户丙")
     seed_queued_handoff(
         "ho-tenant-b",
         conversation_id="conv-tenant-b",
-        customer_id="cust-extra-1",
+        customer_id="cust-tenant-b",
         tenant_id="tenant-b",
         created_at=BASE - timedelta(minutes=1),
+    )
+    # 脏数据兜底：交接单属 tenant-a、客户属 tenant-b，也必须被客户租户条件挡住。
+    seed_queued_handoff(
+        "ho-customer-mismatch",
+        conversation_id="conv-customer-mismatch",
+        customer_id="cust-tenant-b",
+        created_at=BASE - timedelta(minutes=2),
     )
     freeze_queue_clock(monkeypatch, BASE)
 
@@ -243,6 +255,23 @@ def test_空队列返回空列表_AC_35() -> None:
 
     assert response.status_code == 200
     assert response.json() == {"items": []}
+
+
+def test_队列订单数固定为0即使交接单上下文非0_AC_35(monkeypatch: pytest.MonkeyPatch) -> None:
+    seed_queued_handoff(
+        "ho-order-count",
+        conversation_id="conv-order-count",
+        customer_id="cust-customer_a",
+        created_at=BASE,
+        order_count=7,
+    )
+    freeze_queue_clock(monkeypatch, BASE)
+
+    with api_client() as api:
+        login_employee(api)
+        items = queue_items(api)
+
+    assert items[0]["order_count"] == 0
 
 
 def test_未登录401且角色降级后403_AC_35() -> None:

@@ -148,6 +148,31 @@ def seed_conversation(
     asyncio.run(with_db(create))
 
 
+def seed_customer(
+    customer_id: str,
+    username: str,
+    *,
+    tenant_id: str,
+    display_name: str,
+) -> None:
+    """播种一个客户账号；用于跨租户等需要独立客户的队列用例。"""
+
+    async def create(db: Any) -> None:
+        db.add(
+            ServiceCustomer(
+                id=customer_id,
+                tenant_id=tenant_id,
+                username=username,
+                password_hash=hash_password(DEMO_CREDENTIAL),
+                display_name=display_name,
+                active=True,
+            )
+        )
+        await db.commit()
+
+    asyncio.run(with_db(create))
+
+
 def seed_queued_handoff(
     handoff_id: str,
     *,
@@ -158,6 +183,7 @@ def seed_queued_handoff(
     reason: str = "CUSTOMER_REQUEST",
     created_at: datetime | None = None,
     order_count: int = 0,
+    earlier_messages: tuple[str, ...] = (),
     last_message: str | None = None,
     tenant_id: str | None = None,
 ) -> None:
@@ -201,18 +227,24 @@ def seed_queued_handoff(
                 updated_at=moment,
             )
         )
+        await db.flush()
+        contents = [*earlier_messages]
         if last_message is not None:
+            contents.append(last_message)
+        for offset, content in enumerate(contents):
             db.add(
                 ServiceMessage(
                     conversation_id=conversation_id,
                     author_type="customer",
                     author_id=customer_id,
-                    content=last_message,
+                    content=content,
                     idempotency_key=None,
                     trace_id=str(uuid4()),
-                    created_at=moment,
+                    created_at=moment + timedelta(milliseconds=offset),
                 )
             )
+            # 逐条 flush 固定 bigserial 顺序，避免批量插入时消息 id 次序不确定。
+            await db.flush()
         db.add(
             ServiceMessage(
                 conversation_id=conversation_id,
