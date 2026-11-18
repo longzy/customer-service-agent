@@ -5,6 +5,7 @@
 #   ./scripts/verify.sh --verbose    # 逐步输出完整日志
 #   ./scripts/verify.sh --no-record  # 只验证，不修改仓库（CI 使用）
 #   ./scripts/verify.sh --fast       # 后端快速反馈：ruff/format/mypy/unit，不写状态
+# 前端步骤包含 lint/format/typecheck/test/build（build 与 CI frontend-build job 对齐）。
 set -e
 cd "$(git rev-parse --show-toplevel)"
 
@@ -119,6 +120,9 @@ run_step "workspace lint" pnpm -C apps/workspace lint
 run_step "workspace format" pnpm -C apps/workspace exec prettier --check .
 run_step "workspace typecheck" pnpm -C apps/workspace typecheck
 run_step "workspace test" pnpm -C apps/workspace test
+run_step "web build" pnpm -C apps/web build
+run_step "chat build" pnpm -C apps/chat build
+run_step "workspace build" pnpm -C apps/workspace build
 
 PYTEST_LINE=$(grep -E "[0-9]+ passed" "$PYTEST_LOG" | tail -1)
 MYPY_LINE=$(tail -1 "$MYPY_LOG")

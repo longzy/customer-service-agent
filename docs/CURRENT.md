@@ -8,7 +8,7 @@
 - 当前工作：F-07（队列领取/并发）待开工；F-06 收口完成
 
 <!-- verify:start -->
-- 最近验证：`./scripts/verify.sh` 全部检查通过——pytest 638 passed（独立测试库）、mypy 63 个文件、追溯矩阵通过（10 条 AC）、文档与前端检查通过
+- 最近验证：`./scripts/verify.sh` 全部检查通过——pytest 641 passed（独立测试库）、mypy 63 个文件、追溯矩阵通过（10 条 AC）、文档与前端检查通过
 <!-- verify:end -->
 
 ## 进行中
