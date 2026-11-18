@@ -1,9 +1,10 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help dev dev-stop dev-reset status verify verify-check verify-fast eval
+.PHONY: help dev dev-stop dev-reset status verify verify-check verify-fast eval lint typecheck test
 
 help: ## 显示可用命令
 	@echo "make dev          启动 API + Chat + Workspace（自动准备 .env、数据库、依赖）"
+	@echo "                  ARGS 透传参数，如 make dev ARGS=--no-install"
 	@echo "make dev-stop     停止本地 3000/8000 监听进程"
 	@echo "make dev-reset    重建本地开发库（停服务、迁移、重播种；需确认）"
 	@echo "make status       查看端口/数据库/迁移/模型/契约状态"
@@ -11,9 +12,12 @@ help: ## 显示可用命令
 	@echo "make verify-check 全量验证，不写 CURRENT（保留退出码）"
 	@echo "make verify-fast  后端快速检查"
 	@echo "make eval         场景评测"
+	@echo "make lint         ruff check + format check"
+	@echo "make typecheck    mypy backend"
+	@echo "make test         pytest（独立测试库）"
 
-dev: ## 启动本地开发环境
-	./scripts/dev.sh
+dev: ## 启动本地开发环境；非交互可 ARGS=--no-install
+	./scripts/dev.sh $(ARGS)
 
 dev-reset: ## 重建本地开发库；非交互用 ARGS=--yes
 	UV_CACHE_DIR=$${UV_CACHE_DIR:-./.uv-cache} uv run python scripts/reset_dev_db.py $(ARGS)
@@ -35,3 +39,13 @@ verify-fast: ## 后端快速检查
 
 eval: ## 场景评测
 	./scripts/eval.sh
+
+lint: ## ruff check + format check
+	UV_CACHE_DIR=$${UV_CACHE_DIR:-./.uv-cache} uv run ruff check .
+	UV_CACHE_DIR=$${UV_CACHE_DIR:-./.uv-cache} uv run ruff format --check .
+
+typecheck: ## mypy backend
+	UV_CACHE_DIR=$${UV_CACHE_DIR:-./.uv-cache} uv run mypy backend
+
+test: ## pytest（独立测试库）
+	./scripts/test-db.sh -q

@@ -1,145 +1,129 @@
 #!/bin/sh
-# 本地/CI 统一验证入口。每一步跑一次，结果写入一份摘要。
+# 本地/CI 统一验证入口。默认只输出一行摘要；失败时打印失败步骤与日志尾部。
 # 用法：
-#   ./scripts/verify.sh             # 全量验证并回写 docs/CURRENT.md 的验证块
-#   ./scripts/verify.sh --no-record # 只验证，不修改仓库（CI 使用）
-#   ./scripts/verify.sh --fast      # 后端快速反馈：ruff/format/mypy/unit，不写状态
+#   ./scripts/verify.sh              # 全量验证并回写 docs/CURRENT.md 的验证块
+#   ./scripts/verify.sh --verbose    # 逐步输出完整日志
+#   ./scripts/verify.sh --no-record  # 只验证，不修改仓库（CI 使用）
+#   ./scripts/verify.sh --fast       # 后端快速反馈：ruff/format/mypy/unit，不写状态
 set -e
 cd "$(git rev-parse --show-toplevel)"
 
 export UV_CACHE_DIR="${UV_CACHE_DIR:-./.uv-cache}"
 RECORD=1
 FAST=0
+VERBOSE=0
 for arg in "$@"; do
   case "$arg" in
     --no-record) RECORD=0 ;;
     --fast) FAST=1 ;;
+    --verbose) VERBOSE=1 ;;
     *) echo "未知参数：$arg" >&2; exit 2 ;;
   esac
 done
 
+STEP_LOG=$(mktemp)
+PYTEST_LOG=$(mktemp)
+EVAL_LOG=$(mktemp)
+MYPY_LOG=$(mktemp)
+DOCS_LOG=$(mktemp)
+TRACE_LOG=$(mktemp)
+trap 'rm -f "$STEP_LOG" "$PYTEST_LOG" "$EVAL_LOG" "$MYPY_LOG" "$DOCS_LOG" "$TRACE_LOG"' EXIT
+
+run_step() {
+  label=$1
+  shift
+  if ! "$@" >"$STEP_LOG" 2>&1; then
+    echo "验证失败：$label" >&2
+    tail -40 "$STEP_LOG" >&2
+    exit 1
+  fi
+  if [ "$VERBOSE" = "1" ]; then
+    echo "== $label =="
+    cat "$STEP_LOG"
+  fi
+}
+
 if [ "$FAST" = "1" ]; then
-  echo "== fast: ruff check =="
-  uv run ruff check .
-  echo "== fast: ruff format =="
-  uv run ruff format --check .
-  echo "== fast: mypy =="
-  uv run mypy backend
-  echo "== fast: shell 检查 =="
-  python3 scripts/check-shell.py
-  echo "== fast: import 边界 =="
-  python3 scripts/check-imports.py --strict
-  echo "== fast: unit tests（独立测试库）=="
-  ./scripts/test-db.sh tests/unit -q
+  run_step "ruff check" uv run ruff check .
+  run_step "ruff format" uv run ruff format --check .
+  run_step "mypy" uv run mypy backend
+  run_step "shell 检查" python3 scripts/check-shell.py
+  run_step "import 边界" python3 scripts/check-imports.py --strict
+  run_step "unit tests（独立测试库）" ./scripts/test-db.sh tests/unit -q
   echo "fast checks passed"
   exit 0
 fi
 
-PYTEST_LOG=$(mktemp)
-trap 'rm -f "$PYTEST_LOG"' EXIT
 REPORTS_DIR="evals/reports"
 JUNIT="$REPORTS_DIR/latest-junit.xml"
 mkdir -p "$REPORTS_DIR"
 
-echo "== ruff check =="
-uv run ruff check .
+run_step "ruff check" uv run ruff check .
+run_step "ruff format" uv run ruff format --check .
+run_step "shell 检查" python3 scripts/check-shell.py
+run_step "import 边界" python3 scripts/check-imports.py --strict
+run_step "prod import" env ENVIRONMENT=test MODEL_API_KEY='' uv run --no-dev python -c \
+  "import backend.api.main, backend.tools.gateway, backend.adapters.oms.factory"
+run_step "密钥扫描" python3 scripts/check-secrets.py
+run_step "mypy" uv run mypy backend
+cp "$STEP_LOG" "$MYPY_LOG"
+run_step "OpenAPI 类型" ./scripts/check-api-types.sh
 
-echo "== ruff format =="
-uv run ruff format --check .
-
-echo "== shell 检查 =="
-python3 scripts/check-shell.py
-
-echo "== import 边界 =="
-python3 scripts/check-imports.py --strict
-
-echo "== prod import =="
-ENVIRONMENT=test MODEL_API_KEY='' uv run --no-dev python -c "import backend.api.main, backend.tools.gateway, backend.adapters.oms.factory"
-
-echo "== 密钥扫描 =="
-python3 scripts/check-secrets.py
-
-echo "== mypy =="
-uv run mypy backend
-
-echo "== OpenAPI 类型 =="
-./scripts/check-api-types.sh
-
-echo "== pytest（独立测试库）=="
-# pytest 失败也要继续生成 eval 报告，因此这里暂时关闭 set -e 并分别记退出码
+# pytest 失败也要继续生成 eval 报告，因此这里暂时关闭 set -e 并分别记退出码。
+if [ "$VERBOSE" = "1" ]; then
+  echo "== pytest（独立测试库）=="
+fi
 rm -f "$JUNIT"
 set +e
 ./scripts/test-db.sh -q --junitxml="$JUNIT" >"$PYTEST_LOG" 2>&1
 PYTEST_STATUS=$?
 set -e
 if [ "$PYTEST_STATUS" -ne 0 ]; then
-  tail -40 "$PYTEST_LOG"
-else
+  echo "pytest 失败" >&2
+  tail -40 "$PYTEST_LOG" >&2
+elif [ "$VERBOSE" = "1" ]; then
   tail -1 "$PYTEST_LOG"
 fi
 
-echo "== 场景评测（复用 pytest JUnit）=="
+if [ "$VERBOSE" = "1" ]; then
+  echo "== 场景评测（复用 pytest JUnit）=="
+fi
 set +e
-uv run python evals/run.py --junit "$JUNIT" --reports-dir "$REPORTS_DIR"
+uv run python evals/run.py --junit "$JUNIT" --reports-dir "$REPORTS_DIR" >"$EVAL_LOG" 2>&1
 EVAL_STATUS=$?
 set -e
+if [ "$EVAL_STATUS" -ne 0 ]; then
+  echo "场景评测失败" >&2
+  tail -40 "$EVAL_LOG" >&2
+fi
 if [ "$PYTEST_STATUS" -ne 0 ] || [ "$EVAL_STATUS" -ne 0 ]; then
   echo "pytest/eval 失败：pytest=$PYTEST_STATUS eval=$EVAL_STATUS" >&2
   exit 1
 fi
 
-echo "== route coverage =="
-python3 scripts/check-route-coverage.py
-
-echo "== 追溯矩阵 =="
-python3 scripts/trace.py --strict
-
-echo "== 当前状态一致性 =="
-python3 scripts/check-status.py
-
-echo "== docs =="
-python3 scripts/check-docs.py
-
-echo "== web lint =="
-pnpm -C apps/web lint
-
-echo "== web format =="
-pnpm -C apps/web exec prettier --check .
-
-echo "== web typecheck =="
-pnpm -C apps/web typecheck
-
-echo "== web test =="
-pnpm -C apps/web test
-
-echo "== chat lint =="
-pnpm -C apps/chat lint
-
-echo "== chat format =="
-pnpm -C apps/chat exec prettier --check .
-
-echo "== chat typecheck =="
-pnpm -C apps/chat typecheck
-
-echo "== chat test =="
-pnpm -C apps/chat test
-
-echo "== workspace lint =="
-pnpm -C apps/workspace lint
-
-echo "== workspace format =="
-pnpm -C apps/workspace exec prettier --check .
-
-echo "== workspace typecheck =="
-pnpm -C apps/workspace typecheck
-
-echo "== workspace test =="
-pnpm -C apps/workspace test
+run_step "route coverage" python3 scripts/check-route-coverage.py
+run_step "追溯矩阵" python3 scripts/trace.py --strict
+cp "$STEP_LOG" "$TRACE_LOG"
+run_step "当前状态一致性" python3 scripts/check-status.py
+run_step "docs" python3 scripts/check-docs.py
+cp "$STEP_LOG" "$DOCS_LOG"
+run_step "web lint" pnpm -C apps/web lint
+run_step "web format" pnpm -C apps/web exec prettier --check .
+run_step "web typecheck" pnpm -C apps/web typecheck
+run_step "web test" pnpm -C apps/web test
+run_step "chat lint" pnpm -C apps/chat lint
+run_step "chat format" pnpm -C apps/chat exec prettier --check .
+run_step "chat typecheck" pnpm -C apps/chat typecheck
+run_step "chat test" pnpm -C apps/chat test
+run_step "workspace lint" pnpm -C apps/workspace lint
+run_step "workspace format" pnpm -C apps/workspace exec prettier --check .
+run_step "workspace typecheck" pnpm -C apps/workspace typecheck
+run_step "workspace test" pnpm -C apps/workspace test
 
 PYTEST_LINE=$(grep -E "[0-9]+ passed" "$PYTEST_LOG" | tail -1)
-MYPY_LINE=$(uv run mypy backend 2>&1 | tail -1)
-DOCS_LINE=$(python3 scripts/check-docs.py 2>&1 | tail -1)
-TRACE_LINE=$(python3 scripts/trace.py 2>&1 | tail -1)
+MYPY_LINE=$(tail -1 "$MYPY_LOG")
+DOCS_LINE=$(tail -1 "$DOCS_LOG")
+TRACE_LINE=$(tail -1 "$TRACE_LOG")
 python3 - "$PYTEST_LINE" "$MYPY_LINE" "$DOCS_LINE" "$TRACE_LINE" "$RECORD" <<'PY'
 import re
 import sys

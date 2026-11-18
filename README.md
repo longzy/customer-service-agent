@@ -75,7 +75,7 @@ make dev
 
 M1 演示账号：客户 `customer_a`/`customer_b`，坐席 `agent_1`/`agent_2`；密码由 `.env` 的 `DEMO_PASSWORD` 决定，运行 `uv run python scripts/seed_demo.py` 创建或重置，密码不提交。
 
-排障：`make status` 查看端口/数据库/迁移/模型/契约；`make dev-stop` 停止本地 3000/3001/8000。
+排障：`make status` 查看端口/数据库/迁移/模型/契约；`make dev-stop` 停止本地 3000/3001/8000。非交互环境（CI/agent）会自动按非 TTY 安装依赖；依赖已就绪时可 `make dev ARGS=--no-install` 跳过安装。
 演示模型失败：把 `.env` 的 `MODEL_API_KEY` 置空，设 `FAKE_MODEL_MODE=timeout`（或 `error`），再 `make dev`。
 
 演示数据可随时回到干净起点：`make dev-reset`（停 3000/3001/8000、重建开发库、迁移并重播种；非交互运行用 `make dev-reset ARGS=--yes`）。开发库视为可抛弃资源，不要在里面存长期数据；不要手写 `DELETE`/`UPDATE` 修改演示库，需要重置时只用该命令；生产环境与远端数据库会被脚本拒绝。
@@ -84,10 +84,14 @@ M1 演示账号：客户 `customer_a`/`customer_b`，坐席 `agent_1`/`agent_2`�
 
 ```bash
 # 一键验证：ruff、mypy、pytest（独立测试库）、路由覆盖、追溯、状态、文档、前端
-make verify-check                 # 实现过程：全量验证，不写回 CURRENT（保留退出码）
+make verify-check                 # 实现过程：全量验证，不写回 CURRENT（保留退出码，默认一行摘要）
 make verify                       # 收口：全量验证并写回 CURRENT
 ./scripts/verify.sh --no-record   # CI 使用：只验证，不写回状态快照
+./scripts/verify.sh --verbose     # 排障：逐步输出完整日志
 make verify-fast                  # 后端快速反馈
+make lint                         # ruff check + format check
+make typecheck                    # mypy backend
+make test                         # pytest（独立测试库）
 make eval                         # 场景评测：pytest JUnit + AC 报告
 
 # 单独运行
@@ -96,7 +100,8 @@ UV_CACHE_DIR=./.uv-cache uv run mypy backend
 ./scripts/test-db.sh -q            # 建测试库、跑迁移、再跑 pytest
 python3 scripts/check-docs.py
 python3 scripts/check-status.py    # CURRENT.md ↔ tasks.md ↔ 执行卡
-python3 scripts/trace.py --strict  # AC ↔ 测试 ↔ 执行卡
+python3 scripts/trace.py --strict  # AC ↔ 测试 ↔ 执行卡（含部分覆盖）
+python3 scripts/close_feature.py F-06 --check  # 收口前置条件；--apply 更新 features/执行卡
 ./scripts/check-api-types.sh       # OpenAPI ↔ 前端生成类型
 pnpm -C apps/web lint
 pnpm -C apps/web typecheck
@@ -109,7 +114,7 @@ pnpm -C apps/workspace typecheck
 pnpm -C apps/workspace test
 ```
 
-需要保留日志时用 `make verify-check`，或 `./scripts/verify.sh --no-record > /tmp/verify.log 2>&1; echo $?`；不要把 verify 接入 `| tail`，管道会吞掉退出码。
+`verify.sh` 默认只输出一行摘要；失败时打印失败步骤与日志尾部。需要完整日志时加 `--verbose`，或 `./scripts/verify.sh --no-record > /tmp/verify.log 2>&1; echo $?`。
 
 数据库默认 `postgresql+asyncpg://ba@127.0.0.1:5432/customer_service`；`dev.sh` 会创建库并迁移，连接串可在 `.env` 用 `DATABASE_URL` 覆盖。
 

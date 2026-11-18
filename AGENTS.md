@@ -29,7 +29,7 @@
 
 ## 命令
 
-以 `README.md` 为准，只有一个入口：`./scripts/verify.sh`。常用：`test-db.sh`、`check-status.py`、`trace.py`、`check-secrets.py`。
+以 `README.md` 为准。验证用 `make verify-check`（默认一行摘要、保留退出码）；收口用 `make verify`。常用：`test-db.sh`、`check-status.py`、`trace.py`、`check-secrets.py`。
 
 ## 工作流
 

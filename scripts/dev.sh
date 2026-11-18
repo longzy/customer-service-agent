@@ -4,6 +4,12 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# 非交互环境（CI/agent）默认让 pnpm 走非交互安装；
+# 否则 pnpm 在需要清理 node_modules 时会因无 TTY 拒绝执行。
+if [ ! -t 0 ] && [ -z "${CI:-}" ]; then
+  export CI=true
+fi
+
 NO_INSTALL=0
 for arg in "$@"; do
   case "$arg" in
