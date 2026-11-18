@@ -116,6 +116,8 @@ pnpm -C apps/workspace test
 
 `verify.sh` 默认只输出一行摘要；失败时打印失败步骤与日志尾部。需要完整日志时加 `--verbose`，或 `./scripts/verify.sh --no-record > /tmp/verify.log 2>&1; echo $?`。
 
+并行会话（多个 agent/终端同时验证）会互相清理共享测试库；用独立库：`TEST_DB_NAME=customer_service_test_<suffix> make verify-check`。
+
 数据库默认 `postgresql+asyncpg://ba@127.0.0.1:5432/customer_service`；`dev.sh` 会创建库并迁移，连接串可在 `.env` 用 `DATABASE_URL` 覆盖。
 
 迁移：`uv run alembic revision --autogenerate -m "..."`；表结构随后续任务落地。
