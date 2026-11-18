@@ -52,11 +52,57 @@ const detail = {
   },
 };
 
+const humanDetail = { ...detail, status: "HUMAN_ACTIVE" };
+
+const claimedMessages = {
+  conversation_id: "conv-1",
+  status: "CLAIMED",
+  after_id: 0,
+  messages: [],
+};
+
+const messagePage = {
+  conversation_id: "conv-1",
+  status: "HUMAN_ACTIVE",
+  after_id: 4,
+  messages: [
+    {
+      id: 4,
+      author_type: "agent",
+      content: "您好，我是坐席 1",
+      created_at: "2026-11-17T10:05:00Z",
+    },
+  ],
+};
+
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: { "Content-Type": "application/json" },
   });
+}
+
+type RouteHandler = (init?: RequestInit) => Response | Promise<Response>;
+
+/** 按 pathname 分流 mock：页面现在同时请求详情与消息轮询，按顺序 mock 会错位。 */
+function mockRoutes(routes: Record<string, RouteHandler>) {
+  return vi.spyOn(global, "fetch").mockImplementation(async (input, init) => {
+    const raw = typeof input === "string" ? input : input.toString();
+    const path = raw.split("?")[0];
+    const handler = routes[path];
+    if (!handler) {
+      return json({ code: "NOT_FOUND", message: "未找到" }, 404);
+    }
+    return handler(init);
+  });
+}
+
+function detailRoute() {
+  return () => json(detail);
+}
+
+function messagesRoute(page: unknown = { ...messagePage, messages: [] }) {
+  return () => json(page);
 }
 
 describe("工作台 ConversationGate", () => {
@@ -66,17 +112,19 @@ describe("工作台 ConversationGate", () => {
   });
 
   it("未登录时跳转 /login", async () => {
-    vi.spyOn(global, "fetch").mockResolvedValueOnce(
-      json({ code: "SESSION_INVALID", message: "未登录" }, 401),
-    );
+    mockRoutes({
+      "/api/workspace/session": () => json({ code: "SESSION_INVALID", message: "未登录" }, 401),
+    });
     render(<ConversationGate conversationId="conv-1" />);
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/login"));
   });
 
   it("显示领取者可见的客户与交接单上下文", async () => {
-    vi.spyOn(global, "fetch")
-      .mockResolvedValueOnce(json(session))
-      .mockResolvedValueOnce(json(detail));
+    mockRoutes({
+      "/api/workspace/session": () => json(session),
+      "/api/workspace/conversations/conv-1": detailRoute(),
+      "/api/workspace/conversations/conv-1/messages": messagesRoute(claimedMessages),
+    });
     render(<ConversationGate conversationId="conv-1" />);
 
     expect(await screen.findByText("conv-1")).toBeInTheDocument();
@@ -95,9 +143,11 @@ describe("工作台 ConversationGate", () => {
   });
 
   it("会话不存在时提示未找到且不暴露细节", async () => {
-    vi.spyOn(global, "fetch")
-      .mockResolvedValueOnce(json(session))
-      .mockResolvedValueOnce(json({ code: "NOT_FOUND", message: "未找到" }, 404));
+    mockRoutes({
+      "/api/workspace/session": () => json(session),
+      "/api/workspace/conversations/conv-1": () =>
+        json({ code: "NOT_FOUND", message: "未找到" }, 404),
+    });
     render(<ConversationGate conversationId="conv-1" />);
 
     expect(await screen.findByText("未找到该会话")).toBeInTheDocument();
@@ -105,11 +155,13 @@ describe("工作台 ConversationGate", () => {
   });
 
   it("AC-36 接管成功后会话语义变为人工接入中", async () => {
-    const fetchMock = vi
-      .spyOn(global, "fetch")
-      .mockResolvedValueOnce(json(session))
-      .mockResolvedValueOnce(json(detail))
-      .mockResolvedValueOnce(json({ conversation_id: "conv-1", status: "HUMAN_ACTIVE" }));
+    mockRoutes({
+      "/api/workspace/session": () => json(session),
+      "/api/workspace/conversations/conv-1": detailRoute(),
+      "/api/workspace/conversations/conv-1/messages": messagesRoute(claimedMessages),
+      "/api/workspace/conversations/conv-1/takeover": () =>
+        json({ conversation_id: "conv-1", status: "HUMAN_ACTIVE" }),
+    });
     render(<ConversationGate conversationId="conv-1" />);
 
     fireEvent.click(await screen.findByRole("button", { name: "接管会话" }));
@@ -117,16 +169,17 @@ describe("工作台 ConversationGate", () => {
     expect(await screen.findByText("已接管会话，客户将看到“人工已接入”。")).toBeInTheDocument();
     expect(screen.getByText("人工接入中")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "接管会话" })).not.toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledWith("/api/workspace/conversations/conv-1/takeover", {
-      method: "POST",
-    });
+    expect(screen.getByRole("button", { name: "发送" })).toBeInTheDocument();
   });
 
   it("AC-36 接管返回 404 时提示状态已变化", async () => {
-    vi.spyOn(global, "fetch")
-      .mockResolvedValueOnce(json(session))
-      .mockResolvedValueOnce(json(detail))
-      .mockResolvedValueOnce(json({ code: "NOT_FOUND", message: "未找到" }, 404));
+    mockRoutes({
+      "/api/workspace/session": () => json(session),
+      "/api/workspace/conversations/conv-1": detailRoute(),
+      "/api/workspace/conversations/conv-1/messages": messagesRoute(claimedMessages),
+      "/api/workspace/conversations/conv-1/takeover": () =>
+        json({ code: "NOT_FOUND", message: "未找到" }, 404),
+    });
     render(<ConversationGate conversationId="conv-1" />);
 
     fireEvent.click(await screen.findByRole("button", { name: "接管会话" }));
@@ -135,11 +188,77 @@ describe("工作台 ConversationGate", () => {
     expect(screen.getByText("已领取，等待接管")).toBeInTheDocument();
   });
 
+  it("AC-37 已接管时展示实时消息并可回复", async () => {
+    mockRoutes({
+      "/api/workspace/session": () => json(session),
+      "/api/workspace/conversations/conv-1": () => json(humanDetail),
+      "/api/workspace/conversations/conv-1/messages": messagesRoute(messagePage),
+    });
+    render(<ConversationGate conversationId="conv-1" />);
+
+    expect(await screen.findByText("您好，我是坐席 1")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("回复客户"), {
+      target: { value: "请问有什么可以帮您？" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "发送" }));
+
+    await waitFor(() =>
+      expect(global.fetch).toHaveBeenCalledWith(
+        "/api/workspace/conversations/conv-1/messages",
+        expect.objectContaining({
+          method: "POST",
+          headers: expect.objectContaining({
+            "Content-Type": "application/json",
+            "Idempotency-Key": expect.any(String),
+          }),
+        }),
+      ),
+    );
+  });
+
+  it("AC-37 已领取未接管时不显示回复框", async () => {
+    mockRoutes({
+      "/api/workspace/session": () => json(session),
+      "/api/workspace/conversations/conv-1": detailRoute(),
+      "/api/workspace/conversations/conv-1/messages": messagesRoute(claimedMessages),
+    });
+    render(<ConversationGate conversationId="conv-1" />);
+
+    expect(await screen.findByText("接管后可以回复客户。")).toBeInTheDocument();
+    expect(screen.queryByLabelText("回复客户")).not.toBeInTheDocument();
+  });
+
+  it("AC-37 回复 409 会话已结束时提示且不清空草稿", async () => {
+    mockRoutes({
+      "/api/workspace/session": () => json(session),
+      "/api/workspace/conversations/conv-1": () => json(humanDetail),
+      "/api/workspace/conversations/conv-1/messages": messagesRoute(messagePage),
+    });
+    render(<ConversationGate conversationId="conv-1" />);
+
+    await screen.findByText("您好，我是坐席 1");
+    const input = screen.getByLabelText("回复客户");
+    fireEvent.change(input, { target: { value: "这条会失败" } });
+    vi.mocked(global.fetch).mockImplementation(async (input, init) => {
+      const raw = typeof input === "string" ? input : input.toString();
+      if (raw.endsWith("/messages") && init?.method === "POST") {
+        return json({ code: "CONVERSATION_CLOSED", message: "会话已结束" }, 409);
+      }
+      return json(messagePage);
+    });
+    fireEvent.click(screen.getByRole("button", { name: "发送" }));
+
+    expect(await screen.findByText("会话已结束，无法回复。")).toBeInTheDocument();
+    expect(input).toHaveValue("这条会失败");
+  });
+
   it("退出后回登录页", async () => {
-    vi.spyOn(global, "fetch")
-      .mockResolvedValueOnce(json(session))
-      .mockResolvedValueOnce(json(detail))
-      .mockResolvedValueOnce(new Response(null, { status: 204 }));
+    mockRoutes({
+      "/api/workspace/session": () => json(session),
+      "/api/workspace/conversations/conv-1": () => json(humanDetail),
+      "/api/workspace/conversations/conv-1/messages": messagesRoute(),
+      "/api/workspace/sessions": () => new Response(null, { status: 204 }),
+    });
     render(<ConversationGate conversationId="conv-1" />);
 
     expect(await screen.findByText("conv-1")).toBeInTheDocument();

@@ -1,4 +1,4 @@
-"""坐席工作台：会话归属门禁、待接入队列、条件领取、接管与上下文读取。
+"""坐席工作台：会话归属门禁、待接入队列、条件领取、接管、上下文与回复。
 
 - 归属读取只允许同租户且 `assigned_employee_id` 为本人的会话；其余返回 None。
 - 队列只返回同租户 `status='QUEUED'` 的交接单，按 `created_at, id` 升序。
@@ -10,6 +10,8 @@
   改为 `HUMAN_ACTIVE`、交接单改为 `ACTIVE`，并写“人工已接入”系统消息。
 - 上下文读取只展示交接单里的快照（客户账号、最近 20 条脱敏消息、AI 轨迹、待办），
   不额外暴露未领取时的完整消息。
+- 回复只在 `HUMAN_ACTIVE` 会话写入 `agent` 消息；`(conversation_id, idempotency_key)`
+  唯一约束保证重放不产生重复；消息读取对归属坐席开放所有状态。
 - 本模块只 flush/execute，由 API 层统一 commit，失败由调用方回滚。
 """
 
@@ -20,6 +22,8 @@ from typing import Any
 from sqlalchemy import ScalarSelect, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.conversations.customer_chat import MessageView, list_messages, view_message
+from backend.conversations.customer_conversations import latest_message_id
 from backend.conversations.handoffs import redact_text
 from backend.conversations.statuses import (
     CLAIMED,
@@ -85,6 +89,25 @@ class ClaimedHandoff:
 class TakenOverConversation:
     conversation_id: str
     status: str
+
+
+@dataclass(frozen=True)
+class ConversationMessages:
+    """归属坐席的增量消息页；`after_id` 是下一次轮询游标。"""
+
+    conversation_id: str
+    status: str
+    messages: list[MessageView]
+    after_id: int
+
+
+@dataclass(frozen=True)
+class ReplyResult:
+    """坐席回复；重放幂等键时 `message` 为首次落库的那条。"""
+
+    conversation_id: str
+    status: str
+    message: MessageView
 
 
 @dataclass(frozen=True)
@@ -423,4 +446,126 @@ async def take_over_conversation(
     return TakenOverConversation(
         conversation_id=conversation_id,
         status=HUMAN_ACTIVE,
+    )
+
+
+async def read_conversation_messages(
+    db: AsyncSession,
+    tenant_id: str,
+    employee_id: str,
+    conversation_id: str,
+    after_id: int,
+) -> ConversationMessages | None:
+    """读取归属坐席会话的增量消息；未领取/他人/跨租户返回 None（404）。
+
+    - 归属校验只认 `assigned_employee_id`，不区分“不存在”与“无权”。
+    - 所有会话状态都可读：关闭后坐席仍可回看历史（只读由写接口限制）。
+    - 无增量时把游标推进到最后一条消息 id，避免同一批消息被反复返回。
+    """
+    status = (
+        await db.execute(
+            select(ServiceConversation.status).where(
+                ServiceConversation.id == conversation_id,
+                ServiceConversation.tenant_id == tenant_id,
+                ServiceConversation.assigned_employee_id == employee_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if status is None:
+        return None
+    messages = await list_messages(db, conversation_id, after_id)
+    latest = (
+        messages[-1].id if messages else max(after_id, await latest_message_id(db, conversation_id))
+    )
+    return ConversationMessages(
+        conversation_id=conversation_id,
+        status=status,
+        messages=messages,
+        after_id=latest,
+    )
+
+
+async def reply_to_conversation(
+    db: AsyncSession,
+    tenant_id: str,
+    employee_id: str,
+    conversation_id: str,
+    *,
+    content: str,
+    idempotency_key: str,
+    trace_id: str,
+    now: datetime,
+) -> ReplyResult | None:
+    """坐席回复：只在 `HUMAN_ACTIVE` 会话写入 `agent` 消息，不改变会话状态。
+
+    - 未领取/他人/跨租户返回 None（404），与“不存在”不可区分。
+    - 已关闭抛 `HandoffClosedError`（409 `CONVERSATION_CLOSED`）。
+    - 本人但未接管（`CLAIMED`）返回 None：plan 状态机只定义 `HUMAN_ACTIVE` 可回复。
+    - 幂等：同一 `(conversation_id, idempotency_key)` 重放返回首次落库的消息。
+    - 先条件更新会话活跃时间再插消息：状态在读取后被并发改走时整体失败，不留下半条回复。
+    """
+    status = (
+        await db.execute(
+            select(ServiceConversation.status).where(
+                ServiceConversation.id == conversation_id,
+                ServiceConversation.tenant_id == tenant_id,
+                ServiceConversation.assigned_employee_id == employee_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if status is None:
+        return None
+    if status == CLOSED:
+        raise HandoffClosedError
+    if status != HUMAN_ACTIVE:
+        return None
+
+    replay = (
+        await db.execute(
+            select(ServiceMessage).where(
+                ServiceMessage.conversation_id == conversation_id,
+                ServiceMessage.author_type == "agent",
+                ServiceMessage.idempotency_key == idempotency_key,
+            )
+        )
+    ).scalar_one_or_none()
+    if replay is not None:
+        return ReplyResult(
+            conversation_id=conversation_id,
+            status=status,
+            message=view_message(replay),
+        )
+
+    updated = (
+        await db.execute(
+            update(ServiceConversation)
+            .where(
+                ServiceConversation.id == conversation_id,
+                ServiceConversation.tenant_id == tenant_id,
+                ServiceConversation.assigned_employee_id == employee_id,
+                ServiceConversation.status == HUMAN_ACTIVE,
+            )
+            .values(updated_at=now, last_activity_at=now)
+            .returning(ServiceConversation.id)
+        )
+    ).scalar_one_or_none()
+    if updated is None:
+        # 读取后会话被并发关闭/转回；对回复而言已不可写，按 409 处理。
+        raise HandoffClosedError
+
+    message = ServiceMessage(
+        conversation_id=conversation_id,
+        author_type="agent",
+        author_id=employee_id,
+        content=content,
+        idempotency_key=idempotency_key,
+        trace_id=trace_id,
+        created_at=now,
+    )
+    db.add(message)
+    await db.flush()
+    return ReplyResult(
+        conversation_id=conversation_id,
+        status=HUMAN_ACTIVE,
+        message=view_message(message),
     )

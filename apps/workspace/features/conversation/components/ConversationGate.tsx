@@ -11,6 +11,7 @@ import { getConversation, takeOverConversation } from "../api/conversation";
 import type { ConversationDetail } from "../types";
 
 import { ConversationDetailPanel } from "./ConversationDetailPanel";
+import { ConversationThread } from "./ConversationThread";
 
 const BUTTON =
   "h-8 rounded-md border border-border bg-surface px-3 text-sm text-text hover:border-border-strong focus-visible:outline-none focus-visible:shadow-focus disabled:cursor-not-allowed disabled:bg-surface-2 disabled:text-text-3";
@@ -195,13 +196,24 @@ export function ConversationGate({ conversationId }: { conversationId: string })
             {loading ? "加载中…" : "暂无会话数据。"}
           </p>
         ) : (
-          <ConversationDetailPanel
-            detail={conversation}
-            busy={busy}
-            notice={notice}
-            error={error}
-            onTakeOver={() => void handleTakeOver()}
-          />
+          <div className="flex flex-col gap-4">
+            <ConversationDetailPanel
+              detail={conversation}
+              busy={busy}
+              notice={notice}
+              error={error}
+              onTakeOver={() => void handleTakeOver()}
+            />
+            <ConversationThread
+              conversationId={conversation.id}
+              status={conversation.status}
+              onStatus={(status) =>
+                setConversation((current) =>
+                  current === null || current.status === status ? current : { ...current, status },
+                )
+              }
+            />
+          </div>
         )}
       </section>
     </main>

@@ -3,13 +3,18 @@
 from typing import Annotated, Any
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, Request, Response
+from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.api.customer_schemas import ErrorEnvelope
+from backend.api.customer_schemas import (
+    ErrorEnvelope,
+    MessagePageResponse,
+    MessagePublic,
+)
 from backend.api.errors import ApiError
 from backend.api.session_http import client_ip, set_session_cookie, settings_of, utc_text
 from backend.api.workspace_schemas import (
+    AgentMessageRequest,
     EmployeeLoginRequest,
     EmployeePublic,
     EmployeeSessionResponse,
@@ -23,8 +28,10 @@ from backend.api.workspace_schemas import (
     WorkspaceQueueResponse,
     WorkspaceTakeoverResponse,
 )
+from backend.conversations.customer_chat import MessageView
 from backend.conversations.workspace_conversations import (
     ClaimConflictError,
+    ConversationMessages,
     HandoffClosedError,
     HandoffDetail,
     WorkspaceConversationDetail,
@@ -32,6 +39,13 @@ from backend.conversations.workspace_conversations import (
     get_assigned_conversation_detail,
     list_queued_handoffs,
     take_over_conversation,
+    utc_now,
+)
+from backend.conversations.workspace_conversations import (
+    read_conversation_messages as read_workspace_messages,
+)
+from backend.conversations.workspace_conversations import (
+    reply_to_conversation as write_agent_reply,
 )
 from backend.domain.errors import ErrorCode
 from backend.identity import employee_sessions
@@ -98,6 +112,24 @@ def _conversation_payload(
 
 def _trace_id(request: Request) -> str:
     return getattr(request.state, "trace_id", None) or str(uuid4())
+
+
+def _message_payload(message: MessageView) -> MessagePublic:
+    return MessagePublic(
+        id=message.id,
+        author_type=message.author_type,  # type: ignore[arg-type]
+        content=message.content,
+        created_at=utc_text(message.created_at),
+    )
+
+
+def _messages_payload(result: ConversationMessages) -> MessagePageResponse:
+    return MessagePageResponse(
+        conversation_id=result.conversation_id,
+        status=result.status,  # type: ignore[arg-type]
+        after_id=result.after_id,
+        messages=[_message_payload(message) for message in result.messages],
+    )
 
 
 async def current_employee_session(
@@ -277,6 +309,78 @@ async def read_conversation(
     if conversation is None:
         raise ApiError(404, ErrorCode.NOT_FOUND)
     return _conversation_payload(conversation)
+
+
+@router.get(
+    "/conversations/{conversation_id}/messages",
+    responses={
+        401: ERROR_RESPONSES[401],
+        403: ERROR_RESPONSES[403],
+        404: ERROR_RESPONSES[404],
+    },
+)
+async def read_conversation_messages(
+    conversation_id: str,
+    session: CurrentEmployee,
+    db: Db,
+    after_id: int = Query(default=0, ge=0),
+) -> MessagePageResponse:
+    """归属坐席按 `after_id` 增量轮询；未领取/他人/跨租户 404，已关闭仍可读历史。"""
+    result = await read_workspace_messages(
+        db,
+        session.employee.tenant_id,
+        session.employee.id,
+        conversation_id,
+        after_id,
+    )
+    if result is None:
+        raise ApiError(404, ErrorCode.NOT_FOUND)
+    await db.commit()
+    return _messages_payload(result)
+
+
+@router.post(
+    "/conversations/{conversation_id}/messages",
+    responses={
+        401: ERROR_RESPONSES[401],
+        403: ERROR_RESPONSES[403],
+        404: ERROR_RESPONSES[404],
+        409: ERROR_RESPONSES[409],
+        422: ERROR_RESPONSES[422],
+    },
+)
+async def reply_to_conversation(
+    conversation_id: str,
+    payload: AgentMessageRequest,
+    request: Request,
+    session: CurrentEmployee,
+    db: Db,
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=64),
+) -> MessagePageResponse:
+    """接管后回复；未接管/他人 404，已关闭 409，同幂等键重放返回原消息。"""
+    try:
+        result = await write_agent_reply(
+            db,
+            session.employee.tenant_id,
+            session.employee.id,
+            conversation_id,
+            content=payload.content,
+            idempotency_key=idempotency_key,
+            trace_id=_trace_id(request),
+            now=utc_now(),
+        )
+    except HandoffClosedError:
+        await db.rollback()
+        raise ApiError(409, ErrorCode.CONVERSATION_CLOSED) from None
+    if result is None:
+        raise ApiError(404, ErrorCode.NOT_FOUND)
+    await db.commit()
+    return MessagePageResponse(
+        conversation_id=result.conversation_id,
+        status=result.status,  # type: ignore[arg-type]
+        after_id=result.message.id,
+        messages=[_message_payload(result.message)],
+    )
 
 
 @router.delete("/sessions", status_code=204)

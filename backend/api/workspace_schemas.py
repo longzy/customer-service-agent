@@ -135,3 +135,19 @@ class WorkspaceTakeoverResponse(BaseModel):
 
     conversation_id: str
     status: ConversationStatus
+
+
+class AgentMessageRequest(BaseModel):
+    """坐席回复正文；身份与会话只能来自服务端 session 与路径。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    content: str = Field(min_length=1, max_length=500)
+
+    @field_validator("content")
+    @classmethod
+    def _strip_content(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("content 不能为空")
+        return value
