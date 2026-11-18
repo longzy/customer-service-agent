@@ -109,7 +109,7 @@ export function LoginPanel() {
           <span className={styles.dot} />
           <div>
             <div className={styles.presenceTitle}>人工客服在线</div>
-            <div className={styles.presenceMeta}>当前排队 2 人 · 预计等待 1 分钟</div>
+            <div className={styles.presenceMeta}>服务时间 9:00 – 22:00 · 平均 40 秒接通</div>
           </div>
         </div>
 

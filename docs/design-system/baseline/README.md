@@ -11,8 +11,8 @@
 
 | 基线 | 页面 | 视口 | sha256 | 覆盖状态 |
 |---|---|---|---|---|
-| [customer-login](../proposals/2026-11-18-customer-login.png) | 客户登录 | 1440×960 | `fb398d172bd9` | 默认、聚焦、限速提示、测试账号提示 |
-| [customer-chat](../proposals/2026-11-18-customer-chat.png) | 客户聊天 | 1440×960 | `289da03afb7c` | 消息、欢迎卡、转人工等待 |
+| [customer-login](../proposals/2026-11-18-customer-login.png) | 客户登录 | 1440×960 | `dc11efc18620` | 默认、聚焦、限速提示、测试账号提示 |
+| [customer-chat](../proposals/2026-11-18-customer-chat.png) | 客户聊天 | 1440×960 | `0f845f68d1d3` | 消息、欢迎卡、转人工等待 |
 | [agent-login](../proposals/2026-11-18-agent-login.png) | 坐席登录 | 1440×960 | `20519d524793` | 默认、聚焦、环境标识、审计 |
 | [agent-console](../proposals/2026-11-18-agent-console.png) | 坐席队列 | 1440×960 | `372fd2fa67ae` | 选中行、超时行、详情、键盘条 |
 | [agent-states](../proposals/2026-11-18-agent-states.png) | 队列四态 | 1440×676 | `f9797ba00c47` | 加载、空、错误、无权限 |

@@ -74,7 +74,7 @@ describe("SessionGate", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/customer/session");
   });
 
-  it("已登录时展示客户、会话状态与消息，退出后跳转 /login", async () => {
+  it("AC-42 已登录时展示客户、会话状态与消息，退出后跳转 /login", async () => {
     const fetchMock = mockApi((url, init) => {
       if (url === "/api/customer/session") {
         return json(session);
@@ -89,8 +89,8 @@ describe("SessionGate", () => {
     });
     render(<SessionGate />);
     expect(await screen.findByText("客户甲")).toBeInTheDocument();
-    expect(screen.getByText("conv-1")).toBeInTheDocument();
-    expect(screen.getByText("AI_ACTIVE")).toBeInTheDocument();
+    expect(screen.getByText("在线支持")).toBeInTheDocument();
+    expect(screen.getByText("AI 服务中")).toBeInTheDocument();
     expect(await screen.findByText("加载到的历史消息")).toBeInTheDocument();
     expect(screen.queryByText("消息功能下一刀接入")).not.toBeInTheDocument();
 
@@ -121,7 +121,7 @@ describe("SessionGate", () => {
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/chat"));
   });
 
-  it("URL 指定会话时展示服务端返回的会话", async () => {
+  it("AC-42 URL 指定会话时展示服务端返回的会话", async () => {
     requestedConversationId = "conv-2";
     const fetchMock = mockApi((url) => {
       if (url === "/api/customer/session") {
@@ -145,9 +145,8 @@ describe("SessionGate", () => {
       throw new Error(`未预期的请求：${url}`);
     });
     render(<SessionGate />);
-    expect(await screen.findByText("conv-2")).toBeInTheDocument();
-    expect(screen.getByText("QUEUED")).toBeInTheDocument();
-    expect(screen.getByText("排队中，请稍候")).toBeInTheDocument();
+    expect(await screen.findByText("人工接入中")).toBeInTheDocument();
+    expect(screen.getByText("正在为你接通人工客服")).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith("/api/customer/conversations/conv-2");
   });
 

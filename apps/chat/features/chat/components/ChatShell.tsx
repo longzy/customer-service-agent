@@ -1,20 +1,14 @@
 "use client";
 
-import type { FormEvent, KeyboardEvent } from "react";
-
 import type { Conversation, Customer } from "@/lib/session";
 
 import { useChatMessages } from "../hooks/useChatMessages";
-import type { MessageAuthor } from "../types";
+import { ChatBrand } from "./ChatBrand";
+import { ChatComposer } from "./ChatComposer";
+import { MessageList } from "./MessageList";
+import styles from "./ChatShell.module.css";
 
 const QUEUE_NOTICE = "排队中，请稍候";
-
-const AUTHOR_LABELS: Record<MessageAuthor, string> = {
-  customer: "客户",
-  ai: "客服 AI",
-  agent: "坐席",
-  system: "系统",
-};
 
 type ChatShellProps = {
   customer: Customer;
@@ -27,16 +21,20 @@ type ChatShellProps = {
   onBack?: () => void;
 };
 
-function authorLabel(authorType: MessageAuthor): string {
-  return AUTHOR_LABELS[authorType] ?? "系统";
-}
-
-function formatTime(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
+function statusMeta(status: string): { label: string; tone: string } {
+  switch (status) {
+    case "QUEUED":
+    case "CLAIMED":
+      return { label: "人工接入中", tone: styles.chipWarn };
+    case "HUMAN_ACTIVE":
+      return { label: "人工服务中", tone: styles.chipLive };
+    case "CLOSED":
+      return { label: "已结束", tone: styles.chipNeutral };
+    case "AI_ACTIVE":
+      return { label: "AI 服务中", tone: styles.chipLive };
+    default:
+      return { label: status, tone: styles.chipNeutral };
   }
-  return date.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
 }
 
 export function ChatShell({
@@ -64,19 +62,7 @@ export function ChatShell({
     submitMessage,
   } = useChatMessages(conversation);
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    void submitMessage();
-  }
-
-  function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
-    // Enter 发送，Shift+Enter 换行；输入法合成中的 Enter 不发送。
-    if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
-      event.preventDefault();
-      void submitMessage();
-    }
-  }
-
+  const meta = statusMeta(status);
   const visibleMessages =
     status === "QUEUED"
       ? messages.filter(
@@ -86,112 +72,70 @@ export function ChatShell({
       : messages;
 
   return (
-    <main className="app">
-      <header className="topbar">
-        <h1>客服中心</h1>
-        <span className="who">{customer.display_name}</span>
-        <button type="button" className="ghost" onClick={onLogout} disabled={busy}>
-          退出
-        </button>
-      </header>
-      <section className="content">
+    <main className={styles.page}>
+      <ChatBrand customerName={customer.display_name} busy={busy} onLogout={onLogout} />
+
+      <section className={styles.chat}>
+        <header className={styles.head}>
+          <div>
+            <p className={styles.kicker}>ONLINE SUPPORT</p>
+            <h1 className={styles.title}>在线支持</h1>
+          </div>
+          <span className={`${styles.chip} ${meta.tone}`}>
+            <span className={styles.chipDot} aria-hidden="true" />
+            {meta.label}
+          </span>
+        </header>
+
         {error ? (
-          <div className="error-box">
-            <p role="alert">{error}</p>
+          <div className={styles.error} role="alert">
+            <p>{error}</p>
             {onRetry ? (
-              <button type="button" className="ghost" onClick={onRetry} disabled={busy}>
+              <button className={styles.retry} type="button" onClick={onRetry} disabled={busy}>
                 重试
               </button>
             ) : null}
           </div>
         ) : null}
+
         {conversationNotFound ? (
-          <div className="conversation-card">
-            <p className="notice" role="alert">
-              会话不存在
-            </p>
-            <p className="login-note">该会话不存在，或当前账号无权访问。</p>
-            {onBack ? (
-              <button type="button" className="ghost" onClick={onBack}>
-                返回
-              </button>
-            ) : null}
+          <div className={styles.notFound}>
+            <div className={styles.notFoundCard}>
+              <h2>会话不存在</h2>
+              <p>该会话不存在，或当前账号无权访问。</p>
+              {onBack ? (
+                <button className={styles.retry} type="button" onClick={onBack}>
+                  返回
+                </button>
+              ) : null}
+            </div>
           </div>
         ) : conversation ? (
-          <div className="conversation-card chat-card">
-            <div className="chat-head">
-              <dl className="meta">
-                <div className="meta-item">
-                  <dt>会话 ID</dt>
-                  <dd>
-                    <code>{conversation.id}</code>
-                  </dd>
-                </div>
-                <div className="meta-item">
-                  <dt>状态</dt>
-                  <dd>
-                    <span className="pill">{status}</span>
-                  </dd>
-                </div>
-              </dl>
-              {status === "QUEUED" ? (
-                <p className="queue-notice" role="status">
-                  {QUEUE_NOTICE}
-                </p>
-              ) : null}
-            </div>
+          <>
             {messageError ? (
-              <div className="error-box">
-                <p role="alert">{messageError}</p>
-              </div>
+              <p className={styles.notice} role="alert">
+                {messageError}
+              </p>
             ) : null}
-            <div className="message-list" role="log" aria-live="polite" aria-label="消息记录">
-              {loading ? <p className="message-loading">加载中…</p> : null}
-              {!loading && visibleMessages.length === 0 ? (
-                <p className="placeholder">还没有消息，发送第一条吧</p>
-              ) : null}
-              {visibleMessages.map((message) => (
-                <article
-                  key={message.id}
-                  className={`message message-${message.author_type}`}
-                  data-author={message.author_type}
-                >
-                  <div className="message-head">
-                    <span className="message-author">{authorLabel(message.author_type)}</span>
-                    <time dateTime={message.created_at}>{formatTime(message.created_at)}</time>
-                  </div>
-                  <p className="message-content">{message.content}</p>
-                </article>
-              ))}
-            </div>
-            <form className="composer" onSubmit={handleSubmit}>
-              <label className="sr-only" htmlFor="message-input">
-                消息
-              </label>
-              <textarea
-                id="message-input"
-                name="content"
-                rows={2}
-                placeholder="输入消息…"
-                value={draft}
-                onChange={(event) => setDraft(event.target.value)}
-                onKeyDown={handleKeyDown}
-                aria-invalid={overLimit}
-                aria-describedby="message-hint"
+            <MessageList
+              messages={visibleMessages}
+              loading={loading}
+              status={status}
+              onQuick={(text) => void submitMessage(text)}
+            />
+            <div className={styles.composerArea}>
+              <ChatComposer
+                draft={draft}
+                setDraft={setDraft}
+                sending={sending}
+                overLimit={overLimit}
+                trimmedLength={trimmedLength}
+                maxLength={maxLength}
+                canSend={canSend}
+                onSubmit={() => void submitMessage()}
               />
-              <div className="composer-actions">
-                <span
-                  id="message-hint"
-                  className={overLimit ? "composer-hint over-limit" : "composer-hint"}
-                >
-                  {trimmedLength}/{maxLength}
-                </span>
-                <button type="submit" className="send" disabled={!canSend}>
-                  {sending ? "发送中…" : "发送"}
-                </button>
-              </div>
-            </form>
-          </div>
+            </div>
+          </>
         ) : null}
       </section>
     </main>

@@ -113,8 +113,8 @@ export function useChatMessages(conversation: Conversation | null) {
     };
   }, [conversationId, applyPage, handleFailure]);
 
-  async function submitMessage() {
-    const content = draft.trim();
+  async function submitMessage(contentOverride?: string) {
+    const content = (contentOverride ?? draft).trim();
     if (!conversationId || sending || !content || content.length > MAX_MESSAGE_LENGTH) {
       return;
     }
@@ -134,7 +134,9 @@ export function useChatMessages(conversation: Conversation | null) {
       pendingKeyRef.current = null;
       failedContentRef.current = null;
       applyPage(page);
-      setDraft("");
+      if (!contentOverride) {
+        setDraft("");
+      }
     } catch (cause) {
       if (!mountedRef.current) {
         return;
