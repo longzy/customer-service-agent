@@ -2,11 +2,12 @@
 
 - 日期：YYYY-MM-DD
 - 评审者：独立上下文（未参与实现），共 N 轮
+- 评审范围：`git diff <fixed>...HEAD`（<fixed> 为上一个 feature 收口提交）
 - 依据：执行卡、`plan.md` 第 X 节、AC-XX
 
 ## 0. 门禁复核
 
-先跑 `./scripts/verify.sh --no-record`；红则直接「不通过」，不做深度评审。
+先跑 `make verify-check`；红则直接「不通过」，不做深度评审。
 
 ## 结论
 

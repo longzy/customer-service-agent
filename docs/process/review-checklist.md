@@ -5,7 +5,8 @@
 
 ## 0. 门禁复核
 
-- 先跑 `./scripts/verify.sh --no-record`；失败直接「不通过」。
+- 评审范围固定点：上一个 feature 的收口提交；记录 `git diff <fixed>...HEAD` 与 `git log <fixed>..HEAD --oneline`。
+- 先跑 `make verify-check`；失败直接「不通过」。
 - 独立跑该 feature 的 `Steps` 命令（AC 定向测试），不只看实现者粘贴的数字。
 - 契约变更检查 `./scripts/check-api-types.sh`。
 
@@ -21,6 +22,7 @@
 ## Spec 轴
 
 - 逐条对照 brief 的 AC、plan 的对应章节、features 的 `Description/Steps`。
+- 读模型/摘要/列表接口：字段来源、缺省与截断、租户/权限是否在 plan 的「只读投影」表定义并有 AC 覆盖。
 - 区分「缺失」与「已批准到后续 feature」；引用规格原文行。
 - 检查 scope creep：新表/新接口/新配置是否在 plan 或执行卡声明。
 - 检查证据：测试数、`Passes`、执行卡第 4 节、`CURRENT.md` 三处一致。

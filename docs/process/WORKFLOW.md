@@ -79,7 +79,7 @@ Frame（目标/非目标/完成标准）
 - 一次只做一个 feature；先写失败测试，再实现；验证方式写在 features 的 `Steps` 列；
 - 每完成一个 feature，`Steps` 全绿、`Evidence` 非空后才把 `passes` 改为 `true`；
 - 不得改 `Description`/`Steps`/`AC` 来迁就实现；要改先改 brief/plan 并重新评审；
-- 跑 `./scripts/verify.sh`；关键路径加端到端/浏览器验证；API 契约变更必须跑 `./scripts/check-api-types.sh`（verify 已包含）；
+- 跑 `make verify-check`；关键路径加端到端/浏览器验证（多身份配方见 [浏览器走查](e2e-walkthrough.md)）；API 契约变更必须跑 `./scripts/check-api-types.sh`（verify 已包含）；
 - 实现过程用 `make verify-check`（不写 CURRENT、保留退出码）；演示数据重置统一用 `make dev-reset`，不手写 `DELETE`/`UPDATE` 修改开发库；
 - 提交保持小步，main 始终可运行。
 
@@ -132,7 +132,7 @@ docs/adr/                             # lasting decisions
 | “开工” | 当前已批准 feature 的执行卡 + 实现 |
 | “先规划” | Frame/Plan，不写代码 |
 | “评审” | 独立代码评审 + 逐 feature 证据 |
-| “收口” | 更新 features/CURRENT/ADR，提交 |
+| “收口” | `close_feature.py --check` → 更新 features/CURRENT/ADR → `make verify` → 提交 |
 
 ## 7. 停止并请求决策
 
