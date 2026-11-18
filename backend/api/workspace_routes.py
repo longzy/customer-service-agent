@@ -172,11 +172,7 @@ async def claim_queue_item(
     if claimed is None:
         raise ApiError(404, ErrorCode.NOT_FOUND)
     await db.commit()
-    return WorkspaceClaimResponse(
-        handoff_id=claimed.handoff_id,
-        conversation_id=claimed.conversation_id,
-        status=claimed.status,  # type: ignore[arg-type]
-    )
+    return WorkspaceClaimResponse.model_validate(claimed, from_attributes=True)
 
 
 @router.get(

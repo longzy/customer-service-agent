@@ -249,6 +249,31 @@ def test_已关闭交接单领取返回409会话已结束_AC_35() -> None:
     assert handoff.version == 0
 
 
+def test_会话状态分歧时领取409且交接单回滚_AC_35() -> None:
+    """交接单 QUEUED 但会话不是 QUEUED（脏状态）：整体回滚，不留半领取。"""
+    seed_queued_handoff(
+        "ho-inconsistent",
+        conversation_id="conv-inconsistent",
+        customer_id="cust-customer_a",
+        status="QUEUED",
+        conversation_status="HUMAN_ACTIVE",
+        created_at=BASE,
+    )
+
+    with api_client() as api:
+        login_employee(api, "agent_1")
+        response = claim(api, "ho-inconsistent")
+
+    assert response.status_code == 409
+    assert response.json()["code"] == "CLAIM_CONFLICT"
+    handoff = handoff_of("ho-inconsistent")
+    assert handoff.status == "QUEUED"
+    assert handoff.claimed_by is None
+    assert handoff.claimed_at is None
+    assert handoff.version == 0
+    assert conversation_of("conv-inconsistent").status == "HUMAN_ACTIVE"
+
+
 def test_领取只影响指定交接单不自动分配_AC_35() -> None:
     seed_queued_handoff(
         "ho-first",
