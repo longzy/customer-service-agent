@@ -219,10 +219,25 @@ def check_task_dirs(specs):
 
 PATH_PREFIXES = ("docs/", "backend/", "packages/", "tests/", "scripts/", "apps/", "migrations/")
 PATH_TOKEN = re.compile(r"`([^`\n]+)`")
+PLANNED_PATH_MARKER = "（待创建）"
+
+
+def normalize_path_token(token):
+    """去掉文档引用里的 #锚点 与 :行号 后缀，只留下仓库路径。"""
+    return re.sub(r":\d+(?:-\d+)?$", "", token.split("#", 1)[0])
+
+
+def is_planned_path(content, match):
+    """反引号路径后紧跟“（待创建）”时跳过存在性校验。"""
+    return (
+        content[match.end() : match.end() + len(PLANNED_PATH_MARKER) + 2]
+        .lstrip()
+        .startswith(PLANNED_PATH_MARKER)
+    )
 
 
 def check_card_paths():
-    """已完成的执行卡里引用的仓库路径必须真实存在；进行中的卡可引用待创建路径。"""
+    """执行卡里引用的仓库路径必须真实存在；尚未创建的文件用“（待创建）”显式标记。"""
     if not os.path.isdir(TASKS_ROOT):
         return
     for base, _dirs, names in os.walk(TASKS_ROOT):
@@ -230,14 +245,19 @@ def check_card_paths():
             if not CARD_PATTERN.match(card):
                 continue
             card_path = os.path.join(base, card)
-            if not doc_status(card_path).startswith("已完成"):
-                continue
-            for token in PATH_TOKEN.findall(read(card_path)):
+            content = read(card_path)
+            for match in PATH_TOKEN.finditer(content):
+                token = match.group(1)
                 if not token.startswith(PATH_PREFIXES):
                     continue
                 if "<" in token or "*" in token or " " in token:
                     continue
-                if os.path.exists(os.path.join(ROOT, token.rstrip("/"))):
+                if is_planned_path(content, match):
+                    continue
+                path = normalize_path_token(token).rstrip("/")
+                if not path:
+                    continue
+                if os.path.exists(os.path.join(ROOT, path)):
                     continue
                 errors.append(f"{rel(card_path)}：引用的路径不存在 {token}")
 
