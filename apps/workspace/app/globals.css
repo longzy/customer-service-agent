@@ -1,4 +1,63 @@
+@import "tailwindcss";
 @import "./tokens.css";
+
+@theme {
+  --color-brand-deep: var(--brand-deep);
+  --color-canvas-deep: var(--canvas-deep);
+  --color-bg: var(--bg);
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-muted: var(--surface-muted);
+  --color-surface-quiet: var(--surface-quiet);
+  --color-surface-selected: var(--surface-selected);
+  --color-surface-soft: var(--surface-soft);
+  --color-border: var(--border);
+  --color-input-border: var(--input-border);
+  --color-border-strong: var(--border-strong);
+  --color-line-soft: var(--line-soft);
+  --color-text: var(--text);
+  --color-text-2: var(--text-2);
+  --color-text-3: var(--text-3);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-line: var(--accent-line);
+  --color-brand-mint: var(--brand-mint);
+  --color-sand: var(--sand);
+  --color-sand-line: var(--sand-line);
+  --color-success: var(--success);
+  --color-online: var(--online);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning-line: var(--warning-line);
+  --color-warning-ink: var(--warning-ink);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-presence-ink: var(--presence-ink);
+  --color-notice-bg: var(--notice-bg);
+  --color-notice-line: var(--notice-line);
+  --color-notice-ink: var(--notice-ink);
+  --color-notice-strong: var(--notice-strong);
+  --color-avatar-bg: var(--avatar-bg);
+  --color-avatar-ink: var(--avatar-ink);
+  --font-sans: var(--font-sans);
+  --font-serif: var(--font-serif);
+  --text-xs: 11px;
+  --text-sm: 12.5px;
+  --text-base: 13.5px;
+  --text-lg: 15px;
+  --text-xl: 22px;
+  --radius-sm: 4px;
+  --radius-md: 9px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-pill: 999px;
+  --spacing: 4px;
+  --shadow-panel: var(--shadow-card);
+  --shadow-lift: var(--shadow-float);
+  --shadow-focus: var(--focus-ring);
+}
 
 * {
   box-sizing: border-box;
