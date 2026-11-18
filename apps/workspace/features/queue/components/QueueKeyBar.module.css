@@ -1,0 +1,46 @@
+.keybar {
+  margin-top: auto;
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 4px;
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.keybar kbd {
+  font-family: var(--font-sans);
+  font-size: 10px;
+  padding: 1px 5px;
+  margin-right: 3px;
+  border: 1px solid var(--border);
+  border-bottom-width: 2px;
+  border-radius: var(--radius-sm);
+  color: var(--text-2);
+  background: var(--surface);
+}
+
+.grow {
+  flex: 1;
+}
+
+.conn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+.dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--success);
+}
+
+@media (max-width: 767px) {
+  .keybar {
+    flex-wrap: wrap;
+  }
+}

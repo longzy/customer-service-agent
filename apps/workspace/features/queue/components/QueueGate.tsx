@@ -1,26 +1,27 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { ApiError } from "@/lib/api-client";
 import { getSession, logout, type Session } from "@/lib/session";
 
-import { claimHandoff, getQueue } from "../api/queue";
+import { getQueue } from "../api/queue";
+import { useQueueClaim } from "../hooks/useQueueClaim";
+import { useQueueKeyboard } from "../hooks/useQueueKeyboard";
 import type { QueueItem } from "../types";
 
-const ROLE_LABEL: Record<string, string> = {
-  agent: "坐席",
-};
+import { DetailPanel } from "./DetailPanel";
+import { QueueFallback } from "./QueueFallback";
+import { isOverdue } from "./QueueTable";
+import { QueueBody } from "./QueueBody";
+import { QueueKeyBar } from "./QueueKeyBar";
+import { QueueToolbar, type QueueFilter, type QueueSort } from "./QueueToolbar";
+import { WorkspaceHeader } from "./WorkspaceHeader";
+import { WorkspaceNav } from "./WorkspaceNav";
+import styles from "./QueueGate.module.css";
 
-const REASON_LABEL: Record<string, string> = {
-  CUSTOMER_REQUEST: "客户要求转人工",
-  LOW_CONFIDENCE: "AI 置信度不足",
-  OUT_OF_SCOPE: "超出 AI 处理范围",
-  MODEL_UNAVAILABLE: "模型不可用",
-};
-
-type RetryMode = "load" | "logout";
+const ROLE_LABEL: Record<string, string> = { agent: "坐席" };
 
 export function QueueGate() {
   const router = useRouter();
@@ -28,14 +29,22 @@ export function QueueGate() {
   const [items, setItems] = useState<QueueItem[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
-  const [claimingId, setClaimingId] = useState<string | null>(null);
-  const [claimNotice, setClaimNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [retryMode, setRetryMode] = useState<RetryMode>("load");
+  const [denied, setDenied] = useState(false);
+
+  const [filter, setFilter] = useState<QueueFilter>("all");
+  const [reason, setReason] = useState("ALL");
+  const [sort, setSort] = useState<QueueSort>("waited");
+  const [query, setQuery] = useState("");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  const searchRef = useRef<HTMLInputElement>(null);
+  const initializedRef = useRef(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setDenied(false);
     try {
       const current = await getSession();
       if (!current) {
@@ -43,15 +52,21 @@ export function QueueGate() {
         return;
       }
       setSession(current);
-      // 队列顺序由服务端 FIFO 契约决定；这里只渲染，不排序、不补齐字段。
       const queue = await getQueue();
       if (!queue) {
         router.replace("/login");
         return;
       }
       setItems(queue);
-    } catch {
-      setRetryMode("load");
+    } catch (cause) {
+      if (cause instanceof ApiError && cause.status === 401) {
+        router.replace("/login");
+        return;
+      }
+      if (cause instanceof ApiError && cause.status === 403) {
+        setDenied(true);
+        return;
+      }
       setError("请求未完成，请重试");
     } finally {
       setLoading(false);
@@ -62,141 +77,160 @@ export function QueueGate() {
     void load();
   }, [load]);
 
-  async function handleLogout() {
+  const handleLogout = useCallback(async () => {
     setBusy(true);
     setError(null);
     try {
       await logout();
       router.replace("/login");
     } catch {
-      setRetryMode("logout");
       setError("退出失败，请重试");
     } finally {
       setBusy(false);
     }
-  }
+  }, [router]);
 
-  async function handleClaim(item: QueueItem) {
-    setClaimingId(item.handoff_id);
-    setClaimNotice(null);
-    try {
-      const result = await claimHandoff(item.handoff_id);
-      if (!result) {
-        router.replace("/login");
-        return;
-      }
-      router.push(`/conversations/${result.conversation_id}`);
-    } catch (claimError) {
-      if (claimError instanceof ApiError && claimError.status === 404) {
-        setClaimNotice("该交接单不存在或已被领取，队列已刷新");
-        await load();
-      } else if (claimError instanceof ApiError && claimError.status === 409) {
-        setClaimNotice(
-          claimError.code === "CONVERSATION_CLOSED"
-            ? "该会话已结束"
-            : "该会话已被其他坐席领取，队列已刷新",
-        );
-        await load();
-      } else {
-        setClaimNotice("领取失败，请重试");
-      }
-    } finally {
-      setClaimingId(null);
+  const { claimingId, notice, setNotice, claim } = useQueueClaim(load);
+
+  const counts = useMemo(() => {
+    const list = items ?? [];
+    const overdue = list.filter(isOverdue).length;
+    return { all: list.length, waiting: list.length - overdue, overdue };
+  }, [items]);
+
+  const visible = useMemo(() => {
+    const keyword = query.trim().toLowerCase();
+    const list = (items ?? []).filter((item) => {
+      if (filter === "waiting" && isOverdue(item)) return false;
+      if (filter === "overdue" && !isOverdue(item)) return false;
+      if (reason !== "ALL" && item.reason !== reason) return false;
+      if (!keyword) return true;
+      return (
+        item.customer_display_name.toLowerCase().includes(keyword) ||
+        item.customer_username.toLowerCase().includes(keyword) ||
+        item.last_message.toLowerCase().includes(keyword)
+      );
+    });
+    return list.sort((left, right) =>
+      sort === "waited"
+        ? right.waiting_seconds - left.waiting_seconds
+        : left.waiting_seconds - right.waiting_seconds,
+    );
+  }, [filter, items, query, reason, sort]);
+
+  useEffect(() => {
+    if (!items || visible.length === 0) {
+      setSelectedId(null);
+      return;
     }
-  }
+    if (!initializedRef.current) {
+      initializedRef.current = true;
+      setSelectedId(visible[0].handoff_id);
+      return;
+    }
+    if (selectedId && !visible.some((item) => item.handoff_id === selectedId)) {
+      setSelectedId(null);
+    }
+  }, [items, selectedId, visible]);
+
+  const selected = visible.find((item) => item.handoff_id === selectedId) ?? null;
+
+  useQueueKeyboard({
+    visible,
+    selectedId,
+    selected,
+    searchRef,
+    onSelect: setSelectedId,
+    onClaim: (item) => void claim(item),
+    onNotice: setNotice,
+  });
 
   if (!session) {
-    if (error) {
-      return (
-        <main className="app">
-          <section className="content">
-            <div className="error-box">
-              <p role="alert">{error}</p>
-              <button
-                type="button"
-                className="ghost"
-                onClick={() => void load()}
-                disabled={loading}
-              >
-                重试
-              </button>
-            </div>
-          </section>
-        </main>
-      );
-    }
     return (
-      <main className="app" aria-busy={loading}>
-        <p className="loading">加载中…</p>
-      </main>
+      <QueueFallback
+        denied={denied}
+        error={error}
+        loading={loading}
+        onRetry={() => void load()}
+        onLogout={() => void handleLogout()}
+      />
     );
   }
 
   const { employee } = session;
-  const retry = retryMode === "logout" ? () => void handleLogout() : () => void load();
+  const roleLabel = ROLE_LABEL[employee.role] ?? employee.role;
+
   return (
-    <main className="app">
-      <header className="topbar">
-        <h1>客服工作台</h1>
-        <span className="pill">{ROLE_LABEL[employee.role] ?? employee.role}</span>
-        <span className="who">
-          {employee.display_name}（{employee.username}）
-        </span>
-        <button type="button" className="ghost" onClick={() => void handleLogout()} disabled={busy}>
-          退出
-        </button>
-      </header>
-      <section className="content">
-        {error ? (
-          <div className="error-box">
-            <p role="alert">{error}</p>
-            <button type="button" className="ghost" onClick={retry} disabled={busy || loading}>
-              {retryMode === "logout" ? "重试退出" : "重试"}
-            </button>
-          </div>
-        ) : null}
-        <div className="conversation-card">
-          <h2 className="notice">待接入队列</h2>
-          {claimNotice ? (
-            <p className="queue-notice" role="status">
-              {claimNotice}
-            </p>
-          ) : null}
-          {items === null ? (
-            error ? null : (
-              <div className="placeholder">加载中…</div>
-            )
-          ) : items.length === 0 ? (
-            <div className="placeholder">暂无待接入会话</div>
-          ) : (
-            <ul className="queue-list">
-              {items.map((item) => (
-                <li className="queue-item" key={item.handoff_id}>
-                  <div className="queue-item-head">
-                    <span className="queue-customer">
-                      {item.customer_display_name}（{item.customer_username}）
-                    </span>
-                    <span className="pill">{REASON_LABEL[item.reason] ?? item.reason}</span>
-                    <span className="queue-wait">已等待 {item.waiting_seconds} 秒</span>
-                  </div>
-                  <p className="queue-last">{item.last_message || "（无客户消息）"}</p>
-                  <div className="queue-footer">
-                    <p className="queue-order">订单数 {item.order_count}</p>
-                    <button
-                      type="button"
-                      className="enter queue-claim"
-                      onClick={() => void handleClaim(item)}
-                      disabled={claimingId !== null || loading || busy}
-                    >
-                      {claimingId === item.handoff_id ? "领取中…" : "领取"}
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
+    <main className={styles.page}>
+      <WorkspaceNav
+        agentName={employee.display_name}
+        roleLabel={roleLabel}
+        queueCount={counts.all}
+        busy={busy}
+        onLogout={() => void handleLogout()}
+      />
+
+      <section className={styles.main}>
+        <WorkspaceHeader
+          agentName={employee.display_name}
+          total={counts.all}
+          overdue={counts.overdue}
+          loading={loading}
+          query={query}
+          searchRef={searchRef}
+          onQuery={setQuery}
+          onRefresh={() => void load()}
+        />
+
+        <div className={styles.content}>
+          <QueueToolbar
+            filter={filter}
+            counts={counts}
+            reason={reason}
+            sort={sort}
+            query={query}
+            onFilter={setFilter}
+            onReason={setReason}
+            onSort={setSort}
+            onQuery={setQuery}
+            searchRef={searchRef}
+          />
+
+          <QueueBody
+            items={items}
+            visible={visible}
+            total={counts.all}
+            loading={loading}
+            error={error}
+            notice={notice}
+            selectedId={selectedId}
+            claimingId={claimingId}
+            disabled={claimingId !== null || loading || busy}
+            onRetry={() => void load()}
+            onRefresh={() => void load()}
+            onClearFilters={() => {
+              setQuery("");
+              setReason("ALL");
+              setFilter("all");
+            }}
+            onSelect={setSelectedId}
+            onClaim={(item) => void claim(item)}
+          />
+
+          <QueueKeyBar />
         </div>
       </section>
+
+      <DetailPanel
+        item={selected}
+        open={Boolean(selected)}
+        claiming={claimingId === selected?.handoff_id}
+        disabled={claimingId !== null || loading || busy}
+        onClaim={() => {
+          if (selected) void claim(selected);
+        }}
+        onClose={() => setSelectedId(null)}
+      />
     </main>
   );
 }

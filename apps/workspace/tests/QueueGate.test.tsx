@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { QueueGate } from "@/features/queue";
@@ -59,7 +59,7 @@ describe("工作台 QueueGate", () => {
     vi.restoreAllMocks();
   });
 
-  it("未登录时跳转 /login", async () => {
+  it("AC-44 未登录时跳转 /login", async () => {
     vi.spyOn(global, "fetch").mockResolvedValueOnce(
       json({ code: "SESSION_INVALID", message: "未登录" }, 401),
     );
@@ -67,43 +67,42 @@ describe("工作台 QueueGate", () => {
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/login"));
   });
 
-  it("已登录且队列为空时展示坐席与空队列，退出后跳转 /login", async () => {
+  it("AC-46 已登录且队列为空时展示坐席与空队列，退出后跳转 /login", async () => {
     const fetchMock = vi
       .spyOn(global, "fetch")
       .mockResolvedValueOnce(json(session))
       .mockResolvedValueOnce(json({ items: [] }))
       .mockResolvedValueOnce(new Response(null, { status: 204 }));
     render(<QueueGate />);
-    expect(await screen.findByText("坐席 1（agent_1）")).toBeInTheDocument();
-    expect(screen.getByText("待接入队列")).toBeInTheDocument();
-    expect(screen.getByText("暂无待接入会话")).toBeInTheDocument();
+    expect(await screen.findByText("坐席 1")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "待接入队列" })).toBeInTheDocument();
+    expect(screen.getByText("队列已清空")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "退出" }));
+    fireEvent.click(screen.getByRole("button", { name: "退出登录" }));
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/login"));
     expect(fetchMock).toHaveBeenCalledWith("/api/workspace/sessions", { method: "DELETE" });
   });
 
-  it("按接口顺序渲染队列摘要且不二次排序", async () => {
+  it("AC-44 按接口顺序渲染队列摘要且不二次排序", async () => {
     vi.spyOn(global, "fetch")
       .mockResolvedValueOnce(json(session))
       .mockResolvedValueOnce(json({ items: queueItems }));
     render(<QueueGate />);
 
-    expect(await screen.findByText("客户甲（customer_a）")).toBeInTheDocument();
-    const rows = screen.getAllByRole("listitem");
+    expect((await screen.findAllByText("客户甲")).length).toBeGreaterThan(0);
+    const rows = screen.getAllByRole("row").slice(1);
     expect(rows).toHaveLength(2);
-    expect(rows[0]).toHaveTextContent("客户甲（customer_a）");
+    expect(rows[0]).toHaveTextContent("客户甲");
     expect(rows[0]).toHaveTextContent("客户要求转人工");
-    expect(rows[0]).toHaveTextContent("已等待 12 秒");
-    expect(rows[0]).toHaveTextContent("订单数 0");
+    expect(rows[0]).toHaveTextContent("0:12");
     expect(rows[0]).toHaveTextContent("转人工");
-    expect(rows[1]).toHaveTextContent("客户乙（customer_b）");
+    expect(rows[1]).toHaveTextContent("客户乙");
     expect(rows[1]).toHaveTextContent("AI 置信度不足");
-    expect(rows[1]).toHaveTextContent("已等待 7 秒");
+    expect(rows[1]).toHaveTextContent("0:07");
     expect(rows[1]).toHaveTextContent("我的订单到哪了，手机 138****5678");
   });
 
-  it("队列接口 401 时回登录页", async () => {
+  it("AC-46 队列接口 401 时回登录页", async () => {
     vi.spyOn(global, "fetch")
       .mockResolvedValueOnce(json(session))
       .mockResolvedValueOnce(json({ code: "SESSION_INVALID", message: "未登录" }, 401));
@@ -111,7 +110,41 @@ describe("工作台 QueueGate", () => {
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/login"));
   });
 
-  it("队列请求失败时显示可重试提示", async () => {
+
+  it("AC-45 选中行展示摘要详情", async () => {
+    vi.spyOn(global, "fetch")
+      .mockResolvedValueOnce(json(session))
+      .mockResolvedValueOnce(json({ items: queueItems }));
+    render(<QueueGate />);
+    await screen.findAllByText("客户甲");
+
+    const detail = screen.getByLabelText("会话详情");
+    await waitFor(() => expect(within(detail).getByText("最后一条消息")).toBeInTheDocument());
+    expect(within(detail).getByText("领取后可查看")).toBeInTheDocument();
+    expect(within(detail).getByText("领取规则")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "查看完整交接单" })).toBeDisabled();
+  });
+
+  it("AC-47 J/K 切换选中，Esc 清除", async () => {
+    vi.spyOn(global, "fetch")
+      .mockResolvedValueOnce(json(session))
+      .mockResolvedValueOnce(json({ items: queueItems }));
+    render(<QueueGate />);
+    await screen.findAllByText("客户甲");
+
+    const dataRows = () => screen.getAllByRole("row").slice(1);
+    await waitFor(() => expect(dataRows()[0]).toHaveAttribute("aria-selected", "true"));
+
+    fireEvent.click(dataRows()[1]);
+    await waitFor(() => expect(dataRows()[1]).toHaveAttribute("aria-selected", "true"));
+
+    fireEvent.keyDown(document.body, { key: "Escape" });
+    await waitFor(() =>
+      expect(dataRows().some((row) => row.getAttribute("aria-selected") === "true")).toBe(false),
+    );
+  });
+
+  it("AC-46 队列请求失败时显示可重试提示", async () => {
     let attempts = 0;
     vi.spyOn(global, "fetch").mockImplementation(async (input) => {
       const url = String(input);
@@ -127,10 +160,10 @@ describe("工作台 QueueGate", () => {
     render(<QueueGate />);
     expect(await screen.findByRole("alert")).toHaveTextContent("请求未完成，请重试");
     fireEvent.click(screen.getByRole("button", { name: "重试" }));
-    expect(await screen.findByText("暂无待接入会话")).toBeInTheDocument();
+    expect(await screen.findByText("队列已清空")).toBeInTheDocument();
   });
 
-  it("网络错误时显示可重试提示", async () => {
+  it("AC-46 网络错误时显示可重试提示", async () => {
     let attempts = 0;
     vi.spyOn(global, "fetch").mockImplementation(async () => {
       attempts += 1;
@@ -145,11 +178,11 @@ describe("工作台 QueueGate", () => {
     render(<QueueGate />);
     expect(await screen.findByRole("alert")).toHaveTextContent("请求未完成，请重试");
     fireEvent.click(screen.getByRole("button", { name: "重试" }));
-    expect(await screen.findByText("坐席 1（agent_1）")).toBeInTheDocument();
-    expect(await screen.findByText("暂无待接入会话")).toBeInTheDocument();
+    expect(await screen.findByText("坐席 1")).toBeInTheDocument();
+    expect(await screen.findByText("队列已清空")).toBeInTheDocument();
   });
 
-  it("领取成功后进入会话页", async () => {
+  it("AC-44 领取成功后进入会话页", async () => {
     const fetchMock = vi
       .spyOn(global, "fetch")
       .mockResolvedValueOnce(json(session))
@@ -158,7 +191,7 @@ describe("工作台 QueueGate", () => {
         json({ handoff_id: "ho-1", conversation_id: "conv-1", status: "CLAIMED" }),
       );
     render(<QueueGate />);
-    fireEvent.click(await screen.findByRole("button", { name: "领取" }));
+    fireEvent.click(await screen.findByRole("button", { name: "领取 客户甲 的会话" }));
 
     await waitFor(() => expect(push).toHaveBeenCalledWith("/conversations/conv-1"));
     expect(fetchMock).toHaveBeenCalledWith("/api/workspace/queue/ho-1/claim", {
@@ -166,7 +199,7 @@ describe("工作台 QueueGate", () => {
     });
   });
 
-  it("领取冲突时提示并刷新队列", async () => {
+  it("AC-44 领取冲突时提示并刷新队列", async () => {
     vi.spyOn(global, "fetch")
       .mockResolvedValueOnce(json(session))
       .mockResolvedValueOnce(json({ items: [queueItems[0]] }))
@@ -176,27 +209,27 @@ describe("工作台 QueueGate", () => {
       .mockResolvedValueOnce(json(session))
       .mockResolvedValueOnce(json({ items: [] }));
     render(<QueueGate />);
-    fireEvent.click(await screen.findByRole("button", { name: "领取" }));
+    fireEvent.click(await screen.findByRole("button", { name: "领取 客户甲 的会话" }));
 
     expect(await screen.findByRole("status")).toHaveTextContent(
       "该会话已被其他坐席领取，队列已刷新",
     );
-    expect(await screen.findByText("暂无待接入会话")).toBeInTheDocument();
+    expect(await screen.findByText("队列已清空")).toBeInTheDocument();
     expect(push).not.toHaveBeenCalled();
   });
 
-  it("领取返回 401 时回登录页", async () => {
+  it("AC-44 领取返回 401 时回登录页", async () => {
     vi.spyOn(global, "fetch")
       .mockResolvedValueOnce(json(session))
       .mockResolvedValueOnce(json({ items: [queueItems[0]] }))
       .mockResolvedValueOnce(json({ code: "SESSION_INVALID", message: "未登录" }, 401));
     render(<QueueGate />);
-    fireEvent.click(await screen.findByRole("button", { name: "领取" }));
+    fireEvent.click(await screen.findByRole("button", { name: "领取 客户甲 的会话" }));
 
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/login"));
   });
 
-  it("领取 404 时提示已领取并刷新", async () => {
+  it("AC-44 领取 404 时提示已领取并刷新", async () => {
     vi.spyOn(global, "fetch")
       .mockResolvedValueOnce(json(session))
       .mockResolvedValueOnce(json({ items: [queueItems[0]] }))
@@ -204,7 +237,7 @@ describe("工作台 QueueGate", () => {
       .mockResolvedValueOnce(json(session))
       .mockResolvedValueOnce(json({ items: [] }));
     render(<QueueGate />);
-    fireEvent.click(await screen.findByRole("button", { name: "领取" }));
+    fireEvent.click(await screen.findByRole("button", { name: "领取 客户甲 的会话" }));
 
     expect(await screen.findByRole("status")).toHaveTextContent(
       "该交接单不存在或已被领取，队列已刷新",
