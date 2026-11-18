@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""验收标准（AC）追溯矩阵：需求 → 任务 → 执行卡 → 测试。
+"""验收标准（AC）追溯矩阵：需求 → feature → 执行卡 → 测试。
 
-检查器只保证“AC 在 tasks.md 里被提到”，本脚本检查“AC 有没有真实测试”。
-未覆盖的 AC 必须登记在 scripts/trace-baseline.txt，并写明承接任务；
-基线一旦被测试覆盖，必须删除该行，防止基线变成永久豁免。
+检查器只保证“AC 在 features.md 里被提到”，本脚本检查“AC 有没有真实测试”，
+并按 feature 的 Passes 区分“完全覆盖”与“部分覆盖”：
+- 没有测试的 AC 必须登记基线并写明承接任务；
+- 有测试但仍有未通过 feature 的 AC 属于部分覆盖，也要登记基线；
+- 所有承接 feature 都通过后，基线必须删除，防止永久豁免。
 
 用法：
     python3 scripts/trace.py            # 打印矩阵
@@ -63,6 +65,38 @@ def ac_from_cards() -> dict[str, list[str]]:
     return {ac: sorted(files) for ac, files in found.items()}
 
 
+def ac_from_features() -> dict[str, list[tuple[str, bool]]]:
+    """AC → 承接它的 feature 与 Passes；用于区分完全覆盖与部分覆盖。"""
+    found: dict[str, list[tuple[str, bool]]] = {}
+    for path in SPECS.glob("*/features.md"):
+        for line in path.read_text(encoding="utf-8").splitlines():
+            if not line.startswith("| F-"):
+                continue
+            cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
+            if len(cells) < 7:
+                continue
+            feature = cells[0]
+            passes = cells[5].lower() == "true"
+            for ac in AC_ID.findall(cells[4]):
+                found.setdefault(f"AC-{ac}", []).append((feature, passes))
+    return found
+
+
+def coverage_state(
+    ac: str,
+    tests: dict[str, list[str]],
+    features: dict[str, list[tuple[str, bool]]],
+) -> tuple[str, list[str]]:
+    """返回 (missing/partial/covered, 尚未通过的 feature 列表)。"""
+    count = len(tests.get(ac, []))
+    pending = sorted({feature for feature, passed in features.get(ac, []) if not passed})
+    if count == 0:
+        return "missing", pending
+    if pending:
+        return "partial", pending
+    return "covered", pending
+
+
 def read_baseline() -> dict[str, str]:
     if not BASELINE.exists():
         return {}
@@ -89,32 +123,48 @@ def main() -> int:
     # 001/002 已删除；AC-01~29 只保留为历史测试标签，不再进入当前追溯矩阵。
     tests = {ac: files for ac, files in tests.items() if ac not in LEGACY_AC}
     cards = ac_from_cards()
+    features = ac_from_features()
     baseline = read_baseline()
     errors: list[str] = []
-    rows: list[tuple[str, int, str]] = []
+    rows: list[tuple[str, int, str, str, list[str]]] = []
+    partial_count = 0
 
     for path in sorted(requirements):
         acs = ac_from_requirements(path)
         for ac in acs:
             count = len(tests.get(ac, []))
             card = ",".join(cards.get(ac, [])) or "-"
-            rows.append((ac, count, card))
-            if count == 0:
+            state, pending = coverage_state(ac, tests, features)
+            rows.append((ac, count, card, state, pending))
+            if state == "missing":
                 if ac not in baseline:
                     errors.append(f"{ac}：没有测试引用，也不在 scripts/trace-baseline.txt 中")
+            elif state == "partial":
+                partial_count += 1
+                if ac not in baseline:
+                    pending_text = "、".join(pending) or "未知 feature"
+                    errors.append(
+                        f"{ac}：部分覆盖，待 {pending_text} 通过；"
+                        "请在 scripts/trace-baseline.txt 登记"
+                    )
             elif ac in baseline:
-                errors.append(f"{ac}：已有测试，基线豁免必须删除")
+                errors.append(f"{ac}：已有完整测试，基线豁免必须删除")
 
     known = {row[0] for row in rows}
     for ac in sorted(set(tests) - known):
         errors.append(f"{ac}：测试引用了需求中不存在的验收编号")
 
-    print("AC     测试数  执行卡")
-    for ac, count, card in rows:
-        flag = "" if count or ac in baseline else "  <- 缺口"
-        print(f"{ac}   {count:>4}   {card}{flag}")
+    print("AC     测试数  执行卡                 状态")
+    for ac, count, card, state, pending in rows:
+        if state == "missing":
+            flag = "" if ac in baseline else "  <- 缺口"
+        elif state == "partial":
+            flag = f"  <- 部分覆盖：待 {'、'.join(pending)}"
+        else:
+            flag = ""
+        print(f"{ac}   {count:>4}   {card:<20} {state}{flag}")
     if baseline:
-        print("\n已登记基线（未覆盖，待承接）：")
+        print("\n已登记基线（缺口/部分覆盖，待承接）：")
         for ac, reason in baseline.items():
             print(f"  {ac}: {reason}")
 
@@ -124,7 +174,10 @@ def main() -> int:
             print("  - " + item)
         return 1 if strict else 0
 
-    print(f"\n追溯检查通过：{len(rows)} 条 AC，{len(baseline)} 条已登记基线。")
+    print(
+        f"\n追溯检查通过：{len(rows)} 条 AC，{len(baseline)} 条已登记基线，"
+        f"{partial_count} 条部分覆盖。"
+    )
     return 0
 
 
