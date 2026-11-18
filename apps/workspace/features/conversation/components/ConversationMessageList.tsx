@@ -4,16 +4,10 @@ import { useEffect, useRef } from "react";
 
 import { formatTime } from "@/lib/format";
 
+import { AUTHOR_LABEL } from "../labels";
 import type { Message } from "../types";
 
-const AUTHOR_LABEL: Record<string, string> = {
-  customer: "客户",
-  ai: "客服 AI",
-  agent: "坐席",
-  system: "系统",
-};
-
-const BUBBLE = "rounded-xl px-3.5 py-2.5 text-sm leading-[1.7] whitespace-pre-wrap break-words";
+const BUBBLE = "rounded-xl px-3 py-2 text-sm leading-[1.7] whitespace-pre-wrap break-words";
 
 type ConversationMessageListProps = {
   messages: Message[];
@@ -33,7 +27,7 @@ export function ConversationMessageList({ messages, loading }: ConversationMessa
 
   return (
     <div
-      className="flex max-h-[360px] min-h-[120px] flex-col gap-2.5 overflow-y-auto rounded-[9px] border border-line-soft bg-surface-soft px-3 py-3"
+      className="flex max-h-[360px] min-h-[120px] flex-col gap-2 overflow-y-auto rounded-[9px] border border-line-soft bg-surface-soft px-3 py-3"
       ref={listRef}
       role="log"
       aria-live="polite"

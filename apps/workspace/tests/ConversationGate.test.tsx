@@ -89,7 +89,9 @@ function mockRoutes(routes: Record<string, RouteHandler>) {
   return vi.spyOn(global, "fetch").mockImplementation(async (input, init) => {
     const raw = typeof input === "string" ? input : input.toString();
     const path = raw.split("?")[0];
-    const handler = routes[path];
+    const method = (init?.method ?? "GET").toUpperCase();
+    // 先按“方法 + 路径”匹配，避免把 GET 误当成 POST 的接管/回复。
+    const handler = routes[`${method} ${path}`] ?? routes[path];
     if (!handler) {
       return json({ code: "NOT_FOUND", message: "未找到" }, 404);
     }
@@ -155,11 +157,11 @@ describe("工作台 ConversationGate", () => {
   });
 
   it("AC-36 接管成功后会话语义变为人工接入中", async () => {
-    mockRoutes({
+    const fetchMock = mockRoutes({
       "/api/workspace/session": () => json(session),
       "/api/workspace/conversations/conv-1": detailRoute(),
       "/api/workspace/conversations/conv-1/messages": messagesRoute(claimedMessages),
-      "/api/workspace/conversations/conv-1/takeover": () =>
+      "POST /api/workspace/conversations/conv-1/takeover": () =>
         json({ conversation_id: "conv-1", status: "HUMAN_ACTIVE" }),
     });
     render(<ConversationGate conversationId="conv-1" />);
@@ -170,6 +172,9 @@ describe("工作台 ConversationGate", () => {
     expect(screen.getByText("人工接入中")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "接管会话" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "发送" })).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith("/api/workspace/conversations/conv-1/takeover", {
+      method: "POST",
+    });
   });
 
   it("AC-36 接管返回 404 时提示状态已变化", async () => {
@@ -177,7 +182,7 @@ describe("工作台 ConversationGate", () => {
       "/api/workspace/session": () => json(session),
       "/api/workspace/conversations/conv-1": detailRoute(),
       "/api/workspace/conversations/conv-1/messages": messagesRoute(claimedMessages),
-      "/api/workspace/conversations/conv-1/takeover": () =>
+      "POST /api/workspace/conversations/conv-1/takeover": () =>
         json({ code: "NOT_FOUND", message: "未找到" }, 404),
     });
     render(<ConversationGate conversationId="conv-1" />);
@@ -214,6 +219,34 @@ describe("工作台 ConversationGate", () => {
         }),
       ),
     );
+  });
+
+  it("AC-37 发送回复不推进轮询游标，避免跳过客户消息", async () => {
+    const fetchMock = mockRoutes({
+      "/api/workspace/session": () => json(session),
+      "/api/workspace/conversations/conv-1": () => json(humanDetail),
+      "/api/workspace/conversations/conv-1/messages": () => json(messagePage),
+      "POST /api/workspace/conversations/conv-1/messages": () =>
+        json({ ...messagePage, after_id: 5, messages: [{ ...messagePage.messages[0], id: 5 }] }),
+    });
+    render(<ConversationGate conversationId="conv-1" />);
+
+    await screen.findByText("您好，我是坐席 1");
+    fireEvent.change(screen.getByLabelText("回复客户"), { target: { value: "收到" } });
+    fireEvent.click(screen.getByRole("button", { name: "发送" }));
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/workspace/conversations/conv-1/messages",
+        expect.objectContaining({ method: "POST" }),
+      ),
+    );
+
+    // 等至少一轮 3s 轮询，确认游标仍停在 4（首次消息页 after_id）而不是回复的 5。
+    await new Promise((resolve) => setTimeout(resolve, 3300));
+    const messageUrls = fetchMock.mock.calls
+      .map(([input]) => String(input))
+      .filter((url) => url.includes("/messages?after_id="));
+    expect(messageUrls.at(-1)).toContain("after_id=4");
   });
 
   it("AC-37 已领取未接管时不显示回复框", async () => {

@@ -2,6 +2,7 @@
 
 import { formatTime } from "@/lib/format";
 
+import { AUTHOR_LABEL } from "../labels";
 import type { ConversationDetail } from "../types";
 
 const STATUS_META: Record<string, { label: string; chip: string; dot: string }> = {
@@ -37,13 +38,6 @@ const REASON_LABEL: Record<string, string> = {
   LOW_CONFIDENCE: "AI 置信度不足",
   OUT_OF_SCOPE: "超出 AI 处理范围",
   MODEL_UNAVAILABLE: "模型不可用",
-};
-
-const AUTHOR_LABEL: Record<string, string> = {
-  customer: "客户",
-  ai: "客服 AI",
-  agent: "坐席",
-  system: "系统",
 };
 
 type ConversationDetailPanelProps = {

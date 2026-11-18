@@ -6,10 +6,7 @@ type ConversationReplyBoxProps = {
   draft: string;
   setDraft: (value: string) => void;
   sending: boolean;
-  overLimit: boolean;
-  trimmedLength: number;
   maxLength: number;
-  canSend: boolean;
   onSubmit: () => void;
 };
 
@@ -20,12 +17,13 @@ export function ConversationReplyBox({
   draft,
   setDraft,
   sending,
-  overLimit,
-  trimmedLength,
   maxLength,
-  canSend,
   onSubmit,
 }: ConversationReplyBoxProps) {
+  const trimmedLength = draft.trim().length;
+  const overLimit = trimmedLength > maxLength;
+  const canSend = !sending && trimmedLength > 0 && !overLimit;
+
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
     if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
       event.preventDefault();
@@ -37,7 +35,7 @@ export function ConversationReplyBox({
 
   return (
     <form
-      className="rounded-[9px] border border-border bg-surface px-3 pb-2.5 pt-2.5 focus-within:border-accent focus-within:shadow-focus"
+      className="rounded-[9px] border border-border bg-surface px-3 py-2 focus-within:border-accent focus-within:shadow-focus"
       onSubmit={(event) => {
         event.preventDefault();
         if (canSend) {
@@ -60,7 +58,7 @@ export function ConversationReplyBox({
         aria-invalid={overLimit}
         aria-describedby="reply-hint"
       />
-      <div className="mt-2 flex items-center gap-2.5">
+      <div className="mt-2 flex items-center gap-2">
         <span className="hidden text-xs text-text-3 min-[1025px]:inline">
           <kbd className={KBD}>Enter</kbd> 发送 · <kbd className={KBD}>Shift</kbd> +{" "}
           <kbd className={KBD}>Enter</kbd> 换行

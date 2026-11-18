@@ -49,8 +49,7 @@ export function useConversationMessages(
     };
   }, []);
 
-  const applyPage = useCallback((page: MessagePage) => {
-    afterIdRef.current = Math.max(afterIdRef.current, page.after_id);
+  const mergePage = useCallback((page: MessagePage) => {
     onStatusRef.current?.(page.status);
     // updater 必须是纯函数；按 id 去重，轮询与发送响应重叠时不会重复显示。
     setMessages((previous) => {
@@ -62,6 +61,14 @@ export function useConversationMessages(
       return [...previous, ...fresh].sort((left, right) => left.id - right.id);
     });
   }, []);
+
+  const applyPage = useCallback(
+    (page: MessagePage) => {
+      afterIdRef.current = Math.max(afterIdRef.current, page.after_id);
+      mergePage(page);
+    },
+    [mergePage],
+  );
 
   const handleFailure = useCallback(
     (cause: unknown, fallback: string) => {
@@ -140,7 +147,9 @@ export function useConversationMessages(
       }
       pendingKeyRef.current = null;
       failedContentRef.current = null;
-      applyPage(page);
+      // 发送响应只合并展示，不推进轮询游标：客户消息可能在回复前落库，
+      // 推进到回复 id 会让下一次轮询跳过它。
+      mergePage(page);
       setDraft("");
     } catch (cause) {
       if (!mountedRef.current) {
@@ -153,7 +162,7 @@ export function useConversationMessages(
         setSending(false);
       }
     }
-  }, [applyPage, conversationId, draft, router, sending]);
+  }, [mergePage, conversationId, draft, router, sending]);
 
   const trimmedLength = draft.trim().length;
   const overLimit = trimmedLength > MAX_REPLY_LENGTH;

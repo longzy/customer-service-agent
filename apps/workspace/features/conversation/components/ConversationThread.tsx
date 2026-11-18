@@ -22,24 +22,13 @@ const STATUS_HINT: Record<string, string> = {
 
 /** 会话页实时消息区：3s 轮询 + 接管后回复；回复框只在 HUMAN_ACTIVE 出现。 */
 export function ConversationThread({ conversationId, status, onStatus }: ConversationThreadProps) {
-  const {
-    messages,
-    loading,
-    sending,
-    error,
-    draft,
-    setDraft,
-    trimmedLength,
-    maxLength,
-    overLimit,
-    canSend,
-    submitReply,
-  } = useConversationMessages(conversationId, onStatus);
+  const { messages, loading, sending, error, draft, setDraft, maxLength, submitReply } =
+    useConversationMessages(conversationId, onStatus);
 
   return (
-    <article className="rounded-xl border border-border bg-surface px-5 py-5">
+    <article className="rounded-xl border border-border bg-surface px-4 py-4">
       <h3 className="m-0 text-xs font-semibold tracking-[0.06em] text-text-2">实时消息</h3>
-      <div className="mt-3 flex flex-col gap-2.5">
+      <div className="mt-3 flex flex-col gap-2">
         <ConversationMessageList messages={messages} loading={loading} />
         {error ? (
           <p
@@ -54,10 +43,7 @@ export function ConversationThread({ conversationId, status, onStatus }: Convers
             draft={draft}
             setDraft={setDraft}
             sending={sending}
-            overLimit={overLimit}
-            trimmedLength={trimmedLength}
             maxLength={maxLength}
-            canSend={canSend}
             onSubmit={() => void submitReply()}
           />
         ) : (
