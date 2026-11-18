@@ -1,6 +1,7 @@
 """坐席工作台 API：员工登录、session 恢复、登出与会话归属门禁。"""
 
 from typing import Annotated, Any
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,17 +13,25 @@ from backend.api.workspace_schemas import (
     EmployeeLoginRequest,
     EmployeePublic,
     EmployeeSessionResponse,
+    WorkspaceAiTraceEvent,
     WorkspaceClaimResponse,
+    WorkspaceContextMessage,
     WorkspaceConversationResponse,
+    WorkspaceCustomerPublic,
+    WorkspaceHandoffDetail,
     WorkspaceQueueItem,
     WorkspaceQueueResponse,
+    WorkspaceTakeoverResponse,
 )
 from backend.conversations.workspace_conversations import (
     ClaimConflictError,
     HandoffClosedError,
+    HandoffDetail,
+    WorkspaceConversationDetail,
     claim_handoff,
-    get_assigned_conversation,
+    get_assigned_conversation_detail,
     list_queued_handoffs,
+    take_over_conversation,
 )
 from backend.domain.errors import ErrorCode
 from backend.identity import employee_sessions
@@ -56,6 +65,39 @@ def _session_payload(session: ResolvedEmployeeSession) -> EmployeeSessionRespons
         employee=_employee_payload(session.employee),
         expires_at=utc_text(session.expires_at),
     )
+
+
+def _handoff_payload(handoff: HandoffDetail) -> WorkspaceHandoffDetail:
+    return WorkspaceHandoffDetail(
+        id=handoff.id,
+        status=handoff.status,
+        reason=handoff.reason,
+        summary=handoff.summary,
+        pending_step=handoff.pending_step,
+        order_count=handoff.order_count,
+        messages=[WorkspaceContextMessage.model_validate(item) for item in handoff.messages],
+        ai_trace=[WorkspaceAiTraceEvent.model_validate(item) for item in handoff.ai_trace],
+    )
+
+
+def _conversation_payload(
+    conversation: WorkspaceConversationDetail,
+) -> WorkspaceConversationResponse:
+    return WorkspaceConversationResponse(
+        id=conversation.id,
+        status=conversation.status,  # type: ignore[arg-type]
+        customer=WorkspaceCustomerPublic(
+            username=conversation.customer.username,
+            display_name=conversation.customer.display_name,
+        ),
+        handoff=(
+            _handoff_payload(conversation.handoff) if conversation.handoff is not None else None
+        ),
+    )
+
+
+def _trace_id(request: Request) -> str:
+    return getattr(request.state, "trace_id", None) or str(uuid4())
 
 
 async def current_employee_session(
@@ -152,6 +194,7 @@ async def read_queue(session: CurrentEmployee, db: Db) -> WorkspaceQueueResponse
 )
 async def claim_queue_item(
     handoff_id: str,
+    request: Request,
     session: CurrentEmployee,
     db: Db,
 ) -> WorkspaceClaimResponse:
@@ -162,6 +205,7 @@ async def claim_queue_item(
             session.employee.tenant_id,
             session.employee.id,
             handoff_id,
+            trace_id=_trace_id(request),
         )
     except HandoffClosedError:
         await db.rollback()
@@ -173,6 +217,42 @@ async def claim_queue_item(
         raise ApiError(404, ErrorCode.NOT_FOUND)
     await db.commit()
     return WorkspaceClaimResponse.model_validate(claimed, from_attributes=True)
+
+
+@router.post(
+    "/conversations/{conversation_id}/takeover",
+    responses={
+        401: ERROR_RESPONSES[401],
+        403: ERROR_RESPONSES[403],
+        404: ERROR_RESPONSES[404],
+        409: ERROR_RESPONSES[409],
+    },
+)
+async def take_over(
+    conversation_id: str,
+    request: Request,
+    session: CurrentEmployee,
+    db: Db,
+) -> WorkspaceTakeoverResponse:
+    """领取者接管；非本人/未领取/已接管 404，已关闭 409。"""
+    try:
+        taken = await take_over_conversation(
+            db,
+            session.employee.tenant_id,
+            session.employee.id,
+            conversation_id,
+            trace_id=_trace_id(request),
+        )
+    except HandoffClosedError:
+        await db.rollback()
+        raise ApiError(409, ErrorCode.CONVERSATION_CLOSED) from None
+    except ClaimConflictError:
+        await db.rollback()
+        raise ApiError(409, ErrorCode.CLAIM_CONFLICT) from None
+    if taken is None:
+        raise ApiError(404, ErrorCode.NOT_FOUND)
+    await db.commit()
+    return WorkspaceTakeoverResponse.model_validate(taken, from_attributes=True)
 
 
 @router.get(
@@ -188,7 +268,7 @@ async def read_conversation(
     session: CurrentEmployee,
     db: Db,
 ) -> WorkspaceConversationResponse:
-    conversation = await get_assigned_conversation(
+    conversation = await get_assigned_conversation_detail(
         db,
         session.employee.tenant_id,
         session.employee.id,
@@ -196,10 +276,7 @@ async def read_conversation(
     )
     if conversation is None:
         raise ApiError(404, ErrorCode.NOT_FOUND)
-    return WorkspaceConversationResponse(
-        id=conversation.id,
-        status=conversation.status,  # type: ignore[arg-type]
-    )
+    return _conversation_payload(conversation)
 
 
 @router.delete("/sessions", status_code=204)

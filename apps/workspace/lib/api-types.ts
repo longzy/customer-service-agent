@@ -229,6 +229,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspace/conversations/{conversation_id}/takeover": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Take Over
+         * @description 领取者接管；非本人/未领取/已接管 404，已关闭 409。
+         */
+        post: operations["take_over_workspace_conversations__conversation_id__takeover_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspace/queue": {
         parameters: {
             query?: never;
@@ -468,6 +488,22 @@ export interface components {
             type: string;
         };
         /**
+         * WorkspaceAiTraceEvent
+         * @description AI 轨迹只含事件元数据，不含 prompt/response 正文。
+         */
+        WorkspaceAiTraceEvent: {
+            /** Confidence */
+            confidence: number | null;
+            /** Created At */
+            created_at: string;
+            /** Event Type */
+            event_type: string;
+            /** Name */
+            name: string;
+            /** Status */
+            status: string;
+        };
+        /**
          * WorkspaceClaimResponse
          * @description 领取成功后的最小回执；`status` 是同一事务里的会话状态。
          */
@@ -483,10 +519,29 @@ export interface components {
             status: "AI_ACTIVE" | "QUEUED" | "CLAIMED" | "HUMAN_ACTIVE" | "CLOSED";
         };
         /**
+         * WorkspaceContextMessage
+         * @description 交接单快照里的消息；正文在创建交接单时已脱敏。
+         */
+        WorkspaceContextMessage: {
+            /**
+             * Author Type
+             * @enum {string}
+             */
+            author_type: "customer" | "ai" | "agent" | "system";
+            /** Content */
+            content: string;
+            /** Created At */
+            created_at: string;
+            /** Id */
+            id: number;
+        };
+        /**
          * WorkspaceConversationResponse
-         * @description F-05 只暴露归属门禁后的最小会话信息；完整上下文由 F-08 增量扩展。
+         * @description 领取者可见的完整上下文；未领取/他人/跨租户由 API 返回 404。
          */
         WorkspaceConversationResponse: {
+            customer: components["schemas"]["WorkspaceCustomerPublic"];
+            handoff: components["schemas"]["WorkspaceHandoffDetail"] | null;
             /** Id */
             id: string;
             /**
@@ -494,6 +549,38 @@ export interface components {
              * @enum {string}
              */
             status: "AI_ACTIVE" | "QUEUED" | "CLAIMED" | "HUMAN_ACTIVE" | "CLOSED";
+        };
+        /**
+         * WorkspaceCustomerPublic
+         * @description 坐席可见的客户账号；不暴露客户内部 id 与联系方式。
+         */
+        WorkspaceCustomerPublic: {
+            /** Display Name */
+            display_name: string;
+            /** Username */
+            username: string;
+        };
+        /**
+         * WorkspaceHandoffDetail
+         * @description 完整交接单：摘要、原因、待办与创建时的上下文快照。
+         */
+        WorkspaceHandoffDetail: {
+            /** Ai Trace */
+            ai_trace: components["schemas"]["WorkspaceAiTraceEvent"][];
+            /** Id */
+            id: string;
+            /** Messages */
+            messages: components["schemas"]["WorkspaceContextMessage"][];
+            /** Order Count */
+            order_count: number;
+            /** Pending Step */
+            pending_step: string | null;
+            /** Reason */
+            reason: string;
+            /** Status */
+            status: string;
+            /** Summary */
+            summary: string;
         };
         /**
          * WorkspaceQueueItem
@@ -521,6 +608,19 @@ export interface components {
         WorkspaceQueueResponse: {
             /** Items */
             items: components["schemas"]["WorkspaceQueueItem"][];
+        };
+        /**
+         * WorkspaceTakeoverResponse
+         * @description 接管成功后的最小回执；`status` 固定为 `HUMAN_ACTIVE`。
+         */
+        WorkspaceTakeoverResponse: {
+            /** Conversation Id */
+            conversation_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "AI_ACTIVE" | "QUEUED" | "CLAIMED" | "HUMAN_ACTIVE" | "CLOSED";
         };
     };
     responses: never;
@@ -1117,6 +1217,73 @@ export interface operations {
             };
             /** @description Not Found */
             404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    take_over_workspace_conversations__conversation_id__takeover_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                conversation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceTakeoverResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -296,7 +296,12 @@ def test_本人已分配会话可读_未领取和他人会话404_AC_34() -> None
         agents_mine = api.get("/workspace/conversations/conv-mine")
 
     assert mine.status_code == 200
-    assert mine.json() == {"id": "conv-mine", "status": "CLAIMED"}
+    mine_body = mine.json()
+    assert mine_body["id"] == "conv-mine"
+    assert mine_body["status"] == "CLAIMED"
+    assert mine_body["customer"] == {"username": "customer_a", "display_name": "客户甲"}
+    # 该用例只播种会话、没有交接单：完整上下文由 F-08 的 AC-36 用例覆盖。
+    assert mine_body["handoff"] is None
     assert unclaimed.status_code == 404
     assert other.status_code == 404
     assert cross.status_code == 404

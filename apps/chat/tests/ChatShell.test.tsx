@@ -323,4 +323,45 @@ describe("ChatShell", () => {
 
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/login"));
   });
+
+  it("AC-36 坐席领取后客户看到“正在接入人工”", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValueOnce(
+      json({
+        conversation_id: "conv-1",
+        status: "CLAIMED",
+        after_id: 3,
+        messages: [
+          message(1, "customer", "转人工"),
+          message(2, "system", "排队中，请稍候"),
+          message(3, "system", "正在接入人工"),
+        ],
+      }),
+    );
+
+    renderShell();
+
+    expect(await screen.findByText("正在接入人工")).toBeInTheDocument();
+    expect(screen.getByText("人工接入中")).toBeInTheDocument();
+    expect(screen.queryByText("排队中，请稍候")).not.toBeInTheDocument();
+  });
+
+  it("AC-36 坐席接管后客户看到“人工已接入”", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValueOnce(
+      json({
+        conversation_id: "conv-1",
+        status: "HUMAN_ACTIVE",
+        after_id: 3,
+        messages: [
+          message(1, "customer", "转人工"),
+          message(2, "system", "正在接入人工"),
+          message(3, "system", "人工已接入"),
+        ],
+      }),
+    );
+
+    renderShell();
+
+    expect(await screen.findByText("人工已接入")).toBeInTheDocument();
+    expect(screen.getByText("人工服务中")).toBeInTheDocument();
+  });
 });

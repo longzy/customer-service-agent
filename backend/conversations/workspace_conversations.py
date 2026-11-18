@@ -1,21 +1,33 @@
-"""坐席工作台：会话归属门禁、待接入队列与条件领取。
+"""坐席工作台：会话归属门禁、待接入队列、条件领取、接管与上下文读取。
 
 - 归属读取只允许同租户且 `assigned_employee_id` 为本人的会话；其余返回 None。
 - 队列只返回同租户 `status='QUEUED'` 的交接单，按 `created_at, id` 升序。
 - 队列摘要在读取时派生：客户账号/显示名、等待秒数、原因、订单数、脱敏末条；
   不返回完整消息或交接单上下文（plan 3.3.5）。
-- 领取是条件写：只有 `QUEUED` 交接单能被领取，同事务把会话归属写给本人；
-  本模块只 flush/execute，由 API 层统一 commit，失败由调用方回滚。
+- 领取是条件写：只有 `QUEUED` 交接单能被领取，同事务把会话归属写给本人并写
+  “正在接入人工”系统消息（plan 3.4）。
+- 接管是条件写：只允许 `claimed_by=本人` 且 `CLAIMED` 的交接单，同事务把会话
+  改为 `HUMAN_ACTIVE`、交接单改为 `ACTIVE`，并写“人工已接入”系统消息。
+- 上下文读取只展示交接单里的快照（客户账号、最近 20 条脱敏消息、AI 轨迹、待办），
+  不额外暴露未领取时的完整消息。
+- 本模块只 flush/execute，由 API 层统一 commit，失败由调用方回滚。
 """
 
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Any
 
 from sqlalchemy import ScalarSelect, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.conversations.handoffs import redact_text
-from backend.conversations.statuses import CLAIMED, CLOSED, QUEUED
+from backend.conversations.statuses import (
+    CLAIMED,
+    CLOSED,
+    HANDOFF_ACTIVE,
+    HUMAN_ACTIVE,
+    QUEUED,
+)
 from backend.platform.models import (
     ServiceConversation,
     ServiceCustomer,
@@ -24,6 +36,8 @@ from backend.platform.models import (
 )
 
 QUEUE_LAST_MESSAGE_CHAR_LIMIT = 100
+CLAIMING_NOTICE = "正在接入人工"
+TAKEOVER_NOTICE = "人工已接入"
 
 
 class ClaimConflictError(Exception):
@@ -31,18 +45,44 @@ class ClaimConflictError(Exception):
 
 
 class HandoffClosedError(Exception):
-    """交接单已关闭，不再接受领取；对应 409 `CONVERSATION_CLOSED`。"""
+    """交接单或会话已关闭，不再接受领取/接管；对应 409 `CONVERSATION_CLOSED`。"""
 
 
 @dataclass(frozen=True)
-class WorkspaceConversation:
+class WorkspaceCustomer:
+    username: str
+    display_name: str
+
+
+@dataclass(frozen=True)
+class HandoffDetail:
     id: str
     status: str
+    reason: str
+    summary: str
+    pending_step: str | None
+    order_count: int
+    messages: list[dict[str, Any]]
+    ai_trace: list[dict[str, Any]]
+
+
+@dataclass(frozen=True)
+class WorkspaceConversationDetail:
+    id: str
+    status: str
+    customer: WorkspaceCustomer
+    handoff: HandoffDetail | None
 
 
 @dataclass(frozen=True)
 class ClaimedHandoff:
     handoff_id: str
+    conversation_id: str
+    status: str
+
+
+@dataclass(frozen=True)
+class TakenOverConversation:
     conversation_id: str
     status: str
 
@@ -63,21 +103,78 @@ def utc_now() -> datetime:
     return datetime.now(UTC)
 
 
-async def get_assigned_conversation(
+def _int_value(value: object) -> int:
+    return value if isinstance(value, int) and not isinstance(value, bool) else 0
+
+
+def _dict_list(value: object) -> list[dict[str, Any]]:
+    if not isinstance(value, list):
+        return []
+    return [item for item in value if isinstance(item, dict)]
+
+
+def _handoff_detail(handoff: ServiceHandoff) -> HandoffDetail:
+    """把交接单里的 JSON 快照投影成读模型；缺字段按空值处理，不猜业务含义。"""
+    context = handoff.context or {}
+    return HandoffDetail(
+        id=handoff.id,
+        status=handoff.status,
+        reason=handoff.reason,
+        summary=handoff.summary or "",
+        pending_step=handoff.pending_step,
+        order_count=_int_value(context.get("order_count")),
+        messages=_dict_list(context.get("messages")),
+        ai_trace=_dict_list(context.get("ai_trace")),
+    )
+
+
+async def get_assigned_conversation_detail(
     db: AsyncSession,
     tenant_id: str,
     employee_id: str,
     conversation_id: str,
-) -> WorkspaceConversation | None:
-    statement = select(ServiceConversation).where(
-        ServiceConversation.id == conversation_id,
-        ServiceConversation.tenant_id == tenant_id,
-        ServiceConversation.assigned_employee_id == employee_id,
-    )
-    row = (await db.execute(statement)).scalar_one_or_none()
+) -> WorkspaceConversationDetail | None:
+    """读取已归属本人的会话；客户与最近一张交接单在同一读模型里。
+
+    未领取、他人领取或跨租户统一返回 None（API 映射 404，不泄露是否存在）。
+    交接单按创建时间取最新一张：关闭/转回 AI 后旧单仍在，读模型展示最近一次转人工。
+    """
+    row = (
+        await db.execute(
+            select(ServiceConversation, ServiceCustomer)
+            .join(ServiceCustomer, ServiceCustomer.id == ServiceConversation.customer_id)
+            .where(
+                ServiceConversation.id == conversation_id,
+                ServiceConversation.tenant_id == tenant_id,
+                ServiceConversation.assigned_employee_id == employee_id,
+                ServiceCustomer.tenant_id == tenant_id,
+            )
+        )
+    ).one_or_none()
     if row is None:
         return None
-    return WorkspaceConversation(id=row.id, status=row.status)
+
+    conversation, customer = row
+    handoff = (
+        await db.execute(
+            select(ServiceHandoff)
+            .where(
+                ServiceHandoff.conversation_id == conversation_id,
+                ServiceHandoff.tenant_id == tenant_id,
+            )
+            .order_by(ServiceHandoff.created_at.desc(), ServiceHandoff.id.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    return WorkspaceConversationDetail(
+        id=conversation.id,
+        status=conversation.status,
+        customer=WorkspaceCustomer(
+            username=customer.username,
+            display_name=customer.display_name,
+        ),
+        handoff=_handoff_detail(handoff) if handoff is not None else None,
+    )
 
 
 def _waiting_seconds(created_at: datetime, now: datetime) -> int:
@@ -133,6 +230,8 @@ async def claim_handoff(
     tenant_id: str,
     employee_id: str,
     handoff_id: str,
+    *,
+    trace_id: str,
 ) -> ClaimedHandoff | None:
     """条件领取：并发下只有一个事务能把同一交接单从 `QUEUED` 改为 `CLAIMED`。
 
@@ -141,8 +240,8 @@ async def claim_handoff(
     - 先读状态是为了给出可区分的错误码；真正防竞态的是带 `status='QUEUED'`
       的 `UPDATE ... RETURNING`。Postgres 在行锁释放后重新评估条件，影响 0 行
       即说明另一个事务已领取。
-    - 同事务把会话改为 `CLAIMED` 并写 `assigned_employee_id`；不写系统消息与审计
-      （分别由接管 F-08、审计 F-13 负责）。
+    - 同事务把会话改为 `CLAIMED`、写 `assigned_employee_id`，并写“正在接入人工”
+      系统消息（plan 3.4；不写审计，审计由 F-13 负责）。
     """
     row = (
         await db.execute(
@@ -203,8 +302,125 @@ async def claim_handoff(
         # 交接单与会话状态应由 F-03 同事务维护；出现分歧时整体回滚，不留下半领取。
         raise ClaimConflictError
 
+    db.add(
+        ServiceMessage(
+            conversation_id=conversation_id,
+            author_type="system",
+            author_id=None,
+            content=CLAIMING_NOTICE,
+            idempotency_key=None,
+            trace_id=trace_id,
+            created_at=now,
+        )
+    )
+    await db.flush()
+
     return ClaimedHandoff(
         handoff_id=handoff_id,
         conversation_id=conversation_id,
         status=CLAIMED,
+    )
+
+
+async def take_over_conversation(
+    db: AsyncSession,
+    tenant_id: str,
+    employee_id: str,
+    conversation_id: str,
+    *,
+    trace_id: str,
+) -> TakenOverConversation | None:
+    """领取者接管：会话 `CLAIMED → HUMAN_ACTIVE`、交接单 `CLAIMED → ACTIVE`。
+
+    - 只处理同租户且 `assigned_employee_id` 为本人的会话；其余返回 None（404）。
+    - 已关闭会话抛 `HandoffClosedError`（409 `CONVERSATION_CLOSED`）。
+    - 非 `CLAIMED`（未领取或已接管）返回 None，与 plan 3.3.5 的“无行 404”一致。
+    - 两个条件更新在同事务内完成；交接单行被并发改走时不再更新会话。
+    - 写系统消息“人工已接入”；审计留给 F-13。
+    """
+    status = (
+        await db.execute(
+            select(ServiceConversation.status).where(
+                ServiceConversation.id == conversation_id,
+                ServiceConversation.tenant_id == tenant_id,
+                ServiceConversation.assigned_employee_id == employee_id,
+            )
+        )
+    ).scalar_one_or_none()
+    if status is None:
+        return None
+    if status == CLOSED:
+        raise HandoffClosedError
+    if status != CLAIMED:
+        return None
+
+    handoff_id = (
+        await db.execute(
+            select(ServiceHandoff.id)
+            .where(
+                ServiceHandoff.conversation_id == conversation_id,
+                ServiceHandoff.tenant_id == tenant_id,
+                ServiceHandoff.claimed_by == employee_id,
+                ServiceHandoff.status == CLAIMED,
+            )
+            .order_by(ServiceHandoff.created_at.desc(), ServiceHandoff.id.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if handoff_id is None:
+        return None
+
+    now = utc_now()
+    updated_handoff = (
+        await db.execute(
+            update(ServiceHandoff)
+            .where(
+                ServiceHandoff.id == handoff_id,
+                ServiceHandoff.tenant_id == tenant_id,
+                ServiceHandoff.claimed_by == employee_id,
+                ServiceHandoff.status == CLAIMED,
+            )
+            .values(
+                status=HANDOFF_ACTIVE,
+                version=ServiceHandoff.version + 1,
+                updated_at=now,
+            )
+            .returning(ServiceHandoff.id)
+        )
+    ).scalar_one_or_none()
+    if updated_handoff is None:
+        return None
+
+    updated_conversation = (
+        await db.execute(
+            update(ServiceConversation)
+            .where(
+                ServiceConversation.id == conversation_id,
+                ServiceConversation.tenant_id == tenant_id,
+                ServiceConversation.assigned_employee_id == employee_id,
+                ServiceConversation.status == CLAIMED,
+            )
+            .values(status=HUMAN_ACTIVE, updated_at=now)
+            .returning(ServiceConversation.id)
+        )
+    ).scalar_one_or_none()
+    if updated_conversation is None:
+        # 会话状态在读取后被并发改走：整体回滚，不留下已 ACTIVE 的交接单。
+        raise ClaimConflictError
+
+    db.add(
+        ServiceMessage(
+            conversation_id=conversation_id,
+            author_type="system",
+            author_id=None,
+            content=TAKEOVER_NOTICE,
+            idempotency_key=None,
+            trace_id=trace_id,
+            created_at=now,
+        )
+    )
+    await db.flush()
+    return TakenOverConversation(
+        conversation_id=conversation_id,
+        status=HUMAN_ACTIVE,
     )

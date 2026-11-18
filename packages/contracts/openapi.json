@@ -431,6 +431,48 @@
         "title": "ValidationError",
         "type": "object"
       },
+      "WorkspaceAiTraceEvent": {
+        "additionalProperties": false,
+        "description": "AI 轨迹只含事件元数据，不含 prompt/response 正文。",
+        "properties": {
+          "confidence": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confidence"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "event_type": {
+            "title": "Event Type",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "event_type",
+          "name",
+          "status",
+          "confidence",
+          "created_at"
+        ],
+        "title": "WorkspaceAiTraceEvent",
+        "type": "object"
+      },
       "WorkspaceClaimResponse": {
         "additionalProperties": false,
         "description": "领取成功后的最小回执；`status` 是同一事务里的会话状态。",
@@ -463,10 +505,59 @@
         "title": "WorkspaceClaimResponse",
         "type": "object"
       },
+      "WorkspaceContextMessage": {
+        "additionalProperties": false,
+        "description": "交接单快照里的消息；正文在创建交接单时已脱敏。",
+        "properties": {
+          "author_type": {
+            "enum": [
+              "customer",
+              "ai",
+              "agent",
+              "system"
+            ],
+            "title": "Author Type",
+            "type": "string"
+          },
+          "content": {
+            "title": "Content",
+            "type": "string"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "author_type",
+          "content",
+          "created_at"
+        ],
+        "title": "WorkspaceContextMessage",
+        "type": "object"
+      },
       "WorkspaceConversationResponse": {
         "additionalProperties": false,
-        "description": "F-05 只暴露归属门禁后的最小会话信息；完整上下文由 F-08 增量扩展。",
+        "description": "领取者可见的完整上下文；未领取/他人/跨租户由 API 返回 404。",
         "properties": {
+          "customer": {
+            "$ref": "#/components/schemas/WorkspaceCustomerPublic"
+          },
+          "handoff": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WorkspaceHandoffDetail"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "id": {
             "title": "Id",
             "type": "string"
@@ -485,9 +576,95 @@
         },
         "required": [
           "id",
-          "status"
+          "status",
+          "customer",
+          "handoff"
         ],
         "title": "WorkspaceConversationResponse",
+        "type": "object"
+      },
+      "WorkspaceCustomerPublic": {
+        "additionalProperties": false,
+        "description": "坐席可见的客户账号；不暴露客户内部 id 与联系方式。",
+        "properties": {
+          "display_name": {
+            "title": "Display Name",
+            "type": "string"
+          },
+          "username": {
+            "title": "Username",
+            "type": "string"
+          }
+        },
+        "required": [
+          "username",
+          "display_name"
+        ],
+        "title": "WorkspaceCustomerPublic",
+        "type": "object"
+      },
+      "WorkspaceHandoffDetail": {
+        "additionalProperties": false,
+        "description": "完整交接单：摘要、原因、待办与创建时的上下文快照。",
+        "properties": {
+          "ai_trace": {
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceAiTraceEvent"
+            },
+            "title": "Ai Trace",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "messages": {
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceContextMessage"
+            },
+            "title": "Messages",
+            "type": "array"
+          },
+          "order_count": {
+            "minimum": 0.0,
+            "title": "Order Count",
+            "type": "integer"
+          },
+          "pending_step": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pending Step"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          },
+          "summary": {
+            "title": "Summary",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "status",
+          "reason",
+          "summary",
+          "pending_step",
+          "order_count",
+          "messages",
+          "ai_trace"
+        ],
+        "title": "WorkspaceHandoffDetail",
         "type": "object"
       },
       "WorkspaceQueueItem": {
@@ -557,6 +734,33 @@
           "items"
         ],
         "title": "WorkspaceQueueResponse",
+        "type": "object"
+      },
+      "WorkspaceTakeoverResponse": {
+        "additionalProperties": false,
+        "description": "接管成功后的最小回执；`status` 固定为 `HUMAN_ACTIVE`。",
+        "properties": {
+          "conversation_id": {
+            "title": "Conversation Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "AI_ACTIVE",
+              "QUEUED",
+              "CLAIMED",
+              "HUMAN_ACTIVE",
+              "CLOSED"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "conversation_id",
+          "status"
+        ],
+        "title": "WorkspaceTakeoverResponse",
         "type": "object"
       }
     }
@@ -1268,6 +1472,89 @@
           }
         },
         "summary": "Read Conversation",
+        "tags": [
+          "workspace"
+        ]
+      }
+    },
+    "/workspace/conversations/{conversation_id}/takeover": {
+      "post": {
+        "description": "领取者接管；非本人/未领取/已接管 404，已关闭 409。",
+        "operationId": "take_over_workspace_conversations__conversation_id__takeover_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "conversation_id",
+            "required": true,
+            "schema": {
+              "title": "Conversation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceTakeoverResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Forbidden"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Take Over",
         "tags": [
           "workspace"
         ]

@@ -2,7 +2,7 @@
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from backend.api.customer_schemas import ConversationStatus
+from backend.api.customer_schemas import ConversationStatus, MessageAuthor
 
 
 class EmployeeLoginRequest(BaseModel):
@@ -39,13 +39,62 @@ class EmployeeSessionResponse(BaseModel):
     expires_at: str
 
 
+class WorkspaceCustomerPublic(BaseModel):
+    """坐席可见的客户账号；不暴露客户内部 id 与联系方式。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    username: str
+    display_name: str
+
+
+class WorkspaceContextMessage(BaseModel):
+    """交接单快照里的消息；正文在创建交接单时已脱敏。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: int
+    author_type: MessageAuthor
+    content: str
+    created_at: str
+
+
+class WorkspaceAiTraceEvent(BaseModel):
+    """AI 轨迹只含事件元数据，不含 prompt/response 正文。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    event_type: str
+    name: str
+    status: str
+    confidence: float | None
+    created_at: str
+
+
+class WorkspaceHandoffDetail(BaseModel):
+    """完整交接单：摘要、原因、待办与创建时的上下文快照。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    status: str
+    reason: str
+    summary: str
+    pending_step: str | None
+    order_count: int = Field(ge=0)
+    messages: list[WorkspaceContextMessage]
+    ai_trace: list[WorkspaceAiTraceEvent]
+
+
 class WorkspaceConversationResponse(BaseModel):
-    """F-05 只暴露归属门禁后的最小会话信息；完整上下文由 F-08 增量扩展。"""
+    """领取者可见的完整上下文；未领取/他人/跨租户由 API 返回 404。"""
 
     model_config = ConfigDict(extra="forbid")
 
     id: str
     status: ConversationStatus
+    customer: WorkspaceCustomerPublic
+    handoff: WorkspaceHandoffDetail | None
 
 
 class WorkspaceQueueItem(BaseModel):
@@ -75,5 +124,14 @@ class WorkspaceClaimResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     handoff_id: str
+    conversation_id: str
+    status: ConversationStatus
+
+
+class WorkspaceTakeoverResponse(BaseModel):
+    """接管成功后的最小回执；`status` 固定为 `HUMAN_ACTIVE`。"""
+
+    model_config = ConfigDict(extra="forbid")
+
     conversation_id: str
     status: ConversationStatus

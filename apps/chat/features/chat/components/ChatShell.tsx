@@ -87,13 +87,11 @@ export function ChatShell({
   } = useChatMessages(conversation);
 
   const meta = statusMeta(status);
-  const visibleMessages =
-    status === "QUEUED"
-      ? messages.filter(
-          (message) =>
-            !(message.author_type === "system" && message.content.trim() === QUEUE_NOTICE),
-        )
-      : messages;
+  // “排队中，请稍候”由等待卡/状态条承载；领取后改由“正在接入人工”说明，
+  // 避免同一条提示在状态变化后重复出现在消息流里。
+  const visibleMessages = messages.filter(
+    (message) => !(message.author_type === "system" && message.content.trim() === QUEUE_NOTICE),
+  );
 
   return (
     <main className="flex min-h-screen bg-canvas-deep p-10 max-[1024px]:p-0">
