@@ -1,300 +1,460 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>M1 UI 组件参考</title>
-<link rel="stylesheet" href="./tokens.css">
+<meta charset="utf-8" />
+<title>ECHO 组件参考（v3）</title>
+<link rel="stylesheet" href="./tokens.css" />
 <style>
-  /* 设计令牌见同目录 tokens.css */
-  * { box-sizing:border-box; }
-  html,body { background:var(--bg); }
+  * { box-sizing: border-box; }
   body {
-    margin:0; padding:40px 32px 72px; color:var(--text);
-    font:13.5px/1.7 -apple-system,BlinkMacSystemFont,"SF Pro Text","PingFang SC","Helvetica Neue",Arial,sans-serif;
-    -webkit-font-smoothing:antialiased;
+    margin: 0;
+    padding: 36px 40px 40px;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    font-size: 13px;
   }
-  .wrap { max-width:1080px; margin:0 auto; }
-  h1 { font-size:22px; line-height:1.3; font-weight:600; letter-spacing:-.02em; margin:0 0 6px; }
-  .lead { color:var(--text-2); margin:0 0 8px; max-width:760px; }
-  h2 { font-size:15px; font-weight:600; letter-spacing:-.01em; margin:40px 0 4px; }
-  .sub { color:var(--text-3); font-size:12.5px; margin:0 0 16px; }
-  code { font-size:12px; background:var(--surface-2); padding:1px 5px; border-radius:4px; }
-  .card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:20px; }
 
-  .ic { width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:1.6; stroke-linecap:round; stroke-linejoin:round; flex:0 0 auto; }
-  .ic.lg { width:20px; height:20px; }
-  .sprite { position:absolute; width:0; height:0; overflow:hidden; }
+  .head { display: flex; align-items: flex-end; gap: 14px; margin-bottom: 26px; }
+  .head h1 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.01em; }
+  .head p { margin: 0 0 3px; font-size: 12px; color: var(--text-2); }
+  .head .ver {
+    margin-left: auto;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    color: var(--text-3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-pill);
+    padding: 3px 10px;
+    background: var(--surface);
+  }
+
+  section { margin-bottom: 30px; }
+  .sec-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 12px; }
+  .sec-head h2 { margin: 0; font-size: 13px; font-weight: 600; }
+  .sec-head span { font-size: 11px; color: var(--text-3); }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 18px;
+  }
+
+  .row { display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-start; }
+  .col { display: flex; flex-direction: column; gap: 8px; }
+  .lab { font-size: 10.5px; color: var(--text-3); letter-spacing: 0.02em; }
 
   /* 令牌 */
-  .swatches { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:10px; }
-  .sw { border:1px solid var(--border); border-radius:9px; overflow:hidden; background:var(--surface); }
-  .sw .chip-color { height:48px; border-bottom:1px solid var(--border); }
-  .sw .meta { padding:7px 9px; font-size:11px; color:var(--text-2); font-variant-numeric:tabular-nums; }
-  .sw .meta b { display:block; color:var(--text); font-size:11.5px; font-weight:600; }
+  .swatches { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; }
+  .swatch { border-radius: 10px; overflow: hidden; border: 1px solid var(--border); }
+  .swatch .sw { height: 46px; }
+  .swatch .meta { padding: 6px 8px; background: var(--surface); }
+  .swatch .meta b { display: block; font-size: 10.5px; font-weight: 500; font-family: var(--font-sans); }
+  .swatch .meta span { font-size: 9.5px; color: var(--text-3); font-variant-numeric: tabular-nums; }
 
-  .rows { display:flex; flex-direction:column; gap:10px; }
-  .row { display:flex; align-items:baseline; gap:14px; }
-  .row .label { width:90px; flex:0 0 auto; font-size:11px; color:var(--text-3); font-variant-numeric:tabular-nums; }
-  .t-xl { font-size:22px; line-height:1.3; font-weight:600; letter-spacing:-.02em; }
-  .t-lg { font-size:15px; line-height:1.5; font-weight:600; }
-  .t-md { font-size:14px; line-height:1.7; }
-  .t-base { font-size:13.5px; line-height:1.7; }
-  .t-sm { font-size:12.5px; line-height:1.6; color:var(--text-2); }
-  .t-xs { font-size:11px; line-height:1.5; color:var(--text-3); }
+  .type-sample { display: flex; align-items: baseline; gap: 12px; }
+  .type-sample .serif { font-family: var(--font-serif); font-size: 26px; font-weight: 600; }
+  .type-sample .sans { font-size: 26px; font-weight: 600; }
+  .type-sample .note { font-size: 10.5px; color: var(--text-3); }
 
-  .space-row { display:flex; align-items:center; gap:12px; margin-bottom:8px; }
-  .space-bar { height:8px; background:var(--accent-soft); border:1px solid #dbeafe; border-radius:3px; }
-  .space-row span { font-size:11px; color:var(--text-3); width:44px; font-variant-numeric:tabular-nums; }
+  .tokens-grid { display: grid; grid-template-columns: 1.2fr 1fr; gap: 18px; }
 
-  .radii { display:flex; gap:14px; flex-wrap:wrap; }
-  .radius-sample { width:74px; height:56px; background:var(--surface-2); border:1px solid var(--border-strong); display:grid; place-items:center; font-size:11px; color:var(--text-2); }
+  .space-row { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+  .space-bar { height: 10px; background: var(--accent-soft); border: 1px solid #cfe2da; border-radius: 3px; }
+  .space-name { width: 70px; font-size: 10px; color: var(--text-3); font-variant-numeric: tabular-nums; }
 
-  .icons { display:flex; flex-wrap:wrap; gap:10px; }
-  .icon-cell { width:74px; height:64px; border:1px solid var(--border); border-radius:10px; display:grid; place-items:center; gap:4px; background:var(--surface); color:var(--text-2); }
-  .icon-cell span { font-size:10px; color:var(--text-3); }
+  .radius-row { display: flex; gap: 10px; margin-top: 8px; }
+  .radius-box { width: 54px; height: 40px; border: 1px solid var(--border-strong); background: var(--surface); display: grid; place-items: end center; font-size: 9px; color: var(--text-3); padding-bottom: 3px; }
 
   /* 按钮 */
-  .btn-row { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:14px; }
-  .btn { display:inline-flex; align-items:center; justify-content:center; gap:7px; font-size:13.5px; font-weight:500; padding:9px 14px; border-radius:9px; border:1px solid transparent; height:38px; }
-  .btn.primary { background:var(--accent); color:#fff; }
-  .btn.primary:hover { background:#1d4ed8; }
-  .btn.danger { background:var(--danger); color:#fff; }
-  .btn.secondary { background:var(--surface); border-color:var(--border-strong); color:var(--text-2); }
-  .btn.secondary:hover { background:var(--surface-2); }
-  .btn.focus { box-shadow:0 0 0 3px rgba(37,99,235,.12); outline:2px solid var(--accent); outline-offset:1px; }
-  .btn[disabled] { background:var(--border-strong); color:#fff; border-color:transparent; opacity:.5; }
-  .icon-btn { width:34px; height:34px; padding:0; border-radius:10px; display:grid; place-items:center; border:0; background:var(--accent); color:#fff; }
-  .icon-btn.ghost { background:transparent; border:1px solid var(--border-strong); color:var(--text-2); }
+  .btn {
+    height: 34px;
+    padding: 0 13px;
+    border-radius: var(--radius-md);
+    border: 1px solid transparent;
+    font: inherit;
+    font-size: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: transparent;
+  }
+  .btn.primary { background: var(--accent); color: #fff; }
+  .btn.secondary { background: var(--surface); border-color: var(--border-strong); color: var(--text-2); }
+  .btn.ghost { color: var(--text-2); }
+  .btn.danger { background: var(--danger); color: #fff; }
+  .btn:disabled { background: var(--surface-2); border-color: var(--border); color: var(--text-3); }
+  .btn.lg { height: 42px; font-size: 13px; }
+  .btn.sm { height: 28px; font-size: 11.5px; }
 
   /* 输入 */
-  .composer { display:flex; flex-direction:column; gap:10px; padding:12px 12px 10px 14px; border:1px solid var(--input-border); border-radius:14px; background:var(--bg); width:100%; max-width:520px; }
-  .composer .cin { font-size:13.5px; color:var(--text-3); min-height:22px; }
-  .composer .cin.typed { color:var(--text); }
-  .composer .cbar { display:flex; align-items:center; gap:10px; }
-  .composer .hint { font-size:11px; color:var(--text-3); }
-  .composer .cend { margin-left:auto; display:flex; align-items:center; gap:10px; }
-  .composer .count { font-size:11px; color:var(--text-3); font-variant-numeric:tabular-nums; }
-  .composer .send { width:34px; height:34px; border-radius:10px; border:0; background:var(--accent); color:#fff; display:grid; place-items:center; }
-  .composer .send.off { background:var(--border-strong); }
-  .composer.focus { background:var(--surface); border-color:var(--accent); box-shadow:0 0 0 3px rgba(37,99,235,.12); }
-  .composer.disabled { background:var(--surface-2); border-color:var(--border); }
-  kbd { font:inherit; font-size:10.5px; border:1px solid var(--border); border-bottom-width:2px; border-radius:4px; padding:0 4px; color:var(--text-2); background:var(--surface); }
+  .field { display: flex; flex-direction: column; gap: 6px; width: 300px; }
+  .field label { font-size: 11px; font-weight: 500; color: var(--text-2); }
+  .input {
+    height: 42px;
+    border: 1px solid var(--input-border);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    font-size: 13px;
+    color: var(--text);
+  }
+  .input.placeholder { color: var(--text-3); }
+  .input.focus { border-color: var(--accent); box-shadow: var(--focus-ring); }
+  .input.error { border-color: var(--danger); }
+  .err { font-size: 10.5px; color: var(--danger); }
 
-  /* 胶囊与状态 */
-  .chip { display:inline-flex; align-items:center; gap:5px; font-size:11px; color:var(--text-2); background:var(--surface); border:1px solid var(--border); border-radius:999px; padding:3px 9px; }
-  .chip .bdot { width:5px; height:5px; border-radius:50%; background:var(--success); }
-  .tag { display:inline-flex; font-size:11px; color:var(--danger); border:1px solid #fecaca; background:var(--danger-soft); border-radius:999px; padding:2px 9px; }
-  .status { display:flex; gap:9px; align-items:flex-start; font-size:14px; line-height:1.7; color:var(--text-2); }
-  .status .sdot { width:6px; height:6px; border-radius:50%; margin-top:9px; flex:0 0 auto; background:var(--border-strong); }
-  .status b { color:var(--text); font-weight:600; }
-  .status.info .sdot { background:var(--accent); }
-  .status.ok .sdot { background:var(--success); }
-  .status.warn .sdot { background:var(--warning); }
-  .status.bad .sdot { background:var(--danger); }
+  /* chip / status / kbd */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    height: 24px;
+    padding: 0 10px;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    font-size: 11px;
+    color: var(--text-2);
+  }
+  .chip .d { width: 6px; height: 6px; border-radius: 50%; background: var(--text-3); }
+  .chip.live { background: var(--accent-soft); border-color: #cfe2da; color: #145c4d; }
+  .chip.live .d { background: #1f8a6c; }
+  .chip.warn { background: var(--warning-soft); border-color: #ecd9bb; color: var(--warning); }
+  .chip.warn .d { background: var(--warning); }
+  .chip.bad { background: var(--danger-soft); border-color: #f0d6c9; color: var(--danger); }
+  .chip.bad .d { background: var(--danger); }
+
+  .status { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: var(--text-2); }
+  .status .d { width: 7px; height: 7px; border-radius: 50%; background: var(--warning); }
+  .status.bad { color: var(--danger); }
+  .status.bad .d { background: var(--danger); }
+
+  kbd {
+    font-family: inherit;
+    font-size: 10px;
+    padding: 1px 5px;
+    border: 1px solid var(--border);
+    border-bottom-width: 2px;
+    border-radius: var(--radius-sm);
+    color: var(--text-2);
+    background: var(--bg);
+  }
 
   /* 消息 */
-  .msg { font-size:13.5px; line-height:1.7; max-width:420px; }
-  .msg.user { background:var(--surface-2); padding:10px 14px; border-radius:14px 14px 4px 14px; margin-left:auto; }
+  .msg { display: flex; gap: 9px; align-items: flex-start; max-width: 520px; }
+  .msg .av {
+    width: 28px; height: 28px; border-radius: 9px; background: var(--brand-deep); color: #dcebe4;
+    display: grid; place-items: center; font-family: var(--font-serif); font-size: 12px; flex: none; margin-top: 2px;
+  }
+  .bubble { padding: 10px 13px; font-size: 13px; line-height: 1.65; border-radius: 14px; background: var(--surface); border: 1px solid var(--border); border-top-left-radius: 4px; }
+  .msg.user { margin-left: auto; justify-content: flex-end; }
+  .msg.user .bubble { background: var(--brand-deep); color: var(--paper); border: 0; border-top-left-radius: 14px; border-top-right-radius: 4px; }
+  .stamp { align-self: flex-end; font-size: 10px; color: var(--text-3); margin: 0 2px 2px; }
+  .sys { font-size: 10.5px; color: var(--text-3); }
 
-  /* 确认卡片 */
-  .confirm { width:100%; max-width:420px; background:var(--surface); border:1px solid var(--border); border-radius:14px; overflow:hidden; box-shadow:0 1px 2px rgba(24,24,27,.05),0 16px 32px -24px rgba(24,24,27,.3); }
-  .confirm .cap { display:flex; align-items:center; gap:9px; padding:13px 16px; border-bottom:1px solid var(--border); background:var(--bg); }
-  .confirm .cap .ico { width:26px; height:26px; border-radius:7px; background:var(--surface-2); display:grid; place-items:center; color:var(--text-2); }
-  .confirm .cap b { font-size:13px; font-weight:600; }
-  .confirm .cap .tag { margin-left:auto; }
-  .confirm .body { padding:16px; }
-  .product { display:flex; gap:12px; align-items:center; padding-bottom:14px; border-bottom:1px solid var(--border); margin-bottom:14px; }
-  .product .thumb { width:44px; height:44px; border-radius:9px; background:var(--surface-2); display:grid; place-items:center; color:var(--text-3); }
-  .product .nm { font-size:13px; font-weight:600; }
-  .product .sub2 { font-size:12px; color:var(--text-3); font-variant-numeric:tabular-nums; }
-  .product .price { margin-left:auto; font-size:14px; font-weight:600; font-variant-numeric:tabular-nums; }
-  .kv { display:grid; grid-template-columns:60px 1fr; gap:8px 12px; margin:0 0 14px; }
-  .kv dt { font-size:12.5px; color:var(--text-3); }
-  .kv dd { margin:0; font-size:13px; }
-  .impact { display:flex; gap:9px; font-size:12.5px; color:#7f1d1d; background:var(--danger-soft); border:1px solid #fee2e2; border-radius:9px; padding:10px 12px; margin-bottom:16px; }
-  .actions { display:flex; gap:8px; }
+  .welcome { max-width: 520px; background: var(--sand); border: 1px solid #e9e0cd; border-radius: 14px; padding: 15px; }
+  .welcome .t { font-family: var(--font-serif); font-size: 17px; font-weight: 600; }
+  .welcome .p { margin: 6px 0 12px; font-size: 12px; line-height: 1.7; color: var(--text-2); }
+  .quick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
+  .quick .q { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 8px 9px; font-size: 11.5px; display: flex; align-items: center; gap: 7px; }
+  .quick .q svg { color: var(--accent); flex: none; }
 
-  /* 建议卡 */
-  .sugg { display:flex; align-items:center; gap:12px; padding:13px 14px; border:1px solid var(--border); border-radius:12px; background:var(--surface); width:100%; max-width:300px; }
-  .sugg .ico { width:34px; height:34px; border-radius:9px; background:var(--surface-2); display:grid; place-items:center; color:var(--text-2); }
-  .sugg b { display:block; font-size:13px; font-weight:600; }
-  .sugg span { display:block; font-size:11.5px; color:var(--text-3); }
+  .handoff { max-width: 520px; display: flex; gap: 11px; background: var(--warning-soft); border: 1px solid #ecd9bb; border-radius: 14px; padding: 12px 15px; }
+  .handoff .pulse { width: 9px; height: 9px; margin-top: 5px; border-radius: 50%; background: var(--warning); flex: none; box-shadow: 0 0 0 5px rgba(148, 85, 10, 0.12); }
+  .handoff .h { font-size: 12.5px; font-weight: 600; color: #7c4708; }
+  .handoff .m { margin-top: 3px; font-size: 11.5px; line-height: 1.6; color: #8a5a24; }
 
-  table { border-collapse:collapse; width:100%; font-size:12.5px; }
-  th,td { text-align:left; padding:7px 10px; border-bottom:1px solid var(--border); }
-  th { color:var(--text-3); font-weight:500; font-size:11.5px; }
-  td b { font-weight:600; }
+  .composer { width: 520px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); padding: 12px 12px 9px 14px; box-shadow: var(--shadow-float); }
+  .composer .ph { font-size: 13px; color: var(--text-3); }
+  .composer .foot { display: flex; align-items: center; gap: 8px; margin-top: 9px; }
+  .composer .send { margin-left: auto; width: 36px; height: 36px; border-radius: 11px; background: var(--accent); color: #fff; display: grid; place-items: center; }
+
+  /* 坐席 */
+  .nav-panel { width: 232px; background: var(--brand-deep); border-radius: 12px; padding: 8px; display: flex; flex-direction: column; gap: 2px; }
+  .nav-item {
+    height: 36px; border-radius: 8px; display: flex; align-items: center; gap: 9px;
+    padding: 0 10px; font-size: 12px; color: rgba(233,230,219,0.72);
+  }
+  .nav-item.active { background: rgba(255,255,255,0.08); color: #fff; box-shadow: inset 2px 0 0 var(--accent); }
+  .nav-item.locked { color: rgba(233,230,219,0.38); }
+  .nav-item .count { margin-left: auto; height: 17px; min-width: 18px; padding: 0 5px; border-radius: 999px; background: var(--accent); color: #eaf6f0; font-size: 10px; display: grid; place-items: center; }
+
+  table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  thead th { height: 34px; background: #faf9f5; border-bottom: 1px solid var(--border); text-align: left; padding: 0 9px; font-size: 10.5px; color: var(--text-2); font-weight: 600; }
+  tbody td { height: 50px; border-bottom: 1px solid var(--line-soft); padding: 0 9px; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  tbody tr.selected { background: #f0f4f1; }
+  tbody tr.selected td:first-child { box-shadow: inset 3px 0 0 var(--accent); }
+  .cust { display: flex; align-items: center; gap: 8px; }
+  .cust .ca { width: 26px; height: 26px; border-radius: 50%; background: #eef0e9; color: #5b6a5f; display: grid; place-items: center; font-size: 10.5px; flex: none; }
+  .cust .id { font-size: 9.5px; color: var(--text-3); }
+  .wait-num { font-variant-numeric: tabular-nums; font-weight: 500; }
+  .bad-text { color: var(--danger); }
+
+  .tabs { display: flex; gap: 18px; border-bottom: 1px solid var(--border); }
+  .tab { position: relative; padding: 8px 0 10px; font-size: 12px; color: var(--text-2); display: flex; gap: 6px; }
+  .tab b { color: var(--text); font-weight: 600; }
+  .tab.active { color: var(--accent); font-weight: 600; }
+  .tab.active b { color: var(--accent); }
+  .tab.active::after { content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: var(--accent); border-radius: 2px; }
+
+  .metrics { display: grid; grid-template-columns: 1fr 1.25fr 1fr; border: 1px solid var(--border); border-radius: 10px; width: 330px; overflow: hidden; }
+  .metric { padding: 9px 10px; border-right: 1px solid var(--border); }
+  .metric:last-child { border-right: 0; }
+  .metric .l { font-size: 9.5px; color: var(--text-3); }
+  .metric .v { margin-top: 4px; font-size: 13px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .metric .v.bad { color: var(--danger); }
+
+  .states { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .state-card { border: 1px solid var(--border); border-radius: 10px; background: var(--surface); padding: 14px; height: 150px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: 5px; }
+  .state-card .ico { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); }
+  .state-card .ico.red { background: var(--danger-soft); color: var(--danger); }
+  .state-card .ico.grey { background: var(--bg); color: var(--text-2); }
+  .state-card h3 { margin: 0; font-size: 12px; font-weight: 600; }
+  .state-card p { margin: 0; font-size: 10.5px; line-height: 1.55; color: var(--text-2); max-width: 220px; }
+
+  .archive { font-size: 11px; line-height: 1.8; color: var(--text-2); }
+  .archive code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10.5px; background: var(--surface-2); padding: 1px 5px; border-radius: 4px; }
 </style>
 </head>
 <body>
-
-<svg class="sprite" aria-hidden="true">
-  <symbol id="i-package" viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.3 7 12 12l8.7-5"/><path d="M12 22V12"/></symbol>
-  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.2-3.2"/></symbol>
-  <symbol id="i-send" viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></symbol>
-  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
-  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol>
-  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4"/><path d="M12 17h.01"/></symbol>
-  <symbol id="i-headset" viewBox="0 0 24 24"><path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3z"/><path d="M3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/></symbol>
-  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
-  <symbol id="i-chat" viewBox="0 0 24 24"><path d="M21 12a8 8 0 0 1-8 8H8l-5 3 1.5-5A8 8 0 1 1 21 12z"/></symbol>
-  <symbol id="i-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 3.6 2.3c-.7.4-1.1 1-1.1 1.8"/><path d="M12 17h.01"/></symbol>
-</svg>
-
-<div class="wrap">
-  <h1>M1 UI 组件参考</h1>
-  <p class="lead">对应 <code>docs/design-system/ui-spec.md</code>。这里只陈列令牌与组件状态，不承担页面编排。</p>
-
-  <h2>颜色令牌</h2>
-  <p class="sub">强调色只用于可交互与当前状态，占屏面积不超过 5%。</p>
-  <div class="swatches">
-    <div class="sw"><div class="chip-color" style="background:#fafafa"></div><div class="meta"><b>--bg</b>#FAFAFA</div></div>
-    <div class="sw"><div class="chip-color" style="background:#ffffff"></div><div class="meta"><b>--surface</b>#FFFFFF</div></div>
-    <div class="sw"><div class="chip-color" style="background:#f4f4f5"></div><div class="meta"><b>--surface-2</b>#F4F4F5</div></div>
-    <div class="sw"><div class="chip-color" style="background:#e8e8ec"></div><div class="meta"><b>--border</b>#E8E8EC</div></div>
-    <div class="sw"><div class="chip-color" style="background:#d6d6dd"></div><div class="meta"><b>--border-strong</b>#D6D6DD</div></div>
-    <div class="sw"><div class="chip-color" style="background:#18181b"></div><div class="meta"><b>--text</b>#18181B</div></div>
-    <div class="sw"><div class="chip-color" style="background:#52525b"></div><div class="meta"><b>--text-2</b>#52525B</div></div>
-    <div class="sw"><div class="chip-color" style="background:#71717a"></div><div class="meta"><b>--text-3</b>#71717A</div></div>
-    <div class="sw"><div class="chip-color" style="background:#2563eb"></div><div class="meta"><b>--accent</b>#2563EB</div></div>
-    <div class="sw"><div class="chip-color" style="background:#eff6ff"></div><div class="meta"><b>--accent-soft</b>#EFF6FF</div></div>
-    <div class="sw"><div class="chip-color" style="background:#059669"></div><div class="meta"><b>--success</b>#059669</div></div>
-    <div class="sw"><div class="chip-color" style="background:#b45309"></div><div class="meta"><b>--warning</b>#B45309</div></div>
-    <div class="sw"><div class="chip-color" style="background:#dc2626"></div><div class="meta"><b>--danger</b>#DC2626</div></div>
-    <div class="sw"><div class="chip-color" style="background:#fef2f2"></div><div class="meta"><b>--danger-soft</b>#FEF2F2</div></div>
+  <div class="head">
+    <h1>ECHO 组件参考</h1>
+    <p>按 2026-11-18 设计稿提取；取值全部来自 tokens.css，不在此处重复定义。</p>
+    <span class="ver">v3 · 1440</span>
   </div>
 
-  <h2>字号</h2>
-  <p class="sub">只用 11 / 12.5 / 13.5 / 14 / 15 / 22 六档；字重 400 / 500 / 600。</p>
-  <div class="card rows">
-    <div class="row"><span class="label">22 / text-xl</span><span class="t-xl">页面标题</span></div>
-    <div class="row"><span class="label">15 / text-lg</span><span class="t-lg">区块标题</span></div>
-    <div class="row"><span class="label">14 / text-md</span><span class="t-md">状态行正文</span></div>
-    <div class="row"><span class="label">13.5 / base</span><span class="t-base">消息与输入正文</span></div>
-    <div class="row"><span class="label">12.5 / sm</span><span class="t-sm">辅助说明</span></div>
-    <div class="row"><span class="label">11 / xs</span><span class="t-xs">时间、字数、键位提示</span></div>
-  </div>
-
-  <h2>间距与圆角</h2>
-  <p class="sub">间距基数 4，允许 2 / 4 / 6 / 8 / 12 / 16 / 24 / 32。</p>
-  <div class="card">
-    <div class="space-row"><span>2</span><div class="space-bar" style="width:2px"></div></div>
-    <div class="space-row"><span>8</span><div class="space-bar" style="width:8px"></div></div>
-    <div class="space-row"><span>16</span><div class="space-bar" style="width:16px"></div></div>
-    <div class="space-row"><span>32</span><div class="space-bar" style="width:32px"></div></div>
-    <div class="radii" style="margin-top:16px">
-      <div class="radius-sample" style="border-radius:4px">4</div>
-      <div class="radius-sample" style="border-radius:9px">9</div>
-      <div class="radius-sample" style="border-radius:10px">10</div>
-      <div class="radius-sample" style="border-radius:14px">14</div>
-      <div class="radius-sample" style="border-radius:999px">999</div>
-    </div>
-  </div>
-
-  <h2>图标</h2>
-  <p class="sub">内联 SVG，16 / 20，线宽 1.6，不引图标库。</p>
-  <div class="card icons">
-    <div class="icon-cell"><svg class="ic"><use href="#i-package"/></svg><span>package</span></div>
-    <div class="icon-cell"><svg class="ic"><use href="#i-search"/></svg><span>search</span></div>
-    <div class="icon-cell"><svg class="ic"><use href="#i-send"/></svg><span>send</span></div>
-    <div class="icon-cell"><svg class="ic"><use href="#i-check"/></svg><span>check</span></div>
-    <div class="icon-cell"><svg class="ic"><use href="#i-x"/></svg><span>x</span></div>
-    <div class="icon-cell"><svg class="ic"><use href="#i-alert"/></svg><span>alert</span></div>
-    <div class="icon-cell"><svg class="ic"><use href="#i-headset"/></svg><span>headset</span></div>
-    <div class="icon-cell"><svg class="ic"><use href="#i-clock"/></svg><span>clock</span></div>
-    <div class="icon-cell"><svg class="ic"><use href="#i-chat"/></svg><span>chat</span></div>
-    <div class="icon-cell"><svg class="ic"><use href="#i-help"/></svg><span>help</span></div>
-  </div>
-
-  <h2>按钮</h2>
-  <p class="sub">一个操作区最多一个 primary 或 danger；禁用态必须同时改无障碍属性。</p>
-  <div class="card">
-    <div class="btn-row">
-      <button class="btn primary">主操作</button>
-      <button class="btn danger"><svg class="ic"><use href="#i-check"/></svg>确认取消</button>
-      <button class="btn secondary"><svg class="ic"><use href="#i-x"/></svg>不取消</button>
-      <button class="icon-btn"><svg class="ic"><use href="#i-send"/></svg></button>
-      <button class="icon-btn ghost"><svg class="ic"><use href="#i-headset"/></svg></button>
-    </div>
-    <div class="btn-row">
-      <button class="btn primary focus">聚焦态</button>
-      <button class="btn secondary focus">聚焦态</button>
-      <button class="btn primary" disabled>禁用</button>
-      <button class="btn secondary" disabled>禁用</button>
-    </div>
-    <table>
-      <tr><th>变体</th><th>底色</th><th>文字</th><th>高度</th><th>圆角</th></tr>
-      <tr><td><b>primary</b></td><td>--accent</td><td>白</td><td>38</td><td>9</td></tr>
-      <tr><td><b>danger</b></td><td>--danger</td><td>白</td><td>38</td><td>9</td></tr>
-      <tr><td><b>secondary</b></td><td>--surface</td><td>--text-2</td><td>38</td><td>9</td></tr>
-      <tr><td><b>icon</b></td><td>--accent / 透明</td><td>白 / --text-2</td><td>34</td><td>10</td></tr>
-    </table>
-  </div>
-
-  <h2>输入区</h2>
-  <p class="sub">默认浅灰底、聚焦转白；发送按钮必须由独立分组靠右。</p>
-  <div class="card" style="display:flex;flex-direction:column;gap:14px">
-    <div class="composer">
-      <div class="cin">输入消息，例如：取消订单 ORD-10001</div>
-      <div class="cbar"><span class="hint"><kbd>Enter</kbd> 发送 · <kbd>Shift</kbd> + <kbd>Enter</kbd> 换行</span><div class="cend"><span class="count">0/500</span><button class="send"><svg class="ic"><use href="#i-send"/></svg></button></div></div>
-    </div>
-    <div class="composer focus">
-      <div class="cin typed">输入消息</div>
-      <div class="cbar"><span class="hint"><kbd>Enter</kbd> 发送</span><div class="cend"><span class="count">12/500</span><button class="send"><svg class="ic"><use href="#i-send"/></svg></button></div></div>
-    </div>
-    <div class="composer disabled">
-      <div class="cin">正在处理，请稍候</div>
-      <div class="cbar"><div class="cend"><button class="send off"><svg class="ic"><use href="#i-send"/></svg></button></div></div>
-    </div>
-  </div>
-
-  <h2>胶囊、标记与状态行</h2>
-  <p class="sub">状态必须同时有文字；圆点颜色只作辅助。</p>
-  <div class="card" style="display:flex;flex-direction:column;gap:14px">
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <span class="chip"><span class="bdot"></span>在线</span>
-      <span class="chip">会话 #C-2041</span>
-      <span class="tag">不可撤销</span>
-    </div>
-    <div class="status info"><span class="sdot"></span><span><b>已提交</b>，正在核实受理结果。</span></div>
-    <div class="status ok"><span class="sdot"></span><span><b>已取消</b>。退款将按支付渠道退回。</span></div>
-    <div class="status warn"><span class="sdot"></span><span><b>已转人工</b>。人工会看到本次对话。</span></div>
-    <div class="status bad"><span class="sdot"></span><span><b>不能取消</b>：该订单已发货。</span></div>
-  </div>
-
-  <h2>消息</h2>
-  <p class="sub">系统消息无气泡；用户消息浅灰气泡，与对话区白底可分辨。</p>
-  <div class="card" style="display:flex;flex-direction:column;gap:12px">
-    <div class="msg">这个订单可以取消。取消后不可恢复，请确认订单信息。</div>
-    <div class="msg user">帮我取消 ORD-10001</div>
-  </div>
-
-  <h2>确认卡片</h2>
-  <p class="sub">四项信息缺一不可：订单号、商品、当前状态、影响。</p>
-  <div class="card">
-    <div class="confirm">
-      <div class="cap"><span class="ico"><svg class="ic"><use href="#i-package"/></svg></span><b>确认取消订单</b><span class="tag">不可撤销</span></div>
-      <div class="body">
-        <div class="product">
-          <div class="thumb"><svg class="ic lg"><use href="#i-package"/></svg></div>
-          <div><div class="nm">无线耳机 × 1</div><div class="sub2">ORD-10001 · 已支付，未发货</div></div>
-          <div class="price">¥399.00</div>
+  <section>
+    <div class="sec-head"><h2>1. 令牌</h2><span>颜色、字体、间距、圆角</span></div>
+    <div class="tokens-grid">
+      <div class="panel">
+        <div class="swatches">
+          <div class="swatch"><div class="sw" style="background: #13211C"></div><div class="meta"><b>brand-deep</b><span>#13211C</span></div></div>
+          <div class="swatch"><div class="sw" style="background: #0F5C4C"></div><div class="meta"><b>accent</b><span>#0F5C4C</span></div></div>
+          <div class="swatch"><div class="sw" style="background: #EAF2EE"></div><div class="meta"><b>accent-soft</b><span>#EAF2EE</span></div></div>
+          <div class="swatch"><div class="sw" style="background: #F2EBDD"></div><div class="meta"><b>sand</b><span>#F2EBDD</span></div></div>
+          <div class="swatch"><div class="sw" style="background: #F6F5F1"></div><div class="meta"><b>bg</b><span>#F6F5F1</span></div></div>
+          <div class="swatch"><div class="sw" style="background: #FFFCF6"></div><div class="meta"><b>paper</b><span>#FFFCF6</span></div></div>
+          <div class="swatch"><div class="sw" style="background: #1B1B17"></div><div class="meta"><b>text</b><span>#1B1B17</span></div></div>
+          <div class="swatch"><div class="sw" style="background: #57554E"></div><div class="meta"><b>text-2</b><span>#57554E</span></div></div>
+          <div class="swatch"><div class="sw" style="background: #726F65"></div><div class="meta"><b>text-3</b><span>#726F65</span></div></div>
+          <div class="swatch"><div class="sw" style="background: #1F8A6C"></div><div class="meta"><b>success</b><span>#1F8A6C</span></div></div>
+          <div class="swatch"><div class="sw" style="background: #94550A"></div><div class="meta"><b>warning</b><span>#94550A</span></div></div>
+          <div class="swatch"><div class="sw" style="background: #B4441C"></div><div class="meta"><b>danger</b><span>#B4441C</span></div></div>
         </div>
-        <dl class="kv"><dt>取消规则</dt><dd>未发货订单可取消</dd><dt>退款</dt><dd>原路退回，1–3 个工作日</dd></dl>
-        <div class="impact"><svg class="ic"><use href="#i-alert"/></svg><span>提交后不可撤销，订单将进入取消流程。</span></div>
-        <div class="actions"><button class="btn danger" style="flex:1"><svg class="ic"><use href="#i-check"/></svg>确认取消</button><button class="btn secondary" style="flex:1"><svg class="ic"><use href="#i-x"/></svg>不取消</button></div>
+        <div class="type-sample" style="margin-top: 18px;">
+          <span class="serif">有问题，随时说。</span>
+          <span class="sans">待接入队列</span>
+          <span class="note">serif 仅客户侧标题 · sans 其余全部</span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="col">
+          <div class="lab">间距（4px 基数）</div>
+          <div class="space-row"><span class="space-name">space-1 · 2</span><div class="space-bar" style="width: 4px"></div></div>
+          <div class="space-row"><span class="space-name">space-2 · 4</span><div class="space-bar" style="width: 8px"></div></div>
+          <div class="space-row"><span class="space-name">space-3 · 6</span><div class="space-bar" style="width: 12px"></div></div>
+          <div class="space-row"><span class="space-name">space-4 · 8</span><div class="space-bar" style="width: 16px"></div></div>
+          <div class="space-row"><span class="space-name">space-5 · 12</span><div class="space-bar" style="width: 24px"></div></div>
+          <div class="space-row"><span class="space-name">space-6 · 16</span><div class="space-bar" style="width: 32px"></div></div>
+          <div class="space-row"><span class="space-name">space-7 · 24</span><div class="space-bar" style="width: 48px"></div></div>
+          <div class="space-row"><span class="space-name">space-8 · 32</span><div class="space-bar" style="width: 64px"></div></div>
+          <div class="lab" style="margin-top: 10px;">圆角</div>
+          <div class="radius-row">
+            <div class="radius-box" style="border-radius: var(--radius-sm)">4</div>
+            <div class="radius-box" style="border-radius: var(--radius-md)">9</div>
+            <div class="radius-box" style="border-radius: var(--radius-lg)">10</div>
+            <div class="radius-box" style="border-radius: var(--radius-xl)">14</div>
+            <div class="radius-box" style="border-radius: var(--radius-pill)">999</div>
+          </div>
+        </div>
       </div>
     </div>
-  </div>
+  </section>
 
-  <h2>建议入口</h2>
-  <p class="sub">只作引导，点击等价于用户发送该意图。</p>
-  <div class="card" style="display:flex;gap:10px;flex-wrap:wrap">
-    <div class="sugg"><span class="ico"><svg class="ic lg"><use href="#i-search"/></svg></span><span><b>查询订单</b><span>看物流与状态</span></span></div>
-    <div class="sugg"><span class="ico"><svg class="ic lg"><use href="#i-package"/></svg></span><span><b>取消订单</b><span>仅限未发货</span></span></div>
-  </div>
+  <section>
+    <div class="sec-head"><h2>2. 基础组件</h2><span>按钮、输入框、状态、键位</span></div>
+    <div class="panel">
+      <div class="row">
+        <div class="col">
+          <div class="lab">按钮 · 常规</div>
+          <div class="row" style="gap: 8px;">
+            <button class="btn primary">进入对话</button>
+            <button class="btn secondary">取消</button>
+            <button class="btn ghost">刷新</button>
+            <button class="btn danger">关闭会话</button>
+            <button class="btn" disabled>批量领取</button>
+          </div>
+          <div class="lab" style="margin-top: 10px;">按钮 · 登录 / 主 CTA</div>
+          <div class="row" style="gap: 8px;">
+            <button class="btn primary lg">登录</button>
+            <button class="btn secondary lg">返回</button>
+            <button class="btn primary sm">领取</button>
+          </div>
+        </div>
 
-</div>
+        <div class="col">
+          <div class="lab">输入框</div>
+          <div class="row">
+            <div class="field"><label>账号</label><div class="input">chen.wei</div></div>
+            <div class="field"><label>密码</label><div class="input focus">············</div></div>
+            <div class="field"><label>密码</label><div class="input error">············</div><span class="err">账号或密码不正确，还可尝试 4 次</span></div>
+          </div>
+        </div>
+
+        <div class="col">
+          <div class="lab">胶囊与状态</div>
+          <div class="row" style="gap: 8px;">
+            <span class="chip live"><span class="d"></span>在线</span>
+            <span class="chip warn"><span class="d"></span>等待中</span>
+            <span class="chip bad"><span class="d"></span>已超时</span>
+            <span class="chip"><span class="d"></span>已关闭</span>
+          </div>
+          <div class="row" style="gap: 14px; margin-top: 8px;">
+            <span class="status"><span class="d"></span>等待中</span>
+            <span class="status bad"><span class="d"></span>已超时</span>
+          </div>
+          <div class="lab" style="margin-top: 12px;">键位</div>
+          <div class="row" style="gap: 8px;">
+            <span><kbd>J</kbd> <kbd>K</kbd> 选择</span>
+            <span><kbd>Enter</kbd> 领取</span>
+            <span><kbd>⌘K</kbd> 搜索</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>3. 客户侧</h2><span>消息、欢迎卡、等待卡、输入区</span></div>
+    <div class="panel">
+      <div class="row" style="gap: 24px;">
+        <div class="col" style="flex: 1;">
+          <div class="lab">消息</div>
+          <div class="msg user"><div class="bubble">我上周买的那单还没到，能帮我看下吗？</div><span class="stamp">10:24</span></div>
+          <div class="msg"><div class="av">回</div><div class="bubble">你的订单 #20261108-0421 已到达上海转运中心，预计明天下午送达。</div></div>
+          <div class="sys">今天 10:24 · 系统消息无气泡</div>
+
+          <div class="lab" style="margin-top: 8px;">等待卡</div>
+          <div class="handoff">
+            <span class="pulse"></span>
+            <div><div class="h">正在为你接通人工客服</div><div class="m">已等待 32 秒 · 当前排在第 2 位。接通后会在这里提示你。</div></div>
+          </div>
+
+          <div class="lab" style="margin-top: 8px;">输入区</div>
+          <div class="composer">
+            <div class="ph">补充你的问题…</div>
+            <div class="foot"><span style="font-size: 10.5px; color: var(--text-3);"><kbd>Enter</kbd> 发送 · <kbd>Shift</kbd> + <kbd>Enter</kbd> 换行</span><span style="font-size: 10.5px; color: var(--text-3); margin-left: auto;">0 / 500</span><div class="send"><svg width="16" height="16" viewBox="0 0 18 18" fill="none"><path d="M3 9h11M10 4.5L14.5 9 10 13.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></div></div>
+          </div>
+        </div>
+
+        <div class="col" style="width: 560px;">
+          <div class="lab">欢迎卡与快捷入口</div>
+          <div class="welcome">
+            <div class="t">你好，我是小回。</div>
+            <p class="p">我可以帮你查订单、改配送、办理退换。需要真人时，直接说「转人工」。</p>
+            <div class="quick">
+              <div class="q"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 4.5h10M3 8h10M3 11.5h6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>查订单</div>
+              <div class="q"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2.5l5 4.5v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7l5-4.5Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>改地址</div>
+              <div class="q"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 4.5A2.5 2.5 0 0 1 5.5 2h5A2.5 2.5 0 0 1 13 4.5v4a2.5 2.5 0 0 1-2.5 2.5H7l-3 2.5V11A2.5 2.5 0 0 1 3 8.5v-4Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></svg>转人工</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>4. 坐席侧</h2><span>导航、工具栏、表格、指标、四态</span></div>
+    <div class="panel">
+      <div class="row" style="gap: 22px; align-items: flex-start;">
+        <div class="col">
+          <div class="lab">导航项</div>
+          <div class="nav-panel">
+            <div class="nav-item active"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2.5 4h11M2.5 8h11M2.5 12h7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>待接入队列<span class="count">12</span></div>
+            <div class="nav-item"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M3 4.2A2.2 2.2 0 0 1 5.2 2h5.6A2.2 2.2 0 0 1 13 4.2v3.1a2.2 2.2 0 0 1-2.2 2.2H7l-2.7 2.2v-2.2A2.2 2.2 0 0 1 3 7.3V4.2Z" stroke="currentColor" stroke-width="1.4"/></svg>我的会话</div>
+            <div class="nav-item locked">客户<span style="margin-left:auto;font-size:9px;">即将开放</span></div>
+          </div>
+        </div>
+
+        <div class="col" style="flex: 1; min-width: 620px;">
+          <div class="lab">工具栏</div>
+          <div class="tabs">
+            <div class="tab active">全部 <b>12</b></div>
+            <div class="tab">等待中 <b>9</b></div>
+            <div class="tab">已超时 <b>3</b></div>
+          </div>
+          <div class="lab" style="margin-top: 10px;">队列表格</div>
+          <div style="border: 1px solid var(--border); border-radius: 10px; overflow: hidden;">
+            <table>
+              <colgroup><col style="width:34px"/><col style="width:140px"/><col style="width:58px"/><col style="width:104px"/><col/><col style="width:40px"/><col style="width:72px"/><col style="width:80px"/></colgroup>
+              <thead><tr><th></th><th>客户</th><th>等待</th><th>转人工原因</th><th>最后一条消息</th><th>订单</th><th>状态</th><th></th></tr></thead>
+              <tbody>
+                <tr class="selected">
+                  <td><span class="chip" style="height:14px;width:14px;padding:0;border-radius:4px;"></span></td>
+                  <td><div class="cust"><span class="ca">吴</span><div><div>吴双</div><div class="id">wu.shuang</div></div></div></td>
+                  <td><span class="wait-num bad-text">8:02</span></td>
+                  <td>AI 置信度不足</td>
+                  <td>发票抬头写错了怎么办</td>
+                  <td>0</td>
+                  <td><span class="status bad"><span class="d"></span>已超时</span></td>
+                  <td><button class="btn primary sm" style="height:26px;">领取</button></td>
+                </tr>
+                <tr>
+                  <td></td>
+                  <td><div class="cust"><span class="ca">何</span><div><div>何嘉</div><div class="id">he.jia</div></div></div></td>
+                  <td><span class="wait-num">4:12</span></td>
+                  <td>客户要求转人工</td>
+                  <td>转人工</td>
+                  <td>0</td>
+                  <td><span class="status"><span class="d"></span>等待中</span></td>
+                  <td><button class="btn secondary sm" style="height:26px;">领取</button></td>
+                </tr>
+                <tr>
+                  <td></td>
+                  <td><div class="cust"><span class="ca">郑</span><div><div>郑好</div><div class="id">zheng.hao</div></div></div></td>
+                  <td><span class="wait-num">0:24</span></td>
+                  <td>客户要求转人工</td>
+                  <td>你好，在吗</td>
+                  <td>0</td>
+                  <td><span class="status"><span class="d"></span>等待中</span></td>
+                  <td><button class="btn secondary sm" style="height:26px;">领取</button></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="col">
+          <div class="lab">详情指标</div>
+          <div class="metrics">
+            <div class="metric"><div class="l">等待</div><div class="v bad">8:02</div></div>
+            <div class="metric"><div class="l">转人工原因</div><div class="v" style="font-size:11px;line-height:1.4;">AI 置信度不足</div></div>
+            <div class="metric"><div class="l">订单</div><div class="v">0</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="lab" style="margin-top: 16px;">四态</div>
+      <div class="states">
+        <div class="state-card"><div class="ico"><svg width="15" height="15" viewBox="0 0 18 18" fill="none"><path d="M4 9.2 7.2 12.4 14 5.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></div><h3>队列已清空</h3><p>最近 5 分钟没有新的转人工请求。</p></div>
+        <div class="state-card"><div class="ico red"><svg width="15" height="15" viewBox="0 0 18 18" fill="none"><path d="M9 5.2v4.2M9 12.2v.3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="9" cy="9" r="6.6" stroke="currentColor" stroke-width="1.5"/></svg></div><h3>队列加载失败</h3><p>QUEUE_UNAVAILABLE · 可重试。</p></div>
+        <div class="state-card"><div class="ico grey"><svg width="15" height="15" viewBox="0 0 18 18" fill="none"><rect x="4" y="8" width="10" height="7" rx="1.6" stroke="currentColor" stroke-width="1.5"/><path d="M6.4 8V6.2a2.6 2.6 0 0 1 5.2 0V8" stroke="currentColor" stroke-width="1.5"/></svg></div><h3>无权访问</h3><p>当前账号不是坐席角色。</p></div>
+        <div class="state-card"><div class="ico"><span class="spinner" style="width:14px;height:14px;border-radius:50%;border:2px solid #d9d5c9;border-top-color:var(--accent);display:block;"></span></div><h3>加载中</h3><p>保留列宽与首屏行数。</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head"><h2>5. 归档</h2><span>M1-P 原型遗留，不再实现</span></div>
+    <div class="panel archive">
+      <code>confirm</code>（订单确认卡）随 001 规格删除；<code>suggestion</code> 并入客户侧欢迎卡的快捷入口；客户侧 72px <code>rail</code> 由品牌栏取代。
+    </div>
+  </section>
 </body>
 </html>

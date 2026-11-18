@@ -5,22 +5,24 @@
 - 当前状态：F-07 并发领取已完成（双轴评审通过）；F-06 已完成
 - 当前 Milestone：M1 企业核心客服闭环（客户转人工闭环）
 - 方向重置：[2026-11-16 企业化方向重置](initiatives/2026-11-16-enterprise-reset.md)
-- 当前工作：F-08（接管）待开工；F-07 已收口
+- 当前工作：F-08（接管）待开工；F-07 已收口；F-15 待评审
 
 <!-- verify:start -->
-- 最近验证：`./scripts/verify.sh` 全部检查通过——pytest 652 passed（独立测试库）、mypy 63 个文件、追溯矩阵通过（10 条 AC）、文档与前端检查通过
+- 最近验证：`./scripts/verify.sh` 全部检查通过——pytest 652 passed（独立测试库）、mypy 63 个文件、追溯矩阵通过（20 条 AC）、文档与前端检查通过
 <!-- verify:end -->
 
 ## 进行中
 
-- 后续切片：订单查询（002）、取消（003）、安全硬化（004），未启动。
+- F-15（S1 令牌接入）待评审；F-16~F-23 待开工。
+- 后续切片：订单查询（003）、取消（004）、安全硬化（005）未启动。
 - 分支保护：GitHub 私有仓库套餐限制，待决定是否升级/公开；不阻塞核心业务。
 
 ## 下一步
 
 1. F-08（领取后接管/客户看到“人工已接入”）开工；开工卡显式承接 plan 3.4 的“正在接入人工”。一次只做一个 feature。
 2. F-13 收口时补登录/消息/转人工/领取审计与限速，并补并发幂等与 seed smoke。
-3. 后续切片订单查询（002）、取消（003）、安全硬化（004）按 roadmap 排期。
+3. 后续切片订单查询（003）、取消（004）、安全硬化（005）按 roadmap 排期。
+4. UI 改版（002）三件套草案已开（AC-40~49、9 个 feature）；批准后从 S1 令牌接入开工，S2/S3 各做一次独立评审。
 
 ## 已完成
 
@@ -41,7 +43,11 @@
 - F-05：坐席 scrypt 登录、8h 绝对 session/轮换、登出、5/15min 登录限速、非 agent 403、未领取/他人/跨租户 404；`apps/workspace` 登录与 `/queue` 会话门禁；14 条 AC-34 集成测试 + 6 条前端用例，双轴评审通过（Spec 3 个阻断项已修复）。
 - F-06：工作台队列 FIFO（`created_at, id`）与摘要（客户账号/显示名、等待秒数、原因、订单数 0、脱敏末条 ≤100），同租户只读、未领取详情 404、无自动分配；10 条 AC-35 集成测试 + 9 条前端用例，双轴评审通过（2 轮，0 阻断）。
 - F-07：条件领取（`UPDATE ... WHERE status='QUEUED'` 单条条件更新）并发仅一人成功、其余 409 `CLAIM_CONFLICT`；跨租户/不存在 404、已关闭 409 `CONVERSATION_CLOSED`；同事务会话归属与状态分歧回滚；工作台领取按钮、409 提示刷新、会话入口页；9 条 AC-35 集成测试（含真并发）+ 8 条前端用例，双轴独立评审通过（2 轮，0 阻断，3 条整改关闭）。
+- 前端代码规范（2026-11-18）：`docs/process/frontend.md` 草案落地，覆盖目录/组件/类型/Next 边界/样式/a11y/安全/AI 生成/测试；决策为两个应用各自维护、允许组件重复、不建共享包；现有缺口与强制点接入顺序见文档第 10 节。
+- UI 改版规格（2026-11-18）：`002-ui-redesign` 的 brief/plan/features 草案落地（AC-40~49、9 个 feature、S1–S4 映射），trace 基线已登记；待批准后开工。
+- UI 设计冻结（2026-11-18）：编号顺延为 002（原拟 005）；补 CSS Modules 承载、动效参数、响应式断点、视觉基线；`ui-spec` v4 与 `baseline/` 已落地，应用代码未改。
 - 流程改进（2026-11-18）：验证默认摘要与 `--verbose`、check-docs 锚点/待创建路径、trace 按 feature 判部分覆盖、dev 非 TTY 安装、close_feature.py 收口检查、读模型投影/评审固定点/多身份走查模板、`make lint/typecheck/test`。
+- 前端升级与目录（2026-11-18）：`apps/chat`、`apps/workspace` 升级 Next.js 16.4.6 + React 19.3 + ESLint 9 flat config（`next lint` 已移除，改用 `eslint .`）；目录迁到 `features/auth`、`features/chat`、`features/queue`、`features/conversation`，`app/` 只装配；`ChatShell` 拆出 `useChatMessages`，19/17 条前端用例与两应用 build 通过。
 
 ## 阻塞
 
@@ -49,9 +55,10 @@
 
 ## 待确认决策
 
-- 前端类型由 OpenAPI 生成已按 [ADR-0007](adr/0007-openapi-frontend-types.md) 落地；CSS 统一用 `docs/design-system/tokens.css` 与 ui-spec 间距/气泡规范仍未落地，登记为 M1 技术债。
-- PII 脱敏范围：M1 仅覆盖大陆手机号（`+86`/分隔/全角）、邮箱、18 位身份证（含 `X/x`）；银行卡、护照、座机、非大陆号码等格式透传，归 004 安全硬化。
-- plan 澄清（F-06 评审确认）：客户 cookie 访问 `/workspace/queue` 返回 401 而非 plan 5.1 的“客户→403”（403 指合法员工凭据但非 agent）；队列末条/等待起算口径在执行卡 D-2/D-3；002 接入订单后需重审 `order_count=0`。
+- UI 改版（2026-11-18，002）：设计已冻结——五张页面稿、`tokens.css` v2、`ui-spec` v4（组件契约 3.1–3.14、样式承载/动效/响应式/基线）、`baseline/` 冻结哈希；实现切片 S1–S3 待开工，应用代码未改。
+- 前端类型由 OpenAPI 生成已按 [ADR-0007](adr/0007-openapi-frontend-types.md) 落地；CSS 统一用 `docs/design-system/tokens.css` 与 ui-spec 间距/气泡规范仍未落地，登记为 M1 技术债；前端规范见 [frontend.md](process/frontend.md)，ESLint 核心规则已接入，token 迁移与 stylelint 强制点待接。
+- PII 脱敏范围：M1 仅覆盖大陆手机号（`+86`/分隔/全角）、邮箱、18 位身份证（含 `X/x`）；银行卡、护照、座机、非大陆号码等格式透传，归 005 安全硬化。
+- plan 澄清（F-06 评审确认）：客户 cookie 访问 `/workspace/queue` 返回 401 而非 plan 5.1 的“客户→403”（403 指合法员工凭据但非 agent）；队列末条/等待起算口径在执行卡 D-2/D-3；003 接入订单后需重审 `order_count=0`。
 - 清理任务频率与审计归档方式；安全硬化切片确定。
 - 分支保护：升级 GitHub Team、转 Public，或接受未强制。
 

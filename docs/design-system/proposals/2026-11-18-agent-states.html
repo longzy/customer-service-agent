@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>ECHO CONSOLE · 队列状态与键盘流（设计提案）</title>
+<style>
+  :root {
+    --ink: #1b1b17;
+    --muted: #57554e;
+    --faint: #726f65;
+    --line: #e6e2d8;
+    --line-soft: #efece4;
+    --paper: #ffffff;
+    --canvas: #f6f5f1;
+    --deep: #13211c;
+    --brand: #0f5c4c;
+    --brand-soft: #eaf2ee;
+    --amber: #94550a;
+    --amber-soft: #f8efdf;
+    --danger: #b4441c;
+    --danger-soft: #fbeee8;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; overflow: hidden; }
+  body {
+    background: var(--canvas);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Helvetica Neue", Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    font-size: 13px;
+    padding: 36px 40px;
+  }
+
+  .head { display: flex; align-items: flex-end; gap: 14px; }
+  .head h1 { margin: 0; font-size: 20px; font-weight: 600; letter-spacing: -0.01em; }
+  .head p { margin: 0 0 3px; font-size: 12px; color: var(--muted); }
+  .head .tag {
+    margin-left: auto;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    color: var(--faint);
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    padding: 3px 9px;
+    background: var(--paper);
+  }
+
+  .grid {
+    margin-top: 20px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+
+  .card {
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    height: 218px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .card-head {
+    height: 42px;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    align-items: center;
+    padding: 0 14px;
+    gap: 8px;
+  }
+
+  .card-head h2 { margin: 0; font-size: 12px; font-weight: 600; }
+  .card-head .hint { font-size: 10.5px; color: var(--faint); }
+  .card-head .grow { flex: 1; }
+  .badge {
+    font-size: 9.5px;
+    letter-spacing: 0.04em;
+    padding: 2px 7px;
+    border-radius: 999px;
+    background: var(--canvas);
+    color: var(--muted);
+    border: 1px solid var(--line);
+  }
+  .badge.green { background: var(--brand-soft); color: #145c4d; border-color: #d5e5dd; }
+  .badge.amber { background: var(--amber-soft); color: var(--amber); border-color: #ecd9bb; }
+  .badge.red { background: var(--danger-soft); color: var(--danger); border-color: #f0d6c9; }
+
+  .body { flex: 1; padding: 14px; }
+
+  /* 加载 */
+  .skeleton { display: flex; flex-direction: column; gap: 0; }
+  .sk-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: 40px;
+    border-bottom: 1px solid var(--line-soft);
+  }
+  .sk-row:last-child { border-bottom: 0; }
+  .sk { height: 9px; border-radius: 4px; background: #eeebe3; }
+  .sk.w1 { width: 92px; }
+  .sk.w2 { width: 54px; }
+  .sk.w3 { width: 120px; }
+  .sk.w4 { width: 180px; }
+  .sk.circle { width: 24px; height: 24px; border-radius: 50%; }
+
+  .loading-note {
+    margin-top: 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 10.5px;
+    color: var(--faint);
+  }
+
+  .spinner {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 1.6px solid #d9d5c9;
+    border-top-color: var(--brand);
+  }
+
+  /* 空态 */
+  .empty, .error, .denied {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 6px;
+  }
+
+  .icon-circle {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    background: var(--brand-soft);
+    color: var(--brand);
+    margin-bottom: 2px;
+  }
+  .icon-circle.red { background: var(--danger-soft); color: var(--danger); }
+  .icon-circle.grey { background: var(--canvas); color: var(--muted); }
+
+  .empty h3, .error h3, .denied h3 { margin: 0; font-size: 12.5px; font-weight: 600; }
+  .empty p, .error p, .denied p { margin: 0; font-size: 11px; line-height: 1.6; color: var(--muted); max-width: 300px; }
+  .empty .code, .error .code { font-size: 10px; color: var(--faint); font-variant-numeric: tabular-nums; }
+
+  .mini-btn {
+    margin-top: 4px;
+    height: 28px;
+    padding: 0 11px;
+    border-radius: 7px;
+    border: 1px solid var(--brand);
+    background: var(--brand);
+    color: #fff;
+    font: inherit;
+    font-size: 11px;
+  }
+  .mini-btn.ghost { background: var(--paper); border-color: var(--line); color: var(--ink); }
+
+  /* 键盘条 */
+  .keys {
+    margin-top: 16px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    height: 74px;
+    display: flex;
+    align-items: center;
+    padding: 0 18px;
+    gap: 26px;
+  }
+
+  .keys .label { font-size: 11px; color: var(--muted); font-weight: 600; margin-right: 2px; }
+  .keys .grow { flex: 1; }
+
+  .keycap {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10.5px;
+    color: var(--faint);
+  }
+
+  .keycap kbd {
+    font-family: inherit;
+    font-size: 10px;
+    min-width: 20px;
+    text-align: center;
+    padding: 2px 6px;
+    border: 1px solid var(--line);
+    border-bottom-width: 2px;
+    border-radius: 4px;
+    color: var(--muted);
+    background: var(--canvas);
+  }
+
+  .keys .note { font-size: 10px; color: var(--faint); line-height: 1.6; text-align: right; }
+</style>
+</head>
+<body>
+  <div class="head">
+    <h1>队列状态与键盘流</h1>
+    <p>同一张队列表格在加载、空、错误、无权限下的表现。错误必须可重试，空态必须给出下一步，权限问题不得用空态伪装。</p>
+    <span class="tag">DESIGN SPEC · 2026-11-18</span>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <div class="card-head">
+        <h2>加载中</h2>
+        <span class="hint">骨架行数 = 首屏可见行数，列宽与真实表格一致</span>
+        <span class="grow"></span>
+        <span class="badge">Skeleton</span>
+      </div>
+      <div class="body">
+        <div class="skeleton">
+          <div class="sk-row">
+            <span class="sk circle"></span><span class="sk w1"></span><span class="sk w2"></span><span class="sk w3"></span><span class="sk w4"></span>
+          </div>
+          <div class="sk-row">
+            <span class="sk circle"></span><span class="sk w1"></span><span class="sk w2"></span><span class="sk w3"></span><span class="sk w4"></span>
+          </div>
+          <div class="sk-row">
+            <span class="sk circle"></span><span class="sk w1"></span><span class="sk w2"></span><span class="sk w3"></span><span class="sk w4"></span>
+          </div>
+          <div class="sk-row">
+            <span class="sk circle"></span><span class="sk w1"></span><span class="sk w2"></span><span class="sk w3"></span><span class="sk w4"></span>
+          </div>
+        </div>
+        <div class="loading-note"><span class="spinner"></span>正在同步队列 · 首次加载约 1 秒</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>空队列</h2>
+        <span class="hint">不显示“暂无数据”四个字，给出下一步</span>
+        <span class="grow"></span>
+        <span class="badge green">Empty</span>
+      </div>
+      <div class="body">
+        <div class="empty">
+          <div class="icon-circle">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M4 9.2 7.2 12.4 14 5.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+          <h3>队列已清空</h3>
+          <p>最近 5 分钟没有新的转人工请求。保持在线，新会话会自动出现在这里。</p>
+          <button class="mini-btn ghost" type="button">手动刷新</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>加载失败</h2>
+        <span class="hint">保留错误码与重试，不吞掉失败</span>
+        <span class="grow"></span>
+        <span class="badge red">Error</span>
+      </div>
+      <div class="body">
+        <div class="error">
+          <div class="icon-circle red">
+            <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M9 5.2v4.2M9 12.2v.3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="9" cy="9" r="6.6" stroke="currentColor" stroke-width="1.5"/></svg>
+          </div>
+          <h3>队列加载失败</h3>
+          <p>网络或服务异常，队列状态未知。重试前不要假设没有客户在等待。</p>
+          <span class="code">QUEUE_UNAVAILABLE · 10:42:03</span>
+          <button class="mini-btn" type="button">重试</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>无权限</h2>
+        <span class="hint">403 与空队列必须区分</span>
+        <span class="grow"></span>
+        <span class="badge">403</span>
+      </div>
+      <div class="body">
+        <div class="denied">
+          <div class="icon-circle grey">
+            <svg width="17" height="17" viewBox="0 0 18 18" fill="none"><rect x="4" y="8" width="10" height="7" rx="1.6" stroke="currentColor" stroke-width="1.5"/><path d="M6.4 8V6.2a2.6 2.6 0 0 1 5.2 0V8" stroke="currentColor" stroke-width="1.5"/></svg>
+          </div>
+          <h3>无权访问该队列</h3>
+          <p>当前账号不是坐席角色。如需处理会话，请联系管理员开通权限。</p>
+          <button class="mini-btn ghost" type="button">返回登录</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="keys">
+    <span class="label">键盘流</span>
+    <span class="keycap"><kbd>J</kbd><kbd>K</kbd> 上/下选择</span>
+    <span class="keycap"><kbd>Enter</kbd> 领取选中</span>
+    <span class="keycap"><kbd>⌘K</kbd> 搜索</span>
+    <span class="keycap"><kbd>Esc</kbd> 关闭详情</span>
+    <span class="keycap"><kbd>?</kbd> 查看全部</span>
+    <span class="grow"></span>
+    <span class="note">焦点始终可见；批量操作不支持键盘批量领取，<br />避免并发冲突误触。</span>
+  </div>
+</body>
+</html>

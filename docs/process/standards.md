@@ -17,8 +17,8 @@
 | STD-TEST-02 | 测试名内嵌 `_AC_XX`，一个测试只追溯一个 AC | `tests/unit/test_naming_convention.py` |
 | STD-TEST-05 | 突变分数：Workflow/Gateway ≥80%，Policy/领域映射 ≥70% | `scripts/mutation.sh`（G3） |
 | STD-GIT-01 | 提交遵循 Conventional Commits | `.githooks/commit-msg` |
-| STD-DOC-01 | 状态只有一处写入，其余派生 | `scripts/check-status.py` |
-| STD-DOC-04 | 状态页不记录历史过程 | `scripts/check-status.py` + 评审 |
+| STD-DOC-01 | 状态只有一处写入，其余派生；状态页不记录历史过程 | `scripts/check-status.py` + 评审 |
+| STD-FE-01 | 前端代码遵守[前端规范](frontend.md)；接口类型只来自生成物且不可手改；改动须通过 lint/format/typecheck/test/build | `scripts/check-contracts.sh` + `scripts/verify.sh` |
 | STD-AI-01 | 开工复述状态，结束更新事实源 | `AGENTS.md` + `scripts/check-status.py` |
 
 ## 新增规则
