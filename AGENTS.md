@@ -7,8 +7,7 @@
 ## 每次开工
 
 1. 读 `docs/CURRENT.md`（一页事实，唯一状态视图）。
-2. 复述：阶段、已完成、进行中、阻塞、下一步。
-3. 按任务加载，不预读全仓：
+2. 按任务加载，不预读全仓：
    - 改代码：`docs/process/WORKFLOW.md`。
    - 硬约束：`docs/architecture/invariants.md`、`docs/process/standards.md`。
    - 当前变更：`docs/specs/<spec>/`。

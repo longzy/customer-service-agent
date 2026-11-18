@@ -37,6 +37,9 @@ def make_repo(root: Path, *, with_review: bool = True) -> None:
         "## 已完成\n\n- F-00：demo\n\n## 阻塞\n\n无\n\n## 待确认决策\n\n无\n",
         encoding="utf-8",
     )
+    # 收口会先跑仓库内的 trace.py；临时仓库放一个成功桩。
+    (root / "scripts").mkdir()
+    (root / "scripts" / "trace.py").write_text("import sys\n\nsys.exit(0)\n", encoding="utf-8")
 
 
 def run(root: Path, *args: str) -> subprocess.CompletedProcess[str]:
@@ -103,3 +106,15 @@ def test_已收口时apply不覆盖证据_基座豁免(tmp_path: Path) -> None:
     )
     assert evidence in features
     assert "不应覆盖" not in features
+
+
+def test_trace失败时阻断收口_基座豁免(tmp_path: Path) -> None:
+    make_repo(tmp_path)
+    (tmp_path / "scripts" / "trace.py").write_text(
+        "import sys\n\nprint('过期基线')\nsys.exit(1)\n",
+        encoding="utf-8",
+    )
+    result = run(tmp_path)
+    assert result.returncode == 1
+    assert "trace.py --strict 未通过" in result.stderr
+    assert "过期基线" in result.stderr

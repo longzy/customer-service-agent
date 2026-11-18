@@ -12,12 +12,12 @@ from __future__ import annotations
 
 import argparse
 import re
+import subprocess
 import sys
 from pathlib import Path
 
 FEATURE_ROW = re.compile(r"^\| (F-\d{2}) \|")
 STATUS_LINE = re.compile(r"^- 状态：(.+)$", re.M)
-CHECKBOX = re.compile(r"^- \[ \] ", re.M)
 
 
 def read(path: Path) -> str:
@@ -61,9 +61,39 @@ def current_sections(path: Path) -> dict[str, str]:
     return {name: section(text, name) for name in ("已完成", "进行中", "阻塞", "下一步")}
 
 
+def trace_gate(root: Path) -> str | None:
+    """收口前先跑追溯矩阵：过期基线不应该等到 make verify 才暴露。"""
+    script = root / "scripts" / "trace.py"
+    if not script.exists():
+        return None
+    result = subprocess.run(  # noqa: S603 - 固定仓库内脚本与解释器
+        [sys.executable, str(script), "--strict"],
+        cwd=root,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode == 0:
+        return None
+    output = (result.stdout + result.stderr).strip().splitlines()
+    return "trace.py --strict 未通过：" + " / ".join(output[-3:])
+
+
+def tick_completion(completion: str) -> str:
+    """只勾选可机械验证的项；提交类条目留给提交后确认。"""
+    return "".join(
+        line.replace("- [ ] ", "- [x] ", 1)
+        if line.startswith("- [ ] ") and "提交" not in line
+        else line
+        for line in completion.splitlines(keepends=True)
+    )
+
+
 def check(root: Path, feature: str) -> list[str]:
     """返回阻断收口的问题；空列表表示可以收口。"""
     problems: list[str] = []
+    trace_issue = trace_gate(root)
+    if trace_issue is not None:
+        problems.append(trace_issue)
     found = find_feature(root / "docs" / "specs", feature)
     if found is None:
         return [f"{feature}：在 docs/specs/*/features.md 中找不到对应行"]
@@ -136,7 +166,7 @@ def apply(root: Path, feature: str, evidence: str) -> list[str]:
     card = read(card_path)
     card = STATUS_LINE.sub("- 状态：已完成", card, count=1)
     completion = section(card, "6. 完成的定义")
-    card = card.replace(completion, CHECKBOX.sub("- [x] ", completion), 1)
+    card = card.replace(completion, tick_completion(completion), 1)
     card_path.write_text(card, encoding="utf-8")
     return []
 
@@ -170,7 +200,8 @@ def main() -> int:
         print("  1. 更新 docs/CURRENT.md：从「进行中」「下一步」移除该 feature，")
         print("     并在「已完成」追加一行；")
         print("  2. 运行 make verify；")
-        print(f"  3. 提交 docs({args.feature}): 收口状态与证据。")
+        print(f"  3. 提交 docs({args.feature}): 收口状态与证据；")
+        print("  4. 提交后勾选执行卡完成定义中含“提交”的条目。")
         return 0
 
     if already_closed(root, args.feature):

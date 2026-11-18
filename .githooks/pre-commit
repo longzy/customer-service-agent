@@ -10,5 +10,6 @@ python3 scripts/check-secrets.py --staged >/dev/null
 python3 scripts/check-docs.py >/dev/null
 python3 scripts/check-status.py >/dev/null
 python3 scripts/trace.py --strict >/dev/null
-uv run python scripts/export_openapi.py --check >/dev/null
-echo "pre-commit：格式、静态检查、密钥、文档、状态与追溯检查通过"
+./scripts/check-commands.sh >/dev/null
+./scripts/check-contracts.sh >/dev/null
+echo "pre-commit：格式、静态检查、密钥、文档、状态、追溯与契约检查通过"

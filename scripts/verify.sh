@@ -49,6 +49,7 @@ if [ "$FAST" = "1" ]; then
   run_step "ruff format" uv run ruff format --check .
   run_step "mypy" uv run mypy backend
   run_step "shell 检查" uv run python scripts/check-shell.py
+  run_step "命令冒烟" ./scripts/check-commands.sh
   run_step "import 边界" python3 scripts/check-imports.py --strict
   run_step "unit tests（独立测试库）" ./scripts/test-db.sh tests/unit -q
   echo "fast checks passed"
@@ -62,13 +63,14 @@ mkdir -p "$REPORTS_DIR"
 run_step "ruff check" uv run ruff check .
 run_step "ruff format" uv run ruff format --check .
 run_step "shell 检查" uv run python scripts/check-shell.py
+run_step "命令冒烟" ./scripts/check-commands.sh
 run_step "import 边界" python3 scripts/check-imports.py --strict
 run_step "prod import" env ENVIRONMENT=test MODEL_API_KEY='' uv run --no-dev python -c \
   "import backend.api.main, backend.tools.gateway, backend.adapters.oms.factory"
 run_step "密钥扫描" python3 scripts/check-secrets.py
 run_step "mypy" uv run mypy backend
 cp "$STEP_LOG" "$MYPY_LOG"
-run_step "OpenAPI 类型" ./scripts/check-api-types.sh
+run_step "契约生成物" ./scripts/check-contracts.sh
 
 # pytest 失败也要继续生成 eval 报告，因此这里暂时关闭 set -e 并分别记退出码。
 if [ "$VERBOSE" = "1" ]; then

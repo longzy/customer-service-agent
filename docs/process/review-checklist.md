@@ -5,10 +5,11 @@
 
 ## 0. 门禁复核
 
-- 评审范围固定点：上一个 feature 的收口提交；记录 `git diff <fixed>...HEAD` 与 `git log <fixed>..HEAD --oneline`。
+- 评审范围固定点：本 feature 开工前 HEAD（首个实现提交的父提交，`git rev-parse <first-feat-commit>^`）；记录 `git diff <fixed>...HEAD` 与 `git log <fixed>..HEAD --oneline`。
 - 先跑 `make verify-check`；失败直接「不通过」。
 - 独立跑该 feature 的 `Steps` 命令（AC 定向测试），不只看实现者粘贴的数字。
-- 契约变更检查 `./scripts/check-api-types.sh`。
+- 评审者用独立测试库，避免与实现者的 `customer_service_test` 竞争：`TEST_DB_NAME=customer_service_review_<id> ./scripts/test-db.sh <定向用例> -q`。
+- 契约变更检查 `./scripts/check-contracts.sh`。
 
 ## Standards 轴
 

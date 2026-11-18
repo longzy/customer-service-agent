@@ -2,7 +2,7 @@
 
 - 日期：YYYY-MM-DD
 - 评审者：独立上下文（未参与实现），共 N 轮
-- 评审范围：`git diff <fixed>...HEAD`（<fixed> 为上一个 feature 收口提交）
+- 评审范围：`git diff <fixed>...HEAD`（<fixed> 为本 feature 开工前 HEAD，即首个实现提交的父提交；可用 `git rev-parse <first-feat-commit>^`）
 - 依据：执行卡、`plan.md` 第 X 节、AC-XX
 
 ## 0. 门禁复核

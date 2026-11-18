@@ -5,7 +5,7 @@
 help: ## 显示可用命令
 	@echo "make dev          启动 API + Chat + Workspace（自动准备 .env、数据库、依赖）"
 	@echo "                  ARGS 透传参数，如 make dev ARGS=--no-install"
-	@echo "make dev-stop     停止本地 3000/8000 监听进程"
+	@echo "make dev-stop     停止本地 3000/3001/8000 监听进程"
 	@echo "make dev-reset    重建本地开发库（停服务、迁移、重播种；需确认）"
 	@echo "make status       查看端口/数据库/迁移/模型/契约状态"
 	@echo "make verify       全量验证并写回 CURRENT"
@@ -18,6 +18,12 @@ help: ## 显示可用命令
 
 dev: ## 启动本地开发环境；非交互可 ARGS=--no-install
 	./scripts/dev.sh $(ARGS)
+
+dev-stop: ## 停止本地 3000/3001/8000 监听进程
+	./scripts/dev-stop.sh
+
+status: ## 查看端口/数据库/迁移/模型/契约状态
+	./scripts/status.sh
 
 dev-reset: ## 重建本地开发库；非交互用 ARGS=--yes
 	UV_CACHE_DIR=$${UV_CACHE_DIR:-./.uv-cache} uv run python scripts/reset_dev_db.py $(ARGS)

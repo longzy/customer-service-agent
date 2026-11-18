@@ -8,7 +8,7 @@
 - 当前工作：F-08（接管）待开工；F-07 已收口
 
 <!-- verify:start -->
-- 最近验证：`./scripts/verify.sh` 全部检查通过——pytest 650 passed（独立测试库）、mypy 63 个文件、追溯矩阵通过（10 条 AC）、文档与前端检查通过
+- 最近验证：`./scripts/verify.sh` 全部检查通过——pytest 652 passed（独立测试库）、mypy 63 个文件、追溯矩阵通过（10 条 AC）、文档与前端检查通过
 <!-- verify:end -->
 
 ## 进行中

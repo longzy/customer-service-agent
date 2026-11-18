@@ -16,6 +16,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SPECS_ROOT = os.path.join(ROOT, "docs", "specs")
 TASKS_ROOT = os.path.join(ROOT, "docs", "tasks")
 REVIEWS_ROOT = os.path.join(ROOT, "docs", "reviews")
+TESTS_ROOT = os.path.join(ROOT, "tests")
 
 SKIP_DIRS = {
     ".git",
@@ -78,8 +79,20 @@ REVIEW_REQUIRED = ("## 0. 门禁复核", "## 逐 AC", "## 阻断项", "## 结论
 SPEC_DIR_PATTERN = re.compile(r"^\d{3}-[a-z0-9-]+$")
 CARD_PATTERN = re.compile(r"^[TF]-\d{2}\.md$")
 
+TEST_DEF_PATTERN = re.compile(r"^\s*(?:async\s+)?def\s+(test_[^\s(]+)", re.M)
+TEST_REF_PATTERN = re.compile(r"`(test_[^`\s]+)`")
+
 errors = []
-checked = {"links": 0, "files": 0, "acs": 0, "cards": 0, "specs": 0, "skipped": 0, "reviews": 0}
+checked = {
+    "links": 0,
+    "files": 0,
+    "acs": 0,
+    "cards": 0,
+    "specs": 0,
+    "skipped": 0,
+    "reviews": 0,
+    "test_refs": 0,
+}
 
 
 def rel(path):
@@ -262,6 +275,41 @@ def check_card_paths():
                 errors.append(f"{rel(card_path)}：引用的路径不存在 {token}")
 
 
+def test_names() -> set[str]:
+    """收集 tests/ 下真实存在的测试函数名，供文档引用校验。"""
+    names: set[str] = set()
+    if not os.path.isdir(TESTS_ROOT):
+        return names
+    for base, dirs, files in os.walk(TESTS_ROOT):
+        dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
+        for name in files:
+            if name.endswith(".py"):
+                names.update(TEST_DEF_PATTERN.findall(read(os.path.join(base, name))))
+    return names
+
+
+def check_test_references():
+    """执行卡与评审记录里反引号包裹的 test_* 必须真实存在。"""
+    known = test_names()
+    if not known:
+        return
+    for root in (TASKS_ROOT, REVIEWS_ROOT):
+        if not os.path.isdir(root):
+            continue
+        for base, _dirs, names in os.walk(root):
+            for name in sorted(names):
+                if not name.endswith(".md"):
+                    continue
+                path = os.path.join(base, name)
+                for match in TEST_REF_PATTERN.finditer(read(path)):
+                    reference = match.group(1)
+                    if "/" in reference or "::" in reference or reference.endswith(".py"):
+                        continue
+                    checked["test_refs"] += 1
+                    if reference not in known:
+                        errors.append(f"{rel(path)}：引用的测试不存在 {reference}")
+
+
 def check_completed_card_reviews():
     """标记已完成的执行卡必须有评审记录，评审不能只存在于对话里。"""
     if not os.path.isdir(TASKS_ROOT):
@@ -431,6 +479,7 @@ def main():
     check_ac_coverage(specs)
     check_task_dirs(specs)
     check_card_paths()
+    check_test_references()
     check_design_card_gate()
     check_completed_card_reviews()
     check_status_vocabulary_sync()
@@ -448,7 +497,7 @@ def main():
         f"文档检查通过：{checked['files']} 个文件、{checked['links']} 条链接、"
         f"{checked['specs']} 个规格目录、{checked['acs']} 条 AC、"
         f"{checked['cards']} 张执行卡已检查、{checked['skipped']} 张跳过、"
-        f"{checked['reviews']} 份评审记录已核对。"
+        f"{checked['reviews']} 份评审记录已核对、{checked['test_refs']} 条测试引用已校验。"
     )
     return 0
 
