@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { ApiError } from "@/lib/api-client";
-import type { Conversation } from "@/lib/session";
+import { closeSession, type Conversation } from "@/lib/session";
 
 import { getMessages, newIdempotencyKey, sendMessage } from "../api/messages";
 import type { Message, MessagePage } from "../types";
@@ -25,6 +25,7 @@ export function useChatMessages(conversation: Conversation | null) {
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(Boolean(conversationId));
   const [sending, setSending] = useState(false);
+  const [closing, setClosing] = useState(false);
   const [messageError, setMessageError] = useState<string | null>(null);
 
   const afterIdRef = useRef(conversation?.after_id ?? 0);
@@ -149,6 +150,32 @@ export function useChatMessages(conversation: Conversation | null) {
     }
   }
 
+  async function closeCurrentSession() {
+    if (!conversationId || closing || status === "CLOSED") {
+      return;
+    }
+    setClosing(true);
+    setMessageError(null);
+    try {
+      const page = await closeSession();
+      if (!mountedRef.current) {
+        return;
+      }
+      // 关闭是终态：停止轮询，状态由关闭响应的消息页回传。
+      stoppedRef.current = true;
+      applyPage(page);
+    } catch (cause) {
+      if (!mountedRef.current) {
+        return;
+      }
+      handleFailure(cause, "结束会话失败，请稍后重试");
+    } finally {
+      if (mountedRef.current) {
+        setClosing(false);
+      }
+    }
+  }
+
   const trimmedLength = draft.trim().length;
   const overLimit = trimmedLength > MAX_MESSAGE_LENGTH;
   const canSend = Boolean(conversationId) && !sending && trimmedLength > 0 && !overLimit;
@@ -158,6 +185,7 @@ export function useChatMessages(conversation: Conversation | null) {
     status,
     loading,
     sending,
+    closing,
     messageError,
     draft,
     setDraft,
@@ -166,5 +194,6 @@ export function useChatMessages(conversation: Conversation | null) {
     overLimit,
     canSend,
     submitMessage,
+    closeCurrentSession,
   };
 }

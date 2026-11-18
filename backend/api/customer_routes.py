@@ -25,6 +25,10 @@ from backend.conversations.customer_chat import (
     read_customer_messages,
     send_customer_message,
 )
+from backend.conversations.customer_close import (
+    ConversationCloseConflictError,
+    close_customer_conversation,
+)
 from backend.conversations.customer_conversations import (
     CustomerConversation,
     get_customer_conversation,
@@ -268,6 +272,40 @@ async def read_messages(
     if conversation is None:
         raise ApiError(409, ErrorCode.CONVERSATION_CLOSED)
     result = await read_customer_messages(db, conversation, after_id)
+    await db.commit()
+    return _chat_payload(result)
+
+
+@router.post(
+    "/session/close",
+    responses={401: ERROR_RESPONSES[401], 409: ERROR_RESPONSES[409]},
+)
+async def close_session(
+    request: Request,
+    session: CurrentSession,
+    db: Db,
+) -> MessagePageResponse:
+    """客户关闭任意未关闭会话；交接单同事务终态化，重复关闭幂等。"""
+    now = customer_sessions.utc_now()
+    conversation = await get_open_conversation(db, session.customer.tenant_id, session.customer.id)
+    if conversation is None:
+        # 没有未关闭会话时取最近一条：已关闭则返回 CLOSED 的空增量页（幂等）。
+        conversation = await get_latest_conversation(
+            db, session.customer.tenant_id, session.customer.id
+        )
+    if conversation is None:
+        raise ApiError(409, ErrorCode.CONVERSATION_CLOSED)
+    trace_id = getattr(request.state, "trace_id", None) or str(uuid4())
+    try:
+        result = await close_customer_conversation(
+            db,
+            conversation,
+            trace_id=trace_id,
+            now=now,
+        )
+    except ConversationCloseConflictError:
+        await db.rollback()
+        raise ApiError(409, ErrorCode.CONVERSATION_CLOSED) from None
     await db.commit()
     return _chat_payload(result)
 

@@ -7,6 +7,7 @@ export type Customer = components["schemas"]["CustomerPublic"];
 export type Conversation = components["schemas"]["ConversationPublic"];
 export type Session = components["schemas"]["CustomerSessionResponse"];
 type CustomerLoginRequest = components["schemas"]["CustomerLoginRequest"];
+type MessagePage = components["schemas"]["MessagePageResponse"];
 
 export async function getSession(): Promise<Session | null> {
   const response = await fetch("/api/customer/session");
@@ -48,4 +49,12 @@ export async function getConversation(conversationId: string): Promise<Conversat
   // 后端契约固定返回 {customer, conversation, expires_at}。
   const body = (await response.json()) as Session;
   return body.conversation;
+}
+
+export async function closeSession(): Promise<MessagePage> {
+  const response = await fetch("/api/customer/session/close", { method: "POST" });
+  if (!response.ok) {
+    throw await readError(response);
+  }
+  return (await response.json()) as MessagePage;
 }

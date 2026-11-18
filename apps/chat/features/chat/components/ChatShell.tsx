@@ -76,6 +76,7 @@ export function ChatShell({
     status,
     loading,
     sending,
+    closing,
     messageError,
     draft,
     setDraft,
@@ -84,6 +85,7 @@ export function ChatShell({
     overLimit,
     canSend,
     submitMessage,
+    closeCurrentSession,
   } = useChatMessages(conversation);
 
   const meta = statusMeta(status);
@@ -110,6 +112,16 @@ export function ChatShell({
               <span aria-hidden="true" className={`${DOT_BASE} ${meta.dot}`} />
               {meta.label}
             </span>
+            {status !== "CLOSED" ? (
+              <button
+                className="ml-auto rounded-md border border-border px-3 py-1.5 text-sm text-text-2 hover:border-border-strong focus-visible:outline-none focus-visible:shadow-focus disabled:opacity-50"
+                type="button"
+                onClick={() => void closeCurrentSession()}
+                disabled={closing}
+              >
+                {closing ? "结束中" : "结束会话"}
+              </button>
+            ) : null}
           </header>
 
           {error ? (
@@ -165,18 +177,20 @@ export function ChatShell({
                 status={status}
                 onQuick={(text) => void submitMessage(text)}
               />
-              <div className="shrink-0 px-8 pb-6 pt-3.5 max-[1024px]:px-4 max-[1024px]:pb-4">
-                <ChatComposer
-                  draft={draft}
-                  setDraft={setDraft}
-                  sending={sending}
-                  overLimit={overLimit}
-                  trimmedLength={trimmedLength}
-                  maxLength={maxLength}
-                  canSend={canSend}
-                  onSubmit={() => void submitMessage()}
-                />
-              </div>
+              {status === "CLOSED" ? null : (
+                <div className="shrink-0 px-8 pb-6 pt-3.5 max-[1024px]:px-4 max-[1024px]:pb-4">
+                  <ChatComposer
+                    draft={draft}
+                    setDraft={setDraft}
+                    sending={sending}
+                    overLimit={overLimit}
+                    trimmedLength={trimmedLength}
+                    maxLength={maxLength}
+                    canSend={canSend}
+                    onSubmit={() => void submitMessage()}
+                  />
+                </div>
+              )}
             </>
           ) : null}
         </section>
