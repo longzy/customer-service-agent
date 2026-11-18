@@ -4,29 +4,12 @@ import { useEffect, useRef } from "react";
 
 import type { Message, MessageAuthor } from "../types";
 
-import styles from "./MessageList.module.css";
-
 const AUTHOR_LABELS: Record<MessageAuthor, string> = {
   customer: "客户",
   ai: "客服 AI",
   agent: "坐席",
   system: "系统",
 };
-
-type MessageListProps = {
-  messages: Message[];
-  loading: boolean;
-  status: string;
-  onQuick: (text: string) => void;
-};
-
-function formatTime(value: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-  return date.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
-}
 
 const QUICK_ACTIONS = [
   {
@@ -70,9 +53,27 @@ const QUICK_ACTIONS = [
   },
 ];
 
+type MessageListProps = {
+  messages: Message[];
+  loading: boolean;
+  status: string;
+  onQuick: (text: string) => void;
+};
+
+function formatTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+  return date.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
+}
+
 function authorLabel(authorType: MessageAuthor): string {
   return AUTHOR_LABELS[authorType] ?? "系统";
 }
+
+const BUBBLE_BASE =
+  "rounded-xl px-3.5 py-2.5 text-base leading-[1.7] whitespace-pre-wrap break-words";
 
 export function MessageList({ messages, loading, status, onQuick }: MessageListProps) {
   const listRef = useRef<HTMLDivElement>(null);
@@ -85,30 +86,38 @@ export function MessageList({ messages, loading, status, onQuick }: MessageListP
   }, [messages.length, loading, status]);
 
   return (
-    <div className={styles.list} ref={listRef} role="log" aria-live="polite" aria-label="消息记录">
+    <div
+      className="flex min-h-0 flex-1 flex-col gap-[18px] overflow-y-auto px-8 pb-3 pt-[26px] max-[1024px]:px-4 max-[1024px]:py-4"
+      ref={listRef}
+      role="log"
+      aria-live="polite"
+      aria-label="消息记录"
+    >
       {loading ? (
-        <div className={styles.skeleton} aria-label="加载中">
-          <span />
-          <span />
-          <span />
+        <div className="flex flex-col gap-2.5 py-1.5" aria-label="加载中">
+          <span className="block h-11 w-[62%] animate-pulse rounded-xl bg-surface-muted" />
+          <span className="block h-11 w-[48%] animate-pulse self-end rounded-xl bg-surface-muted" />
+          <span className="block h-11 w-[70%] animate-pulse rounded-xl bg-surface-muted" />
         </div>
       ) : null}
 
       {!loading && messages.length === 0 ? (
-        <div className={styles.welcome}>
-          <h2 className={styles.welcomeTitle}>你好，我是小回。</h2>
-          <p className={styles.welcomeText}>
+        <div className="max-w-[640px] rounded-xl border border-sand-line bg-sand p-[18px]">
+          <h2 className="m-0 font-serif text-[20px] font-semibold tracking-[0.01em]">
+            你好，我是小回。
+          </h2>
+          <p className="mb-0 mt-2 max-w-[520px] text-base leading-[1.75] text-text-2">
             我可以帮你查订单、改配送、办理退换。需要真人时，直接说「转人工」。
           </p>
-          <div className={styles.quick}>
+          <div className="mt-3.5 grid grid-cols-3 gap-2 max-[1024px]:grid-cols-1">
             {QUICK_ACTIONS.map((action) => (
               <button
                 key={action.label}
                 type="button"
-                className={styles.quickButton}
+                className="flex items-center gap-2 rounded-[11px] border border-border bg-surface px-2.5 py-2 text-left text-sm text-text hover:border-border-strong focus-visible:outline-none focus-visible:shadow-focus"
                 onClick={() => onQuick(action.label)}
               >
-                {action.icon}
+                <span className="text-accent">{action.icon}</span>
                 {action.label}
               </button>
             ))}
@@ -120,36 +129,43 @@ export function MessageList({ messages, loading, status, onQuick }: MessageListP
         const author = message.author_type;
         const isCustomer = author === "customer";
         const isSystem = author === "system";
-        const tone = isCustomer
-          ? styles.bubbleCustomer
-          : author === "agent"
-            ? styles.bubbleAgent
-            : styles.bubbleAi;
 
         if (isSystem) {
           return (
-            <p key={message.id} className={styles.system}>
+            <p key={message.id} className="m-0 self-center text-center text-xs text-text-3">
               {message.content}
             </p>
           );
         }
 
+        const tone = isCustomer
+          ? "bg-brand-deep text-paper rounded-tr-[4px]"
+          : author === "agent"
+            ? "border border-accent-line bg-accent-soft text-accent-ink rounded-tl-[4px]"
+            : "border border-border bg-surface rounded-tl-[4px]";
+
         return (
           <article
             key={message.id}
-            className={`${styles.row} ${isCustomer ? styles.rowCustomer : ""}`}
+            className={`flex max-w-[560px] gap-2.5 ${isCustomer ? "justify-end self-end" : "items-start"}`}
             data-author={author}
           >
             {!isCustomer ? (
-              <span className={styles.avatar} aria-hidden="true">
+              <span
+                aria-hidden="true"
+                className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-[9px] bg-brand-deep font-serif text-base text-presence-ink"
+              >
                 {author === "agent" ? "座" : "回"}
               </span>
             ) : null}
-            <div className={styles.stack}>
-              <span className={styles.srOnly}>{authorLabel(author)}</span>
-              <div className={`${styles.bubble} ${tone}`}>{message.content}</div>
+            <div className="flex min-w-0 flex-col gap-1">
+              <span className="sr-only">{authorLabel(author)}</span>
+              <div className={`${BUBBLE_BASE} ${tone}`}>{message.content}</div>
             </div>
-            <time className={styles.time} dateTime={message.created_at}>
+            <time
+              className="mb-0.5 shrink-0 self-end text-xs tabular-nums text-text-3"
+              dateTime={message.created_at}
+            >
               {formatTime(message.created_at)}
             </time>
           </article>
@@ -157,11 +173,19 @@ export function MessageList({ messages, loading, status, onQuick }: MessageListP
       })}
 
       {status === "QUEUED" ? (
-        <div className={styles.handoff} role="status">
-          <span className={styles.pulse} aria-hidden="true" />
+        <div
+          className="flex max-w-[640px] items-start gap-3 rounded-xl border border-warning-line bg-warning-soft px-4 py-3"
+          role="status"
+        >
+          <span
+            aria-hidden="true"
+            className="mt-1 h-[9px] w-[9px] shrink-0 animate-pulse rounded-full bg-warning shadow-[0_0_0_5px_rgba(148,85,10,0.12)]"
+          />
           <div>
-            <div className={styles.handoffTitle}>正在为你接通人工客服</div>
-            <div className={styles.handoffMeta}>接通后会在这里提示你，也可以先补充问题。</div>
+            <div className="text-sm font-semibold text-warning-ink">正在为你接通人工客服</div>
+            <div className="mt-1 text-xs leading-[1.65] text-warning-ink/80">
+              接通后会在这里提示你，也可以先补充问题。
+            </div>
           </div>
         </div>
       ) : null}
