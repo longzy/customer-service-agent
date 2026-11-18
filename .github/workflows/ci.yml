@@ -1,7 +1,7 @@
 name: CI
 
 # 服务端是唯一硬门禁：本地 hook 只负责早发现。
-# 合并前需要的 required checks：verify / frontend-build。
+# 合并前需要的 required check：verify（含前端构建）。
 
 on:
   pull_request:
@@ -54,31 +54,11 @@ jobs:
       - name: 安装依赖（锁定版本）
         run: |
           uv sync --frozen
-          pnpm -C apps/web install --frozen-lockfile
           pnpm -C apps/chat install --frozen-lockfile
           pnpm -C apps/workspace install --frozen-lockfile
           pnpm -C packages/contracts install --frozen-lockfile
       - name: 全量验证（不写回状态文件）
         run: ./scripts/verify.sh --no-record
-
-  frontend-build:
-    name: frontend-build
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10
-      - run: pnpm -C apps/web install --frozen-lockfile
-      - run: pnpm -C apps/chat install --frozen-lockfile
-      - run: pnpm -C apps/workspace install --frozen-lockfile
-      - run: pnpm -C packages/contracts install --frozen-lockfile
-      - run: pnpm -C apps/web build
-      - run: pnpm -C apps/chat build
-      - run: pnpm -C apps/workspace build
 
   audit:
     name: audit（观察期）
@@ -102,6 +82,5 @@ jobs:
         # 上游暂无修复版本，且只出现在 eslint 工具链（dev 依赖），
         # 豁免写在 apps/*/package.json 的 pnpm.auditConfig.ignoreCves。
         run: |
-          pnpm -C apps/web audit --audit-level high
           pnpm -C apps/chat audit --audit-level high
           pnpm -C apps/workspace audit --audit-level high

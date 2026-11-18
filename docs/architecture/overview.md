@@ -231,7 +231,7 @@ evals/                      # 场景集、运行器和报告
 - `tools`/`workflows` 不得 import `mock_oms` 或任何具体 OMS Adapter。
 - 只有 `adapters/oms/factory` 读取 OMS 配置并选择 Adapter；生产缺配置启动失败。
 - `packages/contracts` 是跨模块接口的唯一定义来源。
-- 现有 `apps/web` 是 M1-P 资产；`mock_oms` 已在 R0-2 迁入 `backend/adapters/oms/`。
+- `apps/web` 已于 2026-11-18 退役；旧 `backend/` 路由仍是 M1-P 资产。`mock_oms` 已在 R0-2 迁入 `backend/adapters/oms/`。
 
 ## 10. 演进原则
 

@@ -90,7 +90,8 @@ def test_前端测试不使用连字符验收编号_基座豁免() -> None:
     forbidden = "_AC" + "-"
     offenders = [
         str(path)
-        for path in Path("apps/web/tests").rglob("*.test.tsx")
+        for app_tests in Path("apps").glob("*/tests")
+        for path in app_tests.rglob("*.test.tsx")
         if forbidden in path.read_text(encoding="utf-8")
     ]
     assert offenders == [], f"前端测试使用了连字符写法：{offenders}"

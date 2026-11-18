@@ -35,7 +35,7 @@ def ac_from_requirements(path: Path) -> list[str]:
 def ac_from_tests() -> dict[str, list[str]]:
     """只统计测试用例名里的 AC，避免把注释/文档字符串当成覆盖证据。"""
     found: dict[str, set[str]] = {}
-    roots = [ROOT / "tests", ROOT / "apps" / "web" / "tests"]
+    roots = [ROOT / "tests"]
     for root in roots:
         for path in root.rglob("*"):
             if path.suffix not in {".py", ".ts", ".tsx"} or "node_modules" in path.parts:

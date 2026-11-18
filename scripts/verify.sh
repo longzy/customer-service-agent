@@ -108,10 +108,6 @@ cp "$STEP_LOG" "$TRACE_LOG"
 run_step "当前状态一致性" python3 scripts/check-status.py
 run_step "docs" python3 scripts/check-docs.py
 cp "$STEP_LOG" "$DOCS_LOG"
-run_step "web lint" pnpm -C apps/web lint
-run_step "web format" pnpm -C apps/web exec prettier --check .
-run_step "web typecheck" pnpm -C apps/web typecheck
-run_step "web test" pnpm -C apps/web test
 run_step "chat lint" pnpm -C apps/chat lint
 run_step "chat format" pnpm -C apps/chat exec prettier --check .
 run_step "chat typecheck" pnpm -C apps/chat typecheck
@@ -120,7 +116,6 @@ run_step "workspace lint" pnpm -C apps/workspace lint
 run_step "workspace format" pnpm -C apps/workspace exec prettier --check .
 run_step "workspace typecheck" pnpm -C apps/workspace typecheck
 run_step "workspace test" pnpm -C apps/workspace test
-run_step "web build" pnpm -C apps/web build
 run_step "chat build" pnpm -C apps/chat build
 run_step "workspace build" pnpm -C apps/workspace build
 

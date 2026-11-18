@@ -9,7 +9,6 @@
 
 ```bash
 UV_CACHE_DIR=./.uv-cache uv sync
-pnpm -C apps/web install
 pnpm -C apps/chat install
 pnpm -C apps/workspace install
 pnpm -C packages/contracts install

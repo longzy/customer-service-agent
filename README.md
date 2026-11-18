@@ -12,7 +12,7 @@
 
 > 客户登录 -> AI 自动回复/转人工 -> 进入队列 -> 坐席登录领取并接管 -> 回复 -> 关闭或转回 AI
 
-M1 正在按 F-01→F-14 实现：`apps/chat` 是客户入口，`apps/workspace` 是坐席工作台，`apps/web` 与旧 `backend/` 路由保留为 M1-P 资产。退款、主管/管理员、客户自助注册、全渠道、OIDC/SSO 和真实 OMS 不在 M1 范围内。
+M1 正在按 F-01→F-14 实现：`apps/chat` 是客户入口，`apps/workspace` 是坐席工作台，`apps/web` 已退役；旧 `backend/` 路由保留为 M1-P 资产。退款、主管/管理员、客户自助注册、全渠道、OIDC/SSO 和真实 OMS 不在 M1 范围内。
 
 ## 文档入口
 
@@ -103,9 +103,6 @@ python3 scripts/check-status.py    # CURRENT.md ↔ tasks.md ↔ 执行卡
 python3 scripts/trace.py --strict  # AC ↔ 测试 ↔ 执行卡（含部分覆盖）
 python3 scripts/close_feature.py F-06 --check  # 收口前置条件；--apply 更新 features/执行卡
 ./scripts/check-api-types.sh       # OpenAPI ↔ 前端生成类型
-pnpm -C apps/web lint
-pnpm -C apps/web typecheck
-pnpm -C apps/web test
 pnpm -C apps/chat lint
 pnpm -C apps/chat typecheck
 pnpm -C apps/chat test
@@ -128,7 +125,7 @@ pnpm -C apps/workspace test
   - `commit-msg`：校验 Conventional Commits。
   - `pre-commit`：格式、静态检查、文档、状态与追溯检查。
   - `pre-push`：执行完整 `verify.sh`。
-- 服务端（`.github/workflows/ci.yml`）：PR 必过 `verify` 与 `frontend-build` 两个 required check。
+- 服务端（`.github/workflows/ci.yml`）：PR 必过 `verify` 一个 required check（已包含前端 lint/typecheck/test/build）。
 
 集成测试使用独立测试库（默认 `customer_service_test`），不会再读开发库。测试也不读本地 `.env`（`test-db.sh` 设 `SETTINGS_ENV_FILE=/dev/null`），本地与 CI 使用同一份配置来源；要覆盖配置请用环境变量。紧急情况可 `--no-verify`，但必须在 PR 描述中写明原因，并在 24 小时内补跑完整门禁。
 
