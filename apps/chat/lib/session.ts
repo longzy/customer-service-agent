@@ -51,8 +51,11 @@ export async function getConversation(conversationId: string): Promise<Conversat
   return body.conversation;
 }
 
-export async function closeSession(): Promise<MessagePage> {
-  const response = await fetch("/api/customer/session/close", { method: "POST" });
+export async function closeSession(idempotencyKey: string): Promise<MessagePage> {
+  const response = await fetch("/api/customer/session/close", {
+    method: "POST",
+    headers: { "Idempotency-Key": idempotencyKey },
+  });
   if (!response.ok) {
     throw await readError(response);
   }

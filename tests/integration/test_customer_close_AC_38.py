@@ -3,7 +3,8 @@
 - 客户在 `AI_ACTIVE`/`QUEUED`/`CLAIMED`/`HUMAN_ACTIVE` 均可关闭；会话与 open 交接单
   在同一事务内终态化，并写一条“会话已结束”系统消息。
 - 关闭后再发消息 409 `CONVERSATION_CLOSED` 且不落库；读历史仍 200 并返回 `CLOSED`。
-- 关闭幂等：重复关闭 200、系统消息只写一条、`closed_at` 不变。
+- 幂等：同一 `Idempotency-Key` 重放 200 且不写第二条消息；已关闭后的新请求 409。
+- 交接单 `pending_step` 保持原值，待办语义由 F-12 统一定义。
 - 客户隔离与并发：关闭只影响自己的会话；客户关闭与坐席领取并发后状态一致。
 """
 
@@ -34,6 +35,7 @@ BASE = datetime(2026, 11, 18, 10, 0, 0, tzinfo=UTC)
 CLOSE = "/customer/session/close"
 CUSTOMER_MESSAGES = "/customer/messages"
 CLOSED_NOTICE = "会话已结束"
+PENDING_STEP = "等待坐席接入"
 
 
 @pytest.fixture(autouse=True)
@@ -45,6 +47,10 @@ def workspace_data() -> Any:
 
 def api_client() -> TestClient:
     return TestClient(create_app())
+
+
+def close(api: TestClient, *, key: str = "close-key-1") -> Any:
+    return api.post(CLOSE, headers={"Idempotency-Key": key})
 
 
 def conversation_of(conversation_id: str) -> ServiceConversation:
@@ -73,7 +79,7 @@ def test_客户在排队中关闭会话并同事务终态交接单_AC_38() -> No
 
     with api_client() as api:
         login_customer(api, "customer_a")
-        response = api.post(CLOSE)
+        response = close(api)
 
     assert response.status_code == 200, response.text
     body = response.json()
@@ -90,8 +96,13 @@ def test_客户在排队中关闭会话并同事务终态交接单_AC_38() -> No
 
     handoff = handoff_of("ho-1")
     assert handoff.status == "CLOSED"
-    assert handoff.pending_step == CLOSED_NOTICE
+    # 待办语义归 F-12；本卡不覆盖原值（F-10 D-5）。
+    assert handoff.pending_step == PENDING_STEP
     assert handoff.version == 1
+
+    notices = closed_notices("conv-1")
+    assert len(notices) == 1
+    assert notices[0].idempotency_key == "close-key-1"
 
     with api_client() as workspace_api:
         login_employee(workspace_api, "agent_1")
@@ -99,6 +110,29 @@ def test_客户在排队中关闭会话并同事务终态交接单_AC_38() -> No
 
     assert queue.status_code == 200, queue.text
     assert queue.json()["items"] == []
+
+
+def test_客户在已领取未接管时关闭会话_AC_38() -> None:
+    seed_queued_handoff(
+        "ho-claimed",
+        conversation_id="conv-claimed",
+        customer_id="cust-customer_a",
+        status="CLAIMED",
+        conversation_status="CLAIMED",
+        assigned_employee_id="emp-agent_1",
+        created_at=BASE,
+    )
+
+    with api_client() as api:
+        login_customer(api, "customer_a")
+        response = close(api)
+
+    assert response.status_code == 200, response.text
+    assert response.json()["status"] == "CLOSED"
+    assert conversation_of("conv-claimed").status == "CLOSED"
+    handoff = handoff_of("ho-claimed")
+    assert handoff.status == "CLOSED"
+    assert handoff.pending_step == PENDING_STEP
 
 
 def test_客户在人工中关闭会话后历史仍可读_AC_38() -> None:
@@ -115,7 +149,7 @@ def test_客户在人工中关闭会话后历史仍可读_AC_38() -> None:
 
     with api_client() as api:
         login_customer(api, "customer_a")
-        closed = api.post(CLOSE)
+        closed = close(api)
         history = api.get(CUSTOMER_MESSAGES, params={"after_id": 0})
 
     assert closed.status_code == 200, closed.text
@@ -133,7 +167,7 @@ def test_客户在AI会话中关闭不触碰交接单_AC_38() -> None:
 
     with api_client() as api:
         login_customer(api, "customer_a")
-        response = api.post(CLOSE)
+        response = close(api)
 
     assert response.status_code == 200, response.text
     assert response.json()["status"] == "CLOSED"
@@ -147,7 +181,7 @@ def test_关闭后再发消息409且不落库_AC_38() -> None:
 
     with api_client() as api:
         login_customer(api, "customer_a")
-        assert api.post(CLOSE).status_code == 200
+        assert close(api).status_code == 200
         before = len(rows_of(ServiceMessage))
         sent = api.post(
             CUSTOMER_MESSAGES,
@@ -161,19 +195,23 @@ def test_关闭后再发消息409且不落库_AC_38() -> None:
     assert conversation_of("conv-4").status == "CLOSED"
 
 
-def test_重复关闭幂等且系统消息只写一条_AC_38() -> None:
+def test_重复关闭同键重放且新键409_AC_38() -> None:
     seed_conversation("conv-5", customer_id="cust-customer_a", status="AI_ACTIVE")
 
     with api_client() as api:
         login_customer(api, "customer_a")
-        first = api.post(CLOSE)
+        first = close(api)
         closed_at = conversation_of("conv-5").closed_at
-        second = api.post(CLOSE)
+        replay = close(api)
+        fresh = close(api, key="close-key-2")
 
     assert first.status_code == 200, first.text
-    assert second.status_code == 200, second.text
-    assert second.json()["status"] == "CLOSED"
-    assert second.json()["messages"] == []
+    assert replay.status_code == 200, replay.text
+    assert replay.json()["status"] == "CLOSED"
+    assert replay.json()["messages"] == first.json()["messages"]
+    assert fresh.status_code == 409
+    assert fresh.json()["code"] == "CONVERSATION_CLOSED"
+
     assert len(closed_notices("conv-5")) == 1
     assert conversation_of("conv-5").closed_at == closed_at
     assert conversation_of("conv-5").status == "CLOSED"
@@ -183,11 +221,26 @@ def test_关闭会话未登录401_AC_38() -> None:
     seed_conversation("conv-6", customer_id="cust-customer_a", status="AI_ACTIVE")
 
     with api_client() as api:
-        response = api.post(CLOSE)
+        response = api.post(CLOSE, headers={"Idempotency-Key": "unauth-close-1"})
 
     assert response.status_code == 401
     assert response.json()["code"] == "SESSION_INVALID"
     assert conversation_of("conv-6").status == "AI_ACTIVE"
+
+
+def test_关闭会话缺幂等键422_AC_38() -> None:
+    seed_conversation("conv-7", customer_id="cust-customer_a", status="AI_ACTIVE")
+
+    with api_client() as api:
+        login_customer(api, "customer_a")
+        response = api.post(CLOSE)
+        history = api.get(CUSTOMER_MESSAGES, params={"after_id": 0})
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "VALIDATION_ERROR"
+    assert conversation_of("conv-7").status == "AI_ACTIVE"
+    assert closed_notices("conv-7") == []
+    assert history.json()["status"] == "AI_ACTIVE"
 
 
 def test_客户关闭只影响自己的会话_AC_38() -> None:
@@ -206,7 +259,7 @@ def test_客户关闭只影响自己的会话_AC_38() -> None:
 
     with api_client() as api:
         login_customer(api, "customer_a")
-        response = api.post(CLOSE)
+        response = close(api)
 
     assert response.status_code == 200, response.text
     assert conversation_of("conv-a").status == "CLOSED"
@@ -228,7 +281,7 @@ def test_客户关闭与坐席领取并发后状态一致_AC_38() -> None:
         with api_client() as api:
             login_customer(api, "customer_a")
             barrier.wait(timeout=10)
-            response = api.post(CLOSE)
+            response = close(api, key="race-close-key")
             return "customer", response.status_code, response.json()
 
     def claim_attempt() -> tuple[str, int, dict[str, Any]]:
@@ -269,7 +322,7 @@ def test_坐席轮询看到客户已关闭_AC_38() -> None:
 
     with api_client() as customer_api:
         login_customer(customer_api, "customer_a")
-        assert customer_api.post(CLOSE).status_code == 200
+        assert close(customer_api).status_code == 200
 
     with api_client() as workspace_api:
         login_employee(workspace_api, "agent_1")
@@ -284,4 +337,4 @@ def test_坐席轮询看到客户已关闭_AC_38() -> None:
     body = detail.json()
     assert body["status"] == "CLOSED"
     assert body["handoff"]["status"] == "CLOSED"
-    assert body["handoff"]["pending_step"] == CLOSED_NOTICE
+    assert body["handoff"]["pending_step"] == PENDING_STEP

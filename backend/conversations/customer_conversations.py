@@ -75,6 +75,19 @@ async def get_latest_conversation(
     return (await db.execute(statement)).scalar_one_or_none()
 
 
+async def get_current_conversation(
+    db: AsyncSession, tenant_id: str, customer_id: str
+) -> ServiceConversation | None:
+    """当前未关闭会话；没有时返回最近一条（含已关闭）。
+
+    读历史与关闭重放都从同一条当前会话出发，避免调用方各写一遍 open→latest 兜底。
+    """
+    open_row = await _find_open(db, tenant_id, customer_id)
+    if open_row is not None:
+        return open_row
+    return await get_latest_conversation(db, tenant_id, customer_id)
+
+
 def _is_stale(row: ServiceConversation, now: datetime) -> bool:
     return row.status == AI_ACTIVE and row.last_activity_at + CONVERSATION_IDLE_TIMEOUT <= now
 

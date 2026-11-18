@@ -135,7 +135,7 @@ export interface paths {
         put?: never;
         /**
          * Close Session
-         * @description 客户关闭任意未关闭会话；交接单同事务终态化，重复关闭幂等。
+         * @description 客户关闭任意未关闭会话；交接单同事务终态化，同键重放幂等。
          */
         post: operations["close_session_customer_session_close_post"];
         delete?: never;
@@ -996,7 +996,9 @@ export interface operations {
     close_session_customer_session_close_post: {
         parameters: {
             query?: never;
-            header?: never;
+            header: {
+                "Idempotency-Key": string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -1022,6 +1024,15 @@ export interface operations {
             };
             /** @description Conflict */
             409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

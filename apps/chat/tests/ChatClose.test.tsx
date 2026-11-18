@@ -89,6 +89,7 @@ describe("ChatShell 结束会话", () => {
 
     expect(fetchMock).toHaveBeenLastCalledWith("/api/customer/session/close", {
       method: "POST",
+      headers: { "Idempotency-Key": expect.any(String) },
     });
     expect(screen.getByText("已结束")).toBeInTheDocument();
     expect(screen.getByText("会话已结束")).toBeInTheDocument();
@@ -119,18 +120,38 @@ describe("ChatShell 结束会话", () => {
     expect(screen.queryByLabelText("消息")).not.toBeInTheDocument();
   });
 
-  it("AC-38 结束会话失败时保留输入可重试", async () => {
-    vi.spyOn(global, "fetch")
+  it("AC-38 结束会话失败时保留输入并复用幂等键重试", async () => {
+    const fetchMock = vi
+      .spyOn(global, "fetch")
       .mockResolvedValueOnce(json(emptyPage()))
-      .mockResolvedValueOnce(json({ code: "INTERNAL_ERROR", message: "服务暂不可用" }, 500));
+      .mockResolvedValueOnce(json({ code: "INTERNAL_ERROR", message: "服务暂不可用" }, 500))
+      .mockResolvedValueOnce(
+        json({
+          conversation_id: "conv-1",
+          status: "CLOSED",
+          after_id: 3,
+          messages: [message(3, "system", "会话已结束")],
+        }),
+      );
 
     renderShell();
     expect(await screen.findByText("你好，我是小回。")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "结束会话" }));
-
     expect(await screen.findByRole("alert")).toHaveTextContent("服务暂不可用");
     expect(screen.getByRole("button", { name: "结束会话" })).toBeEnabled();
     expect(screen.getByLabelText("消息")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "结束会话" }));
+    expect(await screen.findByText("已结束")).toBeInTheDocument();
+
+    const keys = fetchMock.mock.calls
+      .filter(([url]) => url === "/api/customer/session/close")
+      .map(
+        ([, init]) => (init?.headers as Record<string, string> | undefined)?.["Idempotency-Key"],
+      );
+    expect(keys).toHaveLength(2);
+    expect(keys[0]).toBeTruthy();
+    expect(keys[0]).toBe(keys[1]);
   });
 });

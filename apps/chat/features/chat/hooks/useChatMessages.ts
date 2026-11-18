@@ -32,6 +32,8 @@ export function useChatMessages(conversation: Conversation | null) {
   // 失败后重发同一内容时复用幂等键，避免网络重试造成重复消息。
   const pendingKeyRef = useRef<string | null>(null);
   const failedContentRef = useRef<string | null>(null);
+  // 关闭同键重放：失败重试复用同一键，成功后会话已不可再关闭。
+  const closeKeyRef = useRef<string | null>(null);
   const stoppedRef = useRef(false);
   const mountedRef = useRef(true);
 
@@ -156,13 +158,16 @@ export function useChatMessages(conversation: Conversation | null) {
     }
     setClosing(true);
     setMessageError(null);
+    const key = closeKeyRef.current ?? newIdempotencyKey();
+    closeKeyRef.current = key;
     try {
-      const page = await closeSession();
+      const page = await closeSession(key);
       if (!mountedRef.current) {
         return;
       }
       // 关闭是终态：停止轮询，状态由关闭响应的消息页回传。
       stoppedRef.current = true;
+      closeKeyRef.current = null;
       applyPage(page);
     } catch (cause) {
       if (!mountedRef.current) {

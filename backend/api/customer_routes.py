@@ -25,15 +25,11 @@ from backend.conversations.customer_chat import (
     read_customer_messages,
     send_customer_message,
 )
-from backend.conversations.customer_close import (
-    ConversationCloseConflictError,
-    close_customer_conversation,
-)
+from backend.conversations.customer_close import close_customer_conversation
 from backend.conversations.customer_conversations import (
     CustomerConversation,
+    get_current_conversation,
     get_customer_conversation,
-    get_latest_conversation,
-    get_open_conversation,
     get_or_create_open_conversation,
     get_sendable_conversation,
 )
@@ -263,13 +259,11 @@ async def read_messages(
     db: Db,
     after_id: int = Query(default=0, ge=0),
 ) -> MessagePageResponse:
-    conversation = await get_open_conversation(db, session.customer.tenant_id, session.customer.id)
+    conversation = await get_current_conversation(
+        db, session.customer.tenant_id, session.customer.id
+    )
     if conversation is None:
         # 已关闭会话仍可读历史；读接口不返回 409。
-        conversation = await get_latest_conversation(
-            db, session.customer.tenant_id, session.customer.id
-        )
-    if conversation is None:
         raise ApiError(409, ErrorCode.CONVERSATION_CLOSED)
     result = await read_customer_messages(db, conversation, after_id)
     await db.commit()
@@ -278,21 +272,23 @@ async def read_messages(
 
 @router.post(
     "/session/close",
-    responses={401: ERROR_RESPONSES[401], 409: ERROR_RESPONSES[409]},
+    responses={
+        401: ERROR_RESPONSES[401],
+        409: ERROR_RESPONSES[409],
+        422: ERROR_RESPONSES[422],
+    },
 )
 async def close_session(
     request: Request,
     session: CurrentSession,
     db: Db,
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=64),
 ) -> MessagePageResponse:
-    """客户关闭任意未关闭会话；交接单同事务终态化，重复关闭幂等。"""
+    """客户关闭任意未关闭会话；交接单同事务终态化，同键重放幂等。"""
     now = customer_sessions.utc_now()
-    conversation = await get_open_conversation(db, session.customer.tenant_id, session.customer.id)
-    if conversation is None:
-        # 没有未关闭会话时取最近一条：已关闭则返回 CLOSED 的空增量页（幂等）。
-        conversation = await get_latest_conversation(
-            db, session.customer.tenant_id, session.customer.id
-        )
+    conversation = await get_current_conversation(
+        db, session.customer.tenant_id, session.customer.id
+    )
     if conversation is None:
         raise ApiError(409, ErrorCode.CONVERSATION_CLOSED)
     trace_id = getattr(request.state, "trace_id", None) or str(uuid4())
@@ -300,10 +296,11 @@ async def close_session(
         result = await close_customer_conversation(
             db,
             conversation,
+            idempotency_key=idempotency_key,
             trace_id=trace_id,
             now=now,
         )
-    except ConversationCloseConflictError:
+    except ConversationClosedError:
         await db.rollback()
         raise ApiError(409, ErrorCode.CONVERSATION_CLOSED) from None
     await db.commit()
