@@ -29,9 +29,9 @@ function json(body: unknown, status = 200): Response {
 }
 
 async function fillAndSubmit(username = "customer_a", password = "correct-horse") {
-  fireEvent.change(screen.getByLabelText("用户名"), { target: { value: username } });
+  fireEvent.change(screen.getByLabelText("账号"), { target: { value: username } });
   fireEvent.change(screen.getByLabelText("密码"), { target: { value: password } });
-  const button = screen.getByRole("button", { name: "登录" });
+  const button = screen.getByRole("button", { name: "进入对话" });
   await waitFor(() => expect(button).toBeEnabled());
   const form = button.closest("form");
   if (!form) {
@@ -46,13 +46,13 @@ describe("LoginPanel", () => {
     vi.restoreAllMocks();
   });
 
-  it("已有登录会话时直接跳转 /chat", async () => {
+  it("AC-41 已有登录会话时直接跳转 /chat", async () => {
     vi.spyOn(global, "fetch").mockResolvedValueOnce(json(session));
     render(<LoginPanel />);
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/chat"));
   });
 
-  it("用户名密码登录成功后跳转 /chat", async () => {
+  it("AC-41 账号密码登录成功后跳转 /chat", async () => {
     const fetchMock = vi
       .spyOn(global, "fetch")
       .mockResolvedValueOnce(json({ code: "SESSION_INVALID", message: "未登录" }, 401))
@@ -69,7 +69,7 @@ describe("LoginPanel", () => {
     );
   });
 
-  it("登录失败时优先展示 message 并保持停留", async () => {
+  it("AC-41 登录失败时优先展示 message 并保持停留", async () => {
     vi.spyOn(global, "fetch")
       .mockResolvedValueOnce(json({ code: "SESSION_INVALID" }, 401))
       .mockResolvedValueOnce(
@@ -92,7 +92,24 @@ describe("LoginPanel", () => {
     expect(replace).not.toHaveBeenCalled();
   });
 
-  it("提交中禁用登录按钮", async () => {
+
+  it("AC-41 密码可见切换有可访问名称", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValueOnce(
+      json({ code: "SESSION_INVALID", message: "未登录" }, 401),
+    );
+    render(<LoginPanel />);
+    const input = screen.getByLabelText("密码") as HTMLInputElement;
+    expect(input.type).toBe("password");
+
+    fireEvent.click(await screen.findByRole("button", { name: "显示密码" }));
+    expect(input.type).toBe("text");
+    expect(screen.getByRole("button", { name: "隐藏密码" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
+  it("AC-41 提交中禁用登录按钮", async () => {
     let resolveLogin: (value: Response) => void = () => {};
     const pending = new Promise<Response>((resolve) => {
       resolveLogin = resolve;
@@ -101,16 +118,16 @@ describe("LoginPanel", () => {
       .mockResolvedValueOnce(json({ code: "SESSION_INVALID" }, 401))
       .mockImplementationOnce(() => pending);
     render(<LoginPanel />);
-    fireEvent.change(screen.getByLabelText("用户名"), { target: { value: "customer_a" } });
+    fireEvent.change(screen.getByLabelText("账号"), { target: { value: "customer_a" } });
     fireEvent.change(screen.getByLabelText("密码"), { target: { value: "correct-horse" } });
-    const button = screen.getByRole("button", { name: "登录" });
+    const button = screen.getByRole("button", { name: "进入对话" });
     await waitFor(() => expect(button).toBeEnabled());
     const form = button.closest("form");
     if (!form) {
       throw new Error("找不到登录表单");
     }
     fireEvent.submit(form);
-    const busyButton = await screen.findByRole("button", { name: "登录中…" });
+    const busyButton = await screen.findByRole("button", { name: "进入对话中…" });
     expect(busyButton).toBeDisabled();
     resolveLogin(json(session));
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/chat"));
