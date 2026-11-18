@@ -10,7 +10,7 @@ import { getSession, logout, type Session } from "@/lib/session";
 import { getConversation, takeOverConversation } from "../api/conversation";
 import type { ConversationDetail } from "../types";
 
-import { ConversationDetailPanel } from "./ConversationDetail";
+import { ConversationDetailPanel } from "./ConversationDetailPanel";
 
 const BUTTON =
   "h-8 rounded-md border border-border bg-surface px-3 text-sm text-text hover:border-border-strong focus-visible:outline-none focus-visible:shadow-focus disabled:cursor-not-allowed disabled:bg-surface-2 disabled:text-text-3";
