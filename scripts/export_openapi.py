@@ -3,15 +3,30 @@
 
 使用 production 形态的 app（test-only 路由不进入契约），但显式给出 dummy
 OMS/模型配置，避免启动期配置校验失败。`--check` 只比较，不写文件。
+
+`backend.api.main` 在 import 时会按环境变量构建一次模块级 app；CI 没有 `.env`，
+所以这里先把同一组 dummy 值写进环境变量，保证导出不依赖宿主机配置。
 """
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
+
+CONTRACT_SETTINGS: dict[str, object] = {
+    "environment": "production",
+    "m1_enabled": True,
+    "database_url": "postgresql+asyncpg://unused@127.0.0.1/unused",
+    "oms_base_url": "https://oms.example.invalid",
+    "model_api_key": "contract-export-only",
+}
+
+for _name, _value in CONTRACT_SETTINGS.items():
+    os.environ.setdefault(_name.upper(), str(_value))
 
 from backend.api.main import create_app  # noqa: E402
 from backend.platform.settings import Settings  # noqa: E402
@@ -20,14 +35,7 @@ OUTPUT = ROOT / "packages" / "contracts" / "openapi.json"
 
 
 def build_spec() -> dict[str, object]:
-    active = Settings(
-        environment="production",
-        m1_enabled=True,
-        database_url="postgresql+asyncpg://unused@127.0.0.1/unused",
-        oms_base_url="https://oms.example.invalid",
-        model_api_key="contract-export-only",
-    )
-    return create_app(active).openapi()
+    return create_app(Settings(**CONTRACT_SETTINGS)).openapi()
 
 
 def render(spec: dict[str, object]) -> str:
