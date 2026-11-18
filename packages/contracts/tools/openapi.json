@@ -254,7 +254,8 @@
           "FORBIDDEN",
           "VALIDATION_ERROR",
           "RATE_LIMITED",
-          "CONVERSATION_CLOSED"
+          "CONVERSATION_CLOSED",
+          "CLAIM_CONFLICT"
         ]
       },
       "OrderItem": {
@@ -815,6 +816,28 @@
               "properties": {
                 "code": {
                   "const": "FORBIDDEN"
+                }
+              },
+              "required": [
+                "code"
+              ]
+            },
+            "then": {
+              "properties": {
+                "retryable": {
+                  "const": false
+                },
+                "visible": {
+                  "const": true
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "code": {
+                  "const": "CLAIM_CONFLICT"
                 }
               },
               "required": [

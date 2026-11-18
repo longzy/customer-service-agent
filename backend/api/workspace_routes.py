@@ -12,11 +12,15 @@ from backend.api.workspace_schemas import (
     EmployeeLoginRequest,
     EmployeePublic,
     EmployeeSessionResponse,
+    WorkspaceClaimResponse,
     WorkspaceConversationResponse,
     WorkspaceQueueItem,
     WorkspaceQueueResponse,
 )
 from backend.conversations.workspace_conversations import (
+    ClaimConflictError,
+    HandoffClosedError,
+    claim_handoff,
     get_assigned_conversation,
     list_queued_handoffs,
 )
@@ -31,6 +35,7 @@ ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
     401: {"model": ErrorEnvelope},
     403: {"model": ErrorEnvelope},
     404: {"model": ErrorEnvelope},
+    409: {"model": ErrorEnvelope},
     422: {"model": ErrorEnvelope},
     429: {"model": ErrorEnvelope},
 }
@@ -133,6 +138,44 @@ async def read_queue(session: CurrentEmployee, db: Db) -> WorkspaceQueueResponse
     items = await list_queued_handoffs(db, session.employee.tenant_id)
     return WorkspaceQueueResponse(
         items=[WorkspaceQueueItem.model_validate(item, from_attributes=True) for item in items]
+    )
+
+
+@router.post(
+    "/queue/{handoff_id}/claim",
+    responses={
+        401: ERROR_RESPONSES[401],
+        403: ERROR_RESPONSES[403],
+        404: ERROR_RESPONSES[404],
+        409: ERROR_RESPONSES[409],
+    },
+)
+async def claim_queue_item(
+    handoff_id: str,
+    session: CurrentEmployee,
+    db: Db,
+) -> WorkspaceClaimResponse:
+    """条件领取；并发失败方得到 409，跨租户/不存在 404。"""
+    try:
+        claimed = await claim_handoff(
+            db,
+            session.employee.tenant_id,
+            session.employee.id,
+            handoff_id,
+        )
+    except HandoffClosedError:
+        await db.rollback()
+        raise ApiError(409, ErrorCode.CONVERSATION_CLOSED) from None
+    except ClaimConflictError:
+        await db.rollback()
+        raise ApiError(409, ErrorCode.CLAIM_CONFLICT) from None
+    if claimed is None:
+        raise ApiError(404, ErrorCode.NOT_FOUND)
+    await db.commit()
+    return WorkspaceClaimResponse(
+        handoff_id=claimed.handoff_id,
+        conversation_id=claimed.conversation_id,
+        status=claimed.status,  # type: ignore[arg-type]
     )
 
 

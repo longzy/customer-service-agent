@@ -4,7 +4,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { QueueGate } from "@/components/QueueGate";
 
 const replace = vi.fn();
-const router = { replace, push: vi.fn() };
+const push = vi.fn();
+const router = { replace, push };
 
 vi.mock("next/navigation", () => ({
   useRouter: () => router,
@@ -54,6 +55,7 @@ function json(body: unknown, status = 200): Response {
 describe("工作台 QueueGate", () => {
   beforeEach(() => {
     replace.mockReset();
+    push.mockReset();
     vi.restoreAllMocks();
   });
 
@@ -145,5 +147,67 @@ describe("工作台 QueueGate", () => {
     fireEvent.click(screen.getByRole("button", { name: "重试" }));
     expect(await screen.findByText("坐席 1（agent_1）")).toBeInTheDocument();
     expect(await screen.findByText("暂无待接入会话")).toBeInTheDocument();
+  });
+
+  it("领取成功后进入会话页", async () => {
+    const fetchMock = vi
+      .spyOn(global, "fetch")
+      .mockResolvedValueOnce(json(session))
+      .mockResolvedValueOnce(json({ items: [queueItems[0]] }))
+      .mockResolvedValueOnce(
+        json({ handoff_id: "ho-1", conversation_id: "conv-1", status: "CLAIMED" }),
+      );
+    render(<QueueGate />);
+    fireEvent.click(await screen.findByRole("button", { name: "领取" }));
+
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/conversations/conv-1"));
+    expect(fetchMock).toHaveBeenCalledWith("/api/workspace/queue/ho-1/claim", {
+      method: "POST",
+    });
+  });
+
+  it("领取冲突时提示并刷新队列", async () => {
+    vi.spyOn(global, "fetch")
+      .mockResolvedValueOnce(json(session))
+      .mockResolvedValueOnce(json({ items: [queueItems[0]] }))
+      .mockResolvedValueOnce(
+        json({ code: "CLAIM_CONFLICT", message: "该会话已被其他坐席领取" }, 409),
+      )
+      .mockResolvedValueOnce(json(session))
+      .mockResolvedValueOnce(json({ items: [] }));
+    render(<QueueGate />);
+    fireEvent.click(await screen.findByRole("button", { name: "领取" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "该会话已被其他坐席领取，队列已刷新",
+    );
+    expect(await screen.findByText("暂无待接入会话")).toBeInTheDocument();
+    expect(push).not.toHaveBeenCalled();
+  });
+
+  it("领取返回 401 时回登录页", async () => {
+    vi.spyOn(global, "fetch")
+      .mockResolvedValueOnce(json(session))
+      .mockResolvedValueOnce(json({ items: [queueItems[0]] }))
+      .mockResolvedValueOnce(json({ code: "SESSION_INVALID", message: "未登录" }, 401));
+    render(<QueueGate />);
+    fireEvent.click(await screen.findByRole("button", { name: "领取" }));
+
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/login"));
+  });
+
+  it("领取 404 时提示已领取并刷新", async () => {
+    vi.spyOn(global, "fetch")
+      .mockResolvedValueOnce(json(session))
+      .mockResolvedValueOnce(json({ items: [queueItems[0]] }))
+      .mockResolvedValueOnce(json({ code: "NOT_FOUND", message: "未找到" }, 404))
+      .mockResolvedValueOnce(json(session))
+      .mockResolvedValueOnce(json({ items: [] }));
+    render(<QueueGate />);
+    fireEvent.click(await screen.findByRole("button", { name: "领取" }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "该交接单不存在或已被领取，队列已刷新",
+    );
   });
 });

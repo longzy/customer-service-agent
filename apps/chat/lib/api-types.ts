@@ -246,6 +246,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/workspace/queue/{handoff_id}/claim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Claim Queue Item
+         * @description 条件领取；并发失败方得到 409，跨租户/不存在 404。
+         */
+        post: operations["claim_queue_item_workspace_queue__handoff_id__claim_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/workspace/session": {
         parameters: {
             query?: never;
@@ -446,6 +466,21 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
+        };
+        /**
+         * WorkspaceClaimResponse
+         * @description 领取成功后的最小回执；`status` 是同一事务里的会话状态。
+         */
+        WorkspaceClaimResponse: {
+            /** Conversation Id */
+            conversation_id: string;
+            /** Handoff Id */
+            handoff_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "AI_ACTIVE" | "QUEUED" | "CLAIMED" | "HUMAN_ACTIVE" | "CLOSED";
         };
         /**
          * WorkspaceConversationResponse
@@ -1134,6 +1169,73 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    claim_queue_item_workspace_queue__handoff_id__claim_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                handoff_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkspaceClaimResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

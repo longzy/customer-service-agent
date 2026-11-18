@@ -67,3 +67,13 @@ class WorkspaceQueueResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     items: list[WorkspaceQueueItem]
+
+
+class WorkspaceClaimResponse(BaseModel):
+    """领取成功后的最小回执；`status` 是同一事务里的会话状态。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    handoff_id: str
+    conversation_id: str
+    status: ConversationStatus

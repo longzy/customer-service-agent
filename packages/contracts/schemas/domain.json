@@ -45,7 +45,8 @@
         "FORBIDDEN",
         "VALIDATION_ERROR",
         "RATE_LIMITED",
-        "CONVERSATION_CLOSED"
+        "CONVERSATION_CLOSED",
+        "CLAIM_CONFLICT"
       ]
     },
     "OrderItem": {
@@ -622,6 +623,28 @@
               }
             }
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "const": "CLAIM_CONFLICT"
+              }
+            },
+            "required": [
+              "code"
+            ]
+          },
+          "then": {
+            "properties": {
+              "retryable": {
+                "const": false
+              },
+              "visible": {
+                "const": true
+              }
+            }
+          }
         }
       ]
     },
@@ -703,6 +726,10 @@
       "visible": true
     },
     "CONVERSATION_CLOSED": {
+      "retryable": false,
+      "visible": true
+    },
+    "CLAIM_CONFLICT": {
       "retryable": false,
       "visible": true
     }
