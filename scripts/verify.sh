@@ -47,7 +47,7 @@ if [ "$FAST" = "1" ]; then
   run_step "ruff check" uv run ruff check .
   run_step "ruff format" uv run ruff format --check .
   run_step "mypy" uv run mypy backend
-  run_step "shell 检查" python3 scripts/check-shell.py
+  run_step "shell 检查" uv run python scripts/check-shell.py
   run_step "import 边界" python3 scripts/check-imports.py --strict
   run_step "unit tests（独立测试库）" ./scripts/test-db.sh tests/unit -q
   echo "fast checks passed"
@@ -60,7 +60,7 @@ mkdir -p "$REPORTS_DIR"
 
 run_step "ruff check" uv run ruff check .
 run_step "ruff format" uv run ruff format --check .
-run_step "shell 检查" python3 scripts/check-shell.py
+run_step "shell 检查" uv run python scripts/check-shell.py
 run_step "import 边界" python3 scripts/check-imports.py --strict
 run_step "prod import" env ENVIRONMENT=test MODEL_API_KEY='' uv run --no-dev python -c \
   "import backend.api.main, backend.tools.gateway, backend.adapters.oms.factory"
