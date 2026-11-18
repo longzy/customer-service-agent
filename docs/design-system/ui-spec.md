@@ -111,11 +111,12 @@
 
 ### 2.6 样式承载
 
-- 组件样式统一用 CSS Modules：`Component.module.css` 与组件同目录，类名 camelCase，通过 `styles.xxx` 引用。
-- 全局 CSS 只保留两类：`app/globals.css`（reset、html/body 排版、字体栈）与 `tokens.css`（令牌）。禁止新增全局选择器。
-- 现有全局类名（`.app`、`.chat-card`、`.queue-item` 等）在 S2/S3 改版时随组件迁入 Modules；迁移完成前允许保留，但不得新增。
-- 禁止 `!important`、id 选择器、超过 2 层的标签嵌套；动态内联样式只允许数值型令牌（如进度宽度），并注释原因。
-- Modules 内同样只引用令牌，不写颜色字面量。
+- 组件样式统一用 Tailwind v4 utility；颜色、字号、圆角、阴影由 `app/globals.css` 的 `@theme` 映射 `tokens.css`，组件只写 utility 类名。
+- 字号统一为 `text-xs`（11）、`text-sm`（12.5）、`text-base`（13.5）、`text-lg`（15）、`text-xl`（22）五档；标题等展示字号可用 `text-[27px]` 一类受控任意值，不再保留 10.5/11.5/12/13 等细碎档位。
+- 全局 CSS 只保留两类：`app/globals.css`（Tailwind 入口、`@theme`、html/body 基础排版）与 `tokens.css`（令牌）。禁止新增全局选择器。
+- 存量 `.module.css` 随页面迁移逐步删除；迁移完成前允许保留，但不得新增。
+- 禁止 `!important`、id 选择器、超过 2 层的标签嵌套；动态内联样式只允许数值型 token（如进度宽度），并注释原因。
+- 组件内不写颜色/字号字面量，一律用 theme 映射的 utility。
 
 ### 2.7 动效
 

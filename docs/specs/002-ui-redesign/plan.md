@@ -61,8 +61,8 @@
 
 ### 3.3 样式承载
 
-- 新组件一律 `Component.module.css`，类名 camelCase；全局只留 reset 与 `html/body` 排版。
-- 共享原子组件在各自 `components/ui/` 内实现（不跨应用共享），样式同样用 Modules。
+- 新组件一律 Tailwind utility；颜色/字号/圆角由 `@theme` 映射 tokens；全局只留 Tailwind 入口、`@theme` 与 `html/body` 排版。
+- 共享原子组件在各自 `components/ui/` 内实现（不跨应用共享），样式同样用 Tailwind。
 - 禁止 `!important`、id 选择器、超过 2 层标签嵌套；动态内联样式只允许数值（如进度宽度）。
 
 ### 3.4 页面、路由与数据

@@ -73,10 +73,10 @@ tests/                   组件测试
 
 - **FE-CSS-01** 令牌单一来源是 `docs/design-system/tokens.css`；`app/globals.css` 里的 `:root` 颜色副本是历史债，迁移完成前禁止再新增颜色字面量。
 - **FE-CSS-02** 新增样式优先用令牌；尚无令牌时使用 4px 基数的间距（2/4/6/8/12/16/24/32），禁止 5/7/9/10/14 这类非标值。ui-spec 组件契约中的 18/26 等历史值不作为新增依据。
-- **FE-CSS-03** 颜色只能出现在 `tokens.css`；`globals.css` 只保留 reset 与基础排版，新样式用 CSS Modules（`Component.module.css`），禁止新增全局选择器。
+- **FE-CSS-03** 颜色只能出现在 `tokens.css` 与 `globals.css` 的 `@theme`；新样式一律用 Tailwind utility（颜色/字号/圆角取 theme 映射），禁止新增全局选择器与新的 `.module.css`。
 - **FE-CSS-04** 状态不得只靠颜色表意，必须同时有文字或图标。
 - **FE-CSS-05** 不引入 UI 库、图标库、远程字体；图标内联 SVG，颜色继承 `currentColor`。
-- **FE-CSS-06** 样式承载、动效、响应式与视觉基线以 [ui-spec 2.6–2.9](../design-system/ui-spec.md) 为准；不得同时引入第二种样式方案（styled-components、Tailwind 等）。
+- **FE-CSS-06** 样式承载、动效、响应式与视觉基线以 [ui-spec 2.6–2.9](../design-system/ui-spec.md) 为准；Tailwind 是唯一方案，不得再引入 styled-components 或新的 CSS Modules。
 
 ## 6. 可访问性（FE-A11Y）
 

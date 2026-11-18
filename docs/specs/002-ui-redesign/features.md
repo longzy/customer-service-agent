@@ -20,7 +20,7 @@
 | F-20 | ui | 详情面板与基线一致：客户块、三指标、脱敏末条、领取规则；完整上下文由 F-08 承接；领取成功进入会话页；无权限不展示数据。 | 命令：`pnpm -C apps/workspace exec vitest run -t "AC-45"`；手工：选中一行→右栏显示详情；点“领取会话”→进入 `/conversations/[id]`；用无权限账号访问→不显示数据。 | AC-45 | false | 2026-11-18：右栏摘要与领取用例通过；完整上下文按修订 AC-45 领取后置灰。 |
 | F-21 | ui | 队列四态与基线一致：加载骨架保留列宽、空态给出下一步、错误保留错误码与重试、403 与空队列区分。 | 命令：`pnpm -C apps/workspace exec vitest run -t "AC-46"`；手工：断开接口→看到错误态与重试；空队列→看到空态；无权限账号→看到 403；截图与 `baseline/2026-11-18-agent-states.png` 比对。 | AC-46 | false | 2026-11-18：空态、错误态、401 用例通过；骨架与 403 由 QueueStates/QueueFallback 提供。 |
 | F-22 | ui | 可访问性、动效、响应式收口：Tab 焦点可见、aria-live/alert、reduced-motion、四档断点无溢出。 | 命令：`pnpm -C apps/chat exec vitest run -t "AC-47" -t "AC-48"`；`pnpm -C apps/workspace exec vitest run -t "AC-47" -t "AC-48"`；手工：只用键盘走完登录/聊天/队列/领取；系统开启“减少动态效果”后复查；1440/1200/900/375 视口各截一张图检查溢出。 | AC-47、AC-48 | false | 2026-11-18：AC-47 选中/Esc 用例通过；AC-48 四档视口待 S4 走查。 |
-| F-23 | ui | 视觉回归与规范收口：两应用截图与基线并排比对，差异只有“允许”；新组件用 CSS Modules，无 `!important`/id、无硬编码颜色。 | 命令：`./scripts/verify.sh --no-record`；`python3 scripts/trace.py --strict`；手工：按 `baseline/README.md` 截取四个页面与四态，逐页比对并记录差异分类；`grep` 检查新组件无 `#` 色值与 `!important`。 | AC-49 | false | 2026-11-18：ego-browser 登录截图四页并与基线比对，无“需修/阻断”；截图在 evals/reports/002-ui-redesign/s4/。 |
+| F-23 | ui | 视觉回归与规范收口：两应用截图与基线并排比对，差异只有“允许”；新组件用 Tailwind，无 `!important`/id、无硬编码颜色。 | 命令：`./scripts/verify.sh --no-record`；`python3 scripts/trace.py --strict`；手工：按 `baseline/README.md` 截取四个页面与四态，逐页比对并记录差异分类；`grep` 检查新组件无 `#` 色值与 `!important`。 | AC-49 | false | 2026-11-18：ego-browser 登录截图四页并与基线比对，无“需修/阻断”；截图在 evals/reports/002-ui-redesign/s4/。 |
 
 ## 规则
 
