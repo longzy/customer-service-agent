@@ -102,7 +102,7 @@ python3 scripts/check-docs.py
 python3 scripts/check-status.py    # CURRENT.md ↔ tasks.md ↔ 执行卡
 python3 scripts/trace.py --strict  # AC ↔ 测试 ↔ 执行卡（含部分覆盖）
 python3 scripts/close_feature.py F-06 --check  # 收口前置条件；--apply 更新 features/执行卡
-./scripts/check-api-types.sh       # OpenAPI ↔ 前端生成类型
+./scripts/check-contracts.sh     # 契约链：domain/OpenAPI/前端类型
 pnpm -C apps/chat lint
 pnpm -C apps/chat typecheck
 pnpm -C apps/chat test

@@ -34,10 +34,6 @@
         "ELIGIBILITY_REJECTED",
         "OMS_REJECTED",
         "NOT_FOUND_OR_UNAUTHORIZED",
-        "DEPENDENCY_UNAVAILABLE",
-        "DEPENDENCY_TIMEOUT",
-        "INVALID_RESPONSE",
-        "INTERNAL_ERROR",
         "SESSION_INVALID",
         "SESSION_EXPIRED",
         "AUTH_FAILED",
@@ -46,7 +42,11 @@
         "VALIDATION_ERROR",
         "RATE_LIMITED",
         "CONVERSATION_CLOSED",
-        "CLAIM_CONFLICT"
+        "CLAIM_CONFLICT",
+        "DEPENDENCY_UNAVAILABLE",
+        "DEPENDENCY_TIMEOUT",
+        "INVALID_RESPONSE",
+        "INTERNAL_ERROR"
       ]
     },
     "OrderItem": {
@@ -364,94 +364,6 @@
           "if": {
             "properties": {
               "code": {
-                "const": "DEPENDENCY_UNAVAILABLE"
-              }
-            },
-            "required": [
-              "code"
-            ]
-          },
-          "then": {
-            "properties": {
-              "retryable": {
-                "const": true
-              },
-              "visible": {
-                "const": true
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "properties": {
-              "code": {
-                "const": "DEPENDENCY_TIMEOUT"
-              }
-            },
-            "required": [
-              "code"
-            ]
-          },
-          "then": {
-            "properties": {
-              "retryable": {
-                "const": true
-              },
-              "visible": {
-                "const": true
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "properties": {
-              "code": {
-                "const": "INVALID_RESPONSE"
-              }
-            },
-            "required": [
-              "code"
-            ]
-          },
-          "then": {
-            "properties": {
-              "retryable": {
-                "const": true
-              },
-              "visible": {
-                "const": true
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "properties": {
-              "code": {
-                "const": "INTERNAL_ERROR"
-              }
-            },
-            "required": [
-              "code"
-            ]
-          },
-          "then": {
-            "properties": {
-              "retryable": {
-                "const": false
-              },
-              "visible": {
-                "const": false
-              }
-            }
-          }
-        },
-        {
-          "if": {
-            "properties": {
-              "code": {
                 "const": "SESSION_INVALID"
               }
             },
@@ -540,6 +452,28 @@
           "if": {
             "properties": {
               "code": {
+                "const": "FORBIDDEN"
+              }
+            },
+            "required": [
+              "code"
+            ]
+          },
+          "then": {
+            "properties": {
+              "retryable": {
+                "const": false
+              },
+              "visible": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": {
                 "const": "VALIDATION_ERROR"
               }
             },
@@ -606,7 +540,7 @@
           "if": {
             "properties": {
               "code": {
-                "const": "FORBIDDEN"
+                "const": "CLAIM_CONFLICT"
               }
             },
             "required": [
@@ -628,7 +562,73 @@
           "if": {
             "properties": {
               "code": {
-                "const": "CLAIM_CONFLICT"
+                "const": "DEPENDENCY_UNAVAILABLE"
+              }
+            },
+            "required": [
+              "code"
+            ]
+          },
+          "then": {
+            "properties": {
+              "retryable": {
+                "const": true
+              },
+              "visible": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "const": "DEPENDENCY_TIMEOUT"
+              }
+            },
+            "required": [
+              "code"
+            ]
+          },
+          "then": {
+            "properties": {
+              "retryable": {
+                "const": true
+              },
+              "visible": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "const": "INVALID_RESPONSE"
+              }
+            },
+            "required": [
+              "code"
+            ]
+          },
+          "then": {
+            "properties": {
+              "retryable": {
+                "const": true
+              },
+              "visible": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": {
+                "const": "INTERNAL_ERROR"
               }
             },
             "required": [
@@ -641,7 +641,7 @@
                 "const": false
               },
               "visible": {
-                "const": true
+                "const": false
               }
             }
           }
@@ -681,22 +681,6 @@
       "retryable": false,
       "visible": true
     },
-    "DEPENDENCY_UNAVAILABLE": {
-      "retryable": true,
-      "visible": true
-    },
-    "DEPENDENCY_TIMEOUT": {
-      "retryable": true,
-      "visible": true
-    },
-    "INVALID_RESPONSE": {
-      "retryable": true,
-      "visible": true
-    },
-    "INTERNAL_ERROR": {
-      "retryable": false,
-      "visible": false
-    },
     "SESSION_INVALID": {
       "retryable": false,
       "visible": true
@@ -732,6 +716,22 @@
     "CLAIM_CONFLICT": {
       "retryable": false,
       "visible": true
+    },
+    "DEPENDENCY_UNAVAILABLE": {
+      "retryable": true,
+      "visible": true
+    },
+    "DEPENDENCY_TIMEOUT": {
+      "retryable": true,
+      "visible": true
+    },
+    "INVALID_RESPONSE": {
+      "retryable": true,
+      "visible": true
+    },
+    "INTERNAL_ERROR": {
+      "retryable": false,
+      "visible": false
     }
   }
 }
