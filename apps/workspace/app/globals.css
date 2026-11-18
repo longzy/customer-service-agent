@@ -1,15 +1,4 @@
-:root {
-  --bg: #fafafa;
-  --surface: #ffffff;
-  --surface-2: #f4f4f5;
-  --border: #e8e8ec;
-  --border-strong: #d6d6dd;
-  --input-border: #e4e4e7;
-  --text: #18181b;
-  --text-2: #52525b;
-  --text-3: #71717a;
-  --accent: #2563eb;
-}
+@import "./tokens.css";
 
 * {
   box-sizing: border-box;
@@ -21,9 +10,7 @@ body {
   min-height: 100vh;
   background: var(--bg);
   color: var(--text);
-  font-family:
-    -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Helvetica Neue", Arial,
-    sans-serif;
+  font-family: var(--font-sans);
 }
 
 .app {
@@ -199,8 +186,8 @@ body {
   margin: 0 0 12px;
   padding: 9px 12px;
   font-size: 12.5px;
-  color: #92400e;
-  background: #fffbeb;
+  color: var(--warning);
+  background: var(--warning-soft);
   border: 1px solid #fde68a;
   border-radius: 9px;
 }
@@ -218,7 +205,7 @@ body {
   gap: 10px;
   padding: 12px 14px;
   margin-bottom: 16px;
-  background: #fef2f2;
+  background: var(--danger-soft);
   border: 1px solid #fecaca;
   border-radius: 10px;
 }
@@ -227,7 +214,7 @@ body {
   flex: 1;
   margin: 0;
   font-size: 13px;
-  color: #b91c1c;
+  color: var(--danger);
 }
 
 .ghost {
@@ -288,7 +275,7 @@ body {
   flex: 1;
   margin: 0;
   font-size: 12.5px;
-  color: #b91c1c;
+  color: var(--danger);
 }
 
 .field {
@@ -316,7 +303,7 @@ body {
 .field input:focus-visible {
   border-color: var(--accent);
   outline: none;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+  box-shadow: 0 0 0 3px var(--focus-ring);
 }
 
 .enter {

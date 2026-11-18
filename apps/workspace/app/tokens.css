@@ -1,0 +1,73 @@
+/*
+ * M1 设计令牌（单一来源）。
+ * v2（2026-11-18）：按 UI 改版提案更新品牌色，补齐间距/圆角/字体/阴影令牌。
+ * 取值与用途见 docs/design-system/ui-spec.md 第 2 节；旧版数值不再使用。
+ */
+:root {
+  /* 品牌 */
+  --brand-deep: #13211c;
+  --brand: var(--accent);
+  --brand-soft: var(--accent-soft);
+
+  /* 画布与表面 */
+  --bg: #f6f5f1;          /* 页面画布 */
+  --paper: #fffcf6;       /* 客户侧纸面 */
+  --surface: #ffffff;
+  --surface-2: #f4f4f2;
+  --sand: #f2ebdd;
+
+  /* 描边 */
+  --border: #e6e2d8;
+  --border-strong: #d6d2c6;
+  --input-border: #dcd7ca;
+  --line-soft: #efece4;
+
+  /* 文字 */
+  --text: #1b1b17;
+  --text-2: #57554e;
+  --text-3: #726f65;
+
+  /* 强调与语义 */
+  --accent: #0f5c4c;
+  --accent-soft: #eaf2ee;
+  --success: #1f8a6c;
+  --warning: #94550a;
+  --warning-soft: #f8efdf;
+  --danger: #b4441c;
+  --danger-soft: #fbeee8;
+
+  /* 间距（4px 基数；允许值 2/4/6/8/12/16/24/32） */
+  --space-1: 2px;
+  --space-2: 4px;
+  --space-3: 6px;
+  --space-4: 8px;
+  --space-5: 12px;
+  --space-6: 16px;
+  --space-7: 24px;
+  --space-8: 32px;
+
+  /* 圆角 */
+  --radius-sm: 4px;
+  --radius-md: 9px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-pill: 999px;
+
+  /* 字体 */
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Helvetica Neue",
+    Arial, sans-serif;
+  --font-serif: "Songti SC", "Noto Serif SC", "Source Han Serif SC", Georgia, serif;
+
+  /* 字号 */
+  --text-xs: 11px;
+  --text-sm: 12.5px;
+  --text-base: 13.5px;
+  --text-md: 14px;
+  --text-lg: 15px;
+  --text-xl: 22px;
+
+  /* 阴影与焦点 */
+  --shadow-card: 0 1px 2px rgba(19, 33, 28, 0.04), 0 24px 48px -36px rgba(19, 33, 28, 0.22);
+  --shadow-float: 0 1px 2px rgba(19, 33, 28, 0.05), 0 16px 32px -24px rgba(19, 33, 28, 0.3);
+  --focus-ring: 0 0 0 3px rgba(15, 92, 76, 0.12);
+}

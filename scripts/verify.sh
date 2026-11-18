@@ -110,6 +110,7 @@ cp "$STEP_LOG" "$TRACE_LOG"
 run_step "当前状态一致性" python3 scripts/check-status.py
 run_step "docs" python3 scripts/check-docs.py
 cp "$STEP_LOG" "$DOCS_LOG"
+run_step "设计令牌" ./scripts/check-tokens.sh
 run_step "chat lint" pnpm -C apps/chat lint
 run_step "chat format" pnpm -C apps/chat exec prettier --check .
 run_step "chat typecheck" pnpm -C apps/chat typecheck
