@@ -29,10 +29,10 @@ export function ChatBrand({ customerName, busy = false, onLogout }: ChatBrandPro
             <circle cx="10" cy="12.6" r="1.5" fill="#eaf4ef" />
           </svg>
         </span>
-        <span>
+        <div className={styles.logoText}>
           <span className={styles.logoName}>回声 ECHO</span>
           <span className={styles.logoSub}>CUSTOMER CARE</span>
-        </span>
+        </div>
       </div>
 
       <h1 className={styles.headline}>
@@ -46,15 +46,22 @@ export function ChatBrand({ customerName, busy = false, onLogout }: ChatBrandPro
         <span className={styles.dot} />
         <div>
           <div className={styles.presenceTitle}>人工客服在线</div>
-          <div className={styles.presenceMeta}>接通后会在这里提示你</div>
+          <div className={styles.presenceMeta}>服务时间 9:00 – 22:00 · 平均 40 秒接通</div>
         </div>
       </div>
 
-      <div className={styles.account}>
-        <span className={styles.accountName}>{customerName}</span>
-        <button className={styles.logout} type="button" onClick={onLogout} disabled={busy}>
-          退出
-        </button>
+      <div className={styles.foot}>
+        <p className={styles.brandFoot}>
+          非服务时间可留言，次日优先处理。
+          <br />
+          对话内容仅用于本次服务。
+        </p>
+        <div className={styles.account}>
+          <span className={styles.accountName}>{customerName}</span>
+          <button className={styles.logout} type="button" onClick={onLogout} disabled={busy}>
+            退出
+          </button>
+        </div>
       </div>
     </aside>
   );

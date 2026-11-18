@@ -28,6 +28,33 @@ function formatTime(value: string): string {
   return date.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
 }
 
+const QUICK_ACTIONS = [
+  {
+    label: "查订单",
+    icon: (
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path d="M3 4.5h10M3 8h10M3 11.5h6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  {
+    label: "改地址",
+    icon: (
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path d="M8 2.5l5 4.5v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7l5-4.5Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+      </svg>
+    ),
+  },
+  {
+    label: "转人工",
+    icon: (
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path d="M3 4.5A2.5 2.5 0 0 1 5.5 2h5A2.5 2.5 0 0 1 13 4.5v4a2.5 2.5 0 0 1-2.5 2.5H7l-3 2.5V11A2.5 2.5 0 0 1 3 8.5v-4Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+      </svg>
+    ),
+  },
+];
+
 function authorLabel(authorType: MessageAuthor): string {
   return AUTHOR_LABELS[authorType] ?? "系统";
 }
@@ -65,14 +92,15 @@ export function MessageList({ messages, loading, status, onQuick }: MessageListP
             我可以帮你查订单、改配送、办理退换。需要真人时，直接说「转人工」。
           </p>
           <div className={styles.quick}>
-            {["查订单", "改地址", "转人工"].map((label) => (
+            {QUICK_ACTIONS.map((action) => (
               <button
-                key={label}
+                key={action.label}
                 type="button"
                 className={styles.quickButton}
-                onClick={() => onQuick(label)}
+                onClick={() => onQuick(action.label)}
               >
-                {label}
+                {action.icon}
+                {action.label}
               </button>
             ))}
           </div>

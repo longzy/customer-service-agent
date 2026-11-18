@@ -103,10 +103,10 @@ export function LoginPanel() {
               <circle cx="10" cy="12.6" r="1.5" fill="#eaf4ef" />
             </svg>
           </span>
-          <span>
+          <div className={styles.logoText}>
             <span className={styles.logoName}>ECHO</span>
             <span className={styles.logoSub}>CONSOLE</span>
-          </span>
+          </div>
         </div>
 
         <h1 className={styles.headline}>

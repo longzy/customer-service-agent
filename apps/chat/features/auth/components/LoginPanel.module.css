@@ -42,6 +42,11 @@
   gap: 12px;
 }
 
+.logoText {
+  display: flex;
+  flex-direction: column;
+}
+
 .logoMark {
   width: 40px;
   height: 40px;

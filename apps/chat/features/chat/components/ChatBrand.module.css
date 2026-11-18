@@ -36,6 +36,11 @@
   gap: 12px;
 }
 
+.logoText {
+  display: flex;
+  flex-direction: column;
+}
+
 .logoMark {
   width: 40px;
   height: 40px;
@@ -116,8 +121,18 @@
   color: rgba(255, 252, 246, 0.55);
 }
 
-.account {
+.foot {
   margin-top: auto;
+}
+
+.brandFoot {
+  margin: 0 0 12px;
+  font-size: 10.5px;
+  line-height: 1.8;
+  color: rgba(255, 252, 246, 0.4);
+}
+
+.account {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -165,6 +180,10 @@
   .headline,
   .lede,
   .presence {
+    display: none;
+  }
+
+  .brandFoot {
     display: none;
   }
 

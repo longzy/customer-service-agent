@@ -37,6 +37,11 @@
   padding: 6px 8px 22px;
 }
 
+.logoText {
+  display: flex;
+  flex-direction: column;
+}
+
 .logoMark {
   width: 32px;
   height: 32px;
