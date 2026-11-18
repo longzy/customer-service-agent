@@ -3,17 +3,45 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
+import { Button } from "@/components/ui/Button";
 import { getSession, login } from "@/lib/session";
+
+import styles from "./LoginPanel.module.css";
 
 type LoginError = {
   message: string;
   retryCheck: boolean;
 };
 
+const EYE_ICON = (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+    <path
+      d="M1.8 8S4 3.8 8 3.8 14.2 8 14.2 8 12 12.2 8 12.2 1.8 8 1.8 8Z"
+      stroke="currentColor"
+      strokeWidth="1.3"
+    />
+    <circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.3" />
+  </svg>
+);
+
+const SHIELD_ICON = (
+  <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+    <path
+      d="M8 1.8 13 3.6v4.1c0 3-2.1 5.4-5 6.5-2.9-1.1-5-3.5-5-6.5V3.6L8 1.8Z"
+      stroke="currentColor"
+      strokeWidth="1.3"
+      strokeLinejoin="round"
+    />
+  </svg>
+);
+
+const isDev = process.env.NODE_ENV !== "production";
+
 export function LoginPanel() {
   const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [checking, setChecking] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<LoginError | null>(null);
@@ -55,61 +83,169 @@ export function LoginPanel() {
   }
 
   return (
-    <main className="login-wrap">
-      <form className="login-card" onSubmit={handleSubmit} aria-busy={busy}>
-        <h1>客服工作台</h1>
-        <p className="login-note">请使用坐席账号登录</p>
-        {error ? (
-          <div className="login-error-box">
-            <p className="login-error" role="alert">
-              {error.message}
-            </p>
-            {error.retryCheck ? (
-              <button
-                type="button"
-                className="ghost"
-                onClick={() => void checkSession()}
-                disabled={checking}
-              >
-                重试
-              </button>
-            ) : null}
+    <main className={styles.page}>
+      <aside className={styles.brand} aria-label="ECHO 工作台">
+        <div className={styles.logo}>
+          <span className={styles.logoMark}>
+            <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+              <path
+                d="M4 6.5a7 7 0 0 1 12 0"
+                stroke="#eaf4ef"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+              />
+              <path
+                d="M6.2 9.5a4.6 4.6 0 0 1 7.6 0"
+                stroke="#9ec7b8"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+              />
+              <circle cx="10" cy="12.6" r="1.5" fill="#eaf4ef" />
+            </svg>
+          </span>
+          <span>
+            <span className={styles.logoName}>ECHO</span>
+            <span className={styles.logoSub}>CONSOLE</span>
+          </span>
+        </div>
+
+        <h1 className={styles.headline}>
+          客服工作台
+          <span>登录后开始接待。</span>
+        </h1>
+        <p className={styles.lede}>
+          待接入队列、会话详情与完整交接记录。登录后你可以看到本租户的客户会话，所有操作都会被审计。
+        </p>
+
+        <div className={styles.facts}>
+          <div>
+            <div className={styles.factValue}>12</div>
+            <div className={styles.factLabel}>当前等待</div>
           </div>
-        ) : null}
-        <div className="field">
-          <label htmlFor="username">用户名</label>
-          <input
-            id="username"
-            name="username"
-            type="text"
-            autoComplete="username"
-            autoCapitalize="none"
-            spellCheck={false}
-            value={username}
-            onChange={(event) => setUsername(event.target.value)}
-            required
-          />
+          <div>
+            <div className={styles.factValue}>40s</div>
+            <div className={styles.factLabel}>平均响应</div>
+          </div>
+          <div>
+            <div className={styles.factValue}>8h</div>
+            <div className={styles.factLabel}>会话锁定</div>
+          </div>
         </div>
-        <div className="field">
-          <label htmlFor="password">密码</label>
-          <input
-            id="password"
-            name="password"
-            type="password"
-            autoComplete="current-password"
-            value={password}
-            onChange={(event) => setPassword(event.target.value)}
-            required
-          />
+
+        <div className={styles.brandFoot}>
+          <div className={styles.brandMeta}>
+            <b>内部系统 · 仅限员工使用</b>
+            ECHO CONSOLE v0.1.0
+          </div>
+          {isDev ? (
+            <span className={styles.env}>
+              <span className={styles.envSpan} aria-hidden="true" />
+              开发环境
+            </span>
+          ) : null}
         </div>
-        <button
-          type="submit"
-          className="enter"
-          disabled={checking || busy || !username.trim() || !password}
-        >
-          {busy ? "登录中…" : "登录"}
-        </button>
-      </form>
+      </aside>
+
+      <section className={styles.pane}>
+        <p className={styles.help}>登录遇到问题？</p>
+
+        <form className={styles.card} onSubmit={handleSubmit} aria-busy={busy}>
+          <div className={styles.cardHead}>
+            <p className={styles.kicker}>AGENT SIGN IN</p>
+            {isDev ? <span className={styles.badge}>DEV</span> : null}
+          </div>
+          <h2 className={styles.title}>登录工作台</h2>
+          <p className={styles.sub}>使用员工账号登录，进入待接入队列。</p>
+
+          {error ? (
+            <div className={styles.error} role="alert">
+              <div className={styles.errorRow}>
+                <p>{error.message}</p>
+                {error.retryCheck ? (
+                  <Button
+                    variant="ghost"
+                    type="button"
+                    onClick={() => void checkSession()}
+                    disabled={checking}
+                  >
+                    重试
+                  </Button>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
+
+          <div className={styles.form}>
+            <div className={styles.field}>
+              <label className={styles.label} htmlFor="username">
+                工号或邮箱
+              </label>
+              <div className={styles.inputWrap}>
+                <input
+                  className={styles.input}
+                  id="username"
+                  name="username"
+                  type="text"
+                  autoComplete="username"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  value={username}
+                  onChange={(event) => setUsername(event.target.value)}
+                  required
+                />
+              </div>
+            </div>
+
+            <div className={styles.field}>
+              <label className={styles.label} htmlFor="password">
+                密码
+              </label>
+              <div className={styles.inputWrap}>
+                <input
+                  className={styles.input}
+                  id="password"
+                  name="password"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  required
+                />
+                <button
+                  className={styles.eye}
+                  type="button"
+                  aria-label={showPassword ? "隐藏密码" : "显示密码"}
+                  aria-pressed={showPassword}
+                  onClick={() => setShowPassword((value) => !value)}
+                >
+                  {EYE_ICON}
+                </button>
+              </div>
+            </div>
+
+            <label className={styles.keep}>
+              <input className={styles.checkbox} type="checkbox" checked disabled />
+              在此设备保持登录 8 小时（固定策略）
+            </label>
+
+            <Button
+              className={styles.submit}
+              size="lg"
+              type="submit"
+              disabled={checking || busy || !username.trim() || !password}
+            >
+              {busy ? "登录中…" : "登录"}
+            </Button>
+          </div>
+
+          <div className={styles.audit}>
+            {SHIELD_ICON}
+            <span>仅限内部员工。登录、领取与关闭会话均记录在审计日志中，用于安全追溯。</span>
+          </div>
+
+          <p className={styles.last}>上次登录：11-17 18:20 · 上海</p>
+        </form>
+      </section>
     </main>
   );
 }
