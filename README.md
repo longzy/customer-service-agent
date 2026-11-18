@@ -130,5 +130,5 @@ pnpm -C apps/workspace test
   - `pre-push`：执行完整 `verify.sh`。
 - 服务端（`.github/workflows/ci.yml`）：PR 必过 `verify` 与 `frontend-build` 两个 required check。
 
-集成测试使用独立测试库（默认 `customer_service_test`），不会再读开发库。紧急情况可 `--no-verify`，但必须在 PR 描述中写明原因，并在 24 小时内补跑完整门禁。
+集成测试使用独立测试库（默认 `customer_service_test`），不会再读开发库。测试也不读本地 `.env`（`test-db.sh` 设 `SETTINGS_ENV_FILE=/dev/null`），本地与 CI 使用同一份配置来源；要覆盖配置请用环境变量。紧急情况可 `--no-verify`，但必须在 PR 描述中写明原因，并在 24 小时内补跑完整门禁。
 

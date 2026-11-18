@@ -6,6 +6,8 @@ cd "$(git rev-parse --show-toplevel)"
 
 export UV_CACHE_DIR=./.uv-cache
 export ENVIRONMENT=test
+# 测试不读开发者 .env：本地与 CI 用同一份配置来源，避免“本地绿、CI 红”。
+export SETTINGS_ENV_FILE=/dev/null
 
 DB_NAME="${TEST_DB_NAME:-customer_service_test}"
 DB_HOST="${TEST_DB_HOST:-127.0.0.1}"

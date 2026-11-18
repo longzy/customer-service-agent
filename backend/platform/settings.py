@@ -1,5 +1,7 @@
 """运行期配置。默认按 production 运行；本机开发需在 .env 设置 ENVIRONMENT=development。"""
 
+import os
+
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -16,7 +18,11 @@ DEV_FRONTEND_ORIGINS = frozenset(
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    # SETTINGS_ENV_FILE 让测试可以关掉 .env（test-db.sh 传 /dev/null），
+    # 避免本地绿、CI 红的配置漂移。
+    model_config = SettingsConfigDict(
+        env_file=os.environ.get("SETTINGS_ENV_FILE", ".env"), extra="ignore"
+    )
 
     database_url: str = "postgresql+asyncpg://ba@127.0.0.1:5432/customer_service"
     environment: str = "production"
