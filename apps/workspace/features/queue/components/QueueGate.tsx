@@ -19,7 +19,6 @@ import { QueueKeyBar } from "./QueueKeyBar";
 import { QueueToolbar, type QueueFilter, type QueueSort } from "./QueueToolbar";
 import { WorkspaceHeader } from "./WorkspaceHeader";
 import { WorkspaceNav } from "./WorkspaceNav";
-import styles from "./QueueGate.module.css";
 
 const ROLE_LABEL: Record<string, string> = { agent: "坐席" };
 
@@ -161,7 +160,7 @@ export function QueueGate() {
   const roleLabel = ROLE_LABEL[employee.role] ?? employee.role;
 
   return (
-    <main className={styles.page}>
+    <main className="flex min-h-screen bg-bg font-sans">
       <WorkspaceNav
         agentName={employee.display_name}
         roleLabel={roleLabel}
@@ -170,7 +169,7 @@ export function QueueGate() {
         onLogout={() => void handleLogout()}
       />
 
-      <section className={styles.main}>
+      <section className="flex min-w-0 flex-1 flex-col bg-bg">
         <WorkspaceHeader
           agentName={employee.display_name}
           total={counts.all}
@@ -182,7 +181,7 @@ export function QueueGate() {
           onRefresh={() => void load()}
         />
 
-        <div className={styles.content}>
+        <div className="flex min-w-0 flex-1 flex-col px-6 max-[1023px]:px-4">
           <QueueToolbar
             filter={filter}
             counts={counts}

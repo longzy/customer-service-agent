@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { getSession, login } from "@/lib/session";
 
-import styles from "./LoginPanel.module.css";
 import { LoginBrand } from "./LoginBrand";
 
 type LoginError = {
@@ -35,6 +34,12 @@ const SHIELD_ICON = (
     />
   </svg>
 );
+
+const INPUT_WRAP =
+  "flex h-[42px] items-center gap-2 rounded-md border border-input-border bg-surface px-3 transition-colors focus-within:border-accent focus-within:shadow-focus";
+
+const INPUT =
+  "min-w-0 flex-1 bg-transparent text-base text-text outline-none placeholder:text-text-3";
 
 const isDev = process.env.NODE_ENV !== "production";
 
@@ -84,109 +89,135 @@ export function LoginPanel() {
   }
 
   return (
-    <main className={styles.page}>
-      <LoginBrand />
+    <main className="flex min-h-screen bg-canvas-deep p-10 max-[1024px]:p-0">
+      <div className="flex flex-1 overflow-hidden rounded-[28px] bg-bg shadow-panel max-[1024px]:flex-col max-[1024px]:rounded-none">
+        <LoginBrand isDev={isDev} />
 
-      <section className={styles.pane}>
-        <p className={styles.help}>登录遇到问题？</p>
+        <section className="relative flex flex-1 flex-col items-center justify-center gap-4 px-10 py-10 max-[1024px]:px-5 max-[1024px]:pb-10 max-[1024px]:pt-6">
+          <p className="absolute right-10 top-8 text-xs text-text-2 max-[1024px]:hidden">
+            登录遇到问题？
+          </p>
 
-        <form className={styles.card} onSubmit={handleSubmit} aria-busy={busy}>
-          <div className={styles.cardHead}>
-            <p className={styles.kicker}>AGENT SIGN IN</p>
-            {isDev ? <span className={styles.badge}>DEV</span> : null}
-          </div>
-          <h2 className={styles.title}>登录工作台</h2>
-          <p className={styles.sub}>使用员工账号登录，进入待接入队列。</p>
+          <form
+            className="w-full max-w-[400px] rounded-[18px] border border-border bg-surface px-9 pb-7 pt-8 shadow-panel max-[1024px]:px-6"
+            onSubmit={handleSubmit}
+            aria-busy={busy}
+          >
+            <div className="flex items-center">
+              <p className="m-0 text-xs font-semibold tracking-[0.18em] text-text-3">
+                AGENT SIGN IN
+              </p>
+              {isDev ? (
+                <span className="ml-auto rounded-full border border-notice-line bg-notice-bg px-2 py-0.5 text-xs tracking-[0.08em] text-notice-ink">
+                  DEV
+                </span>
+              ) : null}
+            </div>
+            <h2 className="mt-2.5 text-[23px] font-semibold tracking-[-0.01em]">登录工作台</h2>
+            <p className="mt-2 text-sm leading-[1.7] text-text-2">
+              使用员工账号登录，进入待接入队列。
+            </p>
 
-          {error ? (
-            <div className={styles.error} role="alert">
-              <div className={styles.errorRow}>
-                <p>{error.message}</p>
-                {error.retryCheck ? (
-                  <Button
-                    variant="ghost"
+            {error ? (
+              <div
+                className="mt-4 rounded-md bg-danger-soft px-3 py-2.5 text-sm leading-relaxed text-danger"
+                role="alert"
+              >
+                <div className="flex items-center gap-2.5">
+                  <p className="flex-1">{error.message}</p>
+                  {error.retryCheck ? (
+                    <Button
+                      variant="ghost"
+                      type="button"
+                      onClick={() => void checkSession()}
+                      disabled={checking}
+                    >
+                      重试
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+            ) : null}
+
+            <div className="mt-6 flex flex-col gap-4">
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-medium text-text-2" htmlFor="username">
+                  工号或邮箱
+                </label>
+                <div className={INPUT_WRAP}>
+                  <input
+                    className={INPUT}
+                    id="username"
+                    name="username"
+                    type="text"
+                    autoComplete="username"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    value={username}
+                    onChange={(event) => setUsername(event.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-medium text-text-2" htmlFor="password">
+                  密码
+                </label>
+                <div className={INPUT_WRAP}>
+                  <input
+                    className={INPUT}
+                    id="password"
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    required
+                  />
+                  <button
+                    className="-m-1 grid place-items-center rounded-sm p-1 text-text-3 hover:text-text-2 focus-visible:outline-none focus-visible:shadow-focus"
                     type="button"
-                    onClick={() => void checkSession()}
-                    disabled={checking}
+                    aria-label={showPassword ? "隐藏密码" : "显示密码"}
+                    aria-pressed={showPassword}
+                    onClick={() => setShowPassword((value) => !value)}
                   >
-                    重试
-                  </Button>
-                ) : null}
+                    {EYE_ICON}
+                  </button>
+                </div>
               </div>
-            </div>
-          ) : null}
 
-          <div className={styles.form}>
-            <div className={styles.field}>
-              <label className={styles.label} htmlFor="username">
-                工号或邮箱
-              </label>
-              <div className={styles.inputWrap}>
+              <label className="flex items-center gap-2 text-xs text-text-2">
                 <input
-                  className={styles.input}
-                  id="username"
-                  name="username"
-                  type="text"
-                  autoComplete="username"
-                  autoCapitalize="none"
-                  spellCheck={false}
-                  value={username}
-                  onChange={(event) => setUsername(event.target.value)}
-                  required
+                  className="h-[15px] w-[15px] shrink-0 appearance-none rounded-sm border border-border-strong bg-surface checked:border-accent checked:bg-accent disabled:opacity-75"
+                  type="checkbox"
+                  checked
+                  disabled
                 />
-              </div>
-            </div>
-
-            <div className={styles.field}>
-              <label className={styles.label} htmlFor="password">
-                密码
+                在此设备保持登录 8 小时（固定策略）
               </label>
-              <div className={styles.inputWrap}>
-                <input
-                  className={styles.input}
-                  id="password"
-                  name="password"
-                  type={showPassword ? "text" : "password"}
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  required
-                />
-                <button
-                  className={styles.eye}
-                  type="button"
-                  aria-label={showPassword ? "隐藏密码" : "显示密码"}
-                  aria-pressed={showPassword}
-                  onClick={() => setShowPassword((value) => !value)}
-                >
-                  {EYE_ICON}
-                </button>
-              </div>
+
+              <Button
+                className="mt-1 w-full"
+                size="lg"
+                type="submit"
+                disabled={checking || busy || !username.trim() || !password}
+              >
+                {busy ? "登录中…" : "登录"}
+              </Button>
             </div>
 
-            <label className={styles.keep}>
-              <input className={styles.checkbox} type="checkbox" checked disabled />
-              在此设备保持登录 8 小时（固定策略）
-            </label>
+            <div className="mt-5 flex gap-1.5 border-t border-line-soft pt-3.5 text-xs leading-[1.8] text-text-3">
+              <span className="mt-0.5 shrink-0">{SHIELD_ICON}</span>
+              <span>仅限内部员工。登录、领取与关闭会话均记录在审计日志中，用于安全追溯。</span>
+            </div>
 
-            <Button
-              className={styles.submit}
-              size="lg"
-              type="submit"
-              disabled={checking || busy || !username.trim() || !password}
-            >
-              {busy ? "登录中…" : "登录"}
-            </Button>
-          </div>
-
-          <div className={styles.audit}>
-            {SHIELD_ICON}
-            <span>仅限内部员工。登录、领取与关闭会话均记录在审计日志中，用于安全追溯。</span>
-          </div>
-
-          <p className={styles.last}>上次登录：11-17 18:20 · 上海</p>
-        </form>
-      </section>
+            <p className="mt-3.5 text-center text-xs tabular-nums text-text-3">
+              上次登录：11-17 18:20 · 上海
+            </p>
+          </form>
+        </section>
+      </div>
     </main>
   );
 }

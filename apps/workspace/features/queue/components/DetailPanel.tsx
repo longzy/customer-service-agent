@@ -2,9 +2,8 @@
 
 import type { QueueItem } from "../types";
 
+import { DetailSections } from "./DetailSections";
 import { formatWait, isOverdue } from "./QueueTable";
-import sections from "./DetailSections.module.css";
-import styles from "./DetailPanel.module.css";
 
 const REASON_LABEL: Record<string, string> = {
   CUSTOMER_REQUEST: "客户要求转人工",
@@ -22,6 +21,9 @@ type DetailPanelProps = {
   onClose: () => void;
 };
 
+const METRIC_LABEL = "block text-xs tracking-[0.04em] text-text-3";
+const METRIC_VALUE = "mt-1 block text-sm font-semibold tabular-nums";
+
 export function DetailPanel({
   item,
   open,
@@ -31,11 +33,16 @@ export function DetailPanel({
   onClose,
 }: DetailPanelProps) {
   return (
-    <aside className={`${styles.detail} ${open ? styles.open : ""}`} aria-label="会话详情">
-      <div className={styles.head}>
-        <h2 className={styles.title}>会话详情</h2>
+    <aside
+      aria-label="会话详情"
+      className={`flex min-h-screen w-[352px] shrink-0 flex-col gap-4 border-l border-border bg-surface px-[22px] py-5 max-[1279px]:w-[320px] max-[1023px]:fixed max-[1023px]:inset-y-0 max-[1023px]:right-0 max-[1023px]:z-20 max-[1023px]:min-h-0 max-[1023px]:overflow-y-auto max-[1023px]:shadow-[-24px_0_48px_-32px_rgba(19,33,28,0.4)] max-[1023px]:transition-transform ${
+        open ? "max-[1023px]:translate-x-0" : "max-[1023px]:translate-x-full"
+      }`}
+    >
+      <div className="flex items-center">
+        <h2 className="m-0 text-sm font-semibold">会话详情</h2>
         <button
-          className={styles.close}
+          className="ml-auto rounded-sm px-1.5 py-0.5 text-lg leading-none text-text-3 hover:text-text focus-visible:outline-none focus-visible:shadow-focus disabled:cursor-default disabled:opacity-40"
           type="button"
           onClick={onClose}
           aria-label="关闭详情"
@@ -47,86 +54,47 @@ export function DetailPanel({
 
       {item ? (
         <>
-          <div className={styles.customer}>
-            <span className={styles.avatar} aria-hidden="true">
+          <div className="flex items-center gap-3">
+            <span className="grid h-[42px] w-[42px] shrink-0 place-items-center rounded-full bg-avatar-strong-bg text-base text-avatar-strong-ink">
               {item.customer_display_name.slice(0, 1)}
             </span>
             <span>
-              <span className={styles.name}>
+              <span className="flex items-center gap-1.5 text-base font-semibold">
                 {item.customer_display_name}
-                <span className={styles.tenant}>本租户</span>
+                <span className="inline-flex h-[18px] items-center rounded-full border border-border bg-bg px-2 text-xs font-normal text-text-2">
+                  本租户
+                </span>
               </span>
-              <span className={styles.username}>
+              <span className="mt-1 block text-xs tabular-nums text-text-3">
                 {item.customer_username} · 会话 {item.conversation_id.slice(0, 8)}
               </span>
             </span>
           </div>
 
-          <div className={styles.metrics}>
-            <div className={styles.metric}>
-              <span className={styles.metricLabel}>等待</span>
-              <span className={isOverdue(item) ? styles.metricDanger : styles.metricValue}>
+          <div className="grid grid-cols-[1fr_1.25fr_1fr] overflow-hidden rounded-lg border border-border">
+            <div className="min-w-0 border-r border-border px-2.5 py-2.5">
+              <span className={METRIC_LABEL}>等待</span>
+              <span className={`${METRIC_VALUE} ${isOverdue(item) ? "text-danger" : ""}`}>
                 {formatWait(item.waiting_seconds)}
               </span>
             </div>
-            <div className={styles.metric}>
-              <span className={styles.metricLabel}>转人工原因</span>
-              <span className={styles.metricSmall}>{REASON_LABEL[item.reason] ?? item.reason}</span>
+            <div className="min-w-0 border-r border-border px-2.5 py-2.5">
+              <span className={METRIC_LABEL}>转人工原因</span>
+              <span className="mt-1 block text-xs leading-[1.4] text-text">
+                {REASON_LABEL[item.reason] ?? item.reason}
+              </span>
             </div>
-            <div className={styles.metric}>
-              <span className={styles.metricLabel}>订单</span>
-              <span className={styles.metricValue}>{item.order_count}</span>
-            </div>
-          </div>
-
-          <div className={sections.section}>
-            <div className={sections.sectionHead}>
-              <span>最后一条消息</span>
-              <span className={sections.sectionMeta}>已脱敏</span>
-            </div>
-            <div className={sections.message}>
-              <div className={sections.messageHead}>
-                <span className={sections.messageWho}>{item.customer_display_name}</span>
-              </div>
-              <p className={sections.messageBody}>{item.last_message || "（无客户消息）"}</p>
-            </div>
-            <div className={sections.mask}>
-              <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                <rect
-                  x="2"
-                  y="5"
-                  width="8"
-                  height="5.5"
-                  rx="1.2"
-                  stroke="currentColor"
-                  strokeWidth="1.2"
-                />
-                <path d="M4 5V3.8a2 2 0 0 1 4 0V5" stroke="currentColor" strokeWidth="1.2" />
-              </svg>
-              手机号、邮箱、身份证号已隐藏
+            <div className="min-w-0 px-2.5 py-2.5">
+              <span className={METRIC_LABEL}>订单</span>
+              <span className={METRIC_VALUE}>{item.order_count}</span>
             </div>
           </div>
 
-          <div className={sections.section}>
-            <div className={sections.sectionHead}>
-              <span>完整上下文</span>
-              <span className={sections.sectionMeta}>领取后可见</span>
-            </div>
-            <div className={sections.note}>
-              <b>领取后可查看</b>
-              <span>领取后进入会话页；完整交接单由后续 F-08 承接。</span>
-            </div>
-          </div>
+          <DetailSections item={item} />
 
-          <div className={sections.rules}>
-            <b>领取规则</b>
-            <span>同一会话仅一名坐席可领取；冲突返回 409 并刷新队列。</span>
-            <span>领取后锁定 8 小时，可在「我的会话」中继续。</span>
-          </div>
-
-          <div className={styles.actions}>
+          <div className="mt-auto flex flex-col gap-2">
             <button
-              className={styles.claim}
+              className="h-[38px] rounded-md border border-accent bg-accent text-sm font-medium text-surface hover:bg-brand-deep focus-visible:outline-none focus-visible:shadow-focus disabled:cursor-not-allowed disabled:border-border disabled:bg-surface-2 disabled:text-text-3"
               type="button"
               onClick={onClaim}
               disabled={disabled || claiming}
@@ -134,20 +102,20 @@ export function DetailPanel({
               {claiming ? "领取中…" : "领取会话"}
             </button>
             <button
-              className={styles.secondary}
+              className="h-[38px] rounded-md border border-border bg-surface text-sm text-text-3"
               type="button"
               disabled
               title="领取后进入会话页查看"
             >
               查看完整交接单
             </button>
-            <p className={styles.foot}>
+            <p className="m-0 border-t border-line-soft pt-2.5 text-xs leading-[1.7] text-text-3">
               数据范围：本租户 · 仅坐席可见。超时阈值 5 分钟，超过后在列表中标记。
             </p>
           </div>
         </>
       ) : (
-        <div className={styles.empty}>
+        <div className="grid flex-1 place-items-center p-6 text-center text-xs leading-[1.7] text-text-3">
           <p>选择左侧一行，查看客户与领取规则。</p>
         </div>
       )}

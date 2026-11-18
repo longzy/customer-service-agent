@@ -4,7 +4,6 @@ import type { QueueItem } from "../types";
 
 import { QueueEmpty, QueueError, QueueSkeleton } from "./QueueStates";
 import { QueueTable } from "./QueueTable";
-import styles from "./QueueGate.module.css";
 
 type QueueBodyProps = {
   items: QueueItem[] | null;
@@ -42,7 +41,7 @@ export function QueueBody({
   return (
     <>
       {notice ? (
-        <p className={styles.notice} role="status">
+        <p className="mt-3 rounded-md bg-warning-soft px-3 py-2 text-sm text-warning" role="status">
           {notice}
         </p>
       ) : null}
@@ -54,9 +53,13 @@ export function QueueBody({
       ) : items && items.length === 0 ? (
         <QueueEmpty onRefresh={onRefresh} />
       ) : visible.length === 0 ? (
-        <div className={styles.filterEmpty}>
+        <div className="mt-3.5 flex min-h-[320px] flex-col items-center justify-center gap-2.5 rounded-xl border border-border bg-surface text-sm text-text-2">
           没有符合筛选条件的会话。
-          <button className={styles.button} type="button" onClick={onClearFilters}>
+          <button
+            className="h-8 rounded-md border border-border bg-surface px-3 text-sm text-text focus-visible:outline-none focus-visible:shadow-focus"
+            type="button"
+            onClick={onClearFilters}
+          >
             清除筛选
           </button>
         </div>

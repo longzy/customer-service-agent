@@ -41,6 +41,10 @@
   --color-notice-strong: var(--notice-strong);
   --color-avatar-bg: var(--avatar-bg);
   --color-avatar-ink: var(--avatar-ink);
+  --color-avatar-deep: var(--avatar-deep);
+  --color-env-dot: var(--env-dot);
+  --color-sidebar-ink: var(--sidebar-ink);
+  --color-skeleton-mid: var(--skeleton-mid);
   --font-sans: var(--font-sans);
   --font-serif: var(--font-serif);
   --text-xs: 11px;

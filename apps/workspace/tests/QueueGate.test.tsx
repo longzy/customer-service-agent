@@ -119,7 +119,7 @@ describe("工作台 QueueGate", () => {
 
     const detail = screen.getByLabelText("会话详情");
     await waitFor(() => expect(within(detail).getByText("最后一条消息")).toBeInTheDocument());
-    expect(within(detail).getByText("领取后可查看")).toBeInTheDocument();
+    expect(within(detail).getByText("领取后进入会话页")).toBeInTheDocument();
     expect(within(detail).getByText("领取规则")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "查看完整交接单" })).toBeDisabled();
   });
