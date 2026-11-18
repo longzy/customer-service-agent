@@ -84,11 +84,14 @@ M1 演示账号：客户 `customer_a`/`customer_b`，坐席 `agent_1`/`agent_2`�
 
 ```bash
 # 一键验证：ruff、mypy、pytest（独立测试库）、路由覆盖、追溯、状态、文档、前端检查与构建
-make verify-check                 # 实现过程：全量验证，不写回 CURRENT（保留退出码，默认一行摘要）
+make verify-changed ARGS=F-08     # 实现内环：按变更范围跑定向 AC 测试、改动 app 的 lint/typecheck/test
+make verify-check                 # 评审门禁：全量验证，不写回 CURRENT（保留退出码，默认一行摘要）
 make verify                       # 收口：全量验证并写回 CURRENT
 ./scripts/verify.sh --no-record   # CI 使用：只验证，不写回状态快照
 ./scripts/verify.sh --verbose     # 排障：逐步输出完整日志
 make verify-fast                  # 后端快速反馈
+make review-check                 # 评审前置快检：机械规则 + 文档/状态/追溯/契约
+make review-pack ARGS="F-08"      # 生成两轴评审包（固定点、diff、AC 原文、执行卡决策、命令）
 make lint                         # ruff check + format check
 make typecheck                    # mypy backend
 make test                         # pytest（独立测试库）
@@ -100,6 +103,8 @@ UV_CACHE_DIR=./.uv-cache uv run mypy backend
 ./scripts/test-db.sh -q            # 建测试库、跑迁移、再跑 pytest
 python3 scripts/check-docs.py
 python3 scripts/check-status.py    # CURRENT.md ↔ tasks.md ↔ 执行卡
+python3 scripts/check-review-prereqs.py  # 组件命名/trace 基线/CURRENT 评审声称
+python3 scripts/review_pack.py F-08       # 评审包；自动识别固定点
 python3 scripts/trace.py --strict  # AC ↔ 测试 ↔ 执行卡（含部分覆盖）
 python3 scripts/close_feature.py F-06 --check  # 收口前置条件；--apply 更新 features/执行卡
 ./scripts/check-contracts.sh     # 契约链：domain/OpenAPI/前端类型

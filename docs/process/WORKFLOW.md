@@ -80,14 +80,16 @@ Frame（目标/非目标/完成标准）
 - 每完成一个 feature，`Steps` 全绿、`Evidence` 非空后才把 `passes` 改为 `true`；
 - 不得改 `Description`/`Steps`/`AC` 来迁就实现；要改先改 brief/plan 并重新评审；
 - 跑 `make verify-check`；关键路径加端到端/浏览器验证（多身份配方见 [浏览器走查](e2e-walkthrough.md)）；API 契约变更必须跑 `./scripts/check-contracts.sh`（verify 已包含；`check-api-types.sh` 为兼容入口）；
-- 实现过程用 `make verify-check`（不写 CURRENT、保留退出码）；演示数据重置统一用 `make dev-reset`，不手写 `DELETE`/`UPDATE` 修改开发库；
+- 实现过程用 `make verify-changed ARGS=F-08`（按变更范围：定向 AC 测试 + 改动 app 的 lint/typecheck/test + 文档/状态/追溯/契约；不跑全量 pytest/评测/构建）；`make verify-check` 只留给评审门禁与收口；
+- 演示数据重置统一用 `make dev-reset`，不手写 `DELETE`/`UPDATE` 修改开发库；
 - 提交保持小步，main 始终可运行。
 
 完成标志：**feature 的验证命令通过；用户可演示该 feature；没有静默跳过。**
 
 ### 3.4 Review & Ship
 
-- 评审按 [review 模板](../templates/review.md) 与 [review checklist](../process/review-checklist.md) 输出；先复核门禁，再逐 AC 给证据；
+- 评审输入：`python3 scripts/review_pack.py F-XX` 生成评审包（固定点、diff、AC 原文、执行卡 §1/§2、plan、命令）；先跑 `make review-check`（机械前置），再跑 `make verify-check`（全量门禁）；
+- 两轴独立评审按 [评审模板](../templates/review.md) 与 [两轴提示词](review-prompts.md) 输出；Standards 与 Spec 报告分开写，先复核门禁，再逐 AC 给证据；
 - 独立上下文代码评审：看 diff、测试、越权/失败路径；
 - 人工走查：按 features 的 `Steps` 逐行演示；
 - lasting decisions 写 ADR；更新 plan/features，不让文档腐烂；
@@ -131,7 +133,7 @@ docs/adr/                             # lasting decisions
 |---|---|
 | “开工” | 当前已批准 feature 的执行卡 + 实现 |
 | “先规划” | Frame/Plan，不写代码 |
-| “评审” | 独立代码评审 + 逐 feature 证据 |
+| “评审” | 评审包 + 机械前置 + 两轴独立评审 + 逐 feature 证据 |
 | “收口” | `close_feature.py --check` → 更新 features/CURRENT/ADR → `make verify` → 提交 |
 
 ## 7. 停止并请求决策

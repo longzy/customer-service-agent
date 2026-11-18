@@ -49,6 +49,7 @@
 - UI 改版规格（2026-11-18）：`002-ui-redesign` 的 brief/plan/features 草案落地（AC-40~49、9 个 feature、S1–S4 映射），trace 基线已登记；待批准后开工。
 - UI 设计冻结（2026-11-18）：编号顺延为 002（原拟 005）；补 CSS Modules 承载、动效参数、响应式断点、视觉基线；`ui-spec` v4 与 `baseline/` 已落地，应用代码未改。
 - 流程改进（2026-11-18）：验证默认摘要与 `--verbose`、check-docs 锚点/待创建路径、trace 按 feature 判部分覆盖、dev 非 TTY 安装、close_feature.py 收口检查、读模型投影/评审固定点/多身份走查模板、`make lint/typecheck/test`。
+- 流程改进（2026-11-18，评审内环）：新增 `make verify-changed`（按变更范围跑定向 AC 测试、改动 app 的 lint/typecheck/test 与文档/状态/追溯/契约）、`make review-check`（组件命名、trace 基线归属、CURRENT/评审记录一致的机械前置）、`make review-pack`（两轴评审包）；接入 verify、pre-commit、README 与 WORKFLOW。
 - 前端升级与目录（2026-11-18）：`apps/chat`、`apps/workspace` 升级 Next.js 16.4.6 + React 19.3 + ESLint 9 flat config（`next lint` 已移除，改用 `eslint .`）；目录迁到 `features/auth`、`features/chat`、`features/queue`、`features/conversation`，`app/` 只装配；`ChatShell` 拆出 `useChatMessages`，19/17 条前端用例与两应用 build 通过。
 
 ## 阻塞

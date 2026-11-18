@@ -120,7 +120,8 @@ tests/                   组件测试
 | 核心 lint（React/Hooks/Next 基础规则） | `pnpm lint` → `eslint .`（ESLint 9 flat config；verify + CI） | 已接入 |
 | FE-DATA-05 禁 any | `eslint-config-next/typescript` 的 `@typescript-eslint/no-explicit-any`（warn） | 已接入（warn） |
 | FE-DATA-02 请求集中到 lib | 无 | 待接 `no-restricted-syntax` 或脚本 |
-| FE-CMP-01..06、FE-DIR-01..09 | 无 | 待接 ESLint（`max-lines`、`import/no-restricted-paths`） |
+| FE-CMP-01..06、FE-DIR-01..05、08..09 | 无 | 待接 ESLint（`max-lines`、`import/no-restricted-paths`） |
+| FE-DIR-06/07 组件命名与单组件 | `scripts/check-review-prereqs.py`（pre-commit + verify） | 已接入（命名/单组件；目录/查重仍人工） |
 | FE-CSS-02/03 颜色与 token | 无 | 待接 stylelint 或脚本 |
 | FE-A11Y-01..05 | 无 | 待接 `plugin:jsx-a11y/recommended` |
 | FE-SEC-01/02 | 无 | 待接 `no-restricted-syntax` |

@@ -107,6 +107,7 @@ fi
 run_step "route coverage" python3 scripts/check-route-coverage.py
 run_step "追溯矩阵" python3 scripts/trace.py --strict
 cp "$STEP_LOG" "$TRACE_LOG"
+run_step "评审前置" python3 scripts/check-review-prereqs.py
 run_step "当前状态一致性" python3 scripts/check-status.py
 run_step "docs" python3 scripts/check-docs.py
 cp "$STEP_LOG" "$DOCS_LOG"

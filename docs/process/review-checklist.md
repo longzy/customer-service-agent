@@ -5,8 +5,10 @@
 
 ## 0. 门禁复核
 
-- 评审范围固定点：本 feature 开工前 HEAD（首个实现提交的父提交，`git rev-parse <first-feat-commit>^`）；记录 `git diff <fixed>...HEAD` 与 `git log <fixed>..HEAD --oneline`。
-- 先跑 `make verify-check`；失败直接「不通过」。
+- 评审范围固定点：本 feature 开工前 HEAD（首个实现提交的父提交，`git rev-parse <first-commit>^`）；记录 `git diff <fixed>...HEAD` 与 `git log <fixed>..HEAD --oneline`。
+- 评审输入：`python3 scripts/review_pack.py F-XX`（自动识别固定点；含 AC 原文、features 行、执行卡 §1/§2、plan 全文与命令）。
+- 先跑 `make review-check`（机械前置：组件命名、trace 基线归属、CURRENT/评审记录一致、文档/状态/契约）；失败先修机械问题。
+- 再跑 `make verify-check`；失败直接「不通过」。
 - 独立跑该 feature 的 `Steps` 命令（AC 定向测试），不只看实现者粘贴的数字。
 - 评审者用独立测试库，避免与实现者的 `customer_service_test` 竞争：`TEST_DB_NAME=customer_service_review_<id> ./scripts/test-db.sh <定向用例> -q`。
 - 契约变更检查 `./scripts/check-contracts.sh`。
@@ -31,6 +33,8 @@
 
 ## 输出
 
+- 两轴提示词：[review-prompts](review-prompts.md)；输出格式：[review 模板](../templates/review.md)。
+- 两轴报告分开写，不合并、不重排。
 - 每条 finding 标「阻塞 / 建议 / 接受为后续」。
 - `## 逐 AC` 每行必须有可复查证据。
 - `## 阻断项` 写「无」或编号 + 位置 + 必须修复项。

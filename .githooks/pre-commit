@@ -10,6 +10,7 @@ python3 scripts/check-secrets.py --staged >/dev/null
 python3 scripts/check-docs.py >/dev/null
 python3 scripts/check-status.py >/dev/null
 python3 scripts/trace.py --strict >/dev/null
+python3 scripts/check-review-prereqs.py >/dev/null
 ./scripts/check-commands.sh >/dev/null
 ./scripts/check-contracts.sh
 ./scripts/check-tokens.sh >/dev/null
