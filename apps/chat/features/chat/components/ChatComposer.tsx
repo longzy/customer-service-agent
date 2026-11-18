@@ -71,7 +71,12 @@ export function ChatComposer({
         >
           {trimmedLength}/{maxLength}
         </span>
-        <button className={styles.send} type="submit" disabled={!canSend} aria-label={sending ? "发送中" : "发送"}>
+        <button
+          className={styles.send}
+          type="submit"
+          disabled={!canSend}
+          aria-label={sending ? "发送中" : "发送"}
+        >
           {sending ? (
             <span className={styles.sending}>发送中</span>
           ) : (

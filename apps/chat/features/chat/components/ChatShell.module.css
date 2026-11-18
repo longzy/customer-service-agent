@@ -1,13 +1,24 @@
 .page {
   min-height: 100vh;
+  padding: 40px;
   display: flex;
-  background: var(--bg);
+  background: var(--canvas-deep);
+}
+
+.shell {
+  flex: 1;
+  display: flex;
+  border-radius: 28px;
+  overflow: hidden;
+  background: var(--paper);
+  box-shadow: var(--shadow-card);
+  min-height: 0;
 }
 
 .chat {
   flex: 1;
   min-width: 0;
-  min-height: 100vh;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   background: var(--paper);
@@ -16,10 +27,10 @@
 .head {
   height: 76px;
   flex: none;
-  padding: 0 32px;
+  padding: 0 var(--space-8);
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-5);
   border-bottom: 1px solid var(--border);
 }
 
@@ -33,19 +44,19 @@
 
 .title {
   margin: 3px 0 0;
-  font-size: 15px;
+  font-size: var(--text-lg);
   font-weight: 600;
 }
 
 .chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-3);
   height: 24px;
   padding: 0 10px;
   border-radius: var(--radius-pill);
   border: 1px solid var(--border);
-  font-size: 11px;
+  font-size: var(--text-xs);
   font-weight: 500;
   background: var(--surface);
   color: var(--text-2);
@@ -60,8 +71,8 @@
 
 .chipLive {
   background: var(--accent-soft);
-  border-color: #cfe2da;
-  color: #145c4d;
+  border-color: var(--accent-line);
+  color: var(--accent-ink);
 }
 
 .chipLive .chipDot {
@@ -70,7 +81,7 @@
 
 .chipWarn {
   background: var(--warning-soft);
-  border-color: #ecd9bb;
+  border-color: var(--warning-line);
   color: var(--warning);
 }
 
@@ -89,13 +100,13 @@
 }
 
 .error {
-  margin: 14px 32px 0;
+  margin: 14px var(--space-8) 0;
   padding: 10px 14px;
   border: 1px solid var(--danger-soft);
   border-radius: var(--radius-md);
   background: var(--danger-soft);
   color: var(--danger);
-  font-size: 12.5px;
+  font-size: var(--text-sm);
   display: flex;
   align-items: center;
   gap: 10px;
@@ -112,7 +123,7 @@
   color: inherit;
   font-family: var(--font-sans);
   font-size: 11.5px;
-  padding: 4px 10px;
+  padding: var(--space-2) 10px;
   border-radius: var(--radius-md);
   cursor: pointer;
 }
@@ -123,8 +134,8 @@
 }
 
 .notice {
-  margin: 14px 32px 0;
-  padding: 8px 12px;
+  margin: 14px var(--space-8) 0;
+  padding: var(--space-4) var(--space-5);
   border-radius: var(--radius-md);
   background: var(--warning-soft);
   color: var(--warning);
@@ -135,7 +146,7 @@
   flex: 1;
   display: grid;
   place-items: center;
-  padding: 32px;
+  padding: var(--space-8);
 }
 
 .notFoundCard {
@@ -148,25 +159,30 @@
 }
 
 .notFoundCard h2 {
-  margin: 0 0 8px;
+  margin: 0 0 var(--space-4);
   font-size: 16px;
 }
 
 .notFoundCard p {
-  margin: 0 0 16px;
-  font-size: 12.5px;
+  margin: 0 0 var(--space-6);
+  font-size: var(--text-sm);
   line-height: 1.7;
   color: var(--text-2);
 }
 
 .composerArea {
   flex: none;
-  padding: 14px 32px 24px;
+  padding: 14px var(--space-8) var(--space-7);
   background: var(--paper);
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1024px) {
   .page {
+    padding: 0;
+  }
+
+  .shell {
+    border-radius: 0;
     flex-direction: column;
   }
 
@@ -177,16 +193,16 @@
 
   .head {
     height: 64px;
-    padding: 0 16px;
+    padding: 0 var(--space-6);
   }
 
   .error,
   .notice {
-    margin-left: 16px;
-    margin-right: 16px;
+    margin-left: var(--space-6);
+    margin-right: var(--space-6);
   }
 
   .composerArea {
-    padding: 10px 16px 16px;
+    padding: 10px var(--space-6) var(--space-6);
   }
 }

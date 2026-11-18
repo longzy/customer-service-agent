@@ -69,7 +69,6 @@ describe("工作台 LoginPanel", () => {
     );
   });
 
-
   it("AC-43 密码可见切换与固定 8 小时策略", async () => {
     vi.spyOn(global, "fetch").mockResolvedValueOnce(
       json({ code: "SESSION_INVALID", message: "未登录" }, 401),

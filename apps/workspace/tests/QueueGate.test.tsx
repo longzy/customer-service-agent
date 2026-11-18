@@ -110,7 +110,6 @@ describe("工作台 QueueGate", () => {
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/login"));
   });
 
-
   it("AC-45 选中行展示摘要详情", async () => {
     vi.spyOn(global, "fetch")
       .mockResolvedValueOnce(json(session))

@@ -58,7 +58,12 @@ export function QueueError({
     <div className={styles.stateCard} role="alert">
       <span className={`${styles.icon} ${styles.iconRed}`}>
         <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
-          <path d="M9 5.2v4.2M9 12.2v.3" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+          <path
+            d="M9 5.2v4.2M9 12.2v.3"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinecap="round"
+          />
           <circle cx="9" cy="9" r="6.6" stroke="currentColor" strokeWidth="1.5" />
         </svg>
       </span>
@@ -77,7 +82,15 @@ export function DeniedState({ onLogout }: { onLogout: () => void }) {
     <div className={styles.stateCard} role="alert">
       <span className={`${styles.icon} ${styles.iconGrey}`}>
         <svg width="17" height="17" viewBox="0 0 18 18" fill="none" aria-hidden="true">
-          <rect x="4" y="8" width="10" height="7" rx="1.6" stroke="currentColor" strokeWidth="1.5" />
+          <rect
+            x="4"
+            y="8"
+            width="10"
+            height="7"
+            rx="1.6"
+            stroke="currentColor"
+            strokeWidth="1.5"
+          />
           <path d="M6.4 8V6.2a2.6 2.6 0 0 1 5.2 0V8" stroke="currentColor" strokeWidth="1.5" />
         </svg>
       </span>

@@ -73,71 +73,73 @@ export function ChatShell({
 
   return (
     <main className={styles.page}>
-      <ChatBrand customerName={customer.display_name} busy={busy} onLogout={onLogout} />
+      <div className={styles.shell}>
+        <ChatBrand customerName={customer.display_name} busy={busy} onLogout={onLogout} />
 
-      <section className={styles.chat}>
-        <header className={styles.head}>
-          <div>
-            <p className={styles.kicker}>ONLINE SUPPORT</p>
-            <h1 className={styles.title}>在线支持</h1>
-          </div>
-          <span className={`${styles.chip} ${meta.tone}`}>
-            <span className={styles.chipDot} aria-hidden="true" />
-            {meta.label}
-          </span>
-        </header>
+        <section className={styles.chat}>
+          <header className={styles.head}>
+            <div>
+              <p className={styles.kicker}>ONLINE SUPPORT</p>
+              <h1 className={styles.title}>在线支持</h1>
+            </div>
+            <span className={`${styles.chip} ${meta.tone}`}>
+              <span className={styles.chipDot} aria-hidden="true" />
+              {meta.label}
+            </span>
+          </header>
 
-        {error ? (
-          <div className={styles.error} role="alert">
-            <p>{error}</p>
-            {onRetry ? (
-              <button className={styles.retry} type="button" onClick={onRetry} disabled={busy}>
-                重试
-              </button>
-            ) : null}
-          </div>
-        ) : null}
-
-        {conversationNotFound ? (
-          <div className={styles.notFound}>
-            <div className={styles.notFoundCard}>
-              <h2>会话不存在</h2>
-              <p>该会话不存在，或当前账号无权访问。</p>
-              {onBack ? (
-                <button className={styles.retry} type="button" onClick={onBack}>
-                  返回
+          {error ? (
+            <div className={styles.error} role="alert">
+              <p>{error}</p>
+              {onRetry ? (
+                <button className={styles.retry} type="button" onClick={onRetry} disabled={busy}>
+                  重试
                 </button>
               ) : null}
             </div>
-          </div>
-        ) : conversation ? (
-          <>
-            {messageError ? (
-              <p className={styles.notice} role="alert">
-                {messageError}
-              </p>
-            ) : null}
-            <MessageList
-              messages={visibleMessages}
-              loading={loading}
-              status={status}
-              onQuick={(text) => void submitMessage(text)}
-            />
-            <div className={styles.composerArea}>
-              <ChatComposer
-                draft={draft}
-                setDraft={setDraft}
-                sending={sending}
-                overLimit={overLimit}
-                trimmedLength={trimmedLength}
-                maxLength={maxLength}
-                canSend={canSend}
-                onSubmit={() => void submitMessage()}
-              />
+          ) : null}
+
+          {conversationNotFound ? (
+            <div className={styles.notFound}>
+              <div className={styles.notFoundCard}>
+                <h2>会话不存在</h2>
+                <p>该会话不存在，或当前账号无权访问。</p>
+                {onBack ? (
+                  <button className={styles.retry} type="button" onClick={onBack}>
+                    返回
+                  </button>
+                ) : null}
+              </div>
             </div>
-          </>
-        ) : null}
-      </section>
+          ) : conversation ? (
+            <>
+              {messageError ? (
+                <p className={styles.notice} role="alert">
+                  {messageError}
+                </p>
+              ) : null}
+              <MessageList
+                messages={visibleMessages}
+                loading={loading}
+                status={status}
+                onQuick={(text) => void submitMessage(text)}
+              />
+              <div className={styles.composerArea}>
+                <ChatComposer
+                  draft={draft}
+                  setDraft={setDraft}
+                  sending={sending}
+                  overLimit={overLimit}
+                  trimmedLength={trimmedLength}
+                  maxLength={maxLength}
+                  canSend={canSend}
+                  onSubmit={() => void submitMessage()}
+                />
+              </div>
+            </>
+          ) : null}
+        </section>
+      </div>
     </main>
   );
 }

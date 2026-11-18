@@ -1,0 +1,165 @@
+.brand {
+  width: 520px;
+  flex: none;
+  background: var(--brand-deep);
+  color: var(--paper);
+  padding: 40px 48px 34px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+
+.brand::after {
+  content: "";
+  position: absolute;
+  right: -160px;
+  top: -60px;
+  width: 520px;
+  height: 520px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--brand-mint) 16%, transparent);
+  box-shadow:
+    0 0 0 80px color-mix(in srgb, var(--brand-mint) 5%, transparent),
+    0 0 0 180px color-mix(in srgb, var(--brand-mint) 3%, transparent);
+  pointer-events: none;
+}
+
+.brand > * {
+  position: relative;
+  z-index: 1;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.logoText {
+  display: flex;
+  flex-direction: column;
+}
+
+.logoMark {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-lg);
+  background: var(--accent);
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+
+.logoName {
+  display: block;
+  font-size: var(--text-base);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+}
+
+.logoSub {
+  display: block;
+  margin-top: var(--space-1);
+  font-size: 9.5px;
+  letter-spacing: 0.2em;
+  color: color-mix(in srgb, var(--paper) 42%, transparent);
+}
+
+.headline {
+  margin: 100px 0 0;
+  font-size: 40px;
+  line-height: 1.22;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.headline span {
+  display: block;
+  color: var(--brand-mint);
+}
+
+.lede {
+  margin: 20px 0 0;
+  max-width: 340px;
+  font-size: 13px;
+  line-height: 1.9;
+  color: color-mix(in srgb, var(--paper) 60%, transparent);
+}
+
+.facts {
+  margin-top: 36px;
+  display: flex;
+  gap: var(--space-8);
+}
+
+.factValue {
+  font-size: var(--text-xl);
+  font-weight: 600;
+  color: var(--presence-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.factLabel {
+  margin-top: var(--space-2);
+  font-size: 10.5px;
+  color: color-mix(in srgb, var(--paper) 42%, transparent);
+  letter-spacing: 0.04em;
+}
+
+.brandFoot {
+  margin-top: auto;
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-5);
+}
+
+.brandMeta {
+  font-size: 10.5px;
+  line-height: 1.9;
+  color: color-mix(in srgb, var(--paper) 38%, transparent);
+}
+
+.brandMeta b {
+  display: block;
+  color: color-mix(in srgb, var(--paper) 60%, transparent);
+  font-weight: 500;
+}
+
+.env {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  height: 24px;
+  padding: 0 9px;
+  border-radius: var(--radius-pill);
+  border: 1px solid color-mix(in srgb, var(--paper) 18%, transparent);
+  color: color-mix(in srgb, var(--paper) 62%, transparent);
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+}
+
+.envSpan {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--env-dot);
+}
+
+@media (max-width: 1024px) {
+  .brand {
+    width: auto;
+    padding: 18px 24px;
+  }
+
+  .headline,
+  .lede,
+  .facts {
+    display: none;
+  }
+
+  .brandFoot {
+    margin-top: 12px;
+  }
+}

@@ -92,7 +92,6 @@ describe("LoginPanel", () => {
     expect(replace).not.toHaveBeenCalled();
   });
 
-
   it("AC-41 密码可见切换有可访问名称", async () => {
     vi.spyOn(global, "fetch").mockResolvedValueOnce(
       json({ code: "SESSION_INVALID", message: "未登录" }, 401),

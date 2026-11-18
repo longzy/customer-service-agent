@@ -40,7 +40,9 @@ export function ChatBrand({ customerName, busy = false, onLogout }: ChatBrandPro
         <br />
         <em>随时说。</em>
       </h1>
-      <p className={styles.lede}>真人客服在工作时间在线，平均 40 秒接通。订单、退换、物流，都可以直接问。</p>
+      <p className={styles.lede}>
+        真人客服在工作时间在线，平均 40 秒接通。订单、退换、物流，都可以直接问。
+      </p>
 
       <div className={styles.presence}>
         <span className={styles.dot} />

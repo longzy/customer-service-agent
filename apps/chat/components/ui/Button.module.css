@@ -9,9 +9,11 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: var(--space-3);
   cursor: pointer;
-  transition: background-color 120ms ease-out, border-color 120ms ease-out;
+  transition:
+    background-color 120ms ease-out,
+    border-color 120ms ease-out;
 }
 
 .button:focus-visible {
@@ -56,6 +58,6 @@
 
 .lg {
   height: 42px;
-  font-size: 13.5px;
+  font-size: var(--text-base);
   border-radius: var(--radius-lg);
 }

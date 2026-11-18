@@ -3,6 +3,7 @@
 import type { QueueItem } from "../types";
 
 import { formatWait, isOverdue } from "./QueueTable";
+import sections from "./DetailSections.module.css";
 import styles from "./DetailPanel.module.css";
 
 const REASON_LABEL: Record<string, string> = {
@@ -70,9 +71,7 @@ export function DetailPanel({
             </div>
             <div className={styles.metric}>
               <span className={styles.metricLabel}>转人工原因</span>
-              <span className={styles.metricSmall}>
-                {REASON_LABEL[item.reason] ?? item.reason}
-              </span>
+              <span className={styles.metricSmall}>{REASON_LABEL[item.reason] ?? item.reason}</span>
             </div>
             <div className={styles.metric}>
               <span className={styles.metricLabel}>订单</span>
@@ -80,20 +79,18 @@ export function DetailPanel({
             </div>
           </div>
 
-          <div className={styles.section}>
-            <div className={styles.sectionHead}>
+          <div className={sections.section}>
+            <div className={sections.sectionHead}>
               <span>最后一条消息</span>
-              <span className={styles.sectionMeta}>已脱敏</span>
+              <span className={sections.sectionMeta}>已脱敏</span>
             </div>
-            <div className={styles.message}>
-              <div className={styles.messageHead}>
-                <span className={styles.messageWho}>{item.customer_display_name}</span>
+            <div className={sections.message}>
+              <div className={sections.messageHead}>
+                <span className={sections.messageWho}>{item.customer_display_name}</span>
               </div>
-              <p className={styles.messageBody}>
-                {item.last_message || "（无客户消息）"}
-              </p>
+              <p className={sections.messageBody}>{item.last_message || "（无客户消息）"}</p>
             </div>
-            <div className={styles.mask}>
+            <div className={sections.mask}>
               <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
                 <rect
                   x="2"
@@ -110,18 +107,18 @@ export function DetailPanel({
             </div>
           </div>
 
-          <div className={styles.section}>
-            <div className={styles.sectionHead}>
+          <div className={sections.section}>
+            <div className={sections.sectionHead}>
               <span>完整上下文</span>
-              <span className={styles.sectionMeta}>领取后可见</span>
+              <span className={sections.sectionMeta}>领取后可见</span>
             </div>
-            <div className={styles.note}>
+            <div className={sections.note}>
               <b>领取后可查看</b>
-              <span>最近 20 条消息、AI 轨迹与完整交接摘要。</span>
+              <span>领取后进入会话页；完整交接单由后续 F-08 承接。</span>
             </div>
           </div>
 
-          <div className={styles.rules}>
+          <div className={sections.rules}>
             <b>领取规则</b>
             <span>同一会话仅一名坐席可领取；冲突返回 409 并刷新队列。</span>
             <span>领取后锁定 8 小时，可在「我的会话」中继续。</span>
@@ -136,7 +133,12 @@ export function DetailPanel({
             >
               {claiming ? "领取中…" : "领取会话"}
             </button>
-            <button className={styles.secondary} type="button" disabled title="领取后可查看">
+            <button
+              className={styles.secondary}
+              type="button"
+              disabled
+              title="领取后进入会话页查看"
+            >
               查看完整交接单
             </button>
             <p className={styles.foot}>

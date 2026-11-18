@@ -1,14 +1,13 @@
 .brand {
   width: 340px;
   flex: none;
-  min-height: 100vh;
+  min-height: 100%;
   background: var(--brand-deep);
   color: var(--paper);
   padding: 34px;
   display: flex;
   flex-direction: column;
-  position: sticky;
-  top: 0;
+  position: relative;
   overflow: hidden;
 }
 
@@ -20,8 +19,10 @@
   width: 400px;
   height: 400px;
   border-radius: 50%;
-  border: 1px solid rgba(158, 199, 184, 0.16);
-  box-shadow: 0 0 0 60px rgba(158, 199, 184, 0.05), 0 0 0 140px rgba(158, 199, 184, 0.03);
+  border: 1px solid color-mix(in srgb, var(--brand-mint) 16%, transparent);
+  box-shadow:
+    0 0 0 60px color-mix(in srgb, var(--brand-mint) 5%, transparent),
+    0 0 0 140px color-mix(in srgb, var(--brand-mint) 3%, transparent);
   pointer-events: none;
 }
 
@@ -33,7 +34,7 @@
 .logo {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-5);
 }
 
 .logoText {
@@ -53,17 +54,17 @@
 
 .logoName {
   display: block;
-  font-size: 15px;
+  font-size: var(--text-lg);
   font-weight: 600;
   letter-spacing: 0.14em;
 }
 
 .logoSub {
   display: block;
-  margin-top: 2px;
+  margin-top: var(--space-1);
   font-size: 10.5px;
   letter-spacing: 0.22em;
-  color: rgba(255, 252, 246, 0.5);
+  color: color-mix(in srgb, var(--paper) 50%, transparent);
 }
 
 .headline {
@@ -77,7 +78,7 @@
 
 .headline em {
   font-style: normal;
-  color: #9ec7b8;
+  color: var(--brand-mint);
 }
 
 .lede {
@@ -85,40 +86,40 @@
   max-width: 260px;
   font-size: 13px;
   line-height: 1.9;
-  color: rgba(255, 252, 246, 0.64);
+  color: color-mix(in srgb, var(--paper) 64%, transparent);
 }
 
 .presence {
   margin-top: 30px;
-  padding: 14px 16px;
-  border: 1px solid rgba(255, 252, 246, 0.14);
+  padding: 14px var(--space-6);
+  border: 1px solid color-mix(in srgb, var(--paper) 14%, transparent);
   border-radius: var(--radius-xl);
   display: flex;
-  gap: 12px;
+  gap: var(--space-5);
   align-items: flex-start;
-  background: rgba(255, 255, 255, 0.03);
+  background: color-mix(in srgb, var(--surface) 3%, transparent);
 }
 
 .dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #58c49a;
+  background: var(--online);
   margin-top: 5px;
   flex: none;
-  box-shadow: 0 0 0 4px rgba(88, 196, 154, 0.12);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--online) 12%, transparent);
 }
 
 .presenceTitle {
-  font-size: 12.5px;
+  font-size: var(--text-sm);
   font-weight: 600;
-  color: #e9f3ee;
+  color: var(--presence-ink);
 }
 
 .presenceMeta {
   margin-top: 3px;
   font-size: 11.5px;
-  color: rgba(255, 252, 246, 0.55);
+  color: color-mix(in srgb, var(--paper) 55%, transparent);
 }
 
 .foot {
@@ -126,30 +127,30 @@
 }
 
 .brandFoot {
-  margin: 0 0 12px;
+  margin: 0 0 var(--space-5);
   font-size: 10.5px;
   line-height: 1.8;
-  color: rgba(255, 252, 246, 0.4);
+  color: color-mix(in srgb, var(--paper) 40%, transparent);
 }
 
 .account {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-5);
   padding-top: 20px;
-  border-top: 1px solid rgba(255, 252, 246, 0.12);
+  border-top: 1px solid color-mix(in srgb, var(--paper) 12%, transparent);
 }
 
 .accountName {
   font-size: 12px;
-  color: rgba(255, 252, 246, 0.72);
+  color: color-mix(in srgb, var(--paper) 72%, transparent);
 }
 
 .logout {
   margin-left: auto;
-  border: 1px solid rgba(255, 252, 246, 0.18);
+  border: 1px solid color-mix(in srgb, var(--paper) 18%, transparent);
   background: transparent;
-  color: rgba(255, 252, 246, 0.72);
+  color: color-mix(in srgb, var(--paper) 72%, transparent);
   font-family: var(--font-sans);
   font-size: 11.5px;
   padding: 5px 10px;
@@ -159,7 +160,7 @@
 
 .logout:hover:not(:disabled) {
   color: var(--paper);
-  border-color: rgba(255, 252, 246, 0.4);
+  border-color: color-mix(in srgb, var(--paper) 40%, transparent);
 }
 
 .logout:disabled {
@@ -167,7 +168,7 @@
   cursor: not-allowed;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1024px) {
   .brand {
     width: auto;
     min-height: 0;

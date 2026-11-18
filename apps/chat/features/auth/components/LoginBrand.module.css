@@ -1,0 +1,147 @@
+.brand {
+  width: 400px;
+  flex: none;
+  background: var(--brand-deep);
+  color: var(--paper);
+  padding: 40px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+
+.brand::after {
+  content: "";
+  position: absolute;
+  left: -120px;
+  bottom: -120px;
+  width: 420px;
+  height: 420px;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--brand-mint) 16%, transparent);
+  box-shadow:
+    0 0 0 60px color-mix(in srgb, var(--brand-mint) 5%, transparent),
+    0 0 0 140px color-mix(in srgb, var(--brand-mint) 3%, transparent);
+  pointer-events: none;
+}
+
+.brand > * {
+  position: relative;
+  z-index: 1;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+}
+
+.logoText {
+  display: flex;
+  flex-direction: column;
+}
+
+.logoMark {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-lg);
+  background: var(--accent);
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+
+.logoName {
+  font-size: var(--text-lg);
+  font-weight: 600;
+  letter-spacing: 0.14em;
+}
+
+.logoSub {
+  margin-top: var(--space-1);
+  font-size: 10.5px;
+  letter-spacing: 0.22em;
+  color: color-mix(in srgb, var(--paper) 50%, transparent);
+}
+
+.headline {
+  margin: 84px 0 0;
+  font-family: var(--font-serif);
+  font-size: 48px;
+  line-height: 1.16;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.headline em {
+  font-style: normal;
+  color: var(--brand-mint);
+}
+
+.lede {
+  margin: 22px 0 0;
+  max-width: 276px;
+  font-size: var(--text-base);
+  line-height: 1.9;
+  color: color-mix(in srgb, var(--paper) 64%, transparent);
+}
+
+.presence {
+  margin-top: var(--space-8);
+  padding: 14px var(--space-6);
+  border: 1px solid color-mix(in srgb, var(--paper) 14%, transparent);
+  border-radius: var(--radius-xl);
+  display: flex;
+  gap: var(--space-5);
+  align-items: flex-start;
+  background: color-mix(in srgb, var(--surface) 3%, transparent);
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--online);
+  margin-top: 5px;
+  flex: none;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--online) 12%, transparent);
+}
+
+.presenceTitle {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--presence-ink);
+}
+
+.presenceMeta {
+  margin-top: 3px;
+  font-size: 11.5px;
+  color: color-mix(in srgb, var(--paper) 55%, transparent);
+}
+
+.brandFoot {
+  margin-top: auto;
+  font-size: var(--text-xs);
+  line-height: 1.9;
+  color: color-mix(in srgb, var(--paper) 40%, transparent);
+}
+
+.brandFoot strong {
+  display: block;
+  font-weight: 500;
+  color: color-mix(in srgb, var(--paper) 62%, transparent);
+}
+
+@media (max-width: 1024px) {
+  .brand {
+    width: auto;
+    padding: 18px 24px;
+  }
+
+  .headline,
+  .lede,
+  .presence,
+  .brandFoot {
+    display: none;
+  }
+}

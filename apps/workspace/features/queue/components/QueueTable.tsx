@@ -57,7 +57,12 @@ export function QueueTable({
         <thead>
           <tr>
             <th>
-              <input type="checkbox" className={styles.checkbox} disabled aria-label="批量选择（暂不可用）" />
+              <input
+                type="checkbox"
+                className={styles.checkbox}
+                disabled
+                aria-label="批量选择（暂不可用）"
+              />
             </th>
             <th>客户</th>
             <th>等待</th>

@@ -37,3 +37,6 @@ evals/reports/
 
 # npm 本地缓存（仅排障）
 .npm-cache/
+
+# 外部工具的工作目录
+.workbuddy/

@@ -10,13 +10,7 @@ type QueueFallbackProps = {
   onLogout: () => void;
 };
 
-export function QueueFallback({
-  denied,
-  error,
-  loading,
-  onRetry,
-  onLogout,
-}: QueueFallbackProps) {
+export function QueueFallback({ denied, error, loading, onRetry, onLogout }: QueueFallbackProps) {
   if (denied) {
     return <DeniedState onLogout={onLogout} />;
   }

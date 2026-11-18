@@ -100,10 +100,7 @@ export function QueueToolbar({
         <label className={styles.select}>
           <span className={styles.srOnly}>排序方式</span>
           <span className={styles.selectText}>排序</span>
-          <select
-            value={sort}
-            onChange={(event) => onSort(event.target.value as QueueSort)}
-          >
+          <select value={sort} onChange={(event) => onSort(event.target.value as QueueSort)}>
             <option value="waited">等待最久</option>
             <option value="newest">最新进入</option>
           </select>
