@@ -86,7 +86,8 @@ export function useChatMessages(conversation: Conversation | null) {
     async function load(afterId: number) {
       try {
         const page = await getMessages(afterId);
-        if (cancelled) {
+        // 关闭/401 后停止应用在途响应，避免旧状态覆盖 CLOSED 只读态。
+        if (cancelled || stoppedRef.current) {
           return;
         }
         applyPage(page);

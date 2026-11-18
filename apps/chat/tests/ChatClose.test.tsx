@@ -154,4 +154,40 @@ describe("ChatShell 结束会话", () => {
     expect(keys[0]).toBeTruthy();
     expect(keys[0]).toBe(keys[1]);
   });
+
+  it("AC-38 关闭后在途轮询响应不覆盖只读态", async () => {
+    let resolveLoad: (value: Response) => void = () => {};
+    const pendingLoad = new Promise<Response>((resolve) => {
+      resolveLoad = resolve;
+    });
+    vi.spyOn(global, "fetch")
+      .mockImplementationOnce(() => pendingLoad)
+      .mockResolvedValueOnce(
+        json({
+          conversation_id: "conv-1",
+          status: "CLOSED",
+          after_id: 3,
+          messages: [message(3, "system", "会话已结束")],
+        }),
+      );
+
+    renderShell();
+    fireEvent.click(screen.getByRole("button", { name: "结束会话" }));
+    expect(await screen.findByText("已结束")).toBeInTheDocument();
+
+    // 关闭前发出的轮询响应晚到，返回旧状态；不得把只读态覆盖回去。
+    await act(async () => {
+      resolveLoad(
+        json({
+          conversation_id: "conv-1",
+          status: "AI_ACTIVE",
+          after_id: 2,
+          messages: [message(1, "customer", "你好")],
+        }),
+      );
+      await Promise.resolve();
+    });
+    expect(screen.getByText("已结束")).toBeInTheDocument();
+    expect(screen.queryByLabelText("消息")).not.toBeInTheDocument();
+  });
 });
