@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { QueueGate } from "@/components/QueueGate";
+import { QueueGate } from "@/features/queue";
 
 const replace = vi.fn();
 const push = vi.fn();

@@ -3,15 +3,16 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
-import { ChatShell } from "@/components/ChatShell";
+import { ApiError } from "@/lib/api-client";
 import {
-  ApiError,
   getConversation,
   getSession,
   logout,
   type Conversation,
   type Session,
 } from "@/lib/session";
+
+import { ChatShell } from "./ChatShell";
 
 type RetryAction = "load" | "logout";
 

@@ -3,8 +3,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { getQueue, claimHandoff, type QueueItem } from "@/lib/queue";
-import { ApiError, getSession, logout, type Session } from "@/lib/session";
+import { ApiError } from "@/lib/api-client";
+import { getSession, logout, type Session } from "@/lib/session";
+
+import { claimHandoff, getQueue } from "../api/queue";
+import type { QueueItem } from "../types";
 
 const ROLE_LABEL: Record<string, string> = {
   agent: "坐席",

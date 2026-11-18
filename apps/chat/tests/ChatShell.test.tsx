@@ -2,7 +2,7 @@ import { StrictMode } from "react";
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { ChatShell } from "@/components/ChatShell";
+import { ChatShell } from "@/features/chat";
 
 const replace = vi.fn();
 const router = { replace, push: vi.fn() };

@@ -1,9 +1,6 @@
-import type { components } from "./api-types";
+import { readError } from "@/lib/api-client";
 
-import { readError } from "./session";
-
-// 会话入口契约来自 FastAPI OpenAPI 生成类型；不要手写响应字段。
-export type ConversationDetail = components["schemas"]["WorkspaceConversationResponse"];
+import type { ConversationDetail } from "../types";
 
 /**
  * 已领取会话的最小读取；401/403 返回 null，由页面统一回登录页。

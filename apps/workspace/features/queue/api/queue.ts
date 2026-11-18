@@ -1,11 +1,6 @@
-import type { components } from "./api-types";
+import { readError } from "@/lib/api-client";
 
-import { readError } from "./session";
-
-// 队列契约来自 FastAPI OpenAPI 生成类型；不要手写响应字段。
-export type QueueItem = components["schemas"]["WorkspaceQueueItem"];
-export type QueueResponse = components["schemas"]["WorkspaceQueueResponse"];
-export type ClaimResult = components["schemas"]["WorkspaceClaimResponse"];
+import type { ClaimResult, QueueItem, QueueResponse } from "../types";
 
 /**
  * 待接入队列；服务端已按 FIFO 排序，前端不得二次排序。

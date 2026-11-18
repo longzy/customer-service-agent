@@ -4,8 +4,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
-import { getConversation, type ConversationDetail } from "@/lib/conversation";
-import { ApiError, getSession, logout, type Session } from "@/lib/session";
+import { ApiError } from "@/lib/api-client";
+import { getSession, logout, type Session } from "@/lib/session";
+
+import { getConversation } from "../api/conversation";
+import type { ConversationDetail } from "../types";
 
 const STATUS_LABEL: Record<string, string> = {
   AI_ACTIVE: "AI 接待中",
