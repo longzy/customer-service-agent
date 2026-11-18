@@ -97,6 +97,11 @@ jobs:
       - uses: pnpm/action-setup@v4
         with:
           version: 10
-      - run: pnpm -C apps/web audit --audit-level high
-      - run: pnpm -C apps/chat audit --audit-level high
-      - run: pnpm -C apps/workspace audit --audit-level high
+      - name: 审计前端依赖
+        # high/critical 必须为 0。唯一豁免是 picomatch ReDoS（CVE-2026-112366）：
+        # 上游暂无修复版本，且只出现在 eslint 工具链（dev 依赖），
+        # 豁免写在 apps/*/package.json 的 pnpm.auditConfig.ignoreCves。
+        run: |
+          pnpm -C apps/web audit --audit-level high
+          pnpm -C apps/chat audit --audit-level high
+          pnpm -C apps/workspace audit --audit-level high
