@@ -81,14 +81,24 @@ fi
 BACKEND_PID=""
 CHAT_PID=""
 WORKSPACE_PID=""
+kill_pid() {
+  # 参数为空表示未启动，直接跳过
+  [ -n "$1" ] || return 0
+  kill "$1" 2>/dev/null || true
+}
+wait_pid() {
+  [ -n "$1" ] || return 0
+  wait "$1" 2>/dev/null || true
+}
 cleanup() {
   trap - EXIT INT TERM
-  [ -n "$BACKEND_PID" ] && kill "$BACKEND_PID" 2>/dev/null || true
-  [ -n "$CHAT_PID" ] && kill "$CHAT_PID" 2>/dev/null || true
-  [ -n "$WORKSPACE_PID" ] && kill "$WORKSPACE_PID" 2>/dev/null || true
-  [ -n "$BACKEND_PID" ] && wait "$BACKEND_PID" 2>/dev/null || true
-  [ -n "$CHAT_PID" ] && wait "$CHAT_PID" 2>/dev/null || true
-  [ -n "$WORKSPACE_PID" ] && wait "$WORKSPACE_PID" 2>/dev/null || true
+  # 先全部发 TERM，再逐个回收，避免等一个进程时其他进程还在跑
+  kill_pid "$BACKEND_PID"
+  kill_pid "$CHAT_PID"
+  kill_pid "$WORKSPACE_PID"
+  wait_pid "$BACKEND_PID"
+  wait_pid "$CHAT_PID"
+  wait_pid "$WORKSPACE_PID"
 }
 trap cleanup EXIT INT TERM
 
