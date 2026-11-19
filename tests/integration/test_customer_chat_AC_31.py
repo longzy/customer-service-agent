@@ -16,6 +16,7 @@ from backend.conversations.customer_chat import (
     MODEL_FAILURE_HANDOFF_NOTICE,
     RETRY_NOTICE,
 )
+from backend.conversations.statuses import RETURNED_TO_AI_NOTICE
 from backend.identity.customer_sessions import CUSTOMER_COOKIE
 from backend.platform.models import (
     ServiceAiEvent,
@@ -304,7 +305,7 @@ def simulate_return_to_ai(conversation_id: str) -> None:
                 conversation_id=conversation_id,
                 author_type="system",
                 author_id=None,
-                content="已转回 AI 客服",
+                content=RETURNED_TO_AI_NOTICE,
                 idempotency_key=None,
                 trace_id="trace-return",
                 created_at=datetime.now(UTC),
