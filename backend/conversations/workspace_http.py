@@ -88,6 +88,8 @@ def _handoff_payload(handoff: HandoffDetail) -> WorkspaceHandoffDetail:
         order_count=handoff.order_count,
         messages=[WorkspaceContextMessage.model_validate(item) for item in handoff.messages],
         ai_trace=[WorkspaceAiTraceEvent.model_validate(item) for item in handoff.ai_trace],
+        failure_count=handoff.failure_count,
+        last_error=handoff.last_error,
     )
 
 

@@ -135,6 +135,8 @@ class WorkspaceHandoffDetail(BaseModel):
     order_count: int = Field(ge=0)
     messages: list[WorkspaceContextMessage]
     ai_trace: list[WorkspaceAiTraceEvent]
+    failure_count: int | None = Field(default=None, ge=2)
+    last_error: str | None = None
 
 
 class WorkspaceConversationResponse(BaseModel):

@@ -8,7 +8,7 @@
 - 当前工作：F-14 已完成并收口；F-13、F-12、F-11、F-10、F-09、F-08 已收口；F-24 与 F-15、F-16、F-17、F-18、F-19、F-20、F-21、F-22 待评审
 
 <!-- verify:start -->
-- 最近验证：`./scripts/verify.sh` 全部检查通过——pytest 678 passed（独立测试库）、mypy 67 个文件、追溯矩阵通过（20 条 AC）、文档与前端检查通过
+- 最近验证：`./scripts/verify.sh` 全部检查通过——pytest 681 passed（独立测试库）、mypy 67 个文件、追溯矩阵通过（20 条 AC）、文档与前端检查通过
 <!-- verify:end -->
 
 ## 进行中

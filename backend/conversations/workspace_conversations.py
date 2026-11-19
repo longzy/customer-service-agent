@@ -68,6 +68,8 @@ class HandoffDetail:
     order_count: int
     messages: list[dict[str, Any]]
     ai_trace: list[dict[str, Any]]
+    failure_count: int | None = None
+    last_error: str | None = None
 
 
 @dataclass(frozen=True)
@@ -134,6 +136,10 @@ def _int_value(value: object) -> int:
     return value if isinstance(value, int) and not isinstance(value, bool) else 0
 
 
+def _optional_int(value: object) -> int | None:
+    return value if isinstance(value, int) and not isinstance(value, bool) else None
+
+
 def _dict_list(value: object) -> list[dict[str, Any]]:
     if not isinstance(value, list):
         return []
@@ -143,6 +149,7 @@ def _dict_list(value: object) -> list[dict[str, Any]]:
 def _handoff_detail(handoff: ServiceHandoff) -> HandoffDetail:
     """把交接单里的 JSON 快照投影成读模型；缺字段按空值处理，不猜业务含义。"""
     context = handoff.context or {}
+    last_error = context.get("last_error")
     return HandoffDetail(
         id=handoff.id,
         status=handoff.status,
@@ -152,6 +159,8 @@ def _handoff_detail(handoff: ServiceHandoff) -> HandoffDetail:
         order_count=_int_value(context.get("order_count")),
         messages=_dict_list(context.get("messages")),
         ai_trace=_dict_list(context.get("ai_trace")),
+        failure_count=_optional_int(context.get("failure_count")),
+        last_error=last_error if isinstance(last_error, str) else None,
     )
 
 

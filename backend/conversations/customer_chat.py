@@ -27,6 +27,7 @@ from backend.conversations.statuses import (
     AI_ACTIVE,
     CLOSED,
     QUEUED,
+    RETURNED_TO_AI_NOTICE,
 )
 from backend.platform.models import (
     ServiceAiEvent,
@@ -182,6 +183,31 @@ async def _record_ai_event(
     await db.flush()
 
 
+async def _append_notice(
+    db: AsyncSession,
+    conversation: ServiceConversation,
+    *,
+    content: str,
+    trace_id: str,
+    now: datetime,
+) -> ServiceMessage:
+    """写一条系统提示并推进会话活跃时间；单次失败与转人工共用。"""
+    notice = ServiceMessage(
+        conversation_id=conversation.id,
+        author_type="system",
+        author_id=None,
+        content=content,
+        idempotency_key=None,
+        trace_id=trace_id,
+        created_at=now,
+    )
+    db.add(notice)
+    conversation.updated_at = now
+    conversation.last_activity_at = now
+    await db.flush()
+    return notice
+
+
 async def _queue_for_handoff(
     db: AsyncSession,
     conversation: ServiceConversation,
@@ -210,17 +236,13 @@ async def _queue_for_handoff(
         failure_count=failure_count,
         last_error=last_error,
     )
-    notice = ServiceMessage(
-        conversation_id=conversation.id,
-        author_type="system",
-        author_id=None,
+    notice = await _append_notice(
+        db,
+        conversation,
         content=notice_text,
-        idempotency_key=None,
         trace_id=trace_id,
-        created_at=now,
+        now=now,
     )
-    db.add(notice)
-    await db.flush()
     return notice, (handoff.id if created else None)
 
 
@@ -272,9 +294,9 @@ async def _consecutive_model_failures(
         return 1
     if any(row.status not in MODEL_FAILURE_STATUSES for row in rows):
         return 1
-    previous_customer_at = (
+    previous = (
         await db.execute(
-            select(ServiceMessage.created_at)
+            select(ServiceMessage.id, ServiceMessage.created_at)
             .where(
                 ServiceMessage.conversation_id == conversation.id,
                 ServiceMessage.author_type == "customer",
@@ -283,8 +305,25 @@ async def _consecutive_model_failures(
             .order_by(ServiceMessage.id.desc())
             .limit(1)
         )
+    ).first()
+    if previous is None:
+        return 1
+    # 人工转回 AI 是新的起点：上一条客户消息之后出现“已转回 AI 客服”时，
+    # 转回前的失败不计入本次连续失败。
+    returned = (
+        await db.execute(
+            select(ServiceMessage.id)
+            .where(
+                ServiceMessage.conversation_id == conversation.id,
+                ServiceMessage.author_type == "system",
+                ServiceMessage.content == RETURNED_TO_AI_NOTICE,
+                ServiceMessage.id > previous.id,
+                ServiceMessage.id < customer_message.id,
+            )
+            .limit(1)
+        )
     ).scalar_one_or_none()
-    if previous_customer_at is not None and rows[1].created_at < previous_customer_at:
+    if returned is not None or rows[1].created_at < previous.created_at:
         return 1
     return CONSECUTIVE_FAILURE_LIMIT
 
@@ -311,19 +350,13 @@ async def _model_failed(
         db, conversation, customer_message=customer_message
     )
     if failures < CONSECUTIVE_FAILURE_LIMIT:
-        notice = ServiceMessage(
-            conversation_id=conversation.id,
-            author_type="system",
-            author_id=None,
+        notice = await _append_notice(
+            db,
+            conversation,
             content=RETRY_NOTICE,
-            idempotency_key=None,
             trace_id=trace_id,
-            created_at=now,
+            now=now,
         )
-        db.add(notice)
-        conversation.updated_at = now
-        conversation.last_activity_at = now
-        await db.flush()
         return ChatResult(
             conversation_id=conversation.id,
             status=conversation.status,

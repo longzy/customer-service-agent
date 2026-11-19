@@ -513,8 +513,12 @@ export interface components {
         WorkspaceHandoffDetail: {
             /** Ai Trace */
             ai_trace: components["schemas"]["WorkspaceAiTraceEvent"][];
+            /** Failure Count */
+            failure_count?: number | null;
             /** Id */
             id: string;
+            /** Last Error */
+            last_error?: string | null;
             /** Messages */
             messages: components["schemas"]["WorkspaceContextMessage"][];
             /** Order Count */

@@ -171,62 +171,6 @@ describe("ChatShell", () => {
     expect(screen.getByText("你好")).toBeInTheDocument();
   });
 
-  it("AC-31 单次模型失败显示可重试提示且不进入排队", async () => {
-    vi.spyOn(global, "fetch")
-      .mockResolvedValueOnce(json(emptyPage()))
-      .mockResolvedValueOnce(
-        json({
-          conversation_id: "conv-1",
-          status: "AI_ACTIVE",
-          after_id: 2,
-          messages: [
-            message(1, "customer", "你好"),
-            message(2, "system", "AI 暂时不可用，你可以重试，或说“转人工”。"),
-          ],
-        }),
-      );
-
-    renderShell();
-    expect(await screen.findByText("你好，我是小回。")).toBeInTheDocument();
-
-    fireEvent.change(screen.getByLabelText("消息"), { target: { value: "你好" } });
-    fireEvent.click(screen.getByRole("button", { name: "发送" }));
-
-    expect(
-      await screen.findByText("AI 暂时不可用，你可以重试，或说“转人工”。"),
-    ).toBeInTheDocument();
-    expect(screen.getByText("AI 服务中")).toBeInTheDocument();
-    expect(screen.queryByText("正在为你接通人工客服")).not.toBeInTheDocument();
-  });
-
-  it("AC-32 连续模型失败显示已转接人工提示", async () => {
-    vi.spyOn(global, "fetch")
-      .mockResolvedValueOnce(json(emptyPage()))
-      .mockResolvedValueOnce(
-        json({
-          conversation_id: "conv-1",
-          status: "QUEUED",
-          after_id: 2,
-          messages: [
-            message(1, "customer", "你好"),
-            message(2, "system", "AI 暂时不可用，已为你转接人工（排队中）。"),
-          ],
-        }),
-      );
-
-    renderShell();
-    expect(await screen.findByText("你好，我是小回。")).toBeInTheDocument();
-
-    fireEvent.change(screen.getByLabelText("消息"), { target: { value: "你好" } });
-    fireEvent.click(screen.getByRole("button", { name: "发送" }));
-
-    expect(
-      await screen.findByText("AI 暂时不可用，已为你转接人工（排队中）。"),
-    ).toBeInTheDocument();
-    expect(screen.getByText("人工接入中")).toBeInTheDocument();
-    expect(screen.getByText("正在为你接通人工客服")).toBeInTheDocument();
-  });
-
   it("AC-42 每 3s 用最新 after_id 轮询并去重追加", async () => {
     vi.useFakeTimers();
     const fetchMock = vi

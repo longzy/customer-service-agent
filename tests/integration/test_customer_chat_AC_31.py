@@ -262,6 +262,83 @@ def test_模型失败后成功回复清零_AC_31() -> None:
     assert rows(ServiceConversation)[0].status == "AI_ACTIVE"
 
 
+def test_连续失败可混合超时与异常_AC_31() -> None:
+    active = Settings(
+        environment="development",
+        customer_model_timeout_seconds=0.05,
+        database_url=settings.database_url,
+    )
+    app = create_app(active)
+    app.state.model_client = SlowModel()
+    with api_client(app) as api:
+        login(api)
+        assert send(api, "你好").json()["status"] == "AI_ACTIVE"
+        app.state.model_client = ErrorModel()
+        second = send(api, "还在吗")
+        assert second.json()["status"] == "QUEUED"
+        assert second.json()["messages"][1]["content"] == MODEL_FAILURE_HANDOFF_NOTICE
+
+    handoff = rows(ServiceHandoff)[0]
+    assert handoff.context["failure_count"] == 2
+    assert handoff.context["last_error"] == "MODEL_ERROR"
+    events = sorted(rows(ServiceAiEvent), key=lambda event: event.created_at)
+    assert [event.status for event in events] == ["timeout", "error"]
+
+
+def simulate_return_to_ai(conversation_id: str) -> None:
+    """用数据库状态模拟 F-12 的转回：会话回 AI_ACTIVE、旧单关闭、写转回系统消息。"""
+
+    async def write(db: Any) -> None:
+        await db.execute(
+            update(ServiceConversation)
+            .where(ServiceConversation.id == conversation_id)
+            .values(status="AI_ACTIVE", assigned_employee_id=None)
+        )
+        await db.execute(
+            update(ServiceHandoff)
+            .where(ServiceHandoff.conversation_id == conversation_id)
+            .values(status="CLOSED")
+        )
+        db.add(
+            ServiceMessage(
+                conversation_id=conversation_id,
+                author_type="system",
+                author_id=None,
+                content="已转回 AI 客服",
+                idempotency_key=None,
+                trace_id="trace-return",
+                created_at=datetime.now(UTC),
+            )
+        )
+        await db.commit()
+
+    asyncio.run(with_db(write))
+
+
+def test_转回AI后首次失败不沿用旧计数_AC_31() -> None:
+    app = create_app()
+    app.state.model_client = ErrorModel()
+    with api_client(app) as api:
+        login(api)
+        first = send(api, "你好")
+        conversation_id = first.json()["conversation_id"]
+        assert send(api, "还在吗").json()["status"] == "QUEUED"
+        simulate_return_to_ai(conversation_id)
+
+        retry = send(api, "我又来了")
+        assert retry.json()["status"] == "AI_ACTIVE"
+        assert retry.json()["messages"][1]["content"] == RETRY_NOTICE
+
+        again = send(api, "又断了")
+        assert again.json()["status"] == "QUEUED"
+
+    handoffs = sorted(rows(ServiceHandoff), key=lambda handoff: handoff.created_at)
+    assert len(handoffs) == 2
+    assert handoffs[0].status == "CLOSED"
+    assert handoffs[1].context["failure_count"] == 2
+    assert handoffs[1].context["last_error"] == "MODEL_ERROR"
+
+
 def test_未登录与非法消息被拒绝_AC_31() -> None:
     with api_client() as api:
         assert api.post("/customer/messages", json={"content": "你好"}).status_code == 401

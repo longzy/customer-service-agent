@@ -33,10 +33,10 @@ from backend.conversations.statuses import (
     CLAIMED,
     CLOSED,
     HUMAN_ACTIVE,
+    RETURNED_TO_AI_NOTICE,
 )
 from backend.platform.models import ServiceConversation, ServiceMessage
 
-RETURNED_TO_AI_NOTICE = "已转回 AI 客服"
 CLOSABLE_STATUSES = (CLAIMED, HUMAN_ACTIVE)
 
 

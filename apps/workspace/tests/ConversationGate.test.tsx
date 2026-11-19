@@ -298,4 +298,26 @@ describe("工作台 ConversationGate", () => {
     fireEvent.click(screen.getByRole("button", { name: "退出" }));
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/login"));
   });
+
+  it("AC-32 模型连续失败交接单展示失败次数与错误码", async () => {
+    const failedDetail = {
+      ...detail,
+      handoff: {
+        ...detail.handoff,
+        reason: "MODEL_UNAVAILABLE",
+        failure_count: 2,
+        last_error: "MODEL_TIMEOUT",
+      },
+    };
+    mockRoutes({
+      "/api/workspace/session": () => json(session),
+      "/api/workspace/conversations/conv-1": () => json(failedDetail),
+      "/api/workspace/conversations/conv-1/messages": messagesRoute(claimedMessages),
+    });
+    render(<ConversationGate conversationId="conv-1" />);
+
+    expect(await screen.findByText("模型不可用")).toBeInTheDocument();
+    expect(screen.getByText("连续模型失败")).toBeInTheDocument();
+    expect(screen.getByText("2 次 · MODEL_TIMEOUT")).toBeInTheDocument();
+  });
 });

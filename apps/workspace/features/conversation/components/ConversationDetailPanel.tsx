@@ -159,6 +159,14 @@ export function ConversationDetailPanel({
                       {handoff.order_count}
                     </dd>
                   </div>
+                  {handoff.failure_count != null ? (
+                    <div className="col-span-2 rounded-[9px] border border-line-soft px-3 py-2">
+                      <dt className="text-text-3">连续模型失败</dt>
+                      <dd className="mt-1 font-medium text-text">
+                        {handoff.failure_count} 次 · {handoff.last_error ?? "—"}
+                      </dd>
+                    </div>
+                  ) : null}
                   <div className="col-span-2 rounded-[9px] border border-line-soft px-3 py-2">
                     <dt className="text-text-3">待办</dt>
                     {/* 待办是转人工时点的快照；交接单已结束时不再表示当前任务。 */}

@@ -557,9 +557,32 @@
             "title": "Ai Trace",
             "type": "array"
           },
+          "failure_count": {
+            "anyOf": [
+              {
+                "minimum": 2.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failure Count"
+          },
           "id": {
             "title": "Id",
             "type": "string"
+          },
+          "last_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Error"
           },
           "messages": {
             "items": {
