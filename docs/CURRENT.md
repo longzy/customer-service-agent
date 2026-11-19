@@ -8,7 +8,7 @@
 - 当前工作：002 UI 改版 F-15~F-23 已收口；F-24 已完成并收口；F-14、F-13、F-12、F-11、F-10、F-09、F-08 已收口
 
 <!-- verify:start -->
-- 最近验证：`./scripts/verify.sh` 全部检查通过——pytest 687 passed（独立测试库）、mypy 67 个文件、追溯矩阵通过（20 条 AC）、文档与前端检查通过
+- 最近验证：`./scripts/verify.sh` 全部检查通过——pytest 692 passed（独立测试库）、mypy 67 个文件、追溯矩阵通过（20 条 AC）、文档与前端检查通过
 <!-- verify:end -->
 
 ## 进行中
@@ -27,6 +27,7 @@
 - F-24：模型失败分级降级——单次超时/异常只提示重试且不建单，同一会话连续 2 次失败自动转人工；交接单带 `failure_count`/`last_error` 且工作台详情可见；AC-31/32 定向 107 passed、全量 681 passed；反向验证 4 组；评审通过（`docs/reviews/001-customer-handoff/F-24.md`，2 轮 0 阻断）；提交 3ab1080、5221781、860e2d7。
 - 重构（2026-11-19，连接池收口）：业务池参数进 `Settings`（size/overflow/timeout/recycle）；Trace 改用独立小池（2+2、2s 超时），不再与业务请求抢连接；容量公式 `workers × 19 ≤ max_connections`；决策见 ADR-0010。
 - 重构（2026-11-19，请求级 Unit of Work）：`get_session` 成功提交、异常回滚；路由与业务模块移除手动 `commit()`；限速改为独立 session；决策见 ADR-0009，pytest 678 passed。
+- 重构（2026-11-19，只读 session 分离）：GET 改用 `get_read_session`（不提交），认证与读路由复用同一只读 session；客户 `last_seen_at` 改为 5 分钟节流独立事务；新增只读会话单元测试与节流集成测试；决策见 ADR-0009 修订，pytest 692 passed。
 - 重构（2026-11-19，后端按业务域组织）：HTTP 入口归位到 `identity/http.py`、`conversations/customer_http.py`、`conversations/workspace_http.py`，DTO 随域；`api/` 只保留装配、中间件与共享 HTTP 工具；OpenAPI 15 条路径不变，pytest 678 passed；决策见 ADR-0008。
 - 清理（2026-11-19，M1-P 旧 Web 接口退役）：删除 `/session`、`/message`、`/handoff`、`/cancellation-requests`、`/accounts` 与旧内存身份/会话中间件及 8 个强绑定旧测试文件；保留 `agent_runtime`、`tools`、`workflows`（含订单取消工作流与启动恢复）、旧表与 OMS 适配器；重新生成 OpenAPI、前端类型与测试快照（15 条路由）。
 - 流程改进（2026-11-19，评测门禁批次 A）：`evals/run.py` 的 AC 集合改为从 `docs/specs/*/brief.md` 动态发现，`AC-01~29` 不再参与门禁，`scripts/trace-baseline.txt` 中登记的待开工 AC 记 `待开工`、不算缺失；多轮场景只列覆盖当前 AC 的用例；同步 `evals/README.md`、场景测试说明与 7 条报告单测。

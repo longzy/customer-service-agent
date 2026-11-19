@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from uuid import uuid4
 
-from sqlalchemy import select, update
+from sqlalchemy import or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.identity.passwords import verify_dummy_password, verify_password
@@ -19,12 +19,15 @@ from backend.identity.rate_limit import RateLimitedError as RateLimitedError
 from backend.identity.rate_limit import consume_fixed_window
 from backend.identity.tokens import hash_token as hash_token
 from backend.identity.tokens import utc_now as utc_now
+from backend.platform.db import session_factory
 from backend.platform.models import ServiceCustomer, ServiceCustomerSession
 
 CUSTOMER_SESSION_TTL = timedelta(hours=24)
 LOGIN_LIMIT = 5
 LOGIN_WINDOW = timedelta(minutes=15)
 CUSTOMER_COOKIE = "csid"
+# last_seen_at 只用于活跃度记录；按会话节流写，避免每个 GET 一次写事务。
+LAST_SEEN_REFRESH_INTERVAL = timedelta(minutes=5)
 
 
 class InvalidSessionError(Exception):
@@ -56,6 +59,7 @@ class ResolvedCustomerSession:
     customer: Customer
     expires_at: datetime
     session_id: str
+    last_seen_at: datetime | None
 
 
 async def _check_login_rate_limit(username: str, ip: str) -> None:
@@ -152,13 +156,40 @@ async def resolve_customer_session(
     if customer is None or not customer.active or customer.tenant_id != tenant_id:
         raise InvalidSessionError
 
-    row.last_seen_at = now
-    await db.flush()
     return ResolvedCustomerSession(
         customer=_customer(customer),
         expires_at=row.expires_at,
         session_id=row.id,
+        last_seen_at=row.last_seen_at,
     )
+
+
+def needs_last_seen_refresh(last_seen_at: datetime | None, now: datetime) -> bool:
+    """是否已超过刷新间隔；认证依赖先用它判断，避免轮询每次开写事务。"""
+    return last_seen_at is None or now - last_seen_at >= LAST_SEEN_REFRESH_INTERVAL
+
+
+async def touch_customer_session_last_seen(session_id: str, now: datetime) -> None:
+    """节流刷新 `last_seen_at`；独立短事务，不参与请求级 UoW。
+
+    条件 UPDATE 只在超过刷新间隔（或从未记录）时命中，因此 3s 轮询不会
+    每次写库。失败由调用方决定是否忽略，不影响认证结果。
+    """
+    threshold = now - LAST_SEEN_REFRESH_INTERVAL
+    async with session_factory() as db:
+        await db.execute(
+            update(ServiceCustomerSession)
+            .where(
+                ServiceCustomerSession.id == session_id,
+                ServiceCustomerSession.revoked_at.is_(None),
+                or_(
+                    ServiceCustomerSession.last_seen_at.is_(None),
+                    ServiceCustomerSession.last_seen_at <= threshold,
+                ),
+            )
+            .values(last_seen_at=now)
+        )
+        await db.commit()
 
 
 async def revoke_customer_session(db: AsyncSession, token: str) -> None:

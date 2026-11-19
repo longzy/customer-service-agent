@@ -71,3 +71,19 @@ async def get_session() -> AsyncIterator[AsyncSession]:
         except BaseException:
             await session.rollback()
             raise
+
+
+async def get_read_session() -> AsyncIterator[AsyncSession]:
+    """只读请求会话：不提交，关闭时由 SQLAlchemy 回滚未提交事务。
+
+    GET 路由与认证依赖共用本依赖，FastAPI 在同一请求内复用实例，
+    因此认证解析与路由查询只占一个只读连接，也不再产生空事务 COMMIT。
+    认证需要的 `last_seen_at` 写入由独立、节流的短事务完成（ADR-0009）。
+    """
+
+    async with session_factory() as session:
+        try:
+            yield session
+        except BaseException:
+            await session.rollback()
+            raise
