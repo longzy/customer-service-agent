@@ -34,6 +34,7 @@ from backend.platform.observability import (
     SampledTraceSink,
     use_trace_sink,
 )
+from backend.platform.retention import cleanup
 from backend.platform.settings import Settings, settings
 from backend.tools.cancel import build_cancel_gateway
 from backend.tools.gateway import error_envelope
@@ -104,7 +105,30 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         except Exception:  # noqa: BLE001 - 恢复失败不应阻止服务启动
             logger.exception("启动恢复失败")
 
+    async def retention_loop() -> None:
+        while True:
+            await asyncio.sleep(max(active.retention_interval_seconds, 60))
+            try:
+                report = await cleanup(
+                    session_factory,
+                    apply=True,
+                    trace_retention_days=active.trace_retention_days,
+                    trace_error_retention_days=active.trace_error_retention_days,
+                    ai_retention_days=active.ai_event_retention_days,
+                    ai_critical_retention_days=active.ai_event_critical_retention_days,
+                    audit_retention_days=active.audit_retention_days,
+                )
+                logger.info(
+                    "保留清理完成 trace=%d ai=%d audit_expired=%d",
+                    report.trace_deleted,
+                    report.ai_deleted,
+                    report.audit_expired,
+                )
+            except Exception:  # noqa: BLE001 - 清理失败不能拖垮服务
+                logger.exception("保留清理失败")
+
     task = asyncio.create_task(recover())
+    retention_task = asyncio.create_task(retention_loop()) if active.retention_enabled else None
     yield
     try:
         await asyncio.wait_for(task, timeout=30)
@@ -112,6 +136,9 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         task.cancel()
         await asyncio.gather(task, return_exceptions=True)
     finally:
+        if retention_task is not None:
+            retention_task.cancel()
+            await asyncio.gather(retention_task, return_exceptions=True)
         await trace_sink.aclose()
         close = getattr(_app.state.oms, "close", None)
         if callable(close):

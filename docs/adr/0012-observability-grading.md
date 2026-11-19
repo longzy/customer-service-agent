@@ -3,7 +3,7 @@
 - 状态：已批准
 - 日期：2026-11-19
 - 批准：2026-11-19（用户确认按调研结果分层设计；实现分步推进）
-- 实现进度：步骤 1–5 已完成（2026-11-19）；步骤 6 待排期
+- 实现进度：步骤 1–6 已完成（2026-11-19）
 - 关联：[调研笔记](../research/customer-service-trace-2026-11-19.md)、[总体架构](../architecture/overview.md) 第 5 节、[ADR-0009](0009-request-unit-of-work.md)、[ADR-0010](0010-connection-pool-and-trace-pool.md)、[ADR-0011](0011-model-failure-degradation.md)
 
 ## 背景
@@ -194,3 +194,4 @@ VIEW_AUDIT_DEDUP_SECONDS=300
 - 2026-11-19：步骤 3 完成——`BufferedTraceSink` 有界队列（默认 1000）+ 后台批量写（2s/200 条），队列满丢最旧并计数，lifespan 关闭时 flush；`AsyncTraceSink` 由该实现取代。
 - 2026-11-19：步骤 4 完成——迁移 `0012_trace_ai_fields`：`tool_executions` 增加 `span_id`/`parent_span_id`/`step`/`sampled`/`source`；`service_ai_events` 增加 `prompt_version`/`prompt_hash`/`model`/tokens/首 token 延迟/`retry_count`；模型返回与 AI 事件写入回填可用字段，schema 快照已重生成。
 - 2026-11-19：步骤 5 完成——客户/坐席打开会话详情时写 `conversation.viewed` 审计；轮询消息不写；同一 actor/记录/动作 5 分钟进程内去重；`record_view` 独立事务，失败返回 503。
+- 2026-11-19：步骤 6 完成——`retention.py` 与 `scripts/cleanup_observability.py`：默认 dry-run，`--apply` 删除过期 L3/L3.5；审计只报告、不删除（只追加触发器）；lifespan 每日清理任务。新增 OTel/W3C `telemetry.py`，请求中间件解析 `traceparent`，内部保持 UUID 并支持 32/16 hex 导出。
