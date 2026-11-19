@@ -5,7 +5,7 @@
 - 当前状态：F-12 坐席关闭/转回 AI 已完成并收口；F-11、F-10、F-09、F-08 已完成并收口
 - 当前 Milestone：M1 企业核心客服闭环（客户转人工闭环）
 - 方向重置：[2026-11-16 企业化方向重置](initiatives/2026-11-16-enterprise-reset.md)
-- 当前工作：F-14 已完成并收口；F-13、F-12、F-11、F-10、F-09、F-08 已收口；F-24 待收口；F-15、F-16、F-17、F-18、F-19、F-20、F-21、F-22 待评审
+- 当前工作：F-24 已完成并收口；F-14、F-13、F-12、F-11、F-10、F-09、F-08 已收口；F-15、F-16、F-17、F-18、F-19、F-20、F-21、F-22 待评审
 
 <!-- verify:start -->
 - 最近验证：`./scripts/verify.sh` 全部检查通过——pytest 681 passed（独立测试库）、mypy 67 个文件、追溯矩阵通过（20 条 AC）、文档与前端检查通过
@@ -13,18 +13,17 @@
 
 ## 进行中
 
-- F-24 模型失败分级降级：已评审通过（2 轮、0 阻断），待收口——单次超时/异常只提示重试且不建单，同一会话连续 2 次失败自动转人工；交接单带 `failure_count`/`last_error`；执行卡 `docs/tasks/001-customer-handoff/F-24.md`、评审记录 `docs/reviews/001-customer-handoff/F-24.md`。
 - F-15、F-16、F-17、F-18、F-19、F-20、F-21、F-22、F-23 待评审；视觉回归已用 ego-browser 完成。
 - 后续切片：订单查询（003）、取消（004）、安全硬化（005）未启动。
 - 分支保护：GitHub 私有仓库套餐限制，待决定是否升级/公开；不阻塞核心业务。
 
 ## 下一步
 
-1. F-24 收口：更新 features/CURRENT/执行卡状态 → `make verify` → 提交。
-2. 后续切片订单查询（003）、取消（004）、安全硬化（005）按 roadmap 排期；UI 改版（002）批准后从 S1 开工。
+1. 后续切片订单查询（003）、取消（004）、安全硬化（005）按 roadmap 排期；UI 改版（002）批准后从 S1 开工。
 
 ## 已完成
 
+- F-24：模型失败分级降级——单次超时/异常只提示重试且不建单，同一会话连续 2 次失败自动转人工；交接单带 `failure_count`/`last_error` 且工作台详情可见；AC-31/32 定向 107 passed、全量 681 passed；反向验证 4 组；评审通过（`docs/reviews/001-customer-handoff/F-24.md`，2 轮 0 阻断）；提交 3ab1080、5221781、860e2d7。
 - 重构（2026-11-19，连接池收口）：业务池参数进 `Settings`（size/overflow/timeout/recycle）；Trace 改用独立小池（2+2、2s 超时），不再与业务请求抢连接；容量公式 `workers × 19 ≤ max_connections`；决策见 ADR-0010。
 - 重构（2026-11-19，请求级 Unit of Work）：`get_session` 成功提交、异常回滚；路由与业务模块移除手动 `commit()`；限速改为独立 session；决策见 ADR-0009，pytest 678 passed。
 - 重构（2026-11-19，后端按业务域组织）：HTTP 入口归位到 `identity/http.py`、`conversations/customer_http.py`、`conversations/workspace_http.py`，DTO 随域；`api/` 只保留装配、中间件与共享 HTTP 工具；OpenAPI 15 条路径不变，pytest 678 passed；决策见 ADR-0008。
