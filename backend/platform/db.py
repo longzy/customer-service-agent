@@ -59,13 +59,15 @@ async def get_session() -> AsyncIterator[AsyncSession]:
 
     业务模块只 `flush`，不提交；独立事务（限速、安全审计、Trace）必须
     用独立 session factory 新开 session，不能复用本 session。
+
+    调用方必须声明 `Depends(get_session, scope="function")`：依赖在响应
+    发送前清理，`commit` 失败才能在响应发出前转成 500（ADR-0009）。
     """
 
     async with session_factory() as session:
         try:
             yield session
+            await session.commit()
         except BaseException:
             await session.rollback()
             raise
-        else:
-            await session.commit()

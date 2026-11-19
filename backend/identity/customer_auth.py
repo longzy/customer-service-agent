@@ -15,7 +15,7 @@ from backend.platform.http import settings_of
 
 async def current_customer_session(
     request: Request,
-    db: Annotated[AsyncSession, Depends(get_session)],
+    db: Annotated[AsyncSession, Depends(get_session, scope="function")],
 ) -> ResolvedCustomerSession:
     token = request.cookies.get(customer_sessions.CUSTOMER_COOKIE)
     if not token:

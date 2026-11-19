@@ -136,7 +136,7 @@ ADR-0006 已删除订单号 + 手机尾号校验；完整手机号不落库/日�
 
 | 组件 | 提交什么 | 不负责 |
 |---|---|---|
-| 请求级 UoW（`get_session`） | 请求内全部业务写：成功 `commit`、异常 `rollback` | 独立事务 |
+| 请求级 UoW（`get_session`，`scope="function"`） | 请求内全部业务写：成功 `commit`、异常 `rollback`；commit 失败在响应发送前返回 500 | 独立事务 |
 | 路由与业务模块 | 只 `flush`，不 `commit` | 提交时机 |
 | 限速（`identity/rate_limit.py`） | 独立 session 提交桶计数 | 业务事务 |
 | 安全事件审计 | 独立 session 提交 401/403/429 | 业务事务 |

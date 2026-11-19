@@ -31,7 +31,7 @@ ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
     429: {"model": ErrorEnvelope},
 }
 
-Db = Annotated[AsyncSession, Depends(get_session)]
+Db = Annotated[AsyncSession, Depends(get_session, scope="function")]
 
 
 def _employee_payload(employee: Employee) -> EmployeePublic:

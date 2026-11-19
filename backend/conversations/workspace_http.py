@@ -75,7 +75,7 @@ ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
     422: {"model": ErrorEnvelope},
 }
 
-Db = Annotated[AsyncSession, Depends(get_session)]
+Db = Annotated[AsyncSession, Depends(get_session, scope="function")]
 
 
 def _handoff_payload(handoff: HandoffDetail) -> WorkspaceHandoffDetail:
