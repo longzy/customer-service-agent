@@ -8,9 +8,9 @@
 - 评审范围固定点：本 feature 开工前 HEAD（首个实现提交的父提交，`git rev-parse <first-commit>^`）；记录 `git diff <fixed>...HEAD` 与 `git log <fixed>..HEAD --oneline`。
 - 评审输入：`python3 scripts/review_pack.py F-XX`（自动识别固定点；含 AC 原文、features 行、执行卡 §1/§2、plan 全文与命令）。
 - 先跑 `make review-check`（机械前置：组件命名、trace 基线归属、CURRENT/评审记录一致、文档/状态/契约）；失败先修机械问题。
-- 再跑 `make verify-check`；失败直接「不通过」。
+- 主评审跑 `make verify-check`；评审者只跑定向测试与探针，不并行跑全量门禁。
 - 独立跑该 feature 的 `Steps` 命令（AC 定向测试），不只看实现者粘贴的数字。
-- 评审者用独立测试库，避免与实现者的 `customer_service_test` 竞争：`TEST_DB_NAME=customer_service_review_<id> ./scripts/test-db.sh <定向用例> -q`。
+- 测试库默认一次性（`test-db.sh` 退出即删），并行评审不会互删数据；需要固定库时显式 `TEST_DB_NAME=customer_service_review_<id>`。
 - 契约变更检查 `./scripts/check-contracts.sh`。
 
 ## Standards 轴
@@ -19,7 +19,7 @@
 - 边界：`overview.md` 的模块依赖与事务提交归属；api 只编排，conversations/identity 不互相越界。
 - 安全：身份只来自认证上下文、越权 404、Cookie/密钥/日志脱敏。
 - PII/脱敏：核对实现声明的支持格式矩阵（手机 `+86`/分隔/全角、邮箱、身份证 `X/x`）与 `CURRENT.md` 的残余风险；未知格式透传时不得宣称“已完全脱敏”。
-- 测试：`_AC_XX` 命名、独立测试库、无静默 skip、反向验证。
+- 测试：`_AC_XX` 命名、独立测试库、无静默 skip、反向验证；涉及 `VARCHAR(n)`/长度上限的输入补一条超长边界用例（长路径、长账号、长消息）。
 - 前端（改动涉及 `apps/` 时）：按[前端规范](frontend.md)核对——新增组件/hook 是否先查重、新依赖是否声明、`lib/api-types.ts` 是否被手改、`"use client"` 是否只在最小叶子、是否新增颜色字面量或非标间距、错误/空/加载三态与 a11y 是否覆盖、测试是否被弱化。
 - 坏味道只作 judgement call，不替代已文档化标准。
 

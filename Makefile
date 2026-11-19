@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help dev dev-stop dev-reset status verify verify-check verify-changed verify-fast review-check review-pack eval lint typecheck test
+.PHONY: help dev dev-stop dev-reset status verify verify-check verify-changed verify-fast review-check review-pack eval lint typecheck test gen-contracts
 
 help: ## 显示可用命令
 	@echo "make dev          启动 API + Chat + Workspace（自动准备 .env、数据库、依赖）"
@@ -18,6 +18,7 @@ help: ## 显示可用命令
 	@echo "make lint         ruff check + format check"
 	@echo "make typecheck    mypy backend"
 	@echo "make test         pytest（独立测试库）"
+	@echo "make gen-contracts 重新生成契约、前端类型与测试快照"
 
 dev: ## 启动本地开发环境；非交互可 ARGS=--no-install
 	./scripts/dev.sh $(ARGS)
@@ -67,3 +68,6 @@ typecheck: ## mypy backend
 
 test: ## pytest（独立测试库）
 	./scripts/test-db.sh -q
+
+gen-contracts: ## 重新生成契约、前端类型与测试快照
+	./scripts/gen-contracts.sh

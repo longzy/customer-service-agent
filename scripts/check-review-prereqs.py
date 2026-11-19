@@ -22,6 +22,8 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+from review_conclusion import conclusion_verdict
+
 ROOT = Path(__file__).resolve().parent.parent
 SPECS = ROOT / "docs" / "specs"
 REVIEWS = ROOT / "docs" / "reviews"
@@ -198,15 +200,6 @@ def trace_baseline_violations() -> list[str]:
     return errors
 
 
-def section(text: str, title: str) -> str:
-    match = re.search(rf"^## {re.escape(title)}\s*$", text, re.MULTILINE)
-    if match is None:
-        return ""
-    rest = text[match.end() :]
-    end = re.search(r"^## ", rest, re.MULTILINE)
-    return rest[: end.start()] if end else rest
-
-
 def current_review_violations() -> list[str]:
     if not CURRENT.exists():
         return []
@@ -227,10 +220,10 @@ def current_review_violations() -> list[str]:
                     f"但 {_relative(review)} 不存在"
                 )
                 continue
-            conclusion = section(review.read_text(encoding="utf-8"), "结论")
-            if "不通过" in conclusion:
+            verdict = conclusion_verdict(review.read_text(encoding="utf-8"))
+            if verdict == "不通过":
                 errors.append(f"{review.relative_to(ROOT)}：结论为不通过，CURRENT 不得声称通过")
-            elif "通过" not in conclusion:
+            elif verdict is None:
                 errors.append(f"{review.relative_to(ROOT)}：结论未写明通过")
     return errors
 

@@ -21,4 +21,6 @@ for app in chat workspace; do
   echo "前端类型与 OpenAPI 一致：apps/$app/lib/api-types.ts"
 done
 
-echo "契约生成物一致：domain.json、tools/openapi.json、openapi.json、api-types.ts"
+uv run python scripts/gen_test_fixtures.py --check
+
+echo "契约生成物一致：domain.json、tools/openapi.json、openapi.json、api-types.ts、tests/fixtures"

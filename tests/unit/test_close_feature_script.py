@@ -118,3 +118,15 @@ def test_trace失败时阻断收口_基座豁免(tmp_path: Path) -> None:
     assert result.returncode == 1
     assert "trace.py --strict 未通过" in result.stderr
     assert "过期基线" in result.stderr
+
+
+def test_结论首句通过时历史轮次的不通过不阻断收口_基座豁免(tmp_path: Path) -> None:
+    make_repo(tmp_path)
+    review = tmp_path / "docs" / "reviews" / "001-demo" / "F-01.md"
+    review.write_text(
+        "# 评审记录\n\n## 结论\n\n通过。2 轮：首轮安全轴不通过（1 个阻塞，已关闭）。\n",
+        encoding="utf-8",
+    )
+    result = run(tmp_path)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "收口检查通过" in result.stdout

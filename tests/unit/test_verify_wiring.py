@@ -34,3 +34,10 @@ def test_process_commands_are_wired() -> None:
     for target in ("verify-changed:", "review-check:", "review-pack:"):
         assert target in makefile
     assert "check-review-prereqs.py" in Path(".githooks/pre-commit").read_text(encoding="utf-8")
+
+
+def test_gen_contracts_target_and_fixture_check_are_wired() -> None:
+    makefile = Path("Makefile").read_text(encoding="utf-8")
+    assert "gen-contracts:" in makefile
+    check_contracts = Path("scripts/check-contracts.sh").read_text(encoding="utf-8")
+    assert "scripts/gen_test_fixtures.py --check" in check_contracts

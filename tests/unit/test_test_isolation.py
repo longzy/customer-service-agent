@@ -33,3 +33,12 @@ def test_关闭env文件后不读本地dotenv_基座豁免(tmp_path: Path) -> No
     )
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == ""
+
+
+def test_测试库默认一次性并在退出时清理_基座豁免() -> None:
+    """并行评审/门禁共用固定库会互删数据；默认库名必须每次运行唯一。"""
+    script = (ROOT / "scripts" / "test-db.sh").read_text(encoding="utf-8")
+    assert "customer_service_test_$$" in script
+    assert "DROP_ON_EXIT" in script
+    assert "dropdb" in script
+    assert "TEST_DB_NAME" in script

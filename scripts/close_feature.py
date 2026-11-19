@@ -16,6 +16,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from review_conclusion import conclusion_verdict
+
 FEATURE_ROW = re.compile(r"^\| (F-\d{2}) \|")
 STATUS_LINE = re.compile(r"^- 状态：(.+)$", re.M)
 
@@ -126,10 +128,10 @@ def check(root: Path, feature: str) -> list[str]:
         problems.append(f"{review_path}：评审记录不存在")
     else:
         review = read(review_path)
-        conclusion = section(review, "结论")
-        if "不通过" in conclusion:
+        verdict = conclusion_verdict(review)
+        if verdict == "不通过":
             problems.append(f"{review_path}：结论为不通过")
-        elif "通过" not in conclusion:
+        elif verdict is None:
             problems.append(f"{review_path}：结论未写明通过")
 
     current = current_sections(root / "docs" / "CURRENT.md")

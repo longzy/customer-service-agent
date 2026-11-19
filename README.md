@@ -95,12 +95,13 @@ make review-pack ARGS="F-08"      # 生成两轴评审包（固定点、diff、A
 make lint                         # ruff check + format check
 make typecheck                    # mypy backend
 make test                         # pytest（独立测试库）
+make gen-contracts                # 改错误码/路由响应/表结构后：刷新契约、前端类型与测试快照
 make eval                         # 场景评测：pytest JUnit + AC 报告
 
 # 单独运行
 UV_CACHE_DIR=./.uv-cache uv run ruff check .
 UV_CACHE_DIR=./.uv-cache uv run mypy backend
-./scripts/test-db.sh -q            # 建测试库、跑迁移、再跑 pytest
+./scripts/test-db.sh -q            # 建一次性测试库、跑迁移、再跑 pytest（退出即删）
 python3 scripts/check-docs.py
 python3 scripts/check-status.py    # CURRENT.md ↔ tasks.md ↔ 执行卡
 python3 scripts/check-review-prereqs.py  # 组件命名/trace 基线/CURRENT 评审声称
@@ -118,7 +119,7 @@ pnpm -C apps/workspace test
 
 `verify.sh` 默认只输出一行摘要；失败时打印失败步骤与日志尾部。需要完整日志时加 `--verbose`，或 `./scripts/verify.sh --no-record > /tmp/verify.log 2>&1; echo $?`。
 
-并行会话（多个 agent/终端同时验证）会互相清理共享测试库；用独立库：`TEST_DB_NAME=customer_service_test_<suffix> make verify-check`。
+测试库默认按进程一次性创建并在退出时删除，并行会话（多个 agent/终端同时验证）不会互删数据。需要固定库名或保留现场时用 `TEST_DB_NAME=customer_service_test_<suffix>`、`TEST_DB_KEEP=1`。
 
 数据库默认 `postgresql+asyncpg://ba@127.0.0.1:5432/customer_service`；`dev.sh` 会创建库并迁移，连接串可在 `.env` 用 `DATABASE_URL` 覆盖。
 

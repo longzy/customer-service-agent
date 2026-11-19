@@ -127,3 +127,11 @@ def test_评审结论不通过时CURRENT不得声称通过_基座豁免(tmp_path
     result = run(tmp_path)
     assert result.returncode == 1
     assert "结论为不通过" in result.stderr
+
+
+def test_结论首句通过时历史轮次的不通过不阻断_基座豁免(tmp_path: Path) -> None:
+    """首轮整改记录常写“首轮不通过（已关闭）”，最终结论仍按首句判定。"""
+    make_repo(tmp_path, conclusion="通过。2 轮：首轮安全轴不通过（1 个阻塞，已关闭）。")
+    result = run(tmp_path)
+    assert result.returncode == 0, result.stderr
+    assert "评审前置检查通过" in result.stdout

@@ -9,7 +9,8 @@
 
 - 两轴独立运行、互不共享结论：Standards 轴查规范，Spec 轴查规格符合度；不要合并或重新排序两轴发现。
 - 评审者未参与实现；不要修改仓库文件。
-- 门禁已由主评审跑过 `make verify-check`；评审者用包里的独立 `TEST_DB_NAME` 复跑至少一条定向测试。
+- 门禁已由主评审跑过 `make verify-check`。评审者只跑分配给你的 `TEST_DB_NAME` 定向测试与独立探针；不运行 `make verify-check`/`make verify`，避免与主评审并行时争用测试库与 CPU。
+- `test-db.sh` 默认每次运行使用一次性库（退出即删）；显式 `TEST_DB_NAME` 用于评审隔离，`TEST_DB_KEEP=1` 可保留现场。
 - 先跑 `make review-check`（机械前置）；它失败时先修机械问题，不进入两轴深度评审。
 - 每条发现标 **阻塞 / 建议 / 接受为后续**；判断性坏味道永远不是硬违规。
 - 只报文档化标准的违反与判断性坏味道；工具已强制的不报（ruff/mypy/prettier/eslint、契约生成物、测试命名）。
