@@ -48,7 +48,7 @@ from backend.identity.cookies import set_session_cookie
 from backend.identity.customer_auth import CurrentCustomer
 from backend.identity.customer_sessions import Customer
 from backend.identity.rate_limit import consume_fixed_window
-from backend.platform.db import get_session
+from backend.platform.db import get_read_session, get_session
 from backend.platform.http import client_ip, settings_of, utc_text
 from backend.platform.schemas import ErrorEnvelope
 
@@ -67,6 +67,7 @@ ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
 }
 
 Db = Annotated[AsyncSession, Depends(get_session, scope="function")]
+ReadDb = Annotated[AsyncSession, Depends(get_read_session, scope="function")]
 
 
 def _payload(
@@ -193,7 +194,7 @@ async def current_session(session: CurrentCustomer, db: Db) -> CustomerSessionRe
 async def read_conversation(
     conversation_id: str,
     session: CurrentCustomer,
-    db: Db,
+    db: ReadDb,
 ) -> CustomerSessionResponse:
     conversation = await get_customer_conversation(
         db,
@@ -201,7 +202,7 @@ async def read_conversation(
         session.customer.id,
         conversation_id,
     )
-    # 读取也会刷新 last_seen_at；保持 GET 幂等但落库。
+    # last_seen_at 由认证依赖按 5 分钟节流刷新；本路由不再写业务事务。
     if conversation is None:
         raise ApiError(404, ErrorCode.NOT_FOUND)
     return _payload(session.customer, conversation, session.expires_at)
@@ -329,7 +330,7 @@ async def send_message(
 @router.get("/messages", responses={401: ERROR_RESPONSES[401], 409: ERROR_RESPONSES[409]})
 async def read_messages(
     session: CurrentCustomer,
-    db: Db,
+    db: ReadDb,
     after_id: int = Query(default=0, ge=0),
 ) -> MessagePageResponse:
     conversation = await get_current_conversation(

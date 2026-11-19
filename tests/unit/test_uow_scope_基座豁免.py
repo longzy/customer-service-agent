@@ -6,10 +6,10 @@ from pathlib import Path
 import pytest
 from sqlalchemy.exc import SQLAlchemyError
 
-from backend.platform.db import get_session
+from backend.platform.db import get_read_session, get_session
 
 BACKEND = Path(__file__).resolve().parents[2] / "backend"
-DEPENDS_CALL = re.compile(r"Depends\(\s*get_session[^)]*\)")
+DEPENDS_CALL = re.compile(r"Depends\(\s*get_(?:read_)?session[^)]*\)")
 
 
 async def test_commit失败回滚并抛出_基座豁免(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -30,6 +30,21 @@ async def test_commit失败回滚并抛出_基座豁免(monkeypatch: pytest.Monk
         await anext(generator)
 
     assert calls == ["rollback"]
+
+
+async def test_read_session关闭不提交_基座豁免(monkeypatch: pytest.MonkeyPatch) -> None:
+    generator = get_read_session()
+    session = await anext(generator)
+    calls: list[str] = []
+
+    async def record_commit() -> None:
+        calls.append("commit")
+
+    monkeypatch.setattr(session, "commit", record_commit)
+    with pytest.raises(StopAsyncIteration):
+        await anext(generator)
+
+    assert calls == []
 
 
 def test_所有get_session注入都是function_scope_基座豁免() -> None:

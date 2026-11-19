@@ -136,8 +136,10 @@ ADR-0006 已删除订单号 + 手机尾号校验；完整手机号不落库/日�
 
 | 组件 | 提交什么 | 不负责 |
 |---|---|---|
-| 请求级 UoW（`get_session`，`scope="function"`） | 请求内全部业务写：成功 `commit`、异常 `rollback`；commit 失败在响应发送前返回 500 | 独立事务 |
+| 写请求 UoW（`get_session`，`scope="function"`） | 请求内全部业务写：成功 `commit`、异常 `rollback`；commit 失败在响应发送前返回 500 | 独立事务 |
+| 只读请求会话（`get_read_session`，`scope="function"`） | 不提交；认证依赖与 GET 路由复用同一只读 session | 业务写、独立事务 |
 | 路由与业务模块 | 只 `flush`，不 `commit` | 提交时机 |
+| 客户 `last_seen_at` | 认证后按会话 5 分钟节流，独立短事务 | 请求事务 |
 | 限速（`identity/rate_limit.py`） | 独立 session 提交桶计数 | 业务事务 |
 | 安全事件审计 | 独立 session 提交 401/403/429 | 业务事务 |
 | `AsyncTraceSink` | 独立 session 写工具执行记录 | 业务事务/请求 session |
@@ -145,9 +147,9 @@ ADR-0006 已删除订单号 + 手机尾号校验；完整手机号不落库/日�
 | Cancellation Workflow | 任务状态 + 转换/确认审计；启动恢复用独立 session | 工具执行记录、HTTP 响应 |
 | 启动恢复 | 逐任务复用 `trace_id` 执行，不新建 `startup-*` | 建立新 trace |
 
-排查提交顺序时先看这张表。请求成功时由 `get_session` 统一提交；路由与业务模块不得再调用 `commit()`。需要独立事务的写入必须用 `session_factory()` 新开 session，并在组件名或注释中标注（[ADR-0009](../adr/0009-request-unit-of-work.md)）。
+排查提交顺序时先看这张表。写请求成功时由 `get_session` 统一提交，GET 用 `get_read_session` 不提交；路由与业务模块不得再调用 `commit()`。需要独立事务的写入必须用 `session_factory()` 新开 session，并在组件名或注释中标注（[ADR-0009](../adr/0009-request-unit-of-work.md)）。
 
-连接资源：业务池由 `DB_POOL_*` 配置，Trace 用独立小池（`TRACE_POOL_*`）。每 worker 上限 = 业务 `size+overflow` + Trace `size+overflow`（默认 19）；部署按 `workers × 上限 ≤ PostgreSQL max_connections` 核算（[ADR-0010](../adr/0010-connection-pool-and-trace-pool.md)）。
+连接资源：业务池由 `DB_POOL_*` 配置，Trace 用独立小池（`TRACE_POOL_*`）。每 worker 上限 = 业务 `size+overflow` + Trace `size+overflow`（默认 19）；部署按 `workers × 上限 ≤ PostgreSQL max_connections` 核算（[ADR-0010](../adr/0010-connection-pool-and-trace-pool.md)）。读请求只占一个只读连接；写请求在认证阶段额外占一个只读连接，按写请求并发估算时需要预留。
 
 ## 6. 模型与确定性代码的边界
 

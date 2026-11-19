@@ -61,7 +61,7 @@ from backend.conversations.workspace_lifecycle import (
 )
 from backend.domain.errors import ErrorCode
 from backend.identity.employee_auth import CurrentEmployee
-from backend.platform.db import get_session
+from backend.platform.db import get_read_session, get_session
 from backend.platform.http import utc_text
 from backend.platform.schemas import ErrorEnvelope
 
@@ -76,6 +76,7 @@ ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
 }
 
 Db = Annotated[AsyncSession, Depends(get_session, scope="function")]
+ReadDb = Annotated[AsyncSession, Depends(get_read_session, scope="function")]
 
 
 def _handoff_payload(handoff: HandoffDetail) -> WorkspaceHandoffDetail:
@@ -141,7 +142,7 @@ def _state_change_payload(result: AgentStateChange) -> MessagePageResponse:
 
 
 @router.get("/queue", responses={401: ERROR_RESPONSES[401], 403: ERROR_RESPONSES[403]})
-async def read_queue(session: CurrentEmployee, db: Db) -> WorkspaceQueueResponse:
+async def read_queue(session: CurrentEmployee, db: ReadDb) -> WorkspaceQueueResponse:
     items = await list_queued_handoffs(db, session.employee.tenant_id)
     return WorkspaceQueueResponse(
         items=[WorkspaceQueueItem.model_validate(item, from_attributes=True) for item in items]
@@ -259,7 +260,7 @@ async def take_over(
 async def read_conversation(
     conversation_id: str,
     session: CurrentEmployee,
-    db: Db,
+    db: ReadDb,
 ) -> WorkspaceConversationResponse:
     conversation = await get_assigned_conversation_detail(
         db,
@@ -283,7 +284,7 @@ async def read_conversation(
 async def read_conversation_messages(
     conversation_id: str,
     session: CurrentEmployee,
-    db: Db,
+    db: ReadDb,
     after_id: int = Query(default=0, ge=0),
 ) -> MessagePageResponse:
     """归属坐席按 `after_id` 增量轮询；未领取/他人/跨租户 404，已关闭仍可读历史。"""

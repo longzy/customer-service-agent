@@ -10,13 +10,13 @@ from backend.api.service_audit import audit_security_event
 from backend.domain.errors import ErrorCode
 from backend.identity import employee_sessions
 from backend.identity.employee_sessions import ResolvedEmployeeSession
-from backend.platform.db import get_session
+from backend.platform.db import get_read_session
 from backend.platform.http import settings_of
 
 
 async def current_employee_session(
     request: Request,
-    db: Annotated[AsyncSession, Depends(get_session, scope="function")],
+    db: Annotated[AsyncSession, Depends(get_read_session, scope="function")],
 ) -> ResolvedEmployeeSession:
     token = request.cookies.get(employee_sessions.EMPLOYEE_COOKIE)
     if not token:
