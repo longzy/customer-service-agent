@@ -56,10 +56,10 @@
 - F-08：领取后接管（`CLAIMED → HUMAN_ACTIVE`、交接单 `CLAIMED → ACTIVE`）、客户“正在接入人工/人工已接入”系统消息、领取者完整上下文（客户/消息/AI 轨迹/交接单/待办）、第二坐席查看/接管 404；9 条 AC-36 集成测试 + 4 条前端用例 + 浏览器走查，双轴独立评审通过（2 轮，0 阻断，2 条整改关闭）。
 - F-09：第二坐席越权矩阵（领取 409、查看/接管 404、404 与不存在资源不可区分、失败零副作用、并发仅归属者成功）；8 条 AC-36 集成用例 + 双坐席浏览器走查，独立双轴评审通过（C-1/C-2 已关闭）；提交 670c975、a99880a、da163b8、353c78e、c0c052f。
 - F-10：坐席回复持久化（`POST /workspace/conversations/{id}/messages`，幂等重放）、工作台 3s 增量轮询（`GET .../messages?after_id=`）、人工中客户消息不触发 AI 且工作台可见；9 条 AC-37 集成用例 + 3 条新增前端用例 + 双身份浏览器走查（客户 1352ms 看到回复），双轴独立评审通过（0 阻断，建议已整改，关闭/转回与审计限速由后续切片承接）；提交 f5d194d。
-- 前端代码规范（2026-11-18）：`docs/process/frontend.md` 草案落地，覆盖目录/组件/类型/Next 边界/样式/a11y/安全/AI 生成/测试；决策为两个应用各自维护、允许组件重复、不建共享包；现有缺口与强制点接入顺序见文档第 10 节。
+- 前端代码规范（2026-11-18）：`docs/process/frontend.md` 草案落地，覆盖目录/组件/类型/Next 边界/样式/a11y/安全/AI 生成/测试；决策为两个应用各自维护、允许组件重复、不建共享包；现有缺口与强制点接入顺序见文档第 10 节；2026-11-19 stylelint 接入 verify/CI（tokens 外颜色字面量、`!important`、id 选择器）。
 - UI 改版规格（2026-11-18）：`002-ui-redesign` 的 brief/plan/features 草案落地（AC-40~49、9 个 feature、S1–S4 映射），trace 基线已登记；待批准后开工。
 - UI 设计冻结（2026-11-18）：编号顺延为 002（原拟 005）；补 CSS Modules 承载、动效参数、响应式断点、视觉基线；`ui-spec` v4 与 `baseline/` 已落地，应用代码未改。
-- 流程改进（2026-11-18）：验证默认摘要与 `--verbose`、check-docs 锚点/待创建路径、trace 按 feature 判部分覆盖、dev 非 TTY 安装、close_feature.py 收口检查、读模型投影/评审固定点/多身份走查模板、`make lint/typecheck/test`。
+- 流程改进（2026-11-18）：验证默认摘要与 `--verbose`、check-docs 锚点/待创建路径、trace 按 feature 判部分覆盖、dev 非 TTY 安装、close_feature.py 收口检查、读模型投影/评审固定点/多身份走查模板、`make lint/typecheck/test`。 2026-11-19：ConversationGate 轮询用例改为状态等待，去除固定 sleep。
 - 流程改进（2026-11-18，评审内环）：新增 `make verify-changed`（按变更范围跑定向 AC 测试、改动 app 的 lint/typecheck/test 与文档/状态/追溯/契约）、`make review-check`（组件命名、trace 基线归属、CURRENT/评审记录一致的机械前置）、`make review-pack`（两轴评审包）；接入 verify、pre-commit、README 与 WORKFLOW。
 - 前端升级与目录（2026-11-18）：`apps/chat`、`apps/workspace` 升级 Next.js 16.4.6 + React 19.3 + ESLint 9 flat config（`next lint` 已移除，改用 `eslint .`）；目录迁到 `features/auth`、`features/chat`、`features/queue`、`features/conversation`，`app/` 只装配；`ChatShell` 拆出 `useChatMessages`，19/17 条前端用例与两应用 build 通过。
 
@@ -69,7 +69,7 @@
 
 ## 待确认决策
 
-- 前端类型由 OpenAPI 生成已按 [ADR-0007](adr/0007-openapi-frontend-types.md) 落地；CSS 已统一到 `tokens.css` + Tailwind；非 4px 基数的任意间距与 stylelint 强制点仍待接，登记为 M1 技术债；前端规范见 [frontend.md](process/frontend.md)，ESLint 核心规则已接入，token 迁移与 stylelint 强制点待接。
+- 前端类型由 OpenAPI 生成已按 [ADR-0007](adr/0007-openapi-frontend-types.md) 落地；CSS 已统一到 `tokens.css` + Tailwind，stylelint 基础强制点已接入；非 4px 基数的任意间距仍待治理，登记为 M1 技术债；前端规范见 [frontend.md](process/frontend.md)，ESLint 核心规则已接入，token 迁移与 stylelint 强制点待接。
 - PII 脱敏范围：M1 仅覆盖大陆手机号（`+86`/分隔/全角）、邮箱、18 位身份证（含 `X/x`）；银行卡、护照、座机、非大陆号码等格式透传，归 005 安全硬化。
 - plan 澄清（F-06 评审确认）：客户 cookie 访问 `/workspace/queue` 返回 401 而非 plan 5.1 的“客户→403”（403 指合法员工凭据但非 agent）；队列末条/等待起算口径在执行卡 D-2/D-3；003 接入订单后需重审 `order_count=0`。
 - 清理任务频率与审计归档方式；安全硬化切片确定。

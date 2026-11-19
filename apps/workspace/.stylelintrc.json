@@ -1,0 +1,8 @@
+{
+  "ignoreFiles": ["app/tokens.css"],
+  "rules": {
+    "color-no-hex": true,
+    "declaration-no-important": true,
+    "selector-max-id": 0
+  }
+}

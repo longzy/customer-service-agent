@@ -242,11 +242,17 @@ describe("工作台 ConversationGate", () => {
     );
 
     // 等至少一轮 3s 轮询，确认游标仍停在 4（首次消息页 after_id）而不是回复的 5。
-    await new Promise((resolve) => setTimeout(resolve, 3300));
-    const messageUrls = fetchMock.mock.calls
-      .map(([input]) => String(input))
-      .filter((url) => url.includes("/messages?after_id="));
-    expect(messageUrls.at(-1)).toContain("after_id=4");
+    // 不用固定 sleep：CI 慢时 3.3s 可能抢在 interval 回调之前，导致假失败。
+    await waitFor(
+      () => {
+        const messageUrls = fetchMock.mock.calls
+          .map(([input]) => String(input))
+          .filter((url) => url.includes("/messages?after_id="));
+        expect(messageUrls.length).toBeGreaterThan(1);
+        expect(messageUrls.at(-1)).toContain("after_id=4");
+      },
+      { timeout: 8000, interval: 100 },
+    );
   });
 
   it("AC-37 已领取未接管时不显示回复框", async () => {
