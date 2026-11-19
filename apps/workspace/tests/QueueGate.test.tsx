@@ -83,7 +83,7 @@ describe("工作台 QueueGate", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/workspace/sessions", { method: "DELETE" });
   });
 
-  it("AC-44 按接口顺序渲染队列摘要且不二次排序", async () => {
+  it("AC-44 按等待时长降序渲染队列摘要", async () => {
     vi.spyOn(global, "fetch")
       .mockResolvedValueOnce(json(session))
       .mockResolvedValueOnce(json({ items: queueItems }));
@@ -241,5 +241,111 @@ describe("工作台 QueueGate", () => {
     expect(await screen.findByRole("status")).toHaveTextContent(
       "该交接单不存在或已被领取，队列已刷新",
     );
+  });
+
+  it("AC-46 非坐席 403 显示无权限而不是回登录页", async () => {
+    vi.spyOn(global, "fetch")
+      .mockResolvedValueOnce(json(session))
+      .mockResolvedValueOnce(json({ code: "FORBIDDEN", message: "无权访问" }, 403));
+    render(<QueueGate />);
+
+    expect(await screen.findByText("无权访问该队列")).toBeInTheDocument();
+    expect(replace).not.toHaveBeenCalledWith("/login");
+  });
+
+  it("AC-46 错误态保留接口错误码", async () => {
+    vi.spyOn(global, "fetch")
+      .mockResolvedValueOnce(json(session))
+      .mockResolvedValueOnce(json({ code: "QUEUE_UNAVAILABLE", message: "系统异常" }, 500));
+    render(<QueueGate />);
+
+    expect(await screen.findByText("QUEUE_UNAVAILABLE")).toBeInTheDocument();
+  });
+
+  it("AC-47 J/K 真实按键移动选中", async () => {
+    vi.spyOn(global, "fetch")
+      .mockResolvedValueOnce(json(session))
+      .mockResolvedValueOnce(json({ items: queueItems }));
+    render(<QueueGate />);
+    await screen.findAllByText("客户甲");
+
+    const dataRows = () => screen.getAllByRole("row").slice(1);
+    await waitFor(() => expect(dataRows()[0]).toHaveAttribute("aria-selected", "true"));
+    fireEvent.keyDown(document.body, { key: "j" });
+    await waitFor(() => expect(dataRows()[1]).toHaveAttribute("aria-selected", "true"));
+    fireEvent.keyDown(document.body, { key: "k" });
+    await waitFor(() => expect(dataRows()[0]).toHaveAttribute("aria-selected", "true"));
+  });
+
+  it("AC-47 ⌘K 聚焦搜索框且 Enter 领取选中行", async () => {
+    vi.spyOn(global, "fetch")
+      .mockResolvedValueOnce(json(session))
+      .mockResolvedValueOnce(json({ items: [queueItems[0]] }))
+      .mockResolvedValueOnce(
+        json({ handoff_id: "ho-1", conversation_id: "conv-1", status: "CLAIMED" }),
+      );
+    render(<QueueGate />);
+    await screen.findByText("客户甲");
+    await waitFor(() =>
+      expect(screen.getAllByRole("row")[1]).toHaveAttribute("aria-selected", "true"),
+    );
+
+    const search = screen.getByLabelText("搜索客户、账号或会话 ID");
+    fireEvent.keyDown(document.body, { key: "k", metaKey: true });
+    expect(search).toHaveFocus();
+
+    (search as HTMLInputElement).blur();
+    fireEvent.keyDown(document.body, { key: "Enter" });
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/conversations/conv-1"));
+  });
+
+  it("AC-45 详情面板领取按钮进入会话页", async () => {
+    vi.spyOn(global, "fetch")
+      .mockResolvedValueOnce(json(session))
+      .mockResolvedValueOnce(json({ items: [queueItems[0]] }))
+      .mockResolvedValueOnce(
+        json({ handoff_id: "ho-1", conversation_id: "conv-1", status: "CLAIMED" }),
+      );
+    render(<QueueGate />);
+    await screen.findByText("客户甲");
+    await waitFor(() => expect(screen.getByRole("button", { name: "领取会话" })).toBeEnabled());
+
+    fireEvent.click(screen.getByRole("button", { name: "领取会话" }));
+    await waitFor(() => expect(push).toHaveBeenCalledWith("/conversations/conv-1"));
+  });
+
+  it("AC-44 超时行标记与排序切换", async () => {
+    const overtime = { ...queueItems[0], handoff_id: "ho-3", waiting_seconds: 301 };
+    vi.spyOn(global, "fetch")
+      .mockResolvedValueOnce(json(session))
+      .mockResolvedValueOnce(json({ items: [overtime, queueItems[1]] }));
+    render(<QueueGate />);
+    const overtimeRows = await screen.findAllByRole("row");
+    expect(within(overtimeRows[1]).getByText("已超时")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("combobox", { name: /排序/ }), {
+      target: { value: "newest" },
+    });
+    await waitFor(() => {
+      const rows = screen.getAllByRole("row").slice(1);
+      expect(rows[0]).toHaveTextContent("客户乙");
+    });
+  });
+
+  it("AC-44 搜索会话 ID 命中", async () => {
+    vi.spyOn(global, "fetch")
+      .mockResolvedValueOnce(json(session))
+      .mockResolvedValueOnce(json({ items: queueItems }));
+    render(<QueueGate />);
+    await screen.findAllByText("客户甲");
+
+    fireEvent.change(screen.getByLabelText("搜索客户、账号或会话 ID"), {
+      target: { value: "conv-2" },
+    });
+    await waitFor(() => {
+      const rows = screen.getAllByRole("row").slice(1);
+      expect(rows).toHaveLength(1);
+      expect(rows[0]).toHaveTextContent("客户乙");
+    });
   });
 });

@@ -67,7 +67,7 @@ const ICON_SETTINGS = (
 );
 
 const ITEM = "flex h-[38px] items-center gap-2.5 rounded-[9px] px-2.5 text-sm";
-const GROUP = "px-2.5 pb-2 text-xs tracking-[0.14em] text-paper/35";
+const GROUP = "px-2.5 pb-2 text-xs tracking-[0.14em] text-paper/60";
 
 export function WorkspaceNav({
   agentName,
@@ -79,11 +79,11 @@ export function WorkspaceNav({
   return (
     <aside
       aria-label="工作台导航"
-      className="relative hidden min-h-screen w-[224px] shrink-0 flex-col overflow-hidden bg-brand-deep px-3.5 pb-4 pt-5 text-sidebar-ink min-[1024px]:flex"
+      className="relative hidden min-h-screen w-[224px] shrink-0 flex-col overflow-hidden bg-brand-deep px-3.5 pb-4 pt-5 text-sidebar-ink min-[1024px]:flex max-[1279px]:w-[200px]"
     >
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute -right-36 top-10 h-80 w-80 rounded-full border border-brand-mint/10 shadow-[0_0_0_60px_rgba(158,199,184,0.04)]"
+        className="pointer-events-none absolute -right-36 top-10 h-80 w-80 rounded-full border border-brand-mint/10 shadow-[0_0_0_60px_var(--halo-mint)]"
       />
 
       <div className="relative z-[1] flex items-center gap-2.5 px-2 pb-5 pt-1.5">
@@ -91,22 +91,22 @@ export function WorkspaceNav({
           <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
             <path
               d="M4 6.5a7 7 0 0 1 12 0"
-              stroke="#eaf4ef"
+              stroke="var(--presence-ink)"
               strokeWidth="1.6"
               strokeLinecap="round"
             />
             <path
               d="M6.2 9.5a4.6 4.6 0 0 1 7.6 0"
-              stroke="#9ec7b8"
+              stroke="var(--brand-mint)"
               strokeWidth="1.6"
               strokeLinecap="round"
             />
-            <circle cx="10" cy="12.6" r="1.5" fill="#eaf4ef" />
+            <circle cx="10" cy="12.6" r="1.5" fill="var(--presence-ink)" />
           </svg>
         </span>
         <span className="flex flex-col">
-          <span className="text-sm font-semibold tracking-[0.12em] text-white">ECHO</span>
-          <span className="mt-0.5 text-xs tracking-[0.18em] text-paper/40">CONSOLE</span>
+          <span className="text-sm font-semibold tracking-[0.12em] text-paper">ECHO</span>
+          <span className="mt-0.5 text-xs tracking-[0.18em] text-paper/65">CONSOLE</span>
         </span>
       </div>
 
@@ -114,7 +114,7 @@ export function WorkspaceNav({
       <a
         href="/queue"
         aria-current="page"
-        className={`${ITEM} relative z-[1] bg-surface/[0.08] font-medium text-white shadow-[inset_2px_0_0_var(--accent)]`}
+        className={`${ITEM} relative z-[1] bg-surface/[0.08] font-medium text-paper shadow-[inset_2px_0_0_var(--accent)]`}
       >
         {ICON_QUEUE}
         待接入队列
@@ -126,15 +126,15 @@ export function WorkspaceNav({
         {ICON_CHAT}
         我的会话
       </span>
-      <span className={`${ITEM} relative z-[1] text-paper/35`}>
+      <span className={`${ITEM} relative z-[1] text-paper/60`}>
         {ICON_USER}
         客户
-        <span className="ml-auto text-xs text-paper/25">即将开放</span>
+        <span className="ml-auto text-xs text-paper/55">即将开放</span>
       </span>
-      <span className={`${ITEM} relative z-[1] text-paper/35`}>
+      <span className={`${ITEM} relative z-[1] text-paper/60`}>
         {ICON_ORDER}
         订单
-        <span className="ml-auto text-xs text-paper/25">即将开放</span>
+        <span className="ml-auto text-xs text-paper/55">即将开放</span>
       </span>
 
       <div className={`${GROUP} relative z-[1] mt-4`}>管理</div>
@@ -147,13 +147,13 @@ export function WorkspaceNav({
           </span>
           <span className="min-w-0">
             <span className="block text-xs text-sidebar-ink">{agentName}</span>
-            <span className="mt-0.5 flex items-center gap-1.5 text-xs text-paper/45">
+            <span className="mt-0.5 flex items-center gap-1.5 text-xs text-paper/65">
               <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-online" />
               在线 · {roleLabel}
             </span>
           </span>
           <button
-            className="ml-auto rounded-md border border-paper/20 px-2 py-1 text-xs text-paper/65 hover:border-paper/40 hover:text-white focus-visible:outline-none focus-visible:shadow-focus disabled:opacity-50"
+            className="ml-auto rounded-md border border-paper/20 px-2 py-1 text-xs text-paper/65 hover:border-paper/40 hover:text-paper focus-visible:outline-none focus-visible:shadow-focus disabled:opacity-50"
             type="button"
             onClick={onLogout}
             disabled={busy}

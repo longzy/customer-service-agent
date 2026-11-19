@@ -2,27 +2,28 @@
 
 - 更新日期：2026-11-19
 - 项目阶段：M1 客户转人工闭环
-- 当前状态：F-24 模型失败分级降级已完成并收口；F-14、F-13、F-12、F-11、F-10、F-09、F-08 已完成并收口
+- 当前状态：002 UI 改版已完成并收口；F-24 模型失败分级降级已完成并收口；F-14、F-13、F-12、F-11、F-10、F-09、F-08 已完成并收口
 - 当前 Milestone：M1 企业核心客服闭环（客户转人工闭环）
 - 方向重置：[2026-11-16 企业化方向重置](initiatives/2026-11-16-enterprise-reset.md)
-- 当前工作：F-24 已完成并收口；F-14、F-13、F-12、F-11、F-10、F-09、F-08 已收口；F-15、F-16、F-17、F-18、F-19、F-20、F-21、F-22 待评审
+- 当前工作：002 UI 改版 F-15~F-23 已收口；F-24 已完成并收口；F-14、F-13、F-12、F-11、F-10、F-09、F-08 已收口
 
 <!-- verify:start -->
-- 最近验证：`./scripts/verify.sh` 全部检查通过——pytest 681 passed（独立测试库）、mypy 67 个文件、追溯矩阵通过（20 条 AC）、文档与前端检查通过
+- 最近验证：`./scripts/verify.sh` 全部检查通过——pytest 687 passed（独立测试库）、mypy 67 个文件、追溯矩阵通过（20 条 AC）、文档与前端检查通过
 <!-- verify:end -->
 
 ## 进行中
 
-- F-15、F-16、F-17、F-18、F-19、F-20、F-21、F-22、F-23 待评审；视觉回归已用 ego-browser 完成。
 - 后续切片：订单查询（003）、取消（004）、安全硬化（005）未启动。
 - 分支保护：GitHub 私有仓库套餐限制，待决定是否升级/公开；不阻塞核心业务。
 
 ## 下一步
 
-1. 后续切片订单查询（003）、取消（004）、安全硬化（005）按 roadmap 排期；UI 改版（002）批准后从 S1 开工。
+1. 后续切片订单查询（003）、取消（004）、安全硬化（005）按 roadmap 排期。
 
 ## 已完成
 
+- 修复（2026-11-19，UoW commit 失败语义）：`get_session` 改为 `scope="function"`，commit 失败在响应发送前返回 500 并回滚；commit 移入 `try`，失败也走 rollback；新增 commit 失败集成用例与注入 scope 静态检查；FastAPI 下限提升到 0.121.1，ADR-0009 已修订。
+- 002 UI 改版：F-15~F-23 完成并收口——S1 令牌接入、客户登录/聊天、坐席登录/队列/详情/四态、可访问性/响应式与视觉回归；AC-40~49 全部 covered；pytest 687 passed、mypy 67 files；两轮评审 0 阻断（`docs/reviews/002-ui-redesign/`）；四页/空态/1200/900/375 截图在 `evals/reports/002-ui-redesign/s4/`；提交本次收口。
 - F-24：模型失败分级降级——单次超时/异常只提示重试且不建单，同一会话连续 2 次失败自动转人工；交接单带 `failure_count`/`last_error` 且工作台详情可见；AC-31/32 定向 107 passed、全量 681 passed；反向验证 4 组；评审通过（`docs/reviews/001-customer-handoff/F-24.md`，2 轮 0 阻断）；提交 3ab1080、5221781、860e2d7。
 - 重构（2026-11-19，连接池收口）：业务池参数进 `Settings`（size/overflow/timeout/recycle）；Trace 改用独立小池（2+2、2s 超时），不再与业务请求抢连接；容量公式 `workers × 19 ≤ max_connections`；决策见 ADR-0010。
 - 重构（2026-11-19，请求级 Unit of Work）：`get_session` 成功提交、异常回滚；路由与业务模块移除手动 `commit()`；限速改为独立 session；决策见 ADR-0009，pytest 678 passed。
@@ -67,8 +68,7 @@
 
 ## 待确认决策
 
-- UI 改版（2026-11-18，002）：设计已冻结——五张页面稿、`tokens.css` v2、`ui-spec` v4（组件契约 3.1–3.14、样式承载/动效/响应式/基线）、`baseline/` 冻结哈希；实现切片 S1–S3 待开工，应用代码未改。
-- 前端类型由 OpenAPI 生成已按 [ADR-0007](adr/0007-openapi-frontend-types.md) 落地；CSS 统一用 `docs/design-system/tokens.css` 与 ui-spec 间距/气泡规范仍未落地，登记为 M1 技术债；前端规范见 [frontend.md](process/frontend.md)，ESLint 核心规则已接入，token 迁移与 stylelint 强制点待接。
+- 前端类型由 OpenAPI 生成已按 [ADR-0007](adr/0007-openapi-frontend-types.md) 落地；CSS 已统一到 `tokens.css` + Tailwind；非 4px 基数的任意间距与 stylelint 强制点仍待接，登记为 M1 技术债；前端规范见 [frontend.md](process/frontend.md)，ESLint 核心规则已接入，token 迁移与 stylelint 强制点待接。
 - PII 脱敏范围：M1 仅覆盖大陆手机号（`+86`/分隔/全角）、邮箱、18 位身份证（含 `X/x`）；银行卡、护照、座机、非大陆号码等格式透传，归 005 安全硬化。
 - plan 澄清（F-06 评审确认）：客户 cookie 访问 `/workspace/queue` 返回 401 而非 plan 5.1 的“客户→403”（403 指合法员工凭据但非 agent）；队列末条/等待起算口径在执行卡 D-2/D-3；003 接入订单后需重审 `order_count=0`。
 - 清理任务频率与审计归档方式；安全硬化切片确定。

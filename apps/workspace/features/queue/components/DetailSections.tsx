@@ -44,14 +44,14 @@ export function DetailSections({ item }: { item: QueueItem }) {
         </div>
         <div className="flex flex-col gap-1.5 rounded-[9px] border border-line-soft bg-surface-soft px-2.5 py-2 text-xs leading-[1.6] text-text-2">
           <b className="font-semibold text-text">领取后进入会话页</b>
-          <span>完整交接单由后续 F-08 承接。</span>
+          <span>进入会话页后可查看完整交接单与上下文。</span>
         </div>
       </div>
 
       <div className="flex flex-col gap-1.5 rounded-[9px] border border-line-soft bg-surface-soft px-2.5 py-2 text-xs leading-[1.6] text-text-2">
         <b className="font-semibold text-text">领取规则</b>
         <span>同一会话仅一名坐席可领取；冲突返回 409 并刷新队列。</span>
-        <span>领取后锁定 8 小时，可在「我的会话」中继续。</span>
+        <span>领取后进入会话页继续服务。</span>
       </div>
     </>
   );

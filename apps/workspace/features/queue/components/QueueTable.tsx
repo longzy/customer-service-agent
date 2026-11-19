@@ -49,8 +49,12 @@ export function QueueTable({
   onClaim,
 }: QueueTableProps) {
   return (
-    <div className="mt-3.5 overflow-hidden rounded-xl border border-border bg-surface">
-      <table className="w-full table-fixed border-collapse">
+    <div className="mt-3.5 overflow-x-auto rounded-xl border border-border bg-surface">
+      <table
+        aria-label="待接入队列"
+        role="grid"
+        className="w-full min-w-[760px] table-fixed border-collapse"
+      >
         <colgroup>
           <col style={{ width: 40 }} />
           <col style={{ width: 168 }} />
@@ -73,11 +77,11 @@ export function QueueTable({
             </th>
             <th className={TH}>客户</th>
             <th className={TH}>等待</th>
-            <th className={TH}>转人工原因</th>
+            <th className={`${TH} max-[1023px]:hidden`}>转人工原因</th>
             <th className={TH}>最后一条消息</th>
             <th className={`${TH} text-right max-[1024px]:hidden`}>订单</th>
             <th className={TH}>状态</th>
-            <th className={`${TH} text-right`}>操作</th>
+            <th className={`${TH} text-right max-[767px]:hidden`}>操作</th>
           </tr>
         </thead>
         <tbody>
@@ -87,9 +91,16 @@ export function QueueTable({
             return (
               <tr
                 key={item.handoff_id}
-                className={`cursor-pointer hover:bg-surface-muted ${selected ? "bg-surface-selected" : ""}`}
+                tabIndex={0}
+                className={`cursor-pointer hover:bg-surface-muted focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-accent ${selected ? "bg-surface-selected" : ""}`}
                 aria-selected={selected}
                 onClick={() => onSelect(item.handoff_id)}
+                onKeyDown={(event) => {
+                  if (event.key === " ") {
+                    event.preventDefault();
+                    onSelect(item.handoff_id);
+                  }
+                }}
               >
                 <td className={`${TD} ${selected ? "shadow-[inset_3px_0_0_var(--accent)]" : ""}`}>
                   <input
@@ -121,7 +132,9 @@ export function QueueTable({
                     {formatWait(item.waiting_seconds)}
                   </span>
                 </td>
-                <td className={`${TD} text-text-2`}>{REASON_LABEL[item.reason] ?? item.reason}</td>
+                <td className={`${TD} text-text-2 max-[1023px]:hidden`}>
+                  {REASON_LABEL[item.reason] ?? item.reason}
+                </td>
                 <td className={`${TD} text-text-2`}>{item.last_message || "（无客户消息）"}</td>
                 <td className={`${TD} text-right tabular-nums text-text-2 max-[1024px]:hidden`}>
                   {item.order_count}
@@ -137,7 +150,7 @@ export function QueueTable({
                     {overdue ? "已超时" : "等待中"}
                   </span>
                 </td>
-                <td className={`${TD} text-right`}>
+                <td className={`${TD} text-right max-[767px]:hidden`}>
                   <button
                     type="button"
                     className={selected ? CLAIM_PRIMARY : CLAIM}

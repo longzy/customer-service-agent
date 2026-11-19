@@ -89,17 +89,17 @@ export function LoginPanel() {
   }
 
   return (
-    <main className="flex min-h-screen bg-canvas-deep p-10 max-[1024px]:p-0">
-      <div className="flex flex-1 overflow-hidden rounded-[28px] bg-bg shadow-panel max-[1024px]:flex-col max-[1024px]:rounded-none">
+    <main className="flex min-h-screen bg-canvas-deep p-10 max-[1023px]:p-0">
+      <div className="flex flex-1 overflow-hidden rounded-[28px] bg-bg shadow-panel max-[1023px]:flex-col max-[1023px]:rounded-none">
         <LoginBrand isDev={isDev} />
 
-        <section className="relative flex flex-1 flex-col items-center justify-center gap-4 px-10 py-10 max-[1024px]:px-5 max-[1024px]:pb-10 max-[1024px]:pt-6">
-          <p className="absolute right-10 top-8 text-xs text-text-2 max-[1024px]:hidden">
-            登录遇到问题？
+        <section className="relative flex flex-1 flex-col items-center justify-center gap-4 px-10 py-10 max-[1023px]:px-5 max-[1023px]:pb-10 max-[1023px]:pt-6">
+          <p className="absolute right-10 top-8 text-xs text-text-2 max-[1023px]:hidden">
+            内部支持请联系管理员
           </p>
 
           <form
-            className="w-full max-w-[400px] rounded-[18px] border border-border bg-surface px-9 pb-7 pt-8 shadow-panel max-[1024px]:px-6"
+            className="w-full max-w-[400px] rounded-[18px] border border-border bg-surface px-9 pb-7 pt-8 shadow-panel max-[1023px]:px-6"
             onSubmit={handleSubmit}
             aria-busy={busy}
           >
@@ -107,11 +107,9 @@ export function LoginPanel() {
               <p className="m-0 text-xs font-semibold tracking-[0.18em] text-text-3">
                 AGENT SIGN IN
               </p>
-              {isDev ? (
-                <span className="ml-auto rounded-full border border-notice-line bg-notice-bg px-2 py-0.5 text-xs tracking-[0.08em] text-notice-ink">
-                  DEV
-                </span>
-              ) : null}
+              <span className="ml-auto rounded-full border border-notice-line bg-notice-bg px-2 py-0.5 text-xs tracking-[0.08em] text-notice-ink">
+                {isDev ? "DEV" : "PROD"}
+              </span>
             </div>
             <h2 className="mt-2.5 text-[23px] font-semibold tracking-[-0.01em]">登录工作台</h2>
             <p className="mt-2 text-sm leading-[1.7] text-text-2">
@@ -211,10 +209,6 @@ export function LoginPanel() {
               <span className="mt-0.5 shrink-0">{SHIELD_ICON}</span>
               <span>仅限内部员工。登录、领取与关闭会话均记录在审计日志中，用于安全追溯。</span>
             </div>
-
-            <p className="mt-3.5 text-center text-xs tabular-nums text-text-3">
-              上次登录：11-17 18:20 · 上海
-            </p>
           </form>
         </section>
       </div>

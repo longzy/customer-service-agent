@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
+
 import type { QueueItem } from "../types";
 
 import { DetailSections } from "./DetailSections";
@@ -32,16 +34,39 @@ export function DetailPanel({
   onClaim,
   onClose,
 }: DetailPanelProps) {
+  const [isNarrow, setIsNarrow] = useState(false);
+  const closeRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") return;
+    const query = window.matchMedia("(max-width: 1023px)");
+    const sync = () => setIsNarrow(query.matches);
+    sync();
+    query.addEventListener("change", sync);
+    return () => query.removeEventListener("change", sync);
+  }, []);
+
+  useEffect(() => {
+    if (open && isNarrow) {
+      closeRef.current?.focus();
+    }
+  }, [isNarrow, open]);
+
   return (
     <aside
       aria-label="会话详情"
-      className={`flex min-h-screen w-[352px] shrink-0 flex-col gap-4 border-l border-border bg-surface px-[22px] py-5 max-[1279px]:w-[320px] max-[1023px]:fixed max-[1023px]:inset-y-0 max-[1023px]:right-0 max-[1023px]:z-20 max-[1023px]:min-h-0 max-[1023px]:overflow-y-auto max-[1023px]:shadow-[-24px_0_48px_-32px_rgba(19,33,28,0.4)] max-[1023px]:transition-transform ${
+      aria-modal={isNarrow && open ? true : undefined}
+      role={isNarrow ? "dialog" : undefined}
+      // 关闭态不可聚焦；桌面空态同样不应把焦点吸进侧栏。
+      inert={!open ? true : undefined}
+      className={`flex min-h-screen w-[352px] shrink-0 flex-col gap-4 border-l border-border bg-surface px-[22px] py-5 max-[1279px]:w-[320px] max-[1023px]:fixed max-[1023px]:inset-y-0 max-[1023px]:right-0 max-[1023px]:z-20 max-[1023px]:min-h-0 max-[1023px]:overflow-y-auto max-[1023px]:shadow-[-24px_0_48px_-32px_var(--shadow-drawer-ink)] max-[1023px]:transition-transform ${
         open ? "max-[1023px]:translate-x-0" : "max-[1023px]:translate-x-full"
       }`}
     >
       <div className="flex items-center">
         <h2 className="m-0 text-sm font-semibold">会话详情</h2>
         <button
+          ref={closeRef}
           className="ml-auto rounded-sm px-1.5 py-0.5 text-lg leading-none text-text-3 hover:text-text focus-visible:outline-none focus-visible:shadow-focus disabled:cursor-default disabled:opacity-40"
           type="button"
           onClick={onClose}
@@ -93,8 +118,11 @@ export function DetailPanel({
           <DetailSections item={item} />
 
           <div className="mt-auto flex flex-col gap-2">
+            <p className="m-0 hidden rounded-md border border-border bg-bg px-3 py-2 text-xs text-text-2 max-[767px]:block">
+              请使用桌面端领取会话。
+            </p>
             <button
-              className="h-[38px] rounded-md border border-accent bg-accent text-sm font-medium text-surface hover:bg-brand-deep focus-visible:outline-none focus-visible:shadow-focus disabled:cursor-not-allowed disabled:border-border disabled:bg-surface-2 disabled:text-text-3"
+              className="h-[38px] rounded-md border border-accent bg-accent text-sm font-medium text-surface hover:bg-brand-deep focus-visible:outline-none focus-visible:shadow-focus disabled:cursor-not-allowed disabled:border-border disabled:bg-surface-2 disabled:text-text-3 max-[767px]:hidden"
               type="button"
               onClick={onClaim}
               disabled={disabled || claiming}

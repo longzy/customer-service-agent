@@ -29,6 +29,7 @@ export function QueueGate() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<string | undefined>(undefined);
   const [denied, setDenied] = useState(false);
 
   const [filter, setFilter] = useState<QueueFilter>("all");
@@ -43,6 +44,7 @@ export function QueueGate() {
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setErrorCode(undefined);
     setDenied(false);
     try {
       const current = await getSession();
@@ -66,6 +68,7 @@ export function QueueGate() {
         setDenied(true);
         return;
       }
+      setErrorCode(cause instanceof ApiError ? cause.code : undefined);
       setError("请求未完成，请重试");
     } finally {
       setLoading(false);
@@ -107,6 +110,7 @@ export function QueueGate() {
       return (
         item.customer_display_name.toLowerCase().includes(keyword) ||
         item.customer_username.toLowerCase().includes(keyword) ||
+        item.conversation_id.toLowerCase().includes(keyword) ||
         item.last_message.toLowerCase().includes(keyword)
       );
     });
@@ -124,7 +128,12 @@ export function QueueGate() {
     }
     if (!initializedRef.current) {
       initializedRef.current = true;
-      setSelectedId(visible[0].handoff_id);
+      // 桌面默认选中首行；<1024 用覆盖层，不能加载即弹开详情。
+      const isDesktop =
+        typeof window.matchMedia !== "function" || window.matchMedia("(min-width: 1024px)").matches;
+      if (isDesktop) {
+        setSelectedId(visible[0].handoff_id);
+      }
       return;
     }
     if (selectedId && !visible.some((item) => item.handoff_id === selectedId)) {
@@ -144,11 +153,12 @@ export function QueueGate() {
     onNotice: setNotice,
   });
 
-  if (!session) {
+  if (!session || denied) {
     return (
       <QueueFallback
         denied={denied}
         error={error}
+        errorCode={errorCode}
         loading={loading}
         onRetry={() => void load()}
         onLogout={() => void handleLogout()}
@@ -192,7 +202,6 @@ export function QueueGate() {
             onReason={setReason}
             onSort={setSort}
             onQuery={setQuery}
-            searchRef={searchRef}
           />
 
           <QueueBody
@@ -201,6 +210,7 @@ export function QueueGate() {
             total={counts.all}
             loading={loading}
             error={error}
+            errorCode={errorCode}
             notice={notice}
             selectedId={selectedId}
             claimingId={claimingId}

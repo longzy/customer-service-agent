@@ -76,17 +76,17 @@ export function LoginPanel() {
   }
 
   return (
-    <main className="flex min-h-screen bg-canvas-deep p-10 max-[1024px]:p-0">
-      <div className="flex flex-1 overflow-hidden rounded-[28px] bg-bg shadow-panel max-[1024px]:flex-col max-[1024px]:rounded-none">
+    <main className="flex min-h-screen bg-canvas-deep p-10 max-[1023px]:p-0">
+      <div className="flex flex-1 overflow-hidden rounded-[28px] bg-bg shadow-panel max-[1023px]:flex-col max-[1023px]:rounded-none">
         <LoginBrand />
 
-        <section className="relative flex flex-1 flex-col items-center justify-center gap-4 px-10 py-10 max-[1024px]:px-5 max-[1024px]:pb-10 max-[1024px]:pt-6">
-          <p className="absolute right-10 top-8 text-xs tracking-[0.18em] text-text-3 max-[1024px]:hidden">
+        <section className="relative flex flex-1 flex-col items-center justify-center gap-4 px-10 py-10 max-[1023px]:px-5 max-[1023px]:pb-10 max-[1023px]:pt-6">
+          <p className="absolute right-10 top-8 text-xs tracking-[0.18em] text-text-3 max-[1023px]:hidden">
             SECURE SIGN IN
           </p>
 
           <form
-            className="w-full max-w-[400px] rounded-[20px] border border-border bg-surface px-9 pb-7 pt-9 shadow-panel max-[1024px]:px-6"
+            className="w-full max-w-[400px] rounded-[20px] border border-border bg-surface px-9 pb-7 pt-9 shadow-panel max-[1023px]:px-6"
             onSubmit={handleSubmit}
             aria-busy={busy}
           >
@@ -194,7 +194,7 @@ export function LoginPanel() {
             ) : null}
           </form>
 
-          <p className="text-xs text-text-3">对话内容加密传输 · 仅用于本次服务</p>
+          <p className="mt-auto text-xs text-text-3">对话内容加密传输 · 仅用于本次服务</p>
         </section>
       </div>
     </main>

@@ -54,6 +54,10 @@ export function useQueueKeyboard({
         const next = visible[Math.max(index - 1, 0)];
         if (next) onSelect(next.handoff_id);
       } else if (event.key === "Enter" && selected) {
+        // 焦点在按钮/链接上时，Enter 应触发该控件本身，不能再领取一次。
+        if (target instanceof Element && target.closest('button, a, [role="button"]')) {
+          return;
+        }
         event.preventDefault();
         onClaim(selected);
       } else if (event.key === "Escape") {

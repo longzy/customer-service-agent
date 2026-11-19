@@ -106,7 +106,6 @@ export function WorkspaceHeader({
           <button className={BUTTON} type="button" onClick={onRefresh} disabled={loading}>
             刷新
           </button>
-          <span className="text-xs text-text-3 max-[1023px]:hidden">自动刷新 30s</span>
         </div>
       </div>
     </>

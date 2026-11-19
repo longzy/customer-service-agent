@@ -12,6 +12,7 @@ import {
   type Session,
 } from "@/lib/session";
 
+import { ChatLoading } from "./ChatLoading";
 import { ChatShell } from "./ChatShell";
 
 type RetryAction = "load" | "logout";
@@ -100,23 +101,24 @@ export function SessionGate() {
   if (!session) {
     if (error) {
       return (
-        <main className="app">
-          <section className="content">
-            <div className="error-box">
-              <p role="alert">{error.message}</p>
-              <button type="button" className="ghost" onClick={handleRetry} disabled={loading}>
-                重试
-              </button>
-            </div>
-          </section>
+        <main className="grid min-h-screen place-items-center bg-bg p-10 font-sans">
+          <div className="w-full max-w-[420px] rounded-xl border border-border bg-surface p-6 text-center shadow-panel">
+            <p className="m-0 text-sm leading-[1.7] text-text-2" role="alert">
+              {error.message}
+            </p>
+            <button
+              className="mt-4 h-9 rounded-md border border-border bg-surface px-3.5 text-sm text-text hover:border-border-strong focus-visible:outline-none focus-visible:shadow-focus disabled:opacity-50"
+              type="button"
+              onClick={handleRetry}
+              disabled={loading}
+            >
+              重试
+            </button>
+          </div>
         </main>
       );
     }
-    return (
-      <main className="app" aria-busy={loading}>
-        <p className="loading">加载中…</p>
-      </main>
-    );
+    return <ChatLoading />;
   }
 
   return (

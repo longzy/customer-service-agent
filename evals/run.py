@@ -28,6 +28,9 @@ SPECS_DIR = ROOT / "docs" / "specs"
 BASELINE_PATH = ROOT / "scripts" / "trace-baseline.txt"
 # M1-P 原型的验收编号只保留为历史测试标签，不再进入当前门禁。
 LEGACY_AC = {f"AC-{number:02d}" for number in range(1, 30)}
+# 002 UI 改版是纯前端视觉/交互验收，由 apps/*/tests 与 trace 覆盖；
+# 后端场景评测不执行浏览器，不能把这些 AC 记成“缺少场景用例”。
+FRONTEND_ONLY_AC = {f"AC-{number}" for number in range(40, 50)}
 AC_ROW = re.compile(r"^\| (AC-\d{2}) \|", re.MULTILINE)
 AC_PATTERN = re.compile(r"_AC_(\d{2})")
 SCENARIO_MODULE = "test_eval_scenarios"
@@ -46,7 +49,7 @@ def discover_ac_ids(specs_dir: Path = SPECS_DIR) -> list[str]:
     found: set[str] = set()
     for path in sorted(specs_dir.glob("*/brief.md")):
         found.update(AC_ROW.findall(path.read_text(encoding="utf-8")))
-    return sorted(ac for ac in found if ac not in LEGACY_AC)
+    return sorted(ac for ac in found if ac not in LEGACY_AC and ac not in FRONTEND_ONLY_AC)
 
 
 def read_baseline(path: Path = BASELINE_PATH) -> set[str]:

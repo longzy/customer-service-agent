@@ -31,7 +31,7 @@
 ### Non-Goals
 
 - 不改任何接口、字段、错误码与权限判断。
-- 不引入状态库、UI 库、图标库、CSS 框架或新依赖。
+- 不引入状态库、UI 库、图标库或除 Tailwind 之外的 CSS 框架；Tailwind v4 按 ui-spec 2.6 接入，是本切片唯一的样式方案。
 - 不做移动端专属设计（只按 ui-spec 2.8 重排）；不做暗色与 i18n。
 - 不再调整 `features/` 边界（目录重构已于 2026-11-18 完成，见 [frontend.md](../../process/frontend.md)）；本切片只在既有 feature 内拆分展示组件。
 
@@ -105,7 +105,7 @@
 | 建 `packages/ui` 共享组件 | 已批准两应用各自维护；跨应用共享会引入 workspace 与构建变更 |
 | 继续用全局类名 | 与 ui-spec 2.6 冲突，后续组件样式互相污染 |
 | 复制 `tokens.css` 到各应用 | 双源会漂移；仅作为 S1 的回退方案，并加一致性检查 |
-| 引入 Tailwind/UI 库 | 与“不引入 UI 库”及现有 CSS 体系冲突 |
+| 引入 Tailwind 之外的 UI/CSS 库 | 与“不引入 UI 库”冲突；Tailwind v4 已按 ui-spec 2.6 选定，无需第二套方案 |
 
 ## 5. 风险
 

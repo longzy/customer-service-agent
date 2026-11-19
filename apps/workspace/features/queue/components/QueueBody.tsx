@@ -11,6 +11,7 @@ type QueueBodyProps = {
   total: number;
   loading: boolean;
   error: string | null;
+  errorCode?: string;
   notice: string | null;
   selectedId: string | null;
   claimingId: string | null;
@@ -28,6 +29,7 @@ export function QueueBody({
   total,
   loading,
   error,
+  errorCode,
   notice,
   selectedId,
   claimingId,
@@ -47,7 +49,7 @@ export function QueueBody({
       ) : null}
 
       {error ? (
-        <QueueError message={error} onRetry={onRetry} retrying={loading} />
+        <QueueError message={error} code={errorCode} onRetry={onRetry} retrying={loading} />
       ) : loading && items === null ? (
         <QueueSkeleton />
       ) : items && items.length === 0 ? (

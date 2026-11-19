@@ -13,12 +13,12 @@ const SECONDARY =
 export function QueueSkeleton() {
   return (
     <div
-      className="mt-3.5 overflow-hidden rounded-xl border border-border bg-surface"
+      className="mt-3.5 overflow-x-auto rounded-xl border border-border bg-surface"
       aria-busy="true"
       aria-label="队列加载中"
     >
       <div className="h-[38px] border-b border-border bg-surface-muted" />
-      <table className="w-full table-fixed border-collapse">
+      <table className="w-full min-w-[760px] table-fixed border-collapse">
         <colgroup>
           <col style={{ width: 40 }} />
           <col style={{ width: 168 }} />
@@ -35,7 +35,7 @@ export function QueueSkeleton() {
               {[24, 120, 48, 96, 180, 36, 56, 48].map((width, cell) => (
                 <td key={cell} className="h-14 px-2.5">
                   <span
-                    className="block h-2 animate-pulse rounded-sm bg-surface-muted"
+                    className="block h-2 animate-pulse motion-reduce:animate-none rounded-sm bg-surface-muted"
                     style={{ width }}
                   />
                 </td>
@@ -45,7 +45,7 @@ export function QueueSkeleton() {
         </tbody>
       </table>
       <div className="flex h-[38px] items-center bg-surface-quiet px-3 text-xs text-text-3">
-        正在同步队列 · 首次加载约 1 秒
+        正在同步队列
       </div>
     </div>
   );
@@ -66,7 +66,7 @@ export function QueueEmpty({ onRefresh }: { onRefresh: () => void }) {
         </svg>
       </span>
       <h2 className={TITLE}>队列已清空</h2>
-      <p className={TEXT}>最近 5 分钟没有新的转人工请求。保持在线，新会话会自动出现在这里。</p>
+      <p className={TEXT}>当前没有等待中的会话。保持在线，点击刷新即可查看新请求。</p>
       <button className={SECONDARY} type="button" onClick={onRefresh}>
         手动刷新
       </button>
@@ -76,10 +76,12 @@ export function QueueEmpty({ onRefresh }: { onRefresh: () => void }) {
 
 export function QueueError({
   message,
+  code,
   onRetry,
   retrying,
 }: {
   message: string;
+  code?: string;
   onRetry: () => void;
   retrying: boolean;
 }) {
@@ -98,7 +100,7 @@ export function QueueError({
       </span>
       <h2 className={TITLE}>队列加载失败</h2>
       <p className={TEXT}>{message}</p>
-      <span className="text-xs tabular-nums text-text-3">QUEUE_UNAVAILABLE</span>
+      <span className="text-xs tabular-nums text-text-3">{code ?? "QUEUE_UNAVAILABLE"}</span>
       <button className={PRIMARY} type="button" onClick={onRetry} disabled={retrying}>
         {retrying ? "重试中…" : "重试"}
       </button>

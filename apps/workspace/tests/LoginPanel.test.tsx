@@ -109,4 +109,15 @@ describe("工作台 LoginPanel", () => {
     expect(alert).toHaveTextContent("无权访问");
     expect(replace).not.toHaveBeenCalled();
   });
+
+  it("AC-43 错误密码展示 role=alert", async () => {
+    vi.spyOn(global, "fetch")
+      .mockResolvedValueOnce(json({ code: "SESSION_INVALID" }, 401))
+      .mockResolvedValueOnce(json({ code: "INVALID_CREDENTIALS", message: "账号或密码错误" }, 401));
+    render(<LoginPanel />);
+    await fillAndSubmit("agent_1", "wrong-password");
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("账号或密码错误");
+    expect(replace).not.toHaveBeenCalledWith("/queue");
+  });
 });

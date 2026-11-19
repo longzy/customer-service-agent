@@ -96,12 +96,12 @@ export function ChatShell({
   );
 
   return (
-    <main className="flex min-h-screen bg-canvas-deep p-10 max-[1024px]:p-0">
-      <div className="flex flex-1 overflow-hidden rounded-[28px] bg-paper shadow-panel max-[1024px]:flex-col max-[1024px]:rounded-none">
+    <main className="flex min-h-screen bg-canvas-deep p-10 max-[1023px]:p-0">
+      <div className="flex flex-1 overflow-hidden rounded-[28px] bg-paper shadow-panel max-[1023px]:flex-col max-[1023px]:rounded-none">
         <ChatBrand customerName={customer.display_name} busy={busy} onLogout={onLogout} />
 
         <section className="flex min-w-0 flex-1 flex-col bg-paper">
-          <header className="flex h-[76px] shrink-0 items-center gap-3 border-b border-border px-8 max-[1024px]:h-16 max-[1024px]:px-4">
+          <header className="flex h-[76px] shrink-0 items-center gap-3 border-b border-border px-8 max-[1023px]:h-16 max-[1023px]:px-4">
             <div>
               <p className="m-0 text-xs font-semibold tracking-[0.2em] text-text-3">
                 ONLINE SUPPORT
@@ -126,7 +126,7 @@ export function ChatShell({
 
           {error ? (
             <div
-              className="mx-8 mt-3.5 flex items-center gap-2.5 rounded-md bg-danger-soft px-3.5 py-2.5 text-sm text-danger max-[1024px]:mx-4"
+              className="mx-8 mt-3.5 flex items-center gap-2.5 rounded-md bg-danger-soft px-3.5 py-2.5 text-sm text-danger max-[1023px]:mx-4"
               role="alert"
             >
               <p className="m-0 flex-1">{error}</p>
@@ -165,7 +165,7 @@ export function ChatShell({
             <>
               {messageError ? (
                 <p
-                  className="mx-8 mt-3.5 rounded-md bg-warning-soft px-3 py-2 text-sm text-warning max-[1024px]:mx-4"
+                  className="mx-8 mt-3.5 rounded-md bg-warning-soft px-3 py-2 text-sm text-warning max-[1023px]:mx-4"
                   role="alert"
                 >
                   {messageError}
@@ -178,7 +178,7 @@ export function ChatShell({
                 onQuick={(text) => void submitMessage(text)}
               />
               {status === "CLOSED" ? null : (
-                <div className="shrink-0 px-8 pb-6 pt-3.5 max-[1024px]:px-4 max-[1024px]:pb-4">
+                <div className="shrink-0 px-8 pb-6 pt-3.5 max-[767px]:sticky max-[767px]:bottom-0 max-[767px]:bg-paper max-[1023px]:px-4 max-[1023px]:pb-4">
                   <ChatComposer
                     draft={draft}
                     setDraft={setDraft}
@@ -189,6 +189,9 @@ export function ChatShell({
                     canSend={canSend}
                     onSubmit={() => void submitMessage()}
                   />
+                  <p className="mt-3 text-center text-xs text-text-3">
+                    对话由真人客服与 AI 助手共同提供 · 请勿发送支付密码等敏感信息
+                  </p>
                 </div>
               )}
             </>

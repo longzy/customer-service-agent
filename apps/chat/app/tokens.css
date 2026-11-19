@@ -99,5 +99,10 @@
   /* 阴影与焦点 */
   --shadow-card: 0 1px 2px rgba(19, 33, 28, 0.04), 0 24px 48px -36px rgba(19, 33, 28, 0.22);
   --shadow-float: 0 1px 2px rgba(19, 33, 28, 0.05), 0 16px 32px -24px rgba(19, 33, 28, 0.3);
-  --focus-ring: 0 0 0 3px rgba(15, 92, 76, 0.12);
+  --focus-ring: 0 0 0 3px var(--accent);
+  /* 装饰光晕与阴影色；组件只引用变量，不写字面量 */
+  --halo-mint: rgba(158, 199, 184, 0.05);
+  --halo-online: rgba(88, 196, 154, 0.12);
+  --halo-warning: rgba(148, 85, 10, 0.12);
+  --shadow-drawer-ink: rgba(19, 33, 28, 0.4);
 }

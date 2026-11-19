@@ -8,8 +8,11 @@
 - **AC 聚合报告**：`evals/run.py` 解析 pytest JUnit，按测试名里的 `_AC_XX` 聚合。
   AC 集合从当前 `docs/specs/*/brief.md` 的 AC 表动态读取，不再硬编码。
   `AC-01~29` 是 M1-P 原型的历史标签，不参与当前门禁。
-- **待开工 AC**：`scripts/trace-baseline.txt` 中登记的 AC（当前为 002 的 AC-40~49）
-  没有测试时记 `待开工`，不算缺失、不使门禁失败；实现后从基线删除即可转为门禁项。
+- **待开工 AC**：`scripts/trace-baseline.txt` 中登记的 AC 没有测试时记 `待开工`，
+  不算缺失、不使门禁失败；实现后从基线删除即可转为门禁项。
+- **前端 AC**：002 UI 改版的 AC-40~49 是纯前端视觉/交互验收，由 `apps/*/tests`
+  与 `scripts/trace.py` 覆盖；后端场景评测不执行浏览器，不要求这些 AC 有 pytest
+  场景用例（见 `evals/run.py` 的 `FRONTEND_ONLY_AC`）。
 - **多轮场景**：只列覆盖当前 AC 的场景。M1-P 的旧多轮场景测试已随旧 Web 接口删除；
   新链路的多轮场景待 003 订单切片重建。
 - 不重复 confirm/故障/响应头/日志测试；这些由既有 pytest 覆盖。

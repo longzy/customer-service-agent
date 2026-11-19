@@ -87,7 +87,7 @@ export function MessageList({ messages, loading, status, onQuick }: MessageListP
 
   return (
     <div
-      className="flex min-h-0 flex-1 flex-col gap-[18px] overflow-y-auto px-8 pb-3 pt-[26px] max-[1024px]:px-4 max-[1024px]:py-4"
+      className="flex min-h-0 flex-1 flex-col gap-[18px] overflow-y-auto px-8 pb-3 pt-[26px] max-[1023px]:px-4 max-[1023px]:py-4"
       ref={listRef}
       role="log"
       aria-live="polite"
@@ -95,13 +95,13 @@ export function MessageList({ messages, loading, status, onQuick }: MessageListP
     >
       {loading ? (
         <div className="flex flex-col gap-2.5 py-1.5" aria-label="加载中">
-          <span className="block h-11 w-[62%] animate-pulse rounded-xl bg-surface-muted" />
-          <span className="block h-11 w-[48%] animate-pulse self-end rounded-xl bg-surface-muted" />
-          <span className="block h-11 w-[70%] animate-pulse rounded-xl bg-surface-muted" />
+          <span className="block h-11 w-[62%] animate-pulse motion-reduce:animate-none rounded-xl bg-surface-muted" />
+          <span className="block h-11 w-[48%] animate-pulse motion-reduce:animate-none self-end rounded-xl bg-surface-muted" />
+          <span className="block h-11 w-[70%] animate-pulse motion-reduce:animate-none rounded-xl bg-surface-muted" />
         </div>
       ) : null}
 
-      {!loading && messages.length === 0 ? (
+      {!loading ? (
         <div className="max-w-[640px] rounded-xl border border-sand-line bg-sand p-[18px]">
           <h2 className="m-0 font-serif text-[20px] font-semibold tracking-[0.01em]">
             你好，我是小回。
@@ -109,7 +109,7 @@ export function MessageList({ messages, loading, status, onQuick }: MessageListP
           <p className="mb-0 mt-2 max-w-[520px] text-base leading-[1.75] text-text-2">
             我可以帮你查订单、改配送、办理退换。需要真人时，直接说「转人工」。
           </p>
-          <div className="mt-3.5 grid grid-cols-3 gap-2 max-[1024px]:grid-cols-1">
+          <div className="mt-3.5 grid grid-cols-3 gap-2 min-[768px]:max-[1023px]:grid-cols-1 max-[767px]:grid-cols-2">
             {QUICK_ACTIONS.map((action) => (
               <button
                 key={action.label}
@@ -179,11 +179,11 @@ export function MessageList({ messages, loading, status, onQuick }: MessageListP
         >
           <span
             aria-hidden="true"
-            className="mt-1 h-[9px] w-[9px] shrink-0 animate-pulse rounded-full bg-warning shadow-[0_0_0_5px_rgba(148,85,10,0.12)]"
+            className="mt-1 h-[9px] w-[9px] shrink-0 animate-pulse motion-reduce:animate-none rounded-full bg-warning shadow-[0_0_0_5px_var(--halo-warning)]"
           />
           <div>
             <div className="text-sm font-semibold text-warning-ink">正在为你接通人工客服</div>
-            <div className="mt-1 text-xs leading-[1.65] text-warning-ink/80">
+            <div className="mt-1 text-xs leading-[1.65] text-warning-ink">
               接通后会在这里提示你，也可以先补充问题。
             </div>
           </div>
