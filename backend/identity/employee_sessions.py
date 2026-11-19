@@ -118,7 +118,6 @@ async def login_employee(
 ) -> EmployeeLogin | None:
     """凭据正确返回登录结果；失败返回 None。非 agent 抛 `ForbiddenRoleError`。"""
     await consume_fixed_window(
-        db,
         bucket_key=f"employee_login:{username.strip().lower()}:{client_ip}",
         limit=LOGIN_LIMIT,
         window=LOGIN_WINDOW,

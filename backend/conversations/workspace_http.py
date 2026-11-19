@@ -171,10 +171,8 @@ async def claim_queue_item(
             trace_id=_trace_id(request),
         )
     except HandoffClosedError:
-        await db.rollback()
         raise ApiError(409, ErrorCode.CONVERSATION_CLOSED) from None
     except ClaimConflictError:
-        await db.rollback()
         raise ApiError(409, ErrorCode.CLAIM_CONFLICT) from None
     if claimed is None:
         raise ApiError(404, ErrorCode.NOT_FOUND)
@@ -197,7 +195,6 @@ async def claim_queue_item(
             },
         ),
     )
-    await db.commit()
     return WorkspaceClaimResponse.model_validate(claimed, from_attributes=True)
 
 
@@ -226,10 +223,8 @@ async def take_over(
             trace_id=_trace_id(request),
         )
     except HandoffClosedError:
-        await db.rollback()
         raise ApiError(409, ErrorCode.CONVERSATION_CLOSED) from None
     except ClaimConflictError:
-        await db.rollback()
         raise ApiError(409, ErrorCode.CLAIM_CONFLICT) from None
     if taken is None:
         raise ApiError(404, ErrorCode.NOT_FOUND)
@@ -248,7 +243,6 @@ async def take_over(
             metadata={"conversation_id": taken.conversation_id, "to_status": taken.status},
         ),
     )
-    await db.commit()
     return WorkspaceTakeoverResponse.model_validate(taken, from_attributes=True)
 
 
@@ -300,7 +294,6 @@ async def read_conversation_messages(
     )
     if result is None:
         raise ApiError(404, ErrorCode.NOT_FOUND)
-    await db.commit()
     return _messages_payload(result)
 
 
@@ -335,7 +328,6 @@ async def reply_to_conversation(
             now=utc_now(),
         )
     except HandoffClosedError:
-        await db.rollback()
         raise ApiError(409, ErrorCode.CONVERSATION_CLOSED) from None
     if result is None:
         raise ApiError(404, ErrorCode.NOT_FOUND)
@@ -358,7 +350,6 @@ async def reply_to_conversation(
                 },
             ),
         )
-    await db.commit()
     return MessagePageResponse(
         conversation_id=result.conversation_id,
         status=result.status,  # type: ignore[arg-type]
@@ -396,7 +387,6 @@ async def close_conversation(
             now=utc_now(),
         )
     except AgentConversationClosedError:
-        await db.rollback()
         raise ApiError(409, ErrorCode.CONVERSATION_CLOSED) from None
     if result is None:
         raise ApiError(404, ErrorCode.NOT_FOUND)
@@ -416,7 +406,6 @@ async def close_conversation(
                 metadata={"conversation_id": result.conversation_id, "to_status": result.status},
             ),
         )
-    await db.commit()
     return _state_change_payload(result)
 
 
@@ -449,7 +438,6 @@ async def return_conversation_to_ai(
             now=utc_now(),
         )
     except AgentConversationClosedError:
-        await db.rollback()
         raise ApiError(409, ErrorCode.CONVERSATION_CLOSED) from None
     if result is None:
         raise ApiError(404, ErrorCode.NOT_FOUND)
@@ -469,5 +457,4 @@ async def return_conversation_to_ai(
                 metadata={"conversation_id": result.conversation_id, "to_status": result.status},
             ),
         )
-    await db.commit()
     return _state_change_payload(result)

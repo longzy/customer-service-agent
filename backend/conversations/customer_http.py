@@ -165,7 +165,6 @@ async def login(
             metadata={"conversation_id": conversation.id, "username": result.customer.username},
         ),
     )
-    await db.commit()
     set_session_cookie(
         response,
         name=customer_sessions.CUSTOMER_COOKIE,
@@ -184,7 +183,6 @@ async def current_session(session: CurrentCustomer, db: Db) -> CustomerSessionRe
         session.customer.id,
         customer_sessions.utc_now(),
     )
-    await db.commit()
     return _payload(session.customer, conversation, session.expires_at)
 
 
@@ -204,7 +202,6 @@ async def read_conversation(
         conversation_id,
     )
     # 读取也会刷新 last_seen_at；保持 GET 幂等但落库。
-    await db.commit()
     if conversation is None:
         raise ApiError(404, ErrorCode.NOT_FOUND)
     return _payload(session.customer, conversation, session.expires_at)
@@ -229,7 +226,6 @@ async def send_message(
     now = customer_sessions.utc_now()
     try:
         await consume_fixed_window(
-            db,
             bucket_key=f"msg:{session.session_id}",
             limit=MESSAGE_LIMIT,
             window=MESSAGE_WINDOW,
@@ -327,7 +323,6 @@ async def send_message(
                 },
             ),
         )
-    await db.commit()
     return _chat_payload(result)
 
 
@@ -344,7 +339,6 @@ async def read_messages(
         # 已关闭会话仍可读历史；读接口不返回 409。
         raise ApiError(409, ErrorCode.CONVERSATION_CLOSED)
     result = await read_customer_messages(db, conversation, after_id)
-    await db.commit()
     return _chat_payload(result)
 
 
@@ -381,7 +375,6 @@ async def close_session(
             now=now,
         )
     except ConversationClosedError:
-        await db.rollback()
         raise ApiError(409, ErrorCode.CONVERSATION_CLOSED) from None
     if not result.replayed:
         await audit_or_503(
@@ -403,7 +396,6 @@ async def close_session(
                 },
             ),
         )
-    await db.commit()
     return _chat_payload(result)
 
 
@@ -437,5 +429,4 @@ async def logout(
                 ),
             )
         await customer_sessions.revoke_customer_session(db, token)
-        await db.commit()
     response.delete_cookie(customer_sessions.CUSTOMER_COOKIE, path="/")

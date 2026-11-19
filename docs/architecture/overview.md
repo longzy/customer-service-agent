@@ -136,17 +136,16 @@ ADR-0006 已删除订单号 + 手机尾号校验；完整手机号不落库/日�
 
 | 组件 | 提交什么 | 不负责 |
 |---|---|---|
-| Conversation API | 会话、消息、意图/回复审计 | 工具执行记录 |
-| Handoff/Queue | 交接单、入队、领取/接管状态与审计 | HTTP 响应 |
-| Identity | 员工账号、服务端 session | 业务会话 |
-| `create_handoff` | 只 `flush`，由调用方提交 | 自己 `commit` |
-| Tool Gateway | `tool_executions`（写前 `started`、完成/拒绝） | 业务事务 |
-| Cancellation Workflow | 任务状态 + 转换/确认审计 | 工具执行记录、HTTP 响应 |
+| 请求级 UoW（`get_session`） | 请求内全部业务写：成功 `commit`、异常 `rollback` | 独立事务 |
+| 路由与业务模块 | 只 `flush`，不 `commit` | 提交时机 |
+| 限速（`identity/rate_limit.py`） | 独立 session 提交桶计数 | 业务事务 |
+| 安全事件审计 | 独立 session 提交 401/403/429 | 业务事务 |
 | `AsyncTraceSink` | 独立 session 写工具执行记录 | 业务事务/请求 session |
-| Outbox worker | 事件领取与投递状态（独立事务） | 业务事务 |
+| Tool Gateway | `tool_executions`（写前 `started`、完成/拒绝） | 业务事务 |
+| Cancellation Workflow | 任务状态 + 转换/确认审计；启动恢复用独立 session | 工具执行记录、HTTP 响应 |
 | 启动恢复 | 逐任务复用 `trace_id` 执行，不新建 `startup-*` | 建立新 trace |
 
-排查提交顺序时先看这张表；新增写入点必须明确归谁提交。Conversation API 与 Workflow 共用请求 session 时，Workflow 的 `commit` 会一并提交 API 挂起的意图审计。
+排查提交顺序时先看这张表。请求成功时由 `get_session` 统一提交；路由与业务模块不得再调用 `commit()`。需要独立事务的写入必须用 `session_factory()` 新开 session，并在组件名或注释中标注（[ADR-0009](../adr/0009-request-unit-of-work.md)）。
 
 ## 6. 模型与确定性代码的边界
 

@@ -7,8 +7,8 @@
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.platform.db import session_factory
 from backend.platform.models import ServiceRateLimitBucket
 
 
@@ -28,14 +28,13 @@ def fixed_window_start(now: datetime, window: timedelta) -> datetime:
 
 
 async def consume_fixed_window(
-    db: AsyncSession,
     *,
     bucket_key: str,
     limit: int,
     window: timedelta,
     now: datetime,
 ) -> None:
-    """记一次尝试；超过 `limit` 时抛 `RateLimitedError` 并给出 Retry-After。"""
+    """独立事务记一次尝试；业务回滚不退还计数。"""
     start = fixed_window_start(now, window)
     statement = (
         insert(ServiceRateLimitBucket)
@@ -49,8 +48,9 @@ async def consume_fixed_window(
         )
         .returning(ServiceRateLimitBucket.count)
     )
-    count = (await db.execute(statement)).scalar_one()
-    await db.commit()
+    async with session_factory() as db:
+        count = (await db.execute(statement)).scalar_one()
+        await db.commit()
     if count > limit:
         retry_after = int((start + window - now).total_seconds())
         raise RateLimitedError(max(retry_after, 1))

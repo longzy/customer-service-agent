@@ -58,10 +58,9 @@ class ResolvedCustomerSession:
     session_id: str
 
 
-async def _check_login_rate_limit(db: AsyncSession, username: str, ip: str) -> None:
+async def _check_login_rate_limit(username: str, ip: str) -> None:
     """固定窗口 5/15min；先写桶再校验业务，超限直接 429。"""
     await consume_fixed_window(
-        db,
         bucket_key=f"customer_login:{username.strip().lower()}:{ip}",
         limit=LOGIN_LIMIT,
         window=LOGIN_WINDOW,
@@ -97,7 +96,7 @@ async def login_customer(
     client_ip: str,
 ) -> CustomerLogin | None:
     """凭据正确返回登录结果；失败返回 None（调用方统一 401）。"""
-    await _check_login_rate_limit(db, username, client_ip)
+    await _check_login_rate_limit(username, client_ip)
     row = await _lookup_customer(db, tenant_id, username)
     if row is None:
         verify_dummy_password(password)

@@ -118,7 +118,6 @@ async def login(
             metadata={"username": result.employee.username},
         ),
     )
-    await db.commit()
     set_session_cookie(
         response,
         name=employee_sessions.EMPLOYEE_COOKIE,
@@ -167,5 +166,4 @@ async def logout(request: Request, response: Response, db: Db) -> None:
                 ),
             )
         await employee_sessions.revoke_employee_session(db, token)
-        await db.commit()
     response.delete_cookie(employee_sessions.EMPLOYEE_COOKIE, path="/")

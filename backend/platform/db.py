@@ -21,5 +21,17 @@ session_factory = async_sessionmaker(engine, expire_on_commit=False)
 
 
 async def get_session() -> AsyncIterator[AsyncSession]:
+    """请求级 Unit of Work：成功提交，异常回滚。
+
+    业务模块只 `flush`，不提交；独立事务（限速、安全审计、Trace）必须
+    用 `session_factory()` 新开 session，不能复用本 session。
+    """
+
     async with session_factory() as session:
-        yield session
+        try:
+            yield session
+        except BaseException:
+            await session.rollback()
+            raise
+        else:
+            await session.commit()

@@ -24,6 +24,7 @@
 
 ## 已完成
 
+- 重构（2026-11-19，请求级 Unit of Work）：`get_session` 成功提交、异常回滚；路由与业务模块移除手动 `commit()`；限速改为独立 session；决策见 ADR-0009，pytest 678 passed。
 - 重构（2026-11-19，后端按业务域组织）：HTTP 入口归位到 `identity/http.py`、`conversations/customer_http.py`、`conversations/workspace_http.py`，DTO 随域；`api/` 只保留装配、中间件与共享 HTTP 工具；OpenAPI 15 条路径不变，pytest 678 passed；决策见 ADR-0008。
 - 清理（2026-11-19，M1-P 旧 Web 接口退役）：删除 `/session`、`/message`、`/handoff`、`/cancellation-requests`、`/accounts` 与旧内存身份/会话中间件及 8 个强绑定旧测试文件；保留 `agent_runtime`、`tools`、`workflows`（含订单取消工作流与启动恢复）、旧表与 OMS 适配器；重新生成 OpenAPI、前端类型与测试快照（15 条路由）。
 - 流程改进（2026-11-19，评测门禁批次 A）：`evals/run.py` 的 AC 集合改为从 `docs/specs/*/brief.md` 动态发现，`AC-01~29` 不再参与门禁，`scripts/trace-baseline.txt` 中登记的待开工 AC 记 `待开工`、不算缺失；多轮场景只列覆盖当前 AC 的用例；同步 `evals/README.md`、场景测试说明与 7 条报告单测。
