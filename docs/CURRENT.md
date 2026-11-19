@@ -72,7 +72,7 @@
 - 前端类型由 OpenAPI 生成已按 [ADR-0007](adr/0007-openapi-frontend-types.md) 落地；CSS 已统一到 `tokens.css` + Tailwind，stylelint 基础强制点已接入；非 4px 基数的任意间距仍待治理，登记为 M1 技术债；前端规范见 [frontend.md](process/frontend.md)，ESLint 核心规则已接入，token 迁移与 stylelint 强制点待接。
 - PII 脱敏范围：M1 仅覆盖大陆手机号（`+86`/分隔/全角）、邮箱、18 位身份证（含 `X/x`）；银行卡、护照、座机、非大陆号码等格式透传，归 005 安全硬化。
 - plan 澄清（F-06 评审确认）：客户 cookie 访问 `/workspace/queue` 返回 401 而非 plan 5.1 的“客户→403”（403 指合法员工凭据但非 agent）；队列末条/等待起算口径在执行卡 D-2/D-3；003 接入订单后需重审 `order_count=0`。
-- 清理任务频率与审计归档方式；安全硬化切片确定。
+- 清理任务频率与审计归档方式（[ADR-0012](adr/0012-observability-grading.md) 已定分层；清理与 best-effort 实现待排期）；安全硬化切片确定。
 - 分支保护：升级 GitHub Team、转 Public，或接受未强制。
 
 ## 当前不做
