@@ -218,7 +218,7 @@ describe("工作台会话关闭与转回 AI", () => {
     expect(screen.getByText("人工接入中")).toBeInTheDocument();
   });
 
-  it("AC-38 已领取未接管不显示关闭与转回入口", async () => {
+  it("AC-38 已领取未接管可关闭但不能转回 AI", async () => {
     mockRoutes(
       baseRoutes({
         "/api/workspace/conversations/conv-1": () => json(claimedDetail),
@@ -228,13 +228,18 @@ describe("工作台会话关闭与转回 AI", () => {
           after_id: 0,
           messages: [],
         }),
+        "POST /api/workspace/conversations/conv-1/close": () => json(closePage),
       }),
     );
     render(<ConversationGate conversationId="conv-1" />);
 
     expect(await screen.findByRole("button", { name: "接管会话" })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "关闭会话" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "转回 AI" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "关闭会话" }));
+
+    expect(await screen.findByText("已关闭会话，客户将看到“会话已结束”。")).toBeInTheDocument();
+    expect(screen.getByText("已结束")).toBeInTheDocument();
   });
 
   it("AC-38 已结束不显示关闭与转回入口且待办按快照隐藏", async () => {
@@ -245,7 +250,14 @@ describe("工作台会话关闭与转回 AI", () => {
           conversation_id: "conv-1",
           status: "CLOSED",
           after_id: 4,
-          messages: [],
+          messages: [
+            {
+              id: 4,
+              author_type: "agent",
+              content: "您好，我是坐席 1",
+              created_at: "2026-11-17T10:05:00Z",
+            },
+          ],
         }),
       }),
     );
@@ -257,5 +269,8 @@ describe("工作台会话关闭与转回 AI", () => {
     );
     expect(screen.queryByRole("button", { name: "转回 AI" })).not.toBeInTheDocument();
     expect(screen.getByText("—")).toBeInTheDocument();
+    // 已结束会话刷新后仍加载历史（只停轮询，不停首屏读取）。
+    expect(await screen.findByText("您好，我是坐席 1")).toBeInTheDocument();
+    expect(screen.getByText("会话已结束，仅可查看。")).toBeInTheDocument();
   });
 });

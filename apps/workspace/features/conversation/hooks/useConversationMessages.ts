@@ -36,12 +36,17 @@ export function useConversationMessages(
   const pendingKeyRef = useRef<string | null>(null);
   const failedContentRef = useRef<string | null>(null);
   const stoppedRef = useRef(false);
+  const liveRef = useRef(live);
   const mountedRef = useRef(true);
   const onStatusRef = useRef(onStatus);
 
   useEffect(() => {
     onStatusRef.current = onStatus;
   }, [onStatus]);
+
+  useEffect(() => {
+    liveRef.current = live;
+  }, [live]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -86,10 +91,6 @@ export function useConversationMessages(
   useEffect(() => {
     let cancelled = false;
     stoppedRef.current = false;
-    if (!live) {
-      setLoading(false);
-      return;
-    }
 
     async function load(afterId: number) {
       try {
@@ -114,9 +115,10 @@ export function useConversationMessages(
       }
     }
 
+    // 首轮始终加载：已结束会话刷新后仍需可回看历史（plan 3.3.1）。
     void load(0);
     const timer = setInterval(() => {
-      if (!stoppedRef.current) {
+      if (!stoppedRef.current && liveRef.current) {
         void load(afterIdRef.current);
       }
     }, POLL_INTERVAL_MS);
@@ -125,7 +127,7 @@ export function useConversationMessages(
       cancelled = true;
       clearInterval(timer);
     };
-  }, [conversationId, applyPage, handleFailure, live, router]);
+  }, [conversationId, applyPage, handleFailure, router]);
 
   const submitReply = useCallback(async () => {
     const content = draft.trim();

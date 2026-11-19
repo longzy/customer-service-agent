@@ -5,10 +5,12 @@
   open 交接单终态化，写“已转回 AI 客服”。客户在同一会话继续对话，历史不丢。
 - 错误按**会话实际状态**判定，不看交接单状态（F-07 建议）：会话已关闭 → 409
   `CONVERSATION_CLOSED`；不存在/他人/跨租户/状态不可操作 → None（API 404）。
-- 幂等：同一 `Idempotency-Key` 重放返回首次系统消息；`status` 取会话当前状态。
-  重放先于归属与状态检查：转回会清空 assignment，否则重放会被误判 404。
+- 幂等：同一 `Idempotency-Key` 重放返回首次系统消息，系统消息记录动作人
+  （`author_id`）；重放按「会话 + 键 + 动作人」命中，他人用同一键得到 404。
+  重放先于状态检查：转回会清空 assignment，否则本人的重放会被误判 404。
 - 锁顺序：先更新交接单、再条件更新会话，与领取/接管/客户关闭一致，避免交叉等待。
 - 交接单 `pending_step` 保持创建时快照，不重写（F-11 D-4；本卡 D-6）。
+- 系统消息、重放与交接单终态化复用 `state_changes`，与客户关闭同语义。
 - 本模块只 flush，由 API 层统一 commit；失败由调用方回滚。
 """
 
@@ -20,14 +22,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.conversations.customer_chat import MessageView, view_message
 from backend.conversations.customer_close import CLOSED_NOTICE
+from backend.conversations.state_changes import (
+    close_open_handoffs,
+    replay_system_message,
+    write_system_message,
+)
 from backend.conversations.statuses import (
     AI_ACTIVE,
     CLAIMED,
     CLOSED,
     HUMAN_ACTIVE,
-    OPEN_HANDOFF_STATUSES,
 )
-from backend.platform.models import ServiceConversation, ServiceHandoff, ServiceMessage
+from backend.platform.models import ServiceConversation, ServiceMessage
 
 RETURNED_TO_AI_NOTICE = "已转回 AI 客服"
 CLOSABLE_STATUSES = (CLAIMED, HUMAN_ACTIVE)
@@ -49,27 +55,12 @@ class AgentStateChange:
 async def _find_conversation(
     db: AsyncSession, tenant_id: str, conversation_id: str
 ) -> ServiceConversation | None:
-    """同租户会话；不先按归属过滤，重放需要在转回清空 assignment 后仍可命中。"""
+    """同租户会话；不先按归属过滤，本人的重放需要在转回清空 assignment 后仍可命中。"""
     return (
         await db.execute(
             select(ServiceConversation).where(
                 ServiceConversation.id == conversation_id,
                 ServiceConversation.tenant_id == tenant_id,
-            )
-        )
-    ).scalar_one_or_none()
-
-
-async def _replay(
-    db: AsyncSession, conversation_id: str, idempotency_key: str
-) -> ServiceMessage | None:
-    """同一幂等键重放：返回首次状态变更的系统消息。"""
-    return (
-        await db.execute(
-            select(ServiceMessage).where(
-                ServiceMessage.conversation_id == conversation_id,
-                ServiceMessage.author_type == "system",
-                ServiceMessage.idempotency_key == idempotency_key,
             )
         )
     ).scalar_one_or_none()
@@ -86,46 +77,23 @@ async def _current_status(db: AsyncSession, tenant_id: str, conversation_id: str
     ).scalar_one_or_none()
 
 
-async def _finish_open_handoffs(
-    db: AsyncSession, conversation: ServiceConversation, now: datetime
-) -> None:
-    """终态化同一会话的所有 open 交接单；不重写 `pending_step`。"""
-    await db.execute(
-        update(ServiceHandoff)
-        .where(
-            ServiceHandoff.tenant_id == conversation.tenant_id,
-            ServiceHandoff.conversation_id == conversation.id,
-            ServiceHandoff.status.in_(OPEN_HANDOFF_STATUSES),
-        )
-        .values(
-            status=CLOSED,
-            version=ServiceHandoff.version + 1,
-            updated_at=now,
-        )
-    )
-
-
-async def _write_notice(
+async def _replay_state(
     db: AsyncSession,
     conversation: ServiceConversation,
-    *,
-    content: str,
     idempotency_key: str,
-    trace_id: str,
-    now: datetime,
-) -> ServiceMessage:
-    notice = ServiceMessage(
-        conversation_id=conversation.id,
-        author_type="system",
-        author_id=None,
-        content=content,
-        idempotency_key=idempotency_key,
-        trace_id=trace_id,
-        created_at=now,
+    employee_id: str,
+) -> AgentStateChange | None:
+    """本人同键重放：只命中本动作人写的系统消息，状态取会话当前值。"""
+    replay = await replay_system_message(
+        db,
+        conversation.id,
+        idempotency_key,
+        author_id=employee_id,
     )
-    db.add(notice)
-    await db.flush()
-    return notice
+    if replay is None:
+        return None
+    status = await _current_status(db, conversation.tenant_id, conversation.id)
+    return _result(conversation.id, status or conversation.status, replay)
 
 
 def _result(conversation_id: str, status: str, message: ServiceMessage) -> AgentStateChange:
@@ -151,10 +119,9 @@ async def close_conversation_by_agent(
     if conversation is None:
         return None
 
-    replay = await _replay(db, conversation_id, idempotency_key)
+    replay = await _replay_state(db, conversation, idempotency_key, employee_id)
     if replay is not None:
-        # 重放时状态取会话当前值：客户可能在坐席动作之后又关闭了会话。
-        return _result(conversation_id, conversation.status, replay)
+        return replay
 
     if conversation.assigned_employee_id != employee_id:
         return None
@@ -163,7 +130,7 @@ async def close_conversation_by_agent(
     if conversation.status not in CLOSABLE_STATUSES:
         return None
 
-    await _finish_open_handoffs(db, conversation, now)
+    await close_open_handoffs(db, tenant_id, conversation_id, now)
     changed = (
         await db.execute(
             update(ServiceConversation)
@@ -178,7 +145,10 @@ async def close_conversation_by_agent(
         )
     ).scalar_one_or_none()
     if changed is None:
-        # 读取后被并发关闭/转回：按最新状态给 409 或 404，不留下半写。
+        # 读取后被并发关闭/转回：先按同键重放，再按最新状态给 409 或 404。
+        replay = await _replay_state(db, conversation, idempotency_key, employee_id)
+        if replay is not None:
+            return replay
         status = await _current_status(db, tenant_id, conversation_id)
         if status is None:
             return None
@@ -186,13 +156,14 @@ async def close_conversation_by_agent(
             raise ConversationClosedError
         return None
 
-    notice = await _write_notice(
+    notice = await write_system_message(
         db,
-        conversation,
+        conversation_id=conversation_id,
         content=CLOSED_NOTICE,
         idempotency_key=idempotency_key,
         trace_id=trace_id,
         now=now,
+        author_id=employee_id,
     )
     return _result(conversation_id, CLOSED, notice)
 
@@ -212,10 +183,9 @@ async def return_conversation_to_ai(
     if conversation is None:
         return None
 
-    replay = await _replay(db, conversation_id, idempotency_key)
+    replay = await _replay_state(db, conversation, idempotency_key, employee_id)
     if replay is not None:
-        # 重放时状态取会话当前值：客户可能在坐席动作之后又关闭了会话。
-        return _result(conversation_id, conversation.status, replay)
+        return replay
 
     if conversation.assigned_employee_id != employee_id:
         return None
@@ -224,7 +194,7 @@ async def return_conversation_to_ai(
     if conversation.status != HUMAN_ACTIVE:
         return None
 
-    await _finish_open_handoffs(db, conversation, now)
+    await close_open_handoffs(db, tenant_id, conversation_id, now)
     changed = (
         await db.execute(
             update(ServiceConversation)
@@ -244,6 +214,9 @@ async def return_conversation_to_ai(
         )
     ).scalar_one_or_none()
     if changed is None:
+        replay = await _replay_state(db, conversation, idempotency_key, employee_id)
+        if replay is not None:
+            return replay
         status = await _current_status(db, tenant_id, conversation_id)
         if status is None:
             return None
@@ -251,12 +224,13 @@ async def return_conversation_to_ai(
             raise ConversationClosedError
         return None
 
-    notice = await _write_notice(
+    notice = await write_system_message(
         db,
-        conversation,
+        conversation_id=conversation_id,
         content=RETURNED_TO_AI_NOTICE,
         idempotency_key=idempotency_key,
         trace_id=trace_id,
         now=now,
+        author_id=employee_id,
     )
     return _result(conversation_id, AI_ACTIVE, notice)

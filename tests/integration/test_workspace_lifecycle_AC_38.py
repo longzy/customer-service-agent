@@ -102,11 +102,15 @@ def messages_of(conversation_id: str) -> list[ServiceMessage]:
     return [row for row in rows_of(ServiceMessage) if row.conversation_id == conversation_id]
 
 
-def seed_human_active(conversation_id: str = "conv-1", handoff_id: str = "ho-1") -> None:
+def seed_human_active(
+    conversation_id: str = "conv-1",
+    handoff_id: str = "ho-1",
+    customer_id: str = "cust-customer_a",
+) -> None:
     seed_queued_handoff(
         handoff_id,
         conversation_id=conversation_id,
-        customer_id="cust-customer_a",
+        customer_id=customer_id,
         status="ACTIVE",
         conversation_status="HUMAN_ACTIVE",
         assigned_employee_id="emp-agent_1",
@@ -538,3 +542,34 @@ def test_客户关闭旧键不跨会话重放_AC_38() -> None:
     assert [item["content"] for item in body["messages"]] == [CLOSED_NOTICE]
     assert body["after_id"] != first.json()["after_id"]
     assert conversation_of(new_id).status == "CLOSED"
+
+
+def test_他人同键重放404_AC_38() -> None:
+    """系统消息记录动作人：同一键只对动作人本人可重放，他人不能读到 200。"""
+    seed_human_active("conv-key-close", "ho-key-close")
+    # 同一客户只能有一个未关闭会话，第二个场景换一个客户种子。
+    seed_human_active("conv-key-return", "ho-key-return", customer_id="cust-extra-1")
+
+    with api_client() as owner_api:
+        login_employee(owner_api, "agent_1")
+        assert agent_close(owner_api, "conv-key-close", key="shared-close-key").status_code == 200
+        assert (
+            return_to_ai(owner_api, "conv-key-return", key="shared-return-key").status_code == 200
+        )
+        # 本人重放仍是 200：归属修复不改变幂等语义。
+        assert agent_close(owner_api, "conv-key-close", key="shared-close-key").status_code == 200
+        assert (
+            return_to_ai(owner_api, "conv-key-return", key="shared-return-key").status_code == 200
+        )
+
+    with api_client() as second_api:
+        login_employee(second_api, "agent_2")
+        denied_close = agent_close(second_api, "conv-key-close", key="shared-close-key")
+        denied_return = return_to_ai(second_api, "conv-key-return", key="shared-return-key")
+
+    assert denied_close.status_code == 404, denied_close.text
+    assert denied_return.status_code == 404, denied_return.text
+    assert len([row for row in messages_of("conv-key-close") if row.content == CLOSED_NOTICE]) == 1
+    assert len([row for row in messages_of("conv-key-return") if row.content == RETURN_NOTICE]) == 1
+    assert conversation_of("conv-key-close").status == "CLOSED"
+    assert conversation_of("conv-key-return").status == "AI_ACTIVE"

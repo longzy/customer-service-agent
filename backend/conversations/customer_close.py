@@ -7,12 +7,13 @@
 - 先更新交接单、再条件更新会话：与领取/接管相同的 `handoff → conversation`
   加锁顺序，避免“客户关闭 vs 坐席领取”并发时交叉等待。
 - 交接单 `pending_step` 保持原值：待办语义由 F-12 统一定义（F-10 D-5）。
+- 系统消息、幂等重放与交接单终态化复用 `state_changes`，与坐席关闭/转回同语义。
 - 本模块只 flush，由 API 层统一 commit；失败由调用方回滚。
 """
 
 from datetime import datetime
 
-from sqlalchemy import select, update
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.conversations.customer_chat import (
@@ -20,32 +21,23 @@ from backend.conversations.customer_chat import (
     ConversationClosedError,
     view_message,
 )
-from backend.conversations.statuses import CLOSED, OPEN_HANDOFF_STATUSES
-from backend.platform.models import ServiceConversation, ServiceHandoff, ServiceMessage
+from backend.conversations.state_changes import (
+    close_open_handoffs,
+    replay_system_message,
+    write_system_message,
+)
+from backend.conversations.statuses import CLOSED
+from backend.platform.models import ServiceConversation, ServiceMessage
 
 CLOSED_NOTICE = "会话已结束"
 
 
-async def _replay(
-    db: AsyncSession, conversation_id: str, idempotency_key: str
-) -> ChatResult | None:
-    """同一幂等键重放：返回首次关闭的系统消息。"""
-    row = (
-        await db.execute(
-            select(ServiceMessage).where(
-                ServiceMessage.conversation_id == conversation_id,
-                ServiceMessage.author_type == "system",
-                ServiceMessage.idempotency_key == idempotency_key,
-            )
-        )
-    ).scalar_one_or_none()
-    if row is None:
-        return None
+def _closed_result(conversation_id: str, notice: ServiceMessage) -> ChatResult:
     return ChatResult(
         conversation_id=conversation_id,
         status=CLOSED,
-        messages=[view_message(row)],
-        after_id=row.id,
+        messages=[view_message(notice)],
+        after_id=notice.id,
     )
 
 
@@ -62,25 +54,13 @@ async def close_customer_conversation(
     `conversation` 可能是 open 会话，也可能是最近一条已关闭会话（同键重放）。
     已关闭且无重放记录时抛 `ConversationClosedError`（409）。
     """
-    replay = await _replay(db, conversation.id, idempotency_key)
+    replay = await replay_system_message(db, conversation.id, idempotency_key)
     if replay is not None:
-        return replay
+        return _closed_result(conversation.id, replay)
     if conversation.status == CLOSED:
         raise ConversationClosedError
 
-    await db.execute(
-        update(ServiceHandoff)
-        .where(
-            ServiceHandoff.tenant_id == conversation.tenant_id,
-            ServiceHandoff.conversation_id == conversation.id,
-            ServiceHandoff.status.in_(OPEN_HANDOFF_STATUSES),
-        )
-        .values(
-            status=CLOSED,
-            version=ServiceHandoff.version + 1,
-            updated_at=now,
-        )
-    )
+    await close_open_handoffs(db, conversation.tenant_id, conversation.id, now)
 
     closed = (
         await db.execute(
@@ -98,25 +78,17 @@ async def close_customer_conversation(
 
     if closed is None:
         # 并发关闭：另一个事务先提交。同键重放返回首次消息，否则按 plan 409。
-        replay = await _replay(db, conversation.id, idempotency_key)
+        replay = await replay_system_message(db, conversation.id, idempotency_key)
         if replay is not None:
-            return replay
+            return _closed_result(conversation.id, replay)
         raise ConversationClosedError
 
-    notice = ServiceMessage(
+    notice = await write_system_message(
+        db,
         conversation_id=conversation.id,
-        author_type="system",
-        author_id=None,
         content=CLOSED_NOTICE,
         idempotency_key=idempotency_key,
         trace_id=trace_id,
-        created_at=now,
+        now=now,
     )
-    db.add(notice)
-    await db.flush()
-    return ChatResult(
-        conversation_id=conversation.id,
-        status=CLOSED,
-        messages=[view_message(notice)],
-        after_id=notice.id,
-    )
+    return _closed_result(conversation.id, notice)

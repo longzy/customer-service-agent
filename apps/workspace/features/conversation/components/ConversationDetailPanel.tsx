@@ -109,9 +109,10 @@ export function ConversationDetailPanel({
               {actions.busy ? "接管中…" : "接管会话"}
             </button>
           ) : null}
-          {detail.status === "HUMAN_ACTIVE" ? (
+          {detail.status === "CLAIMED" || detail.status === "HUMAN_ACTIVE" ? (
             <ConversationActions
               busy={actions.acting}
+              showReturn={detail.status === "HUMAN_ACTIVE"}
               onClose={actions.onClose}
               onReturnToAi={actions.onReturnToAi}
             />
