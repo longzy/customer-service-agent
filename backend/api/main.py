@@ -11,7 +11,6 @@ from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from backend.adapters.oms.factory import build_oms
 from backend.adapters.oms.mock import MockOmsAdapter
@@ -27,7 +26,7 @@ from backend.conversations.customer_http import router as customer_router
 from backend.conversations.workspace_http import router as workspace_router
 from backend.domain.errors import ErrorCode
 from backend.identity.http import router as employee_router
-from backend.platform.db import session_factory
+from backend.platform.db import engine, session_factory, trace_engine, trace_session_factory
 from backend.platform.observability import AsyncTraceSink, TraceSinkError, use_trace_sink
 from backend.platform.settings import Settings, settings
 from backend.tools.cancel import build_cancel_gateway
@@ -57,55 +56,53 @@ def configure_logging() -> None:
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     """启动时探测数据库；不可用则直接失败，不用重试掩盖配置错误。"""
     active: Settings = _app.state.settings
-    engine = create_async_engine(active.database_url, pool_pre_ping=True)
-    try:
-        async with engine.connect() as connection:
-            await connection.execute(text("select 1"))
-        maker = async_sessionmaker(engine, expire_on_commit=False)
+    async with engine.connect() as connection:
+        await connection.execute(text("select 1"))
 
-        async def recover() -> None:
-            try:
-                async with maker() as session:
-
-                    async def audit(event: dict[str, object]) -> None:
-                        await audit_transition(
-                            session,
-                            trace_id=str(event["trace_id"]),
-                            identity=event["identity"],  # type: ignore[arg-type]
-                            task_id=str(event["task_id"]),
-                            order_id=str(event["order_id"]),
-                            from_state=str(event["from_state"]),
-                            to_state=str(event["to_state"]),
-                            reason_code=event["reason_code"],  # type: ignore[arg-type]
-                            result_status=str(event["result_status"]),
-                            idempotency_key=event.get("idempotency_key"),  # type: ignore[arg-type]
-                        )
-
-                    workflow = CancellationWorkflow(
-                        SqlCancellationRepository(session),
-                        _app.state.cancel_gateway,
-                        confirm_timeout_minutes=active.confirm_timeout_minutes,
-                        max_retries=active.max_retries,
-                        retry_backoff_seconds=active.retry_backoff_seconds,
-                        audit=audit,
-                    )
-                    with use_trace_sink(AsyncTraceSink(maker)):
-                        await workflow.recover_pending()
-            except Exception:  # noqa: BLE001 - 恢复失败不应阻止服务启动
-                logger.exception("启动恢复失败")
-
-        task = asyncio.create_task(recover())
-        yield
+    async def recover() -> None:
         try:
-            await asyncio.wait_for(task, timeout=30)
-        except TimeoutError:
-            task.cancel()
-            await asyncio.gather(task, return_exceptions=True)
+            async with session_factory() as session:
+
+                async def audit(event: dict[str, object]) -> None:
+                    await audit_transition(
+                        session,
+                        trace_id=str(event["trace_id"]),
+                        identity=event["identity"],  # type: ignore[arg-type]
+                        task_id=str(event["task_id"]),
+                        order_id=str(event["order_id"]),
+                        from_state=str(event["from_state"]),
+                        to_state=str(event["to_state"]),
+                        reason_code=event["reason_code"],  # type: ignore[arg-type]
+                        result_status=str(event["result_status"]),
+                        idempotency_key=event.get("idempotency_key"),  # type: ignore[arg-type]
+                    )
+
+                workflow = CancellationWorkflow(
+                    SqlCancellationRepository(session),
+                    _app.state.cancel_gateway,
+                    confirm_timeout_minutes=active.confirm_timeout_minutes,
+                    max_retries=active.max_retries,
+                    retry_backoff_seconds=active.retry_backoff_seconds,
+                    audit=audit,
+                )
+                with use_trace_sink(AsyncTraceSink(trace_session_factory)):
+                    await workflow.recover_pending()
+        except Exception:  # noqa: BLE001 - 恢复失败不应阻止服务启动
+            logger.exception("启动恢复失败")
+
+    task = asyncio.create_task(recover())
+    yield
+    try:
+        await asyncio.wait_for(task, timeout=30)
+    except TimeoutError:
+        task.cancel()
+        await asyncio.gather(task, return_exceptions=True)
     finally:
-        await engine.dispose()
         close = getattr(_app.state.oms, "close", None)
         if callable(close):
             close()
+        await trace_engine.dispose()
+        await engine.dispose()
 
 
 def create_app(settings_override: Settings | None = None) -> FastAPI:

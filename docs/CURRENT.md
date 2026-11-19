@@ -24,6 +24,7 @@
 
 ## 已完成
 
+- 重构（2026-11-19，连接池收口）：业务池参数进 `Settings`（size/overflow/timeout/recycle）；Trace 改用独立小池（2+2、2s 超时），不再与业务请求抢连接；容量公式 `workers × 19 ≤ max_connections`；决策见 ADR-0010。
 - 重构（2026-11-19，请求级 Unit of Work）：`get_session` 成功提交、异常回滚；路由与业务模块移除手动 `commit()`；限速改为独立 session；决策见 ADR-0009，pytest 678 passed。
 - 重构（2026-11-19，后端按业务域组织）：HTTP 入口归位到 `identity/http.py`、`conversations/customer_http.py`、`conversations/workspace_http.py`，DTO 随域；`api/` 只保留装配、中间件与共享 HTTP 工具；OpenAPI 15 条路径不变，pytest 678 passed；决策见 ADR-0008。
 - 清理（2026-11-19，M1-P 旧 Web 接口退役）：删除 `/session`、`/message`、`/handoff`、`/cancellation-requests`、`/accounts` 与旧内存身份/会话中间件及 8 个强绑定旧测试文件；保留 `agent_runtime`、`tools`、`workflows`（含订单取消工作流与启动恢复）、旧表与 OMS 适配器；重新生成 OpenAPI、前端类型与测试快照（15 条路由）。

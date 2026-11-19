@@ -25,6 +25,15 @@ class Settings(BaseSettings):
     )
 
     database_url: str = "postgresql+asyncpg://ba@127.0.0.1:5432/customer_service"
+    # 业务连接池；每个 worker 独立。上限 = size + max_overflow。
+    db_pool_size: int = 5
+    db_max_overflow: int = 10
+    db_pool_timeout: float = 30.0
+    db_pool_recycle: int = 1800
+    # Trace 独立小池：只写 tool_executions，满了快速失败，不抢业务连接。
+    trace_pool_size: int = 2
+    trace_max_overflow: int = 2
+    trace_pool_timeout: float = 2.0
     environment: str = "production"
     # Cookie 是否带 Secure；为空时按环境推导，显式设置可覆盖
     cookie_secure: bool | None = None

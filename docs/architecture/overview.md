@@ -147,6 +147,8 @@ ADR-0006 已删除订单号 + 手机尾号校验；完整手机号不落库/日�
 
 排查提交顺序时先看这张表。请求成功时由 `get_session` 统一提交；路由与业务模块不得再调用 `commit()`。需要独立事务的写入必须用 `session_factory()` 新开 session，并在组件名或注释中标注（[ADR-0009](../adr/0009-request-unit-of-work.md)）。
 
+连接资源：业务池由 `DB_POOL_*` 配置，Trace 用独立小池（`TRACE_POOL_*`）。每 worker 上限 = 业务 `size+overflow` + Trace `size+overflow`（默认 19）；部署按 `workers × 上限 ≤ PostgreSQL max_connections` 核算（[ADR-0010](../adr/0010-connection-pool-and-trace-pool.md)）。
+
 ## 6. 模型与确定性代码的边界
 
 ### 模型负责
