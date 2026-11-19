@@ -323,14 +323,23 @@ def test_模型失败交接单同样含完整上下文_AC_32() -> None:
     with api_client(app) as api:
         login(api)
         assert send(api, "你好").status_code == 200
+        second = send(api, "还在吗")
+        assert second.status_code == 200
+        assert second.json()["status"] == "QUEUED"
 
     handoff = only_handoff()
     assert handoff.reason == "MODEL_UNAVAILABLE"
     assert handoff.pending_step
     assert len(handoff.summary) <= 500
+    assert "连续" in handoff.summary
     assert handoff.context["order_count"] == 0
     assert handoff.context["trigger"] == "model_error"
     assert handoff.context["customer_username"] == "customer_a"
-    assert handoff.context["messages"][-1]["content"] == "你好"
-    assert handoff.context["ai_trace"][-1]["event_type"] == "model"
-    assert handoff.context["ai_trace"][-1]["status"] == "error"
+    assert handoff.context["messages"][-1]["content"] == "还在吗"
+    assert handoff.context["failure_count"] == 2
+    assert handoff.context["last_error"] == "MODEL_ERROR"
+    assert [item["status"] for item in handoff.context["ai_trace"][-2:]] == [
+        "error",
+        "error",
+    ]
+    assert all(item["event_type"] == "model" for item in handoff.context["ai_trace"][-2:])

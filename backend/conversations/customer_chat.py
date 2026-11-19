@@ -1,8 +1,9 @@
-"""客户消息、AI 回复与模型失败自动转人工。
+"""客户消息、AI 回复与模型失败分级降级。
 
 - 客户消息先落库再调用模型，超时/异常也保留输入。
 - 只有 AI_ACTIVE 会话调用模型；排队/人工中只落库，不重复触发 AI。
-- 模型 10s 超时或异常：写 AI 事件、建一张 open 交接单、会话转 QUEUED、写系统提示。
+- 模型 10s 超时或异常（ADR-0011）：单次只写 AI 事件与重试提示，不建单、不改状态；
+  同一会话连续 2 次失败才建一张 open 交接单、会话转 QUEUED、写转接提示。
 - 同一会话内同一幂等键只产生一条客户消息；重放返回原消息及其后非客户消息。
 - 本模块只 flush，由 API 层统一 commit。
 """
@@ -34,6 +35,12 @@ from backend.platform.models import (
 )
 
 QUEUE_NOTICE = "排队中，请稍候"
+# ADR-0011：单次失败给客户出口；连续失败才兑换成人工队列
+RETRY_NOTICE = "AI 暂时不可用，你可以重试，或说“转人工”。"
+MODEL_FAILURE_HANDOFF_NOTICE = "AI 暂时不可用，已为你转接人工（排队中）。"
+MODEL_FAILURE_STATUSES = frozenset({"timeout", "error"})
+MODEL_ERROR_CODES = {"timeout": "MODEL_TIMEOUT", "error": "MODEL_ERROR"}
+CONSECUTIVE_FAILURE_LIMIT = 2
 
 
 class ConversationClosedError(Exception):
@@ -185,6 +192,9 @@ async def _queue_for_handoff(
     trace_id: str,
     now: datetime,
     matched_keyword: str | None = None,
+    notice_text: str = QUEUE_NOTICE,
+    failure_count: int | None = None,
+    last_error: str | None = None,
 ) -> tuple[ServiceMessage, str | None]:
     conversation.status = QUEUED
     conversation.updated_at = now
@@ -197,12 +207,14 @@ async def _queue_for_handoff(
         now=now,
         summary_hint=summary_hint,
         matched_keyword=matched_keyword,
+        failure_count=failure_count,
+        last_error=last_error,
     )
     notice = ServiceMessage(
         conversation_id=conversation.id,
         author_type="system",
         author_id=None,
-        content=QUEUE_NOTICE,
+        content=notice_text,
         idempotency_key=None,
         trace_id=trace_id,
         created_at=now,
@@ -229,13 +241,60 @@ def _queued_result(
     )
 
 
+async def _consecutive_model_failures(
+    db: AsyncSession,
+    conversation: ServiceConversation,
+    *,
+    customer_message: ServiceMessage,
+) -> int:
+    """最近两条模型事件都失败才算连续；成功回复的 `ok` 事件会打断计数。
+
+    “连续”按同一会话相邻两条客户消息判定：较旧的失败事件必须不早于
+    当前消息之前那条客户消息，避免把人工转回 AI 前的失败算进来。
+    当前失败事件已由 `_record_ai_event` flush，是最近一条 model 事件。
+    """
+    rows = list(
+        (
+            await db.execute(
+                select(ServiceAiEvent)
+                .where(
+                    ServiceAiEvent.conversation_id == conversation.id,
+                    ServiceAiEvent.event_type == "model",
+                )
+                .order_by(ServiceAiEvent.created_at.desc(), ServiceAiEvent.id.desc())
+                .limit(CONSECUTIVE_FAILURE_LIMIT)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    if len(rows) < CONSECUTIVE_FAILURE_LIMIT:
+        return 1
+    if any(row.status not in MODEL_FAILURE_STATUSES for row in rows):
+        return 1
+    previous_customer_at = (
+        await db.execute(
+            select(ServiceMessage.created_at)
+            .where(
+                ServiceMessage.conversation_id == conversation.id,
+                ServiceMessage.author_type == "customer",
+                ServiceMessage.id < customer_message.id,
+            )
+            .order_by(ServiceMessage.id.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if previous_customer_at is not None and rows[1].created_at < previous_customer_at:
+        return 1
+    return CONSECUTIVE_FAILURE_LIMIT
+
+
 async def _model_failed(
     db: AsyncSession,
     conversation: ServiceConversation,
     *,
     event_status: str,
     trigger: str,
-    summary: str,
     trace_id: str,
     now: datetime,
     customer_message: ServiceMessage,
@@ -248,14 +307,43 @@ async def _model_failed(
         trace_id=trace_id,
         now=now,
     )
+    failures = await _consecutive_model_failures(
+        db, conversation, customer_message=customer_message
+    )
+    if failures < CONSECUTIVE_FAILURE_LIMIT:
+        notice = ServiceMessage(
+            conversation_id=conversation.id,
+            author_type="system",
+            author_id=None,
+            content=RETRY_NOTICE,
+            idempotency_key=None,
+            trace_id=trace_id,
+            created_at=now,
+        )
+        db.add(notice)
+        conversation.updated_at = now
+        conversation.last_activity_at = now
+        await db.flush()
+        return ChatResult(
+            conversation_id=conversation.id,
+            status=conversation.status,
+            messages=[view_message(customer_message), view_message(notice)],
+            after_id=notice.id,
+            customer_message_id=customer_message.id,
+        )
+
+    error_code = MODEL_ERROR_CODES[event_status]
     notice, handoff_id = await _queue_for_handoff(
         db,
         conversation,
         reason="MODEL_UNAVAILABLE",
         trigger=trigger,
-        summary_hint=summary,
+        summary_hint=f"模型连续 {failures} 次失败（最后一次：{error_code}），已自动转人工",
         trace_id=trace_id,
         now=now,
+        notice_text=MODEL_FAILURE_HANDOFF_NOTICE,
+        failure_count=failures,
+        last_error=error_code,
     )
     return _queued_result(conversation, customer_message, notice, handoff_id)
 
@@ -335,7 +423,6 @@ async def send_customer_message(
             conversation,
             event_status="timeout",
             trigger="model_timeout",
-            summary="模型调用超时，已自动转人工。",
             trace_id=trace_id,
             now=now,
             customer_message=customer_message,
@@ -346,7 +433,6 @@ async def send_customer_message(
             conversation,
             event_status="error",
             trigger="model_error",
-            summary="模型服务不可用，已自动转人工。",
             trace_id=trace_id,
             now=now,
             customer_message=customer_message,

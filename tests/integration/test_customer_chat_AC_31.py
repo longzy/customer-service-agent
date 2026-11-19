@@ -1,4 +1,4 @@
-"""F-02：客户消息、AI 回复与模型失败自动转人工（AC-31）。"""
+"""F-02/F-24：客户消息、AI 回复与模型失败分级降级（AC-31）。"""
 
 import asyncio
 import time
@@ -12,6 +12,10 @@ from sqlalchemy import update
 
 from backend.agent_runtime.model import FakeModelClient, ModelError
 from backend.api.main import create_app
+from backend.conversations.customer_chat import (
+    MODEL_FAILURE_HANDOFF_NOTICE,
+    RETRY_NOTICE,
+)
 from backend.identity.customer_sessions import CUSTOMER_COOKIE
 from backend.platform.models import (
     ServiceAiEvent,
@@ -48,6 +52,20 @@ class SlowModel:
 class ErrorModel:
     async def respond(self, _message: str) -> Any:
         raise ModelError("down")
+
+
+class FlakyModel:
+    """可在成功/失败之间切换，用于验证成功回复后失败计数清零。"""
+
+    def __init__(self) -> None:
+        self.failing = True
+
+    async def respond(self, _message: str) -> Any:
+        if self.failing:
+            raise ModelError("down")
+        from backend.agent_runtime.model import ChatReply
+
+        return ChatReply(intent="UNKNOWN", confidence=0.95, reply="您好，请问有什么可以帮您？")
 
 
 def api_client(app: Any = None) -> TestClient:
@@ -140,7 +158,7 @@ def test_普通消息落库并返回AI回复_AC_31() -> None:
     assert rows(ServiceHandoff) == []
 
 
-def test_模型超时自动转人工且只建一张单_AC_31() -> None:
+def test_模型超时单次提示重试且连续两次转人工_AC_31() -> None:
     active = Settings(
         environment="development",
         customer_model_timeout_seconds=0.05,
@@ -150,46 +168,98 @@ def test_模型超时自动转人工且只建一张单_AC_31() -> None:
     app.state.model_client = SlowModel()
     with api_client(app) as api:
         login(api)
-        response = send(api, "你好")
-        assert response.status_code == 200, response.text
-        body = response.json()
-        assert body["status"] == "QUEUED"
-        assert [item["author_type"] for item in body["messages"]] == ["customer", "system"]
-        assert body["messages"][1]["content"] == "排队中，请稍候"
+        first = send(api, "你好")
+        assert first.status_code == 200, first.text
+        assert first.json()["status"] == "AI_ACTIVE"
+        assert [item["author_type"] for item in first.json()["messages"]] == [
+            "customer",
+            "system",
+        ]
+        assert first.json()["messages"][1]["content"] == RETRY_NOTICE
 
-        again = send(api, "还在吗")
-        assert again.status_code == 200
-        assert again.json()["status"] == "QUEUED"
-        assert [item["author_type"] for item in again.json()["messages"]] == ["customer"]
+        second = send(api, "还在吗")
+        assert second.status_code == 200, second.text
+        assert second.json()["status"] == "QUEUED"
+        assert [item["author_type"] for item in second.json()["messages"]] == [
+            "customer",
+            "system",
+        ]
+        assert second.json()["messages"][1]["content"] == MODEL_FAILURE_HANDOFF_NOTICE
+
+        queued = send(api, "有人吗")
+        assert queued.status_code == 200
+        assert queued.json()["status"] == "QUEUED"
+        assert [item["author_type"] for item in queued.json()["messages"]] == ["customer"]
 
     handoffs = rows(ServiceHandoff)
     assert len(handoffs) == 1
     assert handoffs[0].status == "QUEUED"
     assert handoffs[0].reason == "MODEL_UNAVAILABLE"
     assert handoffs[0].context["order_count"] == 0
+    assert handoffs[0].context["failure_count"] == 2
+    assert handoffs[0].context["last_error"] == "MODEL_TIMEOUT"
     events = rows(ServiceAiEvent)
-    assert len(events) == 1
-    assert events[0].status == "timeout"
+    assert len(events) == 2
+    assert {event.status for event in events} == {"timeout"}
     assert rows(ServiceConversation)[0].status == "QUEUED"
     assert [row.author_type for row in rows(ServiceMessage)] == [
+        "customer",
+        "system",
         "customer",
         "system",
         "customer",
     ]
 
 
-def test_模型异常自动转人工_AC_31() -> None:
+def test_模型异常单次提示重试_AC_31() -> None:
     app = create_app()
     app.state.model_client = ErrorModel()
     with api_client(app) as api:
         login(api)
-        response = send(api, "你好")
-        assert response.status_code == 200
-        assert response.json()["status"] == "QUEUED"
-        assert response.json()["messages"][1]["content"] == "排队中，请稍候"
+        first = send(api, "你好")
+        assert first.status_code == 200
+        assert first.json()["status"] == "AI_ACTIVE"
+        assert first.json()["messages"][1]["content"] == RETRY_NOTICE
+        assert rows(ServiceHandoff) == []
+        assert rows(ServiceConversation)[0].status == "AI_ACTIVE"
 
-    assert rows(ServiceHandoff)[0].reason == "MODEL_UNAVAILABLE"
-    assert rows(ServiceAiEvent)[0].status == "error"
+        second = send(api, "还在吗")
+        assert second.status_code == 200
+        assert second.json()["status"] == "QUEUED"
+        assert second.json()["messages"][1]["content"] == MODEL_FAILURE_HANDOFF_NOTICE
+
+    handoff = rows(ServiceHandoff)[0]
+    assert handoff.reason == "MODEL_UNAVAILABLE"
+    assert handoff.context["failure_count"] == 2
+    assert handoff.context["last_error"] == "MODEL_ERROR"
+    assert {event.status for event in rows(ServiceAiEvent)} == {"error"}
+
+
+def test_模型失败后成功回复清零_AC_31() -> None:
+    model = FlakyModel()
+    app = create_app()
+    app.state.model_client = model
+    with api_client(app) as api:
+        login(api)
+        assert send(api, "你好").json()["messages"][1]["content"] == RETRY_NOTICE
+
+        model.failing = False
+        recovered = send(api, "在吗")
+        assert recovered.json()["status"] == "AI_ACTIVE"
+        assert [item["author_type"] for item in recovered.json()["messages"]] == [
+            "customer",
+            "ai",
+        ]
+
+        model.failing = True
+        third = send(api, "又断了")
+        assert third.json()["status"] == "AI_ACTIVE"
+        assert third.json()["messages"][1]["content"] == RETRY_NOTICE
+
+    assert rows(ServiceHandoff) == []
+    events = sorted(rows(ServiceAiEvent), key=lambda event: event.created_at)
+    assert [event.status for event in events] == ["error", "ok", "error"]
+    assert rows(ServiceConversation)[0].status == "AI_ACTIVE"
 
 
 def test_未登录与非法消息被拒绝_AC_31() -> None:

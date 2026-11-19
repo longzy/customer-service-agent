@@ -303,11 +303,13 @@ async def create_handoff(
     now: datetime,
     summary_hint: str = "",
     matched_keyword: str | None = None,
+    failure_count: int | None = None,
+    last_error: str | None = None,
 ) -> tuple[ServiceHandoff, bool]:
     """创建一张 open 交接单；已有 open 单时复用，避免撞部分唯一索引。
 
     返回 `(handoff, created)`：`created=False` 表示复用了既有 open 单，调用方不重复写
-    `handoff.created` 审计。
+    `handoff.created` 审计。连续模型失败时写入失败次数与最后一次错误码。
     """
     existing = (
         await db.execute(
@@ -344,6 +346,10 @@ async def create_handoff(
     }
     if matched_keyword is not None:
         context["matched_keyword"] = matched_keyword
+    if failure_count is not None:
+        context["failure_count"] = failure_count
+    if last_error is not None:
+        context["last_error"] = last_error
 
     handoff = ServiceHandoff(
         id=str(uuid4()),
