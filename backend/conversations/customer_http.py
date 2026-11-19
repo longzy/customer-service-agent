@@ -1,24 +1,14 @@
-"""客户 API：登录、当前会话恢复、按所有权读取会话与登出。"""
+"""会话域 HTTP 入口：客户登录、会话读取、消息与关闭。"""
 
 from datetime import datetime, timedelta
 from typing import Annotated, Any
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
-from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.api.customer_schemas import (
-    ConversationPublic,
-    CustomerPublic,
-    CustomerSessionResponse,
-    ErrorEnvelope,
-    MessagePageResponse,
-    MessagePublic,
-)
 from backend.api.errors import ApiError
 from backend.api.service_audit import audit_or_503, audit_security_event, trace_of
-from backend.api.session_http import client_ip, set_session_cookie, settings_of, utc_text
 from backend.audit import (
     AI_REPLIED,
     CONVERSATION_CLOSED,
@@ -43,11 +33,24 @@ from backend.conversations.customer_conversations import (
     get_or_create_open_conversation,
     get_sendable_conversation,
 )
+from backend.conversations.schemas import (
+    ConversationPublic,
+    CustomerLoginRequest,
+    CustomerMessageRequest,
+    CustomerPublic,
+    CustomerSessionResponse,
+    MessagePageResponse,
+    MessagePublic,
+)
 from backend.domain.errors import ErrorCode
 from backend.identity import customer_sessions
-from backend.identity.customer_sessions import Customer, ResolvedCustomerSession
+from backend.identity.cookies import set_session_cookie
+from backend.identity.customer_auth import CurrentCustomer
+from backend.identity.customer_sessions import Customer
 from backend.identity.rate_limit import consume_fixed_window
 from backend.platform.db import get_session
+from backend.platform.http import client_ip, settings_of, utc_text
+from backend.platform.schemas import ErrorEnvelope
 
 router = APIRouter(prefix="/customer", tags=["customer"])
 
@@ -63,38 +66,7 @@ ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
     429: {"model": ErrorEnvelope},
 }
 
-
-class CustomerMessageRequest(BaseModel):
-    """客户消息；身份与会话只能来自服务端 session。"""
-
-    model_config = ConfigDict(extra="forbid")
-
-    content: str = Field(min_length=1, max_length=500)
-
-    @field_validator("content")
-    @classmethod
-    def _strip_content(cls, value: str) -> str:
-        value = value.strip()
-        if not value:
-            raise ValueError("content 不能为空")
-        return value
-
-
-class CustomerLoginRequest(BaseModel):
-    """只接受用户名/密码；租户与客户 id 只能来自服务端配置与 session。"""
-
-    model_config = ConfigDict(extra="forbid")
-
-    username: str = Field(min_length=1, max_length=64)
-    password: str = Field(min_length=1, max_length=128)
-
-    @field_validator("username")
-    @classmethod
-    def _strip_username(cls, value: str) -> str:
-        value = value.strip()
-        if not value:
-            raise ValueError("username 不能为空")
-        return value
+Db = Annotated[AsyncSession, Depends(get_session)]
 
 
 def _payload(
@@ -132,27 +104,6 @@ def _chat_payload(result: ChatResult) -> MessagePageResponse:
         after_id=result.after_id,
         messages=[_message_json(message) for message in result.messages],
     )
-
-
-async def current_customer_session(
-    request: Request,
-    db: Annotated[AsyncSession, Depends(get_session)],
-) -> ResolvedCustomerSession:
-    token = request.cookies.get(customer_sessions.CUSTOMER_COOKIE)
-    if not token:
-        raise ApiError(401, ErrorCode.SESSION_INVALID)
-    try:
-        return await customer_sessions.resolve_customer_session(
-            db, settings_of(request).m1_tenant_id, token
-        )
-    except customer_sessions.ExpiredSessionError:
-        raise ApiError(401, ErrorCode.SESSION_EXPIRED) from None
-    except customer_sessions.InvalidSessionError:
-        raise ApiError(401, ErrorCode.SESSION_INVALID) from None
-
-
-CurrentSession = Annotated[ResolvedCustomerSession, Depends(current_customer_session)]
-Db = Annotated[AsyncSession, Depends(get_session)]
 
 
 @router.post(
@@ -226,7 +177,7 @@ async def login(
 
 
 @router.get("/session", responses={401: ERROR_RESPONSES[401]})
-async def current_session(session: CurrentSession, db: Db) -> CustomerSessionResponse:
+async def current_session(session: CurrentCustomer, db: Db) -> CustomerSessionResponse:
     conversation = await get_or_create_open_conversation(
         db,
         session.customer.tenant_id,
@@ -243,7 +194,7 @@ async def current_session(session: CurrentSession, db: Db) -> CustomerSessionRes
 )
 async def read_conversation(
     conversation_id: str,
-    session: CurrentSession,
+    session: CurrentCustomer,
     db: Db,
 ) -> CustomerSessionResponse:
     conversation = await get_customer_conversation(
@@ -271,7 +222,7 @@ async def read_conversation(
 async def send_message(
     payload: CustomerMessageRequest,
     request: Request,
-    session: CurrentSession,
+    session: CurrentCustomer,
     db: Db,
     idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=64),
 ) -> MessagePageResponse:
@@ -382,7 +333,7 @@ async def send_message(
 
 @router.get("/messages", responses={401: ERROR_RESPONSES[401], 409: ERROR_RESPONSES[409]})
 async def read_messages(
-    session: CurrentSession,
+    session: CurrentCustomer,
     db: Db,
     after_id: int = Query(default=0, ge=0),
 ) -> MessagePageResponse:
@@ -407,7 +358,7 @@ async def read_messages(
 )
 async def close_session(
     request: Request,
-    session: CurrentSession,
+    session: CurrentCustomer,
     db: Db,
     idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=64),
 ) -> MessagePageResponse:

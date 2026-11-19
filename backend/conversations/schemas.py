@@ -1,12 +1,21 @@
-"""工作台 API 的响应契约：OpenAPI 与前端类型的唯一来源。"""
+"""会话域的 HTTP 契约：客户会话、消息与工作台读模型。"""
+
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from backend.api.customer_schemas import ConversationStatus, MessageAuthor
+ConversationStatus = Literal[
+    "AI_ACTIVE",
+    "QUEUED",
+    "CLAIMED",
+    "HUMAN_ACTIVE",
+    "CLOSED",
+]
+MessageAuthor = Literal["customer", "ai", "agent", "system"]
 
 
-class EmployeeLoginRequest(BaseModel):
-    """只接受用户名/密码；租户与员工 id 只能来自服务端配置与 session。"""
+class CustomerLoginRequest(BaseModel):
+    """只接受用户名/密码；租户与客户 id 只能来自服务端配置与 session。"""
 
     model_config = ConfigDict(extra="forbid")
 
@@ -22,21 +31,63 @@ class EmployeeLoginRequest(BaseModel):
         return value
 
 
-class EmployeePublic(BaseModel):
+class CustomerMessageRequest(BaseModel):
+    """客户消息；身份与会话只能来自服务端 session。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    content: str = Field(min_length=1, max_length=500)
+
+    @field_validator("content")
+    @classmethod
+    def _strip_content(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("content 不能为空")
+        return value
+
+
+class CustomerPublic(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     id: str
     tenant_id: str
     username: str
     display_name: str
-    role: str
 
 
-class EmployeeSessionResponse(BaseModel):
+class ConversationPublic(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    employee: EmployeePublic
+    id: str
+    status: ConversationStatus
+    after_id: int
+
+
+class CustomerSessionResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    customer: CustomerPublic
+    conversation: ConversationPublic
     expires_at: str
+
+
+class MessagePublic(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: int
+    author_type: MessageAuthor
+    content: str
+    created_at: str
+
+
+class MessagePageResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    conversation_id: str
+    status: ConversationStatus
+    after_id: int
+    messages: list[MessagePublic]
 
 
 class WorkspaceCustomerPublic(BaseModel):

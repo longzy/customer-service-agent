@@ -1,24 +1,26 @@
-"""坐席工作台 API：员工登录、session 恢复、登出与会话归属门禁。"""
+"""会话域 HTTP 入口：工作台队列、领取、接管、回复、关闭与转回 AI。"""
 
 from typing import Annotated, Any
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, Header, Query, Request, Response
+from fastapi import APIRouter, Depends, Header, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.api.customer_schemas import (
-    ErrorEnvelope,
+from backend.api.errors import ApiError
+from backend.api.service_audit import audit_or_503, trace_of
+from backend.audit import (
+    CONVERSATION_CLOSED,
+    CONVERSATION_RETURNED_TO_AI,
+    CONVERSATION_TAKEN_OVER,
+    HANDOFF_CLAIMED,
+    MESSAGE_REPLIED,
+    AuditRecord,
+)
+from backend.conversations.customer_chat import MessageView
+from backend.conversations.schemas import (
+    AgentMessageRequest,
     MessagePageResponse,
     MessagePublic,
-)
-from backend.api.errors import ApiError
-from backend.api.service_audit import audit_or_503, audit_security_event, trace_of
-from backend.api.session_http import client_ip, set_session_cookie, settings_of, utc_text
-from backend.api.workspace_schemas import (
-    AgentMessageRequest,
-    EmployeeLoginRequest,
-    EmployeePublic,
-    EmployeeSessionResponse,
     WorkspaceAiTraceEvent,
     WorkspaceClaimResponse,
     WorkspaceContextMessage,
@@ -29,17 +31,6 @@ from backend.api.workspace_schemas import (
     WorkspaceQueueResponse,
     WorkspaceTakeoverResponse,
 )
-from backend.audit import (
-    CONVERSATION_CLOSED,
-    CONVERSATION_RETURNED_TO_AI,
-    CONVERSATION_TAKEN_OVER,
-    EMPLOYEE_LOGIN,
-    EMPLOYEE_LOGOUT,
-    HANDOFF_CLAIMED,
-    MESSAGE_REPLIED,
-    AuditRecord,
-)
-from backend.conversations.customer_chat import MessageView
 from backend.conversations.workspace_conversations import (
     ClaimConflictError,
     ConversationMessages,
@@ -69,9 +60,10 @@ from backend.conversations.workspace_lifecycle import (
     return_conversation_to_ai as return_agent_conversation_to_ai,
 )
 from backend.domain.errors import ErrorCode
-from backend.identity import employee_sessions
-from backend.identity.employee_sessions import Employee, ResolvedEmployeeSession
+from backend.identity.employee_auth import CurrentEmployee
 from backend.platform.db import get_session
+from backend.platform.http import utc_text
+from backend.platform.schemas import ErrorEnvelope
 
 router = APIRouter(prefix="/workspace", tags=["workspace"])
 
@@ -81,25 +73,9 @@ ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
     404: {"model": ErrorEnvelope},
     409: {"model": ErrorEnvelope},
     422: {"model": ErrorEnvelope},
-    429: {"model": ErrorEnvelope},
 }
 
-
-def _employee_payload(employee: Employee) -> EmployeePublic:
-    return EmployeePublic(
-        id=employee.id,
-        tenant_id=employee.tenant_id,
-        username=employee.username,
-        display_name=employee.display_name,
-        role=employee.role,
-    )
-
-
-def _session_payload(session: ResolvedEmployeeSession) -> EmployeeSessionResponse:
-    return EmployeeSessionResponse(
-        employee=_employee_payload(session.employee),
-        expires_at=utc_text(session.expires_at),
-    )
+Db = Annotated[AsyncSession, Depends(get_session)]
 
 
 def _handoff_payload(handoff: HandoffDetail) -> WorkspaceHandoffDetail:
@@ -160,123 +136,6 @@ def _state_change_payload(result: AgentStateChange) -> MessagePageResponse:
         after_id=result.message.id,
         messages=[_message_payload(result.message)],
     )
-
-
-async def current_employee_session(
-    request: Request,
-    db: Annotated[AsyncSession, Depends(get_session)],
-) -> ResolvedEmployeeSession:
-    token = request.cookies.get(employee_sessions.EMPLOYEE_COOKIE)
-    if not token:
-        raise ApiError(401, ErrorCode.SESSION_INVALID)
-    try:
-        return await employee_sessions.resolve_employee_session(
-            db, settings_of(request).m1_tenant_id, token
-        )
-    except employee_sessions.ExpiredSessionError:
-        raise ApiError(401, ErrorCode.SESSION_EXPIRED) from None
-    except employee_sessions.ForbiddenRoleError as error:
-        await audit_security_event(
-            request,
-            403,
-            ErrorCode.FORBIDDEN,
-            actor_type="employee",
-            actor_id=error.employee_id or "anonymous",
-            metadata={"username": error.username},
-        )
-        raise ApiError(403, ErrorCode.FORBIDDEN) from None
-    except employee_sessions.InvalidSessionError:
-        raise ApiError(401, ErrorCode.SESSION_INVALID) from None
-
-
-CurrentEmployee = Annotated[ResolvedEmployeeSession, Depends(current_employee_session)]
-Db = Annotated[AsyncSession, Depends(get_session)]
-
-
-@router.post(
-    "/sessions",
-    responses={
-        401: ERROR_RESPONSES[401],
-        403: ERROR_RESPONSES[403],
-        422: ERROR_RESPONSES[422],
-        429: ERROR_RESPONSES[429],
-    },
-)
-async def login(
-    payload: EmployeeLoginRequest,
-    request: Request,
-    response: Response,
-    db: Db,
-) -> EmployeeSessionResponse:
-    try:
-        result = await employee_sessions.login_employee(
-            db,
-            settings_of(request).m1_tenant_id,
-            payload.username,
-            payload.password,
-            client_ip(request),
-        )
-    except employee_sessions.RateLimitedError as error:
-        await audit_security_event(
-            request,
-            429,
-            ErrorCode.RATE_LIMITED,
-            metadata={"username": payload.username},
-        )
-        raise ApiError(
-            429,
-            ErrorCode.RATE_LIMITED,
-            headers={"Retry-After": str(error.retry_after_seconds)},
-        ) from None
-    except employee_sessions.ForbiddenRoleError as error:
-        await audit_security_event(
-            request,
-            403,
-            ErrorCode.FORBIDDEN,
-            actor_type="employee",
-            actor_id=error.employee_id or "anonymous",
-            metadata={"username": error.username},
-        )
-        raise ApiError(403, ErrorCode.FORBIDDEN) from None
-    if result is None:
-        await audit_security_event(
-            request,
-            401,
-            ErrorCode.AUTH_FAILED,
-            metadata={"username": payload.username},
-        )
-        raise ApiError(401, ErrorCode.AUTH_FAILED)
-    await audit_or_503(
-        request,
-        db,
-        AuditRecord(
-            tenant_id=result.employee.tenant_id,
-            actor_type="employee",
-            actor_id=result.employee.id,
-            event_type=EMPLOYEE_LOGIN,
-            entity_type="employee_session",
-            entity_id=result.session_id,
-            trace_id=trace_of(request),
-            metadata={"username": result.employee.username},
-        ),
-    )
-    await db.commit()
-    set_session_cookie(
-        response,
-        name=employee_sessions.EMPLOYEE_COOKIE,
-        token=result.token,
-        ttl=employee_sessions.EMPLOYEE_SESSION_TTL,
-        active=settings_of(request),
-    )
-    return EmployeeSessionResponse(
-        employee=_employee_payload(result.employee),
-        expires_at=utc_text(result.expires_at),
-    )
-
-
-@router.get("/session", responses={401: ERROR_RESPONSES[401], 403: ERROR_RESPONSES[403]})
-async def current_session(session: CurrentEmployee) -> EmployeeSessionResponse:
-    return _session_payload(session)
 
 
 @router.get("/queue", responses={401: ERROR_RESPONSES[401], 403: ERROR_RESPONSES[403]})
@@ -612,37 +471,3 @@ async def return_conversation_to_ai(
         )
     await db.commit()
     return _state_change_payload(result)
-
-
-@router.delete("/sessions", status_code=204)
-async def logout(request: Request, response: Response, db: Db) -> None:
-    token = request.cookies.get(employee_sessions.EMPLOYEE_COOKIE)
-    if token:
-        try:
-            resolved = await employee_sessions.resolve_employee_session(
-                db, settings_of(request).m1_tenant_id, token
-            )
-        except (
-            employee_sessions.ExpiredSessionError,
-            employee_sessions.InvalidSessionError,
-            employee_sessions.ForbiddenRoleError,
-        ):
-            resolved = None
-        if resolved is not None:
-            await audit_or_503(
-                request,
-                db,
-                AuditRecord(
-                    tenant_id=resolved.employee.tenant_id,
-                    actor_type="employee",
-                    actor_id=resolved.employee.id,
-                    event_type=EMPLOYEE_LOGOUT,
-                    entity_type="employee_session",
-                    entity_id=resolved.session_id,
-                    trace_id=trace_of(request),
-                    metadata={"username": resolved.employee.username},
-                ),
-            )
-        await employee_sessions.revoke_employee_session(db, token)
-        await db.commit()
-    response.delete_cookie(employee_sessions.EMPLOYEE_COOKIE, path="/")

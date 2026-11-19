@@ -19,13 +19,14 @@ from backend.agent_runtime.model import build_model_client
 from backend.api.admin_routes import router as admin_router
 from backend.api.audit import audit_transition
 from backend.api.csrf import verify_origin
-from backend.api.customer_routes import router as customer_router
 from backend.api.errors import ApiError, api_error_handler
 from backend.api.request_id import attach_request_id
 from backend.api.service_audit import audit_api_error
-from backend.api.workspace_routes import router as workspace_router
 from backend.audit import SqlAuditWriter
+from backend.conversations.customer_http import router as customer_router
+from backend.conversations.workspace_http import router as workspace_router
 from backend.domain.errors import ErrorCode
+from backend.identity.http import router as employee_router
 from backend.platform.db import session_factory
 from backend.platform.observability import AsyncTraceSink, TraceSinkError, use_trace_sink
 from backend.platform.settings import Settings, settings
@@ -153,6 +154,7 @@ def create_app(settings_override: Settings | None = None) -> FastAPI:
     app.middleware("http")(attach_request_id)
     if active.m1_enabled:
         app.include_router(customer_router)
+        app.include_router(employee_router)
         app.include_router(workspace_router)
     if active.test_accounts_enabled and isinstance(app.state.oms, MockOmsAdapter):
         app.include_router(admin_router)

@@ -9,7 +9,6 @@ from fastapi import Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.errors import ApiError
-from backend.api.session_http import client_ip, settings_of
 from backend.audit import (
     AUTH_FAILED,
     FORBIDDEN,
@@ -18,6 +17,7 @@ from backend.audit import (
     AuditUnavailableError,
 )
 from backend.domain.errors import ErrorCode
+from backend.platform.http import client_ip, settings_of
 
 # 401/403/429 的安全事件：状态码 → 事件名与结果状态
 SECURITY_EVENTS = {

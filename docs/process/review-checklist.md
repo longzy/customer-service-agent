@@ -16,7 +16,7 @@
 ## Standards 轴
 
 - 文档：`standards.md` 的 STD-*、`invariants.md` 的 INV-01/02/03/07/11/12/16/17/18。
-- 边界：`overview.md` 的模块依赖与事务提交归属；api 只编排，conversations/identity 不互相越界。
+- 边界：`overview.md` 的模块依赖与事务提交归属；`api/` 只装配，业务 HTTP 入口在域内（`identity/http.py`、`conversations/*_http.py`）；域之间只依赖公开服务，不直接读对方表（[ADR-0008](../adr/0008-business-domain-http-layout.md)）。
 - 安全：身份只来自认证上下文、越权 404、Cookie/密钥/日志脱敏。
 - PII/脱敏：核对实现声明的支持格式矩阵（手机 `+86`/分隔/全角、邮箱、身份证 `X/x`）与 `CURRENT.md` 的残余风险；未知格式透传时不得宣称“已完全脱敏”。
 - 测试：`_AC_XX` 命名、独立测试库、无静默 skip、反向验证；涉及 `VARCHAR(n)`/长度上限的输入补一条超长边界用例（长路径、长账号、长消息）。

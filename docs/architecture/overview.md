@@ -210,10 +210,18 @@ apps/
   chat/                     # 客户 Web Chat（预置账号登录）
   workspace/                # 坐席工作台
 backend/
-  api/                      # HTTP 入口、鉴权中间件、DTO
-  platform/                 # 配置、数据库、outbox、worker、trace
-  identity/                 # 员工账号、密码、session、RBAC
-  conversations/            # 会话、消息、交接单、队列、领取/接管
+  api/                      # 应用装配、中间件、共享 HTTP 错误与审计编排
+    main.py
+    csrf.py
+    request_id.py
+    errors.py
+    service_audit.py
+    audit.py                # 旧取消工作流审计（保留）
+    admin_routes.py         # 仅开发/测试的 Mock OMS 故障注入
+  platform/                 # 配置、数据库、trace、共享 HTTP 工具与错误封套
+  identity/                 # 客户/员工认证、session、RBAC；http.py 为员工入口
+  conversations/            # 会话、消息、交接单、队列、领取/接管；*_http.py 为域入口
+  audit/                    # 审计写入
   agent_runtime/            # 意图、上下文、模型调用、Tool 规划
   tools/                    # Tool Registry 与授权网关
   workflows/                # 取消等显式流程
@@ -231,6 +239,7 @@ evals/                      # 场景集、运行器和报告
 - `tools`/`workflows` 不得 import `mock_oms` 或任何具体 OMS Adapter。
 - 只有 `adapters/oms/factory` 读取 OMS 配置并选择 Adapter；生产缺配置启动失败。
 - `packages/contracts` 是跨模块接口的唯一定义来源。
+- 业务 HTTP 入口按域放在 `identity/http.py`、`conversations/*_http.py`；`api/` 只做装配与横切，不新增业务路由（[ADR-0008](../adr/0008-business-domain-http-layout.md)）。
 - `apps/web` 已于 2026-11-18 退役；M1-P 的旧 Web 接口（`/session`、`/message`、`/handoff`、`/cancellation-requests`）已于 2026-11-19 退役，`agent_runtime`/`tools`/`workflows` 与旧表保留供 003/004 接入。`mock_oms` 已在 R0-2 迁入 `backend/adapters/oms/`。
 
 ## 10. 演进原则

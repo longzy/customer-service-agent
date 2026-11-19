@@ -48,20 +48,27 @@ apps/chat/                 # 客户 Web Chat（Next app）
 apps/workspace/            # 坐席工作台（Next app）
 apps/web/                  # M1-P 归档，不再作为 M1 入口
 
-backend/api/
-  customer_routes.py       # /customer/*
-  workspace_routes.py      # /workspace/*
+backend/api/               # 应用装配、中间件、共享错误与审计编排
+  main.py
   admin_routes.py          # 仅开发/测试的 Mock OMS 故障注入
-backend/conversations/    # 会话、消息、交接单、队列、转人工策略
-backend/identity/         # 客户/员工账号、session、RBAC
-backend/agent_runtime/    # 模型调用、intent/confidence（旧 Web 接口已退役，能力保留）
-backend/tools/            # 查询/取消 Tool（保留供 003/004 接入）
-backend/workflows/        # 取消工作流（保留供 004 接入）
-backend/platform/         # db/models/settings/observability/ratelimit
+backend/conversations/     # 会话、消息、交接单、队列、转人工策略
+  customer_http.py         # /customer/* 入口
+  workspace_http.py        # /workspace/* 业务入口
+  schemas.py               # 客户与工作台 DTO
+backend/identity/          # 客户/员工账号、session、RBAC
+  http.py                  # /workspace/* 认证入口
+  customer_auth.py         # 客户认证依赖
+  employee_auth.py         # 员工认证依赖
+  schemas.py               # 员工登录与会话 DTO
+backend/audit/             # 审计写入
+backend/platform/          # db/models/settings/http/observability/ratelimit
+backend/agent_runtime/     # 模型调用、intent/confidence（旧 Web 接口已退役，能力保留）
+backend/tools/             # 查询/取消 Tool（保留供 003/004 接入）
+backend/workflows/         # 取消工作流（保留供 004 接入）
 ```
 
-- 依赖：`api → conversations/identity/agent_runtime/platform`；`conversations → identity/platform/agent_runtime`；`identity → platform`；`platform` 不依赖业务模块。
-- `conversations` 不 import `api`、具体 OMS Adapter。
+- 依赖：`api → conversations/identity/platform`（仅装配）；`conversations → identity/platform/agent_runtime`；`identity → platform`；`platform` 不依赖业务模块。
+- `conversations` 不 import `api` 之外的具体业务模块、具体 OMS Adapter。
 - 前端只展示，不承载授权/状态转换；两个 app 不共用页面/路由，客户 app 不含员工认证，工作台不依赖客户 cookie。
 - `apps/chat`：`/login`、`/chat`；消息流、输入、排队/人工状态、关闭、登出；**无转人工按钮**；3s 轮询。
 - `apps/workspace`：`/login`、`/queue`、`/conversations/[id]`；队列、领取、接管、消息、AI 轨迹、交接单摘要、回复、关闭、转回；3s 轮询。
