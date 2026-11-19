@@ -63,7 +63,7 @@ backend/identity/          # 客户/员工账号、session、RBAC
   schemas.py               # 员工登录与会话 DTO
 backend/audit/             # 审计写入
 backend/platform/          # db/models/settings/http/observability/ratelimit
-backend/agent_runtime/     # 模型调用、intent/confidence（旧 Web 接口已退役，能力保留）
+backend/agent_runtime/     # 模型契约与类型（旧 Web 接口与对话编排已退役，保留 model/types 供现役链路）
 backend/tools/             # 查询/取消 Tool（保留供 003/004 接入）
 backend/workflows/         # 取消工作流（保留供 004 接入）
 ```
