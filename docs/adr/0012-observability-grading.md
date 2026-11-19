@@ -3,7 +3,7 @@
 - 状态：已批准
 - 日期：2026-11-19
 - 批准：2026-11-19（用户确认按调研结果分层设计；实现分步推进）
-- 实现进度：步骤 1–4 已完成（2026-11-19）；步骤 5–6 待排期
+- 实现进度：步骤 1–5 已完成（2026-11-19）；步骤 6 待排期
 - 关联：[调研笔记](../research/customer-service-trace-2026-11-19.md)、[总体架构](../architecture/overview.md) 第 5 节、[ADR-0009](0009-request-unit-of-work.md)、[ADR-0010](0010-connection-pool-and-trace-pool.md)、[ADR-0011](0011-model-failure-degradation.md)
 
 ## 背景
@@ -118,6 +118,7 @@ class TraceWriteError(Exception):
 - `TRANSCRIPT_EXPORTED`：导出/下载（后续切片）。
 - 不审计 3s 轮询：`GET .../messages?after_id=` 视为轮询，不产生审计。
 - 同一 `actor + entity + action` 在 5 分钟窗口内去重，避免刷新/重复打开刷屏。
+  当前去重是进程内窗口（单 worker 有效）；多 worker 部署需要后续换成共享存储。
 - 元数据只放 `ip`、`user_agent`、`source`、`request_id`，不放消息正文。
 - 读访问审计是 L2：写入失败返回 503，不静默成功。
 
@@ -192,3 +193,4 @@ VIEW_AUDIT_DEDUP_SECONDS=300
 - 2026-11-19：步骤 2 完成——`SampledTraceSink` 尾采样（异常/关键工具 100%，正常成功默认 5%）；请求级 trace 中间件；进程内 `metrics` 计数器与 `/metrics` 文本端点，暴露 `trace_write_failures_total` 与 `trace_dropped_total`。`/metrics` 只含计数、无 PII，生产需在网络层限制访问。
 - 2026-11-19：步骤 3 完成——`BufferedTraceSink` 有界队列（默认 1000）+ 后台批量写（2s/200 条），队列满丢最旧并计数，lifespan 关闭时 flush；`AsyncTraceSink` 由该实现取代。
 - 2026-11-19：步骤 4 完成——迁移 `0012_trace_ai_fields`：`tool_executions` 增加 `span_id`/`parent_span_id`/`step`/`sampled`/`source`；`service_ai_events` 增加 `prompt_version`/`prompt_hash`/`model`/tokens/首 token 延迟/`retry_count`；模型返回与 AI 事件写入回填可用字段，schema 快照已重生成。
+- 2026-11-19：步骤 5 完成——客户/坐席打开会话详情时写 `conversation.viewed` 审计；轮询消息不写；同一 actor/记录/动作 5 分钟进程内去重；`record_view` 独立事务，失败返回 503。

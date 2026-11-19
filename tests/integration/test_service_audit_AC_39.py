@@ -67,6 +67,9 @@ class FailingAuditWriter:
     async def record_security(self, _record: AuditRecord) -> None:
         return None
 
+    async def record_view(self, _record: AuditRecord) -> None:
+        raise AuditUnavailableError
+
 
 class BrokenSecurityWriter:
     """安全事件写失败注入：用于确认 401/403/429 响应不被改写。"""
@@ -76,6 +79,9 @@ class BrokenSecurityWriter:
 
     async def record_security(self, _record: AuditRecord) -> None:
         raise RuntimeError("security audit down")
+
+    async def record_view(self, _record: AuditRecord) -> None:
+        return None
 
 
 @pytest.fixture(autouse=True)

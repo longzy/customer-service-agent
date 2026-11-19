@@ -34,6 +34,7 @@ MESSAGE_REPLIED = "message.replied"
 AI_REPLIED = "ai.replied"
 CONVERSATION_CLOSED = "conversation.closed"
 CONVERSATION_RETURNED_TO_AI = "conversation.returned_to_ai"
+CONVERSATION_VIEWED = "conversation.viewed"
 AUTH_FAILED = "auth.failed"
 RATE_LIMITED = "rate_limited"
 FORBIDDEN = "forbidden"
@@ -52,6 +53,8 @@ AUDIT_METADATA_KEYS = frozenset(
         "error_code",
         "username",
         "client_ip",
+        "source",
+        "user_agent",
         "reason",
         "trigger",
     }
@@ -114,6 +117,8 @@ class AuditWriter(Protocol):
 
     async def record_security(self, record: AuditRecord) -> None: ...
 
+    async def record_view(self, record: AuditRecord) -> None: ...
+
 
 class SqlAuditWriter:
     """默认实现：业务事务内追加事件；安全事件用独立 session 提交。"""
@@ -136,3 +141,12 @@ class SqlAuditWriter:
         except SQLAlchemyError:
             # 安全事件写失败不能把 401/403/429 变成 503：保留原始响应，留下日志。
             logger.exception("安全事件审计写入失败 event_type=%s", record.event_type)
+
+    async def record_view(self, record: AuditRecord) -> None:
+        """读访问审计：独立事务提交；失败按 L2 抛错，由调用方返回 503。"""
+        try:
+            async with self._session_factory() as db:
+                db.add(_row(record, datetime.now(UTC)))
+                await db.commit()
+        except SQLAlchemyError as error:
+            raise AuditUnavailableError from error
