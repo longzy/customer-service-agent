@@ -2,9 +2,12 @@
 
 - 甲、乙各自登录、聊天、转人工、被接管、坐席回复、转回 AI、再次转人工、关闭；
   两人的会话与交接单互不影响。
-- 甲读乙的会话 404，且与不存在资源不可区分；甲的轮询只返回自己的消息。
+- 甲读乙的会话 404，且与不存在资源不可区分；甲的轮询只返回自己的消息，
+  伪造 conversation_id 查询参数、带 conversation_id 的写请求、按消息 id 游标
+  都不能读到乙的消息。
 - 会话归属按 `(tenant_id, customer_id)`，交接单归属各自 `conversation_id`/`journey_id`。
-- 本文件只走公开 API，不直接播种会话/交接单；测试数据由登录与转人工产生。
+- 测试数据只通过公开 API 产生，不直接播种会话/交接单；归属断言按执行卡 S-7
+  直接读 `service_conversations`/`service_handoffs`/`service_messages`。
 """
 
 import uuid
@@ -146,6 +149,19 @@ def contents(response: Any) -> list[str]:
     return [item["content"] for item in response.json()["messages"]]
 
 
+def conversation_id_of(client: TestClient) -> str:
+    response = client.get("/customer/session")
+    assert response.status_code == 200, response.text
+    return response.json()["conversation"]["id"]
+
+
+def transfer(client: TestClient) -> Any:
+    response = send(client, AI_TRANSFER)
+    assert response.status_code == 200, response.text
+    assert response.json()["status"] == QUEUED
+    return response.json()
+
+
 def conversation_of(conversation_id: str) -> ServiceConversation:
     return next(row for row in rows_of(ServiceConversation) if row.id == conversation_id)
 
@@ -158,13 +174,18 @@ def handoffs_of(conversation_id: str) -> list[ServiceHandoff]:
 
 
 def test_客户甲乙各自完整闭环_AC_33() -> None:
-    with customer_client() as customer_a, customer_client() as customer_b, agent_client() as agent:
+    with (
+        customer_client() as customer_a,
+        customer_client() as customer_b,
+        agent_client() as agent_a,
+        agent_client() as agent_b,
+    ):
         login_customer(customer_a, "customer_a")
         login_customer(customer_b, "customer_b")
 
         # 登录即恢复/创建各自的未关闭会话。
-        conversation_a = customer_a.get("/customer/session").json()["conversation"]["id"]
-        conversation_b = customer_b.get("/customer/session").json()["conversation"]["id"]
+        conversation_a = conversation_id_of(customer_a)
+        conversation_b = conversation_id_of(customer_b)
         assert conversation_a != conversation_b
 
         # 聊天：各自拿到 AI 回复，消息不串。
@@ -176,36 +197,38 @@ def test_客户甲乙各自完整闭环_AC_33() -> None:
         assert contents(chat_b) == ["乙咨询", "乙您好，我是 AI 客服。"]
 
         # 转人工：两张独立 QUEUED 交接单。
-        transfer_a = send(customer_a, AI_TRANSFER)
-        transfer_b = send(customer_b, AI_TRANSFER)
-        assert transfer_a.status_code == 200, transfer_a.text
-        assert transfer_b.status_code == 200, transfer_b.text
-        assert transfer_a.json()["status"] == QUEUED
-        assert transfer_b.json()["status"] == QUEUED
-        assert AI_QUEUED_NOTICE in contents(transfer_a)
-        assert AI_QUEUED_NOTICE in contents(transfer_b)
+        transfer_a = transfer(customer_a)
+        transfer_b = transfer(customer_b)
+        assert AI_QUEUED_NOTICE in [item["content"] for item in transfer_a["messages"]]
+        assert AI_QUEUED_NOTICE in [item["content"] for item in transfer_b["messages"]]
 
-        login_employee(agent, "agent_1")
-        assert {item["customer_username"] for item in queue(agent)} == {"customer_a", "customer_b"}
-        handoff_a = queue_item(agent, "customer_a")["handoff_id"]
-        handoff_b = queue_item(agent, "customer_b")["handoff_id"]
+        # 双坐席：甲由 agent_1、乙由 agent_2（plan 5.2 的 2 客户/2 坐席 seam）。
+        login_employee(agent_a, "agent_1")
+        login_employee(agent_b, "agent_2")
+        assert {item["customer_username"] for item in queue(agent_a)} == {
+            "customer_a",
+            "customer_b",
+        }
+        handoff_a = queue_item(agent_a, "customer_a")["handoff_id"]
+        handoff_b = queue_item(agent_b, "customer_b")["handoff_id"]
         assert handoff_a != handoff_b
 
         # 甲：被领取、被接管、被回复。
-        assert claim(agent, handoff_a)["conversation_id"] == conversation_a
-        assert takeover(agent, conversation_a)["status"] == "HUMAN_ACTIVE"
+        assert claim(agent_a, handoff_a)["conversation_id"] == conversation_a
+        assert takeover(agent_a, conversation_a)["status"] == "HUMAN_ACTIVE"
         assert AI_TAKEOVER_NOTICE in contents(poll(customer_a))
-        agent_reply(agent, conversation_a, "甲您好，我是坐席 1")
+        agent_reply(agent_a, conversation_a, "甲您好，我是坐席 1")
         a_after_reply = poll(customer_a)
+        assert a_after_reply.status_code == 200, a_after_reply.text
         assert a_after_reply.json()["messages"][-1]["author_type"] == "agent"
         assert "甲您好，我是坐席 1" in contents(a_after_reply)
 
         # 乙尚未领取，状态与队列不受甲的动作影响。
         assert poll(customer_b).json()["status"] == QUEUED
-        assert queue_item(agent, "customer_b")["handoff_id"] == handoff_b
+        assert queue_item(agent_b, "customer_b")["handoff_id"] == handoff_b
 
         # 甲：转回 AI 后同一会话继续，历史保留。
-        assert return_to_ai(agent, conversation_a)["status"] == "AI_ACTIVE"
+        assert return_to_ai(agent_a, conversation_a)["status"] == "AI_ACTIVE"
         chat_again_a = send(customer_a, "甲继续")
         assert chat_again_a.status_code == 200, chat_again_a.text
         assert chat_again_a.json()["conversation_id"] == conversation_a
@@ -216,32 +239,38 @@ def test_客户甲乙各自完整闭环_AC_33() -> None:
         assert "已转回 AI 客服" in a_history
 
         # 甲：再次转人工生成新交接单，旧单已关闭。
-        send(customer_a, AI_TRANSFER)
-        new_handoff_a = queue_item(agent, "customer_a")["handoff_id"]
+        transfer(customer_a)
+        new_handoff_a = queue_item(agent_a, "customer_a")["handoff_id"]
         assert new_handoff_a != handoff_a
         old_a = next(row for row in handoffs_of(conversation_a) if row.id == handoff_a)
         assert old_a.status == CLOSED
-        claim(agent, new_handoff_a)
-        takeover(agent, conversation_a)
+        claim(agent_a, new_handoff_a)
+        takeover(agent_a, conversation_a)
         assert close_by_customer(customer_a)["status"] == CLOSED
         assert send(customer_a, "甲还在吗").status_code == 409
 
-        # 乙：同样完整走一轮，最后由坐席关闭。
-        assert claim(agent, handoff_b)["conversation_id"] == conversation_b
-        assert takeover(agent, conversation_b)["status"] == "HUMAN_ACTIVE"
+        # 乙：同样完整走一轮（由 agent_2 接管），最后由坐席关闭。
+        assert claim(agent_b, handoff_b)["conversation_id"] == conversation_b
+        assert takeover(agent_b, conversation_b)["status"] == "HUMAN_ACTIVE"
         assert AI_TAKEOVER_NOTICE in contents(poll(customer_b))
-        agent_reply(agent, conversation_b, "乙您好，我是坐席 1")
-        assert "乙您好，我是坐席 1" in contents(poll(customer_b))
-        assert return_to_ai(agent, conversation_b)["status"] == "AI_ACTIVE"
+        agent_reply(agent_b, conversation_b, "乙您好，我是坐席 2")
+        assert "乙您好，我是坐席 2" in contents(poll(customer_b))
+        assert return_to_ai(agent_b, conversation_b)["status"] == "AI_ACTIVE"
         chat_again_b = send(customer_b, "乙继续")
         assert chat_again_b.status_code == 200, chat_again_b.text
         assert chat_again_b.json()["messages"][-1]["content"] == "乙继续回答。"
-        send(customer_b, AI_TRANSFER)
-        new_handoff_b = queue_item(agent, "customer_b")["handoff_id"]
+        b_history = contents(poll(customer_b))
+        assert "乙咨询" in b_history
+        assert "乙您好，我是坐席 2" in b_history
+        assert "已转回 AI 客服" in b_history
+        transfer(customer_b)
+        new_handoff_b = queue_item(agent_b, "customer_b")["handoff_id"]
         assert new_handoff_b != handoff_b
-        claim(agent, new_handoff_b)
-        takeover(agent, conversation_b)
-        assert close_by_agent(agent, conversation_b)["status"] == CLOSED
+        old_b = next(row for row in handoffs_of(conversation_b) if row.id == handoff_b)
+        assert old_b.status == CLOSED
+        claim(agent_b, new_handoff_b)
+        takeover(agent_b, conversation_b)
+        assert close_by_agent(agent_b, conversation_b)["status"] == CLOSED
         assert send(customer_b, "乙还在吗").status_code == 409
 
     # 每人一个会话、两张交接单（首单转回时终态，次单关闭时终态）。
@@ -270,8 +299,8 @@ def test_客户甲乙各自完整闭环_AC_33() -> None:
         row.content for row in rows_of(ServiceMessage) if row.conversation_id == conversation_b
     }
     assert "甲您好，我是坐席 1" in a_texts
-    assert "乙您好，我是坐席 1" not in a_texts
-    assert "乙您好，我是坐席 1" in b_texts
+    assert "乙您好，我是坐席 2" not in a_texts
+    assert "乙您好，我是坐席 2" in b_texts
     assert "甲您好，我是坐席 1" not in b_texts
 
 
@@ -281,8 +310,8 @@ def test_客户甲读客户乙会话与消息404_AC_33() -> None:
         login_customer(customer_b, "customer_b")
         assert send(customer_a, "甲咨询").status_code == 200
         assert send(customer_b, "乙咨询").status_code == 200
-        conversation_a = customer_a.get("/customer/session").json()["conversation"]["id"]
-        conversation_b = customer_b.get("/customer/session").json()["conversation"]["id"]
+        conversation_a = conversation_id_of(customer_a)
+        conversation_b = conversation_id_of(customer_b)
 
         # 甲的轮询只含自己的消息。
         a_page = poll(customer_a)
@@ -307,6 +336,31 @@ def test_客户甲读客户乙会话与消息404_AC_33() -> None:
         assert reverse.status_code == 404
         assert reverse.json() == other.json()
 
+        # 消息维度：没有按 conversation_id 读消息的端点；伪造参数/路径/写字段都不能读到乙。
+        forged_query = customer_a.get(
+            CUSTOMER_MESSAGES,
+            params={"conversation_id": conversation_b, "after_id": 0},
+        )
+        assert forged_query.status_code == 200
+        assert "乙咨询" not in contents(forged_query)
+        message_path = f"/customer/conversations/{conversation_b}/messages"
+        assert customer_a.get(message_path).status_code == 404
+
+        before = len(rows_of(ServiceMessage))
+        forged_write = customer_a.post(
+            CUSTOMER_MESSAGES,
+            json={"content": "甲伪造会话", "conversation_id": conversation_b},
+            headers={"Idempotency-Key": key("forged-write")},
+        )
+        assert forged_write.status_code == 422
+        assert len(rows_of(ServiceMessage)) == before
+
+        b_page = poll(customer_b)
+        b_last_id = b_page.json()["after_id"]
+        cursor = customer_a.get(CUSTOMER_MESSAGES, params={"after_id": b_last_id})
+        assert cursor.status_code == 200
+        assert all("乙" not in item["content"] for item in cursor.json()["messages"])
+
     # 未登录读取他人会话 401，不泄露是否存在。
     with TestClient(create_app()) as anonymous:
         unauthorized = anonymous.get(f"/customer/conversations/{conversation_b}")
@@ -315,13 +369,17 @@ def test_客户甲读客户乙会话与消息404_AC_33() -> None:
 
 
 def test_客户甲关闭不影响客户乙_AC_33() -> None:
-    with customer_client() as customer_a, customer_client() as customer_b, agent_client() as agent:
+    with (
+        customer_client() as customer_a,
+        customer_client() as customer_b,
+        agent_client() as agent,
+    ):
         login_customer(customer_a, "customer_a")
         login_customer(customer_b, "customer_b")
-        assert send(customer_a, AI_TRANSFER).json()["status"] == QUEUED
-        assert send(customer_b, AI_TRANSFER).json()["status"] == QUEUED
-        conversation_a = customer_a.get("/customer/session").json()["conversation"]["id"]
-        conversation_b = customer_b.get("/customer/session").json()["conversation"]["id"]
+        transfer(customer_a)
+        transfer(customer_b)
+        conversation_a = conversation_id_of(customer_a)
+        conversation_b = conversation_id_of(customer_b)
         login_employee(agent, "agent_1")
         handoff_a = queue_item(agent, "customer_a")["handoff_id"]
         handoff_b = queue_item(agent, "customer_b")["handoff_id"]
@@ -332,10 +390,11 @@ def test_客户甲关闭不影响客户乙_AC_33() -> None:
         # 乙仍排队，且可继续发消息、可被领取。
         assert conversation_of(conversation_b).status == QUEUED
         assert next(row for row in rows_of(ServiceHandoff) if row.id == handoff_b).status == QUEUED
-        assert send(customer_b, "乙还在吗").status_code == 200
+        still_open = send(customer_b, "乙还在吗")
+        assert still_open.status_code == 200, still_open.text
+        assert "乙还在吗" in contents(still_open)
         assert [item["customer_username"] for item in queue(agent)] == ["customer_b"]
 
-        login_employee(agent, "agent_1")
         assert claim(agent, handoff_b)["conversation_id"] == conversation_b
         assert takeover(agent, conversation_b)["status"] == "HUMAN_ACTIVE"
         agent_reply(agent, conversation_b, "乙您好，我是坐席 1")
@@ -350,26 +409,39 @@ def test_客户甲关闭不影响客户乙_AC_33() -> None:
     assert active_b.customer_id == "cust-customer_b"
 
 
-def test_交接单按客户独立且互不抢占_AC_33() -> None:
-    with customer_client() as customer_a, customer_client() as customer_b, agent_client() as agent:
+def test_交接单按客户独立且双坐席互不抢占_AC_33() -> None:
+    with (
+        customer_client() as customer_a,
+        customer_client() as customer_b,
+        agent_client() as agent_a,
+        agent_client() as agent_b,
+    ):
         login_customer(customer_a, "customer_a")
         login_customer(customer_b, "customer_b")
-        assert send(customer_a, AI_TRANSFER).json()["status"] == QUEUED
-        assert send(customer_b, AI_TRANSFER).json()["status"] == QUEUED
-        conversation_a = customer_a.get("/customer/session").json()["conversation"]["id"]
-        conversation_b = customer_b.get("/customer/session").json()["conversation"]["id"]
-        login_employee(agent, "agent_1")
-        handoff_a = queue_item(agent, "customer_a")["handoff_id"]
-        handoff_b = queue_item(agent, "customer_b")["handoff_id"]
+        transfer(customer_a)
+        transfer(customer_b)
+        conversation_a = conversation_id_of(customer_a)
+        conversation_b = conversation_id_of(customer_b)
+        login_employee(agent_a, "agent_1")
+        login_employee(agent_b, "agent_2")
+        handoff_a = queue_item(agent_a, "customer_a")["handoff_id"]
+        handoff_b = queue_item(agent_b, "customer_b")["handoff_id"]
 
-        assert claim(agent, handoff_a)["conversation_id"] == conversation_a
-        close_by_agent(agent, conversation_a)
+        assert claim(agent_a, handoff_a)["conversation_id"] == conversation_a
 
-        # 关闭甲单不影响乙单：乙仍在队列且可领取。
+        # 第二坐席：读甲会话 404，重复领取甲单 409，不产生副作用。
+        assert agent_b.get(f"/workspace/conversations/{conversation_a}").status_code == 404
+        conflict = agent_b.post(CLAIM.format(handoff_id=handoff_a))
+        assert conflict.status_code == 409
+        assert conflict.json()["code"] == "CLAIM_CONFLICT"
+
+        close_by_agent(agent_a, conversation_a)
+
+        # 关闭甲单不影响乙单：乙仍在队列且可由 agent_2 领取。
         assert next(row for row in rows_of(ServiceHandoff) if row.id == handoff_b).status == QUEUED
-        assert [item["handoff_id"] for item in queue(agent)] == [handoff_b]
-        assert claim(agent, handoff_b)["conversation_id"] == conversation_b
-        assert takeover(agent, conversation_b)["status"] == "HUMAN_ACTIVE"
+        assert [item["handoff_id"] for item in queue(agent_b)] == [handoff_b]
+        assert claim(agent_b, handoff_b)["conversation_id"] == conversation_b
+        assert takeover(agent_b, conversation_b)["status"] == "HUMAN_ACTIVE"
 
     # 两张交接单归属各自会话与客户；甲单已关闭，乙单在人工中。
     first = next(row for row in rows_of(ServiceHandoff) if row.id == handoff_a)
