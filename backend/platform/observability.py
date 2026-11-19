@@ -6,17 +6,20 @@ import asyncio
 import hashlib
 import json
 import logging
+import random
 from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from threading import Lock
 from typing import Any, Protocol
 from uuid import uuid4
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from backend.platform import metrics
 from backend.platform.models import (
     AuditEvent,
     CancellationRequest,
@@ -155,6 +158,123 @@ def use_trace_sink(sink: TraceSink) -> Iterator[None]:
         yield
     finally:
         _current_sink.reset(token)
+
+
+# 有副作用的工具：即使采样率很低也必须留痕。
+ALWAYS_SAMPLE_TOOLS = frozenset({"submit_cancel", "get_cancel_result"})
+MAX_PENDING_TRACES = 1000
+
+
+@dataclass(frozen=True)
+class _PendingTrace:
+    tool: str
+    identity: Any
+    order_id: str | None
+    idempotency_key: str | None
+    trace_id: str
+    payload: dict[str, Any]
+
+
+class SampledTraceSink:
+    """Tail-based 采样：只在 finish 时决定是否写，错误/关键工具 100%。
+
+    `start` 只把待写信息挂在内存；`finish` 按结果决定调用底层 sink。
+    这样正常成功可以按比例丢，异常不会因为 head-based 采样提前丢掉。
+    """
+
+    def __init__(self, sink: TraceSink, sample_rate: float = 0.05) -> None:
+        self._sink = sink
+        self._sample_rate = min(max(sample_rate, 0.0), 1.0)
+        self._pending: dict[str, _PendingTrace] = {}
+        self._lock = Lock()
+
+    def start(
+        self,
+        *,
+        tool: str,
+        identity: Any,
+        order_id: str | None,
+        idempotency_key: str | None,
+        trace_id: str,
+        payload: dict[str, Any],
+    ) -> str:
+        token = str(uuid4())
+        with self._lock:
+            self._pending[token] = _PendingTrace(
+                tool=tool,
+                identity=identity,
+                order_id=order_id,
+                idempotency_key=idempotency_key,
+                trace_id=trace_id,
+                payload=payload,
+            )
+            if len(self._pending) > MAX_PENDING_TRACES:
+                self._pending.pop(next(iter(self._pending)))
+                metrics.increment("trace_dropped_total")
+        metrics.increment("trace_started_total")
+        return token
+
+    def finish(
+        self,
+        execution_id: str,
+        *,
+        result_status: str,
+        error_code: str | None = None,
+        response: Any = None,
+        latency_ms: int | None = None,
+    ) -> None:
+        with self._lock:
+            pending = self._pending.pop(execution_id, None)
+        if pending is None:
+            metrics.increment("trace_dropped_total")
+            return
+        if not self._should_sample(pending.tool, result_status, error_code):
+            metrics.increment("trace_dropped_total")
+            return
+        metrics.increment("trace_sampled_total")
+        inner_id = self._sink.start(
+            tool=pending.tool,
+            identity=pending.identity,
+            order_id=pending.order_id,
+            idempotency_key=pending.idempotency_key,
+            trace_id=pending.trace_id,
+            payload=pending.payload,
+        )
+        self._sink.finish(
+            inner_id,
+            result_status=result_status,
+            error_code=error_code,
+            response=response,
+            latency_ms=latency_ms,
+        )
+
+    def reject(
+        self,
+        *,
+        tool: str,
+        identity: Any,
+        order_id: str | None,
+        trace_id: str,
+        error_code: str,
+        payload: dict[str, Any],
+    ) -> None:
+        # 拒绝本身就是异常信号，不再采样。
+        metrics.increment("trace_sampled_total")
+        self._sink.reject(
+            tool=tool,
+            identity=identity,
+            order_id=order_id,
+            trace_id=trace_id,
+            error_code=error_code,
+            payload=payload,
+        )
+
+    def _should_sample(self, tool: str, result_status: str, error_code: str | None) -> bool:
+        if error_code is not None or result_status != "ok":
+            return True
+        if tool in ALWAYS_SAMPLE_TOOLS:
+            return True
+        return random.random() < self._sample_rate  # noqa: S311 - 采样不需要密码学随机
 
 
 class AsyncTraceSink:

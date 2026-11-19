@@ -3,13 +3,13 @@
 import asyncio
 import logging
 import sys
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, Response
 from fastapi.exception_handlers import request_validation_exception_handler
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 from sqlalchemy import text
 
 from backend.adapters.oms.factory import build_oms
@@ -26,8 +26,14 @@ from backend.conversations.customer_http import router as customer_router
 from backend.conversations.workspace_http import router as workspace_router
 from backend.domain.errors import ErrorCode
 from backend.identity.http import router as employee_router
+from backend.platform import metrics
 from backend.platform.db import engine, session_factory, trace_engine, trace_session_factory
-from backend.platform.observability import AsyncTraceSink, AuditWriteError, use_trace_sink
+from backend.platform.observability import (
+    AsyncTraceSink,
+    AuditWriteError,
+    SampledTraceSink,
+    use_trace_sink,
+)
 from backend.platform.settings import Settings, settings
 from backend.tools.cancel import build_cancel_gateway
 from backend.tools.gateway import error_envelope
@@ -147,9 +153,18 @@ def create_app(settings_override: Settings | None = None) -> FastAPI:
     app.state.cancel_gateway = build_cancel_gateway(
         app.state.oms, timeout_seconds=active.oms_timeout_seconds
     )
-    # 后添加的中间件先执行：请求关联标识最外层，最后校验来源
+
+    async def _attach_trace_sink(
+        request: Request, call_next: Callable[[Request], Awaitable[Response]]
+    ) -> Response:
+        sink = SampledTraceSink(AsyncTraceSink(trace_session_factory), active.trace_sample_rate)
+        with use_trace_sink(sink):
+            return await call_next(request)
+
+    # 后添加的中间件先执行：Trace 上下文最外层，其次请求关联标识，最后校验来源
     app.middleware("http")(verify_origin)
     app.middleware("http")(attach_request_id)
+    app.middleware("http")(_attach_trace_sink)
     if active.m1_enabled:
         app.include_router(customer_router)
         app.include_router(employee_router)
@@ -160,6 +175,10 @@ def create_app(settings_override: Settings | None = None) -> FastAPI:
     @app.get("/health")
     async def health() -> dict[str, str]:
         return {"status": "ok"}
+
+    @app.get("/metrics", include_in_schema=False)
+    async def metrics_view() -> PlainTextResponse:
+        return PlainTextResponse(metrics.render())
 
     return app
 
