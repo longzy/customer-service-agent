@@ -122,14 +122,14 @@ tests/                   组件测试
 | FE-DATA-02 请求集中到 lib | 无 | 待接 `no-restricted-syntax` 或脚本 |
 | FE-CMP-01..06、FE-DIR-01..05、08..09 | 无 | 待接 ESLint（`max-lines`、`import/no-restricted-paths`） |
 | FE-DIR-06/07 组件命名与单组件 | `scripts/check-review-prereqs.py`（pre-commit + verify） | 已接入（命名/单组件；目录/查重仍人工） |
-| FE-CSS-02/03 颜色与 token | 无 | 待接 stylelint 或脚本 |
+| FE-CSS-02/03 颜色与 token | `./scripts/lint-styles.sh`（stylelint：`color-no-hex`、`declaration-no-important`、`selector-max-id`；verify + CI） | 已接入 |
 | FE-A11Y-01..05 | 无 | 待接 `plugin:jsx-a11y/recommended` |
 | FE-SEC-01/02 | 无 | 待接 `no-restricted-syntax` |
 | FE-AI-01 依赖幻觉 | 无 | 待接 `import/no-extraneous-dependencies` |
 | FE-TEST-01..04 | 无 | 待接测试脚本 |
 | 未接入项 | 评审清单 Standards 轴 | 人工 |
 
-接入顺序建议：ESLint 已接入 → stylelint → 前端快检查进 pre-commit → 测试与追溯。每接一条，把对应行改为“已接入”并给出脚本入口。
+接入顺序建议：ESLint 与 stylelint 已接入 → 前端快检查进 pre-commit → 测试与追溯。每接一条，把对应行改为“已接入”并给出脚本入口。
 
 ## 11. 存量豁免
 
@@ -143,4 +143,5 @@ tests/                   组件测试
 ## 变更记录
 
 - 2026-11-18：草案建立。依据用户确定的“只出规范、不做代码与配置改动；两个应用各自维护、允许重复”落地；列出现状缺口与强制点接入顺序。
+- 2026-11-19：接入 stylelint（两个应用各自 devDependency 与 `.stylelintrc.json`），`scripts/lint-styles.sh` 进 verify/CI；强制 tokens 外无颜色字面量、无 `!important`、无 id 选择器。
 - 2026-11-18：两个应用升级 Next.js 16.4（React 19.3；`next lint` 移除后改用 ESLint CLI + flat config）；组件、请求与类型迁入 `features/`，`app/` 只装配；`ChatShell` 拆出 `useChatMessages`，FE-DIR-05 豁免移除；核心 lint 接入 verify 与 CI。两个应用暂时关闭 `react-hooks/set-state-in-effect`（存量 gate 在 effect 内拉数据并 setState），迁到数据获取层后删除该例外。
