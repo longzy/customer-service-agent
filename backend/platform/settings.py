@@ -34,11 +34,20 @@ class Settings(BaseSettings):
     trace_pool_size: int = 2
     trace_max_overflow: int = 2
     trace_pool_timeout: float = 2.0
+    # 技术 trace 正常成功的采样率；错误/关键工具始终 100%。
+    trace_sample_rate: float = 0.05
     environment: str = "production"
     # Cookie 是否带 Secure；为空时按环境推导，显式设置可覆盖
     cookie_secure: bool | None = None
     # 额外允许的跨站写请求来源，逗号分隔；默认只允许同源
     allowed_origins: str = ""
+
+    @field_validator("trace_sample_rate")
+    @classmethod
+    def _sample_rate_in_range(cls, value: float) -> float:
+        if not 0.0 <= value <= 1.0:
+            raise ValueError("TRACE_SAMPLE_RATE 必须在 0..1 之间")
+        return value
 
     @field_validator("cookie_secure", mode="before")
     @classmethod

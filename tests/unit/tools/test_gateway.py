@@ -623,7 +623,10 @@ def test_工具失败写审计_AC_17() -> None:
 
 def test_trace_start失败不阻断handler_AC_18(caplog: pytest.LogCaptureFixture) -> None:
     caplog.set_level(logging.INFO, logger="backend.tools.gateway")
+    from backend.platform import metrics
     from backend.platform.observability import TraceWriteError, use_trace_sink
+
+    metrics.reset()
 
     calls: list[str] = []
 
@@ -642,6 +645,7 @@ def test_trace_start失败不阻断handler_AC_18(caplog: pytest.LogCaptureFixtur
     assert result == DETAIL
     assert calls == ["t-1"]
     assert "trace.write_failed" in caplog.text
+    assert metrics.snapshot()["trace_write_failures_total"] == 1
 
 
 def test_trace失败时HTTP仍200_AC_18() -> None:

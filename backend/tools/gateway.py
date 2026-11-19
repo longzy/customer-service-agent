@@ -28,6 +28,7 @@ from backend.errors import (
     OrderNotFound,
 )
 from backend.identity import Identity
+from backend.platform import metrics
 from backend.platform.observability import (
     AuditWriteError,
     current_trace_sink,
@@ -359,6 +360,7 @@ class ToolGateway:
 
     @staticmethod
     def _log_trace_failure(action: str, tool: str, trace_id: str | None, error: Exception) -> None:
+        metrics.increment("trace_write_failures_total")
         log_event(
             logger,
             "trace.write_failed",
