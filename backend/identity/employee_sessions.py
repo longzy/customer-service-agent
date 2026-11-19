@@ -38,7 +38,6 @@ __all__ = [
     "ResolvedEmployeeSession",
     "hash_token",
     "login_employee",
-    "logout_employee",
     "revoke_employee_session",
     "resolve_employee_session",
     "utc_now",
@@ -54,7 +53,15 @@ class ExpiredSessionError(Exception):
 
 
 class ForbiddenRoleError(Exception):
-    """员工角色不是 `agent`；M1 只允许坐席访问工作台。"""
+    """员工角色不是 `agent`；M1 只允许坐席访问工作台。
+
+    带上已知员工标识，供 403 安全事件审计记录操作主体（不写密码或 session）。
+    """
+
+    def __init__(self, employee_id: str | None = None, username: str | None = None) -> None:
+        super().__init__("forbidden role")
+        self.employee_id = employee_id
+        self.username = username
 
 
 @dataclass(frozen=True)
@@ -124,7 +131,7 @@ async def login_employee(
     if not verify_password(password, row.password_hash):
         return None
     if row.role != AGENT_ROLE:
-        raise ForbiddenRoleError
+        raise ForbiddenRoleError(employee_id=row.id, username=row.username)
 
     now = utc_now()
     token = secrets.token_urlsafe(32)
@@ -174,7 +181,7 @@ async def resolve_employee_session(
     if employee is None or not employee.active or employee.tenant_id != tenant_id:
         raise InvalidSessionError
     if employee.role != AGENT_ROLE:
-        raise ForbiddenRoleError
+        raise ForbiddenRoleError(employee_id=employee.id, username=employee.username)
     return ResolvedEmployeeSession(
         employee=_employee(employee),
         expires_at=row.expires_at,
@@ -194,9 +201,3 @@ async def revoke_employee_session(db: AsyncSession, token: str) -> None:
         .values(revoked_at=now)
     )
     await db.flush()
-
-
-async def logout_employee(db: AsyncSession, token: str) -> None:
-    """撤销当前 session；无 cookie 或已失效也返回成功（幂等登出）。"""
-    await revoke_employee_session(db, token)
-    await db.commit()

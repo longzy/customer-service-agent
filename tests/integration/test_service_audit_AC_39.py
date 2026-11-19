@@ -193,6 +193,9 @@ def test_未认证与越权写安全事件审计_AC_39() -> None:
     assert auth_failed[0].metadata_redacted["status_code"] == 401
     assert forbidden_events[0].result_status == "denied"
     assert forbidden_events[0].metadata_redacted["error_code"] == "FORBIDDEN"
+    assert forbidden_events[0].actor_type == "employee"
+    assert forbidden_events[0].actor_id == "emp-supervisor_x"
+    assert forbidden_events[0].metadata_redacted["username"] == "supervisor_x"
 
 
 def test_登录限速写rate_limited审计_AC_39() -> None:
@@ -210,11 +213,14 @@ def test_登录限速写rate_limited审计_AC_39() -> None:
 
     assert limited.status_code == 429
     assert int(limited.headers["Retry-After"]) > 0
-    assert len(audit_events("auth.failed")) == 5
+    auth_failed = audit_events("auth.failed")
+    assert len(auth_failed) == 5
+    assert all(row.metadata_redacted["username"] == "customer_a" for row in auth_failed)
     rate_limited = audit_events("rate_limited")
     assert len(rate_limited) == 1
     assert rate_limited[0].result_status == "rate_limited"
     assert rate_limited[0].metadata_redacted["error_code"] == "RATE_LIMITED"
+    assert rate_limited[0].metadata_redacted["username"] == "customer_a"
 
 
 def test_安全事件审计失败不影响401_AC_39() -> None:
@@ -314,6 +320,8 @@ def test_转回AI与客户关闭写审计_AC_39() -> None:
     ]
     assert len(customer_closed) == 1
     assert customer_closed[0].actor_id == "cust-customer_a"
+    assert customer_closed[0].metadata_redacted["from_status"] == "AI_ACTIVE"
+    assert customer_closed[0].metadata_redacted["to_status"] == "CLOSED"
 
 
 def test_坐席回复重放不重复审计_AC_39() -> None:
@@ -486,7 +494,10 @@ def test_客户消息限速与无副作用_AC_39() -> None:
     ]
     assert len(customer_messages) == 30
     assert all(row.content != "第31条" for row in customer_messages)
-    assert len(audit_events("rate_limited")) == 1
+    rate_limited = audit_events("rate_limited")
+    assert len(rate_limited) == 1
+    assert rate_limited[0].actor_type == "customer"
+    assert rate_limited[0].actor_id == "cust-customer_a"
     assert len(audit_events("message.sent")) == 30
 
 
@@ -505,6 +516,59 @@ def test_审计元数据不含消息正文_AC_39() -> None:
         assert content not in payload
         assert "password" not in payload
         assert "token" not in payload.lower()
+
+
+def test_长路径未认证也写安全事件_AC_39() -> None:
+    """401 安全事件的 entity_id 不能因路径超过 64 字符而丢审计。"""
+
+    long_path = "/workspace/conversations/conv-0123456789abcdef0123456789abcdef/messages"
+    assert len(long_path) > 64
+    with api_client() as api:
+        response = api.get(long_path)
+
+    assert response.status_code == 401
+    auth_failed = audit_events("auth.failed")
+    assert len(auth_failed) == 1
+    assert len(auth_failed[0].entity_id) <= 64
+    assert auth_failed[0].metadata_redacted["path"] == long_path
+
+
+def test_跨源写请求403写forbidden审计_AC_39() -> None:
+    with api_client() as api:
+        response = api.post(
+            "/customer/sessions",
+            json={"username": "customer_a", "password": DEMO_CREDENTIAL},
+            headers={"Origin": "https://evil.example"},
+        )
+
+    assert response.status_code == 403
+    forbidden = audit_events("forbidden")
+    assert len(forbidden) == 1
+    assert forbidden[0].metadata_redacted["status_code"] == 403
+    assert forbidden[0].metadata_redacted["error_code"] == "FORBIDDEN"
+    assert forbidden[0].metadata_redacted["method"] == "POST"
+
+
+class FriendlyModel:
+    """正常 AI 回复；用于验证 AI 回复也有审计。"""
+
+    async def respond(self, _message: str) -> ChatReply:
+        return ChatReply(intent="UNKNOWN", confidence=0.9, reply="您好，我是 AI 客服。")
+
+
+def test_AI回复写审计_AC_39() -> None:
+    with api_client() as api:
+        api.app.state.model_client = FriendlyModel()
+        login_customer(api)
+        response = send_customer_message(api, "你好", key="hello-1")
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "AI_ACTIVE"
+    ai_events = audit_events("ai.replied")
+    assert len(ai_events) == 1
+    assert ai_events[0].actor_type == "system"
+    assert ai_events[0].entity_id == str(response.json()["messages"][-1]["id"])
+    assert ai_events[0].metadata_redacted["conversation_id"]
 
 
 def test_审计写入使用同事务提交_AC_39() -> None:

@@ -174,9 +174,3 @@ async def revoke_customer_session(db: AsyncSession, token: str) -> None:
         .values(revoked_at=now)
     )
     await db.flush()
-
-
-async def logout_customer(db: AsyncSession, token: str) -> None:
-    """撤销当前 session；无 cookie 或已失效也返回成功（幂等登出）。"""
-    await revoke_customer_session(db, token)
-    await db.commit()

@@ -17,9 +17,10 @@ from backend.api.customer_schemas import (
     MessagePublic,
 )
 from backend.api.errors import ApiError
-from backend.api.service_audit import audit_or_503, trace_of
+from backend.api.service_audit import audit_or_503, audit_security_event, trace_of
 from backend.api.session_http import client_ip, set_session_cookie, settings_of, utc_text
 from backend.audit import (
+    AI_REPLIED,
     CONVERSATION_CLOSED,
     CUSTOMER_LOGIN,
     CUSTOMER_LOGOUT,
@@ -173,12 +174,24 @@ async def login(
             client_ip(request),
         )
     except customer_sessions.RateLimitedError as error:
+        await audit_security_event(
+            request,
+            429,
+            ErrorCode.RATE_LIMITED,
+            metadata={"username": payload.username},
+        )
         raise ApiError(
             429,
             ErrorCode.RATE_LIMITED,
             headers={"Retry-After": str(error.retry_after_seconds)},
         ) from None
     if result is None:
+        await audit_security_event(
+            request,
+            401,
+            ErrorCode.AUTH_FAILED,
+            metadata={"username": payload.username},
+        )
         raise ApiError(401, ErrorCode.AUTH_FAILED)
     conversation = await get_or_create_open_conversation(
         db,
@@ -248,7 +261,12 @@ async def read_conversation(
 
 @router.post(
     "/messages",
-    responses={401: ERROR_RESPONSES[401], 409: ERROR_RESPONSES[409], 422: ERROR_RESPONSES[422]},
+    responses={
+        401: ERROR_RESPONSES[401],
+        409: ERROR_RESPONSES[409],
+        422: ERROR_RESPONSES[422],
+        429: ERROR_RESPONSES[429],
+    },
 )
 async def send_message(
     payload: CustomerMessageRequest,
@@ -267,6 +285,14 @@ async def send_message(
             now=now,
         )
     except customer_sessions.RateLimitedError as error:
+        await audit_security_event(
+            request,
+            429,
+            ErrorCode.RATE_LIMITED,
+            actor_type="customer",
+            actor_id=session.customer.id,
+            metadata={"username": session.customer.username},
+        )
         raise ApiError(
             429,
             ErrorCode.RATE_LIMITED,
@@ -331,6 +357,25 @@ async def send_message(
                 },
             ),
         )
+    if result.ai_message_id is not None:
+        await audit_or_503(
+            request,
+            db,
+            AuditRecord(
+                tenant_id=session.customer.tenant_id,
+                actor_type="system",
+                actor_id="system",
+                event_type=AI_REPLIED,
+                entity_type="message",
+                entity_id=str(result.ai_message_id),
+                trace_id=trace_id,
+                journey_id=conversation.journey_id,
+                metadata={
+                    "conversation_id": conversation.id,
+                    "message_id": result.ai_message_id,
+                },
+            ),
+        )
     await db.commit()
     return _chat_payload(result)
 
@@ -374,6 +419,8 @@ async def close_session(
     if conversation is None:
         raise ApiError(409, ErrorCode.CONVERSATION_CLOSED)
     trace_id = getattr(request.state, "trace_id", None) or str(uuid4())
+    # 条件 UPDATE 会同步 ORM 对象状态；审计的 from_status 必须在关闭前取快照。
+    from_status = conversation.status
     try:
         result = await close_customer_conversation(
             db,
@@ -400,7 +447,7 @@ async def close_session(
                 journey_id=conversation.journey_id,
                 metadata={
                     "conversation_id": conversation.id,
-                    "from_status": conversation.status,
+                    "from_status": from_status,
                     "to_status": "CLOSED",
                 },
             ),

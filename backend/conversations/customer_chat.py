@@ -57,6 +57,7 @@ class ChatResult:
     # 审计 seam：新建交接单 / 本条客户消息 / 是否为幂等重放
     handoff_id: str | None = None
     customer_message_id: int | None = None
+    ai_message_id: int | None = None
     replayed: bool = False
 
 
@@ -397,4 +398,5 @@ async def send_customer_message(
         messages=[view_message(customer_message), view_message(ai_message)],
         after_id=ai_message.id,
         customer_message_id=customer_message.id,
+        ai_message_id=ai_message.id,
     )

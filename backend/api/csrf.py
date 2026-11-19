@@ -10,6 +10,9 @@ from urllib.parse import urlsplit
 from fastapi import Request
 from starlette.responses import JSONResponse, Response
 
+from backend.api.service_audit import audit_security_event
+from backend.domain.errors import ErrorCode
+
 UNSAFE_METHODS = frozenset({"POST", "PUT", "PATCH", "DELETE"})
 REJECTION = {"detail": "跨站请求被拒绝"}
 
@@ -33,5 +36,7 @@ async def verify_origin(
         if origin is not None and not origin_allowed(
             origin, request.headers.get("host"), active.allowed_origin_set
         ):
+            # plan 5.1：Origin 拒绝也是 403 安全事件；best-effort 审计后再返回。
+            await audit_security_event(request, 403, ErrorCode.FORBIDDEN)
             return JSONResponse(status_code=403, content=REJECTION)
     return await call_next(request)

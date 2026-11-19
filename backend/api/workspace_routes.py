@@ -12,7 +12,7 @@ from backend.api.customer_schemas import (
     MessagePublic,
 )
 from backend.api.errors import ApiError
-from backend.api.service_audit import audit_or_503, trace_of
+from backend.api.service_audit import audit_or_503, audit_security_event, trace_of
 from backend.api.session_http import client_ip, set_session_cookie, settings_of, utc_text
 from backend.api.workspace_schemas import (
     AgentMessageRequest,
@@ -175,7 +175,15 @@ async def current_employee_session(
         )
     except employee_sessions.ExpiredSessionError:
         raise ApiError(401, ErrorCode.SESSION_EXPIRED) from None
-    except employee_sessions.ForbiddenRoleError:
+    except employee_sessions.ForbiddenRoleError as error:
+        await audit_security_event(
+            request,
+            403,
+            ErrorCode.FORBIDDEN,
+            actor_type="employee",
+            actor_id=error.employee_id or "anonymous",
+            metadata={"username": error.username},
+        )
         raise ApiError(403, ErrorCode.FORBIDDEN) from None
     except employee_sessions.InvalidSessionError:
         raise ApiError(401, ErrorCode.SESSION_INVALID) from None
@@ -209,14 +217,34 @@ async def login(
             client_ip(request),
         )
     except employee_sessions.RateLimitedError as error:
+        await audit_security_event(
+            request,
+            429,
+            ErrorCode.RATE_LIMITED,
+            metadata={"username": payload.username},
+        )
         raise ApiError(
             429,
             ErrorCode.RATE_LIMITED,
             headers={"Retry-After": str(error.retry_after_seconds)},
         ) from None
-    except employee_sessions.ForbiddenRoleError:
+    except employee_sessions.ForbiddenRoleError as error:
+        await audit_security_event(
+            request,
+            403,
+            ErrorCode.FORBIDDEN,
+            actor_type="employee",
+            actor_id=error.employee_id or "anonymous",
+            metadata={"username": error.username},
+        )
         raise ApiError(403, ErrorCode.FORBIDDEN) from None
     if result is None:
+        await audit_security_event(
+            request,
+            401,
+            ErrorCode.AUTH_FAILED,
+            metadata={"username": payload.username},
+        )
         raise ApiError(401, ErrorCode.AUTH_FAILED)
     await audit_or_503(
         request,

@@ -1,6 +1,7 @@
 """M1 审计事件写入（只追加）。"""
 
 from backend.audit.service import (
+    AI_REPLIED,
     AUDIT_METADATA_KEYS,
     AUTH_FAILED,
     CONVERSATION_CLOSED,
@@ -24,6 +25,7 @@ from backend.audit.service import (
 )
 
 __all__ = [
+    "AI_REPLIED",
     "AUDIT_METADATA_KEYS",
     "AUTH_FAILED",
     "CONVERSATION_CLOSED",
