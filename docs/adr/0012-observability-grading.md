@@ -3,7 +3,7 @@
 - 状态：已批准
 - 日期：2026-11-19
 - 批准：2026-11-19（用户确认按调研结果分层设计；实现分步推进）
-- 实现进度：步骤 1–3 已完成（2026-11-19）；步骤 4–6 待排期
+- 实现进度：步骤 1–4 已完成（2026-11-19）；步骤 5–6 待排期
 - 关联：[调研笔记](../research/customer-service-trace-2026-11-19.md)、[总体架构](../architecture/overview.md) 第 5 节、[ADR-0009](0009-request-unit-of-work.md)、[ADR-0010](0010-connection-pool-and-trace-pool.md)、[ADR-0011](0011-model-failure-degradation.md)
 
 ## 背景
@@ -191,3 +191,4 @@ VIEW_AUDIT_DEDUP_SECONDS=300
 - 2026-11-19：步骤 1 完成——新增 `AuditWriteError` / `TraceWriteError`；`ToolGateway` 的 `sink.start/finish/reject` 改为 best-effort 并记结构化日志；`AuditWriteError` 映射 503；新增网关故障注入、HTTP 200 与审计 503 测试。
 - 2026-11-19：步骤 2 完成——`SampledTraceSink` 尾采样（异常/关键工具 100%，正常成功默认 5%）；请求级 trace 中间件；进程内 `metrics` 计数器与 `/metrics` 文本端点，暴露 `trace_write_failures_total` 与 `trace_dropped_total`。`/metrics` 只含计数、无 PII，生产需在网络层限制访问。
 - 2026-11-19：步骤 3 完成——`BufferedTraceSink` 有界队列（默认 1000）+ 后台批量写（2s/200 条），队列满丢最旧并计数，lifespan 关闭时 flush；`AsyncTraceSink` 由该实现取代。
+- 2026-11-19：步骤 4 完成——迁移 `0012_trace_ai_fields`：`tool_executions` 增加 `span_id`/`parent_span_id`/`step`/`sampled`/`source`；`service_ai_events` 增加 `prompt_version`/`prompt_hash`/`model`/tokens/首 token 延迟/`retry_count`；模型返回与 AI 事件写入回填可用字段，schema 快照已重生成。

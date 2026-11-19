@@ -56,6 +56,10 @@ async def test_缓冲sink批量写工具执行记录_AC_17() -> None:
         assert len(rows) == 1
         assert rows[0].result_status == "ok"
         assert rows[0].tool_name == "get_order"
+        assert rows[0].span_id
+        assert rows[0].step == "tool"
+        assert rows[0].sampled is True
+        assert rows[0].source == "buffered"
         assert metrics.snapshot()["trace_flush_total"] == 1
     finally:
         await _clear()

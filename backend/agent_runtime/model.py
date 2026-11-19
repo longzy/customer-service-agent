@@ -1,6 +1,7 @@
 """模型客户端：OpenAI 兼容接口、无密钥时的假模型与配置工厂。"""
 
 import asyncio
+import hashlib
 import json
 from dataclasses import dataclass
 from typing import Any, Protocol
@@ -8,6 +9,14 @@ from typing import Any, Protocol
 import httpx
 
 from backend.agent_runtime.types import Intent
+
+PROMPT_VERSION = "m1-customer-chat-v1"
+SYSTEM_PROMPT = (
+    "你是电商客服 AI。用中文简短回答客户；不确定或需要人工时，"
+    "intent 填 HUMAN_HANDOFF。只输出 JSON："
+    '{"intent":"...","confidence":0.0,"reply":"..."}'
+)
+PROMPT_HASH = hashlib.sha256(SYSTEM_PROMPT.encode("utf-8")).hexdigest()
 
 
 def build_intent_tool() -> dict[str, Any]:
@@ -44,6 +53,13 @@ class ChatReply:
     intent: str
     confidence: float
     reply: str
+    model: str | None = None
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    first_token_latency_ms: int | None = None
+    retry_count: int = 0
+    prompt_version: str | None = None
+    prompt_hash: str | None = None
 
 
 class ModelClient(Protocol):
@@ -88,6 +104,8 @@ class FakeModelClient:
             intent=str(raw.get("intent", "UNKNOWN")),
             confidence=float(raw.get("confidence", 0.9)),
             reply=str(raw.get("reply", DEFAULT_FAKE_REPLY)),
+            model="fake",
+            prompt_version="fake",
         )
 
 
@@ -142,14 +160,7 @@ class OpenAICompatibleClient:
         payload = {
             "model": self._model,
             "messages": [
-                {
-                    "role": "system",
-                    "content": (
-                        "你是电商客服 AI。用中文简短回答客户；不确定或需要人工时，"
-                        "intent 填 HUMAN_HANDOFF。只输出 JSON："
-                        '{"intent":"...","confidence":0.0,"reply":"..."}'
-                    ),
-                },
+                {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": message},
             ],
             "response_format": {"type": "json_object"},
@@ -176,10 +187,22 @@ class OpenAICompatibleClient:
             raise ModelError("模型输出 confidence 非法")
         if not isinstance(reply, str) or not reply.strip():
             raise ModelError("模型输出缺少 reply")
+        usage = body.get("usage") if isinstance(body, dict) else None
+        usage = usage if isinstance(usage, dict) else {}
+        input_tokens = usage.get("prompt_tokens")
+        output_tokens = usage.get("completion_tokens")
+        model = body.get("model") if isinstance(body, dict) else None
         return ChatReply(
             intent=intent.strip(),
             confidence=float(confidence),
             reply=reply.strip(),
+            model=model if isinstance(model, str) else self._model,
+            input_tokens=input_tokens if isinstance(input_tokens, int) else None,
+            output_tokens=output_tokens if isinstance(output_tokens, int) else None,
+            first_token_latency_ms=None,
+            retry_count=0,
+            prompt_version=PROMPT_VERSION,
+            prompt_hash=PROMPT_HASH,
         )
 
     def _extract(self, body: Any) -> dict[str, Any]:
