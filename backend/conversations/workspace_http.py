@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, Header, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.errors import ApiError
-from backend.api.service_audit import audit_or_503, trace_of
+from backend.api.service_audit import audit_or_503, audit_view, trace_of
 from backend.audit import (
     CONVERSATION_CLOSED,
     CONVERSATION_RETURNED_TO_AI,
@@ -259,6 +259,7 @@ async def take_over(
 )
 async def read_conversation(
     conversation_id: str,
+    request: Request,
     session: CurrentEmployee,
     db: ReadDb,
 ) -> WorkspaceConversationResponse:
@@ -270,6 +271,16 @@ async def read_conversation(
     )
     if conversation is None:
         raise ApiError(404, ErrorCode.NOT_FOUND)
+    await audit_view(
+        request,
+        tenant_id=session.employee.tenant_id,
+        actor_type="employee",
+        actor_id=session.employee.id,
+        entity_type="conversation",
+        entity_id=conversation.id,
+        journey_id=None,
+        source="workspace",
+    )
     return _conversation_payload(conversation)
 
 

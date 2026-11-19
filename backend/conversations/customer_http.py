@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.errors import ApiError
-from backend.api.service_audit import audit_or_503, audit_security_event, trace_of
+from backend.api.service_audit import audit_or_503, audit_security_event, audit_view, trace_of
 from backend.audit import (
     AI_REPLIED,
     CONVERSATION_CLOSED,
@@ -193,6 +193,7 @@ async def current_session(session: CurrentCustomer, db: Db) -> CustomerSessionRe
 )
 async def read_conversation(
     conversation_id: str,
+    request: Request,
     session: CurrentCustomer,
     db: ReadDb,
 ) -> CustomerSessionResponse:
@@ -205,6 +206,16 @@ async def read_conversation(
     # last_seen_at 由认证依赖按 5 分钟节流刷新；本路由不再写业务事务。
     if conversation is None:
         raise ApiError(404, ErrorCode.NOT_FOUND)
+    await audit_view(
+        request,
+        tenant_id=session.customer.tenant_id,
+        actor_type="customer",
+        actor_id=session.customer.id,
+        entity_type="conversation",
+        entity_id=conversation.id,
+        journey_id=conversation.journey_id,
+        source="customer",
+    )
     return _payload(session.customer, conversation, session.expires_at)
 
 
