@@ -13,7 +13,7 @@ export type ConversationActionsProps = {
 const BASE =
   "inline-flex h-[34px] items-center rounded-md border bg-surface px-3 text-sm focus-visible:outline-none focus-visible:shadow-focus disabled:cursor-not-allowed disabled:border-border disabled:bg-surface-2 disabled:text-text-3";
 
-/** 人工中会话的两个出口：转回 AI 可逆，关闭会话是终态。已领取/已结束不渲染。 */
+/** 已领取/人工中会话的出口：关闭是终态；只有人工中可转回 AI。已结束不渲染。 */
 export function ConversationActions({
   busy,
   showReturn,

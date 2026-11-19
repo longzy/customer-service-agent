@@ -7,6 +7,7 @@
   `CONVERSATION_CLOSED`；不存在/他人/跨租户/状态不可操作 → None（API 404）。
 - 幂等：同一 `Idempotency-Key` 重放返回首次系统消息，系统消息记录动作人
   （`author_id`）；重放按「会话 + 键 + 动作人」命中，他人用同一键得到 404。
+  重放返回**动作时**的状态，不读取会话后续演进（避免旧键泄露当前归属/状态）。
   重放先于状态检查：转回会清空 assignment，否则本人的重放会被误判 404。
 - 锁顺序：先更新交接单、再条件更新会话，与领取/接管/客户关闭一致，避免交叉等待。
 - 交接单 `pending_step` 保持创建时快照，不重写（F-11 D-4；本卡 D-6）。
@@ -82,8 +83,9 @@ async def _replay_state(
     conversation: ServiceConversation,
     idempotency_key: str,
     employee_id: str,
+    status: str,
 ) -> AgentStateChange | None:
-    """本人同键重放：只命中本动作人写的系统消息，状态取会话当前值。"""
+    """本人同键重放：只命中本动作人写的系统消息，返回动作时状态。"""
     replay = await replay_system_message(
         db,
         conversation.id,
@@ -92,8 +94,7 @@ async def _replay_state(
     )
     if replay is None:
         return None
-    status = await _current_status(db, conversation.tenant_id, conversation.id)
-    return _result(conversation.id, status or conversation.status, replay)
+    return _result(conversation.id, status, replay)
 
 
 def _result(conversation_id: str, status: str, message: ServiceMessage) -> AgentStateChange:
@@ -119,7 +120,7 @@ async def close_conversation_by_agent(
     if conversation is None:
         return None
 
-    replay = await _replay_state(db, conversation, idempotency_key, employee_id)
+    replay = await _replay_state(db, conversation, idempotency_key, employee_id, CLOSED)
     if replay is not None:
         return replay
 
@@ -146,7 +147,7 @@ async def close_conversation_by_agent(
     ).scalar_one_or_none()
     if changed is None:
         # 读取后被并发关闭/转回：先按同键重放，再按最新状态给 409 或 404。
-        replay = await _replay_state(db, conversation, idempotency_key, employee_id)
+        replay = await _replay_state(db, conversation, idempotency_key, employee_id, CLOSED)
         if replay is not None:
             return replay
         status = await _current_status(db, tenant_id, conversation_id)
@@ -183,7 +184,7 @@ async def return_conversation_to_ai(
     if conversation is None:
         return None
 
-    replay = await _replay_state(db, conversation, idempotency_key, employee_id)
+    replay = await _replay_state(db, conversation, idempotency_key, employee_id, AI_ACTIVE)
     if replay is not None:
         return replay
 
@@ -214,7 +215,7 @@ async def return_conversation_to_ai(
         )
     ).scalar_one_or_none()
     if changed is None:
-        replay = await _replay_state(db, conversation, idempotency_key, employee_id)
+        replay = await _replay_state(db, conversation, idempotency_key, employee_id, AI_ACTIVE)
         if replay is not None:
             return replay
         status = await _current_status(db, tenant_id, conversation_id)
