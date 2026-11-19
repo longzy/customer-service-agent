@@ -142,13 +142,13 @@ ADR-0006 已删除订单号 + 手机尾号校验；完整手机号不落库/日�
 | 客户 `last_seen_at` | 认证后按会话 5 分钟节流，独立短事务 | 请求事务 |
 | 限速（`identity/rate_limit.py`） | 独立 session 提交桶计数 | 业务事务 |
 | 安全事件审计 | 独立 session 提交 401/403/429 | 业务事务 |
-| `AsyncTraceSink` | 独立 session 写工具执行记录 | 业务事务/请求 session |
+| `BufferedTraceSink` | 有界缓冲 + 批量写工具执行记录（best-effort） | 业务事务/请求 session |
 | Tool Gateway | `tool_executions`（写前 `started`、完成/拒绝） | 业务事务 |
 | Cancellation Workflow | 任务状态 + 转换/确认审计；启动恢复用独立 session | 工具执行记录、HTTP 响应 |
 | 启动恢复 | 逐任务复用 `trace_id` 执行，不新建 `startup-*` | 建立新 trace |
 
 排查提交顺序时先看这张表。写请求成功时由 `get_session` 统一提交，GET 用 `get_read_session` 不提交；路由与业务模块不得再调用 `commit()`。需要独立事务的写入必须用 `session_factory()` 新开 session，并在组件名或注释中标注（[ADR-0009](../adr/0009-request-unit-of-work.md)）。
-Trace/审计的分级与失败语义见 [ADR-0012](../adr/0012-observability-grading.md)；步骤 1–2（错误拆分、尾采样、metrics）已实现；异步缓冲与读访问审计待排期。
+Trace/审计的分级与失败语义见 [ADR-0012](../adr/0012-observability-grading.md)；步骤 1–3（错误拆分、尾采样、metrics、有界缓冲）已实现；字段迁移与读访问审计待排期。
 
 连接资源：业务池由 `DB_POOL_*` 配置，Trace 用独立小池（`TRACE_POOL_*`）。每 worker 上限 = 业务 `size+overflow` + Trace `size+overflow`（默认 19）；部署按 `workers × 上限 ≤ PostgreSQL max_connections` 核算（[ADR-0010](../adr/0010-connection-pool-and-trace-pool.md)）。读请求只占一个只读连接；写请求在认证阶段额外占一个只读连接，按写请求并发估算时需要预留。
 

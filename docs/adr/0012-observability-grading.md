@@ -3,7 +3,7 @@
 - 状态：已批准
 - 日期：2026-11-19
 - 批准：2026-11-19（用户确认按调研结果分层设计；实现分步推进）
-- 实现进度：步骤 1–2 已完成（2026-11-19）；步骤 3–6 待排期
+- 实现进度：步骤 1–3 已完成（2026-11-19）；步骤 4–6 待排期
 - 关联：[调研笔记](../research/customer-service-trace-2026-11-19.md)、[总体架构](../architecture/overview.md) 第 5 节、[ADR-0009](0009-request-unit-of-work.md)、[ADR-0010](0010-connection-pool-and-trace-pool.md)、[ADR-0011](0011-model-failure-degradation.md)
 
 ## 背景
@@ -63,7 +63,7 @@ class TraceWriteError(Exception):
 
 `TraceSinkError` 不再作为统一类型使用。调用点：
 
-- `AsyncTraceSink._run()` → `TraceWriteError`。
+- TraceSink 实现的写入失败 → `TraceWriteError`；`BufferedTraceSink` 的批量写失败只记日志与指标，不向业务抛。
 - `SqlAuditWriter` / `audit_or_503` / cancel `audit_transition` → `AuditWriteError`。
 - `ToolGateway._record()`：`self._audit(event)` 抛 `AuditWriteError`；`sink.finish/reject` 抛 `TraceWriteError`。
 - `api/main.py`：只注册 `AuditWriteError` 的 500/503 处理器；删除 `TraceSinkError` 的全局 500 处理器。
@@ -77,7 +77,7 @@ class TraceWriteError(Exception):
 - 写入使用现有 `trace_session_factory`（独立小池），不占业务事务。
 - 失败或丢弃只记录 `trace.write_failed` / `trace.dropped` 与指标，不改变业务响应。
 
-实现分两步：M1 先做“拆错误类型 + best-effort + 采样 + 指标”；缓冲/异步在 Trace 量上来后启用（设计已定，开关控制）。
+已按此实现：请求线程只入队，writer 在事件循环内批量提交；队列满丢最旧，关闭时 flush。
 
 ### 5. 采样
 
@@ -138,6 +138,7 @@ class TraceWriteError(Exception):
 TRACE_SAMPLE_RATE=0.05
 TRACE_BUFFER_SIZE=1000
 TRACE_FLUSH_INTERVAL_MS=2000
+TRACE_BATCH_SIZE=200
 TRACE_RETENTION_DAYS=30
 TRACE_ERROR_RETENTION_DAYS=365
 AUDIT_RETENTION_DAYS=180
@@ -189,3 +190,4 @@ VIEW_AUDIT_DEDUP_SECONDS=300
 
 - 2026-11-19：步骤 1 完成——新增 `AuditWriteError` / `TraceWriteError`；`ToolGateway` 的 `sink.start/finish/reject` 改为 best-effort 并记结构化日志；`AuditWriteError` 映射 503；新增网关故障注入、HTTP 200 与审计 503 测试。
 - 2026-11-19：步骤 2 完成——`SampledTraceSink` 尾采样（异常/关键工具 100%，正常成功默认 5%）；请求级 trace 中间件；进程内 `metrics` 计数器与 `/metrics` 文本端点，暴露 `trace_write_failures_total` 与 `trace_dropped_total`。`/metrics` 只含计数、无 PII，生产需在网络层限制访问。
+- 2026-11-19：步骤 3 完成——`BufferedTraceSink` 有界队列（默认 1000）+ 后台批量写（2s/200 条），队列满丢最旧并计数，lifespan 关闭时 flush；`AsyncTraceSink` 由该实现取代。

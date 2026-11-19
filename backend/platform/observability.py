@@ -8,10 +8,11 @@ import json
 import logging
 import random
 from collections.abc import Iterator
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from queue import Empty, Full, Queue
 from threading import Lock
 from typing import Any, Protocol
 from uuid import uuid4
@@ -277,19 +278,53 @@ class SampledTraceSink:
         return random.random() < self._sample_rate  # noqa: S311 - 采样不需要密码学随机
 
 
-class AsyncTraceSink:
-    """在 worker 线程通过请求事件循环写 tool_executions。"""
+@dataclass(frozen=True)
+class _TraceEvent:
+    kind: str  # start / finish / reject
+    execution_id: str | None
+    tool: str
+    identity: Any
+    order_id: str | None
+    idempotency_key: str | None
+    trace_id: str
+    payload: dict[str, Any]
+    result_status: str = ""
+    error_code: str | None = None
+    response: Any = None
+    latency_ms: int | None = None
 
-    def __init__(self, factory: async_sessionmaker[AsyncSession]) -> None:
+
+_TRACE_SENTINEL = object()
+logger = logging.getLogger(__name__)
+
+
+class BufferedTraceSink:
+    """有界缓冲 + 批量异步写；trace 是 best-effort，不阻断业务。
+
+    `start/finish/reject` 只入队（线程安全）；后台 writer 在事件循环里按
+    `flush_interval_ms` 或积满 `batch_size` 提交一批。队列满时丢最旧并计数；
+    应用关闭时 `aclose` 唤醒 writer 并 flush。
+    """
+
+    def __init__(
+        self,
+        factory: async_sessionmaker[AsyncSession],
+        *,
+        buffer_size: int = 1000,
+        flush_interval_ms: int = 2000,
+        batch_size: int = 200,
+        start_worker: bool = True,
+    ) -> None:
         self._factory = factory
+        self._queue: Queue[_TraceEvent | object] = Queue(maxsize=buffer_size)
+        self._flush_interval = max(flush_interval_ms, 1) / 1000
+        self._batch_size = max(batch_size, 1)
+        self._closing = False
+        self._wake = asyncio.Event()
         self._loop = asyncio.get_running_loop()
-
-    def _run(self, coro: Any) -> Any:
-        try:
-            future = asyncio.run_coroutine_threadsafe(coro, self._loop)
-            return future.result(timeout=5)
-        except Exception as error:  # noqa: BLE001 - 统一转 Trace 写入失败
-            raise TraceWriteError("工具执行记录写入失败") from error
+        self._task: asyncio.Task[None] | None = (
+            self._loop.create_task(self._writer()) if start_worker else None
+        )
 
     def start(
         self,
@@ -302,9 +337,10 @@ class AsyncTraceSink:
         payload: dict[str, Any],
     ) -> str:
         execution_id = str(uuid4())
-        self._run(
-            self._write_start(
-                execution_id,
+        self._enqueue(
+            _TraceEvent(
+                kind="start",
+                execution_id=execution_id,
                 tool=tool,
                 identity=identity,
                 order_id=order_id,
@@ -324,9 +360,16 @@ class AsyncTraceSink:
         response: Any = None,
         latency_ms: int | None = None,
     ) -> None:
-        self._run(
-            self._write_finish(
-                execution_id,
+        self._enqueue(
+            _TraceEvent(
+                kind="finish",
+                execution_id=execution_id,
+                tool="",
+                identity=None,
+                order_id=None,
+                idempotency_key=None,
+                trace_id="",
+                payload={},
                 result_status=result_status,
                 error_code=error_code,
                 response=response,
@@ -344,88 +387,155 @@ class AsyncTraceSink:
         error_code: str,
         payload: dict[str, Any],
     ) -> None:
-        self._run(
-            self._write_reject(
+        self._enqueue(
+            _TraceEvent(
+                kind="reject",
+                execution_id=None,
                 tool=tool,
                 identity=identity,
                 order_id=order_id,
+                idempotency_key=None,
                 trace_id=trace_id,
-                error_code=error_code,
                 payload=payload,
+                error_code=error_code,
             )
         )
 
-    async def _write_start(
-        self,
-        execution_id: str,
-        *,
-        tool: str,
-        identity: Any,
-        order_id: str | None,
-        idempotency_key: str | None,
-        trace_id: str,
-        payload: dict[str, Any],
-    ) -> None:
-        async with self._factory() as session:
-            session.add(
-                ToolExecution(
-                    id=execution_id,
-                    trace_id=trace_id,
-                    tool_name=tool,
-                    tenant_id=identity.tenant_id,
-                    user_id=identity.user_id,
-                    order_id=order_id,
-                    idempotency_key_digest=idempotency_digest(idempotency_key),
-                    input_digest=_digest_payload(payload),
-                    result_status="started",
-                )
-            )
-            await session.commit()
+    async def aclose(self) -> None:
+        """停止接收并 flush 队列；由 lifespan 在退出时调用。"""
+        self._closing = True
+        self._wake.set()
+        if self._task is None:
+            await self._drain()
+            return
+        try:
+            self._queue.put_nowait(_TRACE_SENTINEL)
+        except Full:
+            with suppress(Empty):
+                self._queue.get_nowait()
+            with suppress(Full):
+                self._queue.put_nowait(_TRACE_SENTINEL)
+        try:
+            await self._task
+        except Exception:  # noqa: BLE001 - 关闭阶段不再向外抛
+            logger.warning("trace.writer_failed", exc_info=True)
 
-    async def _write_finish(
-        self,
-        execution_id: str,
-        *,
-        result_status: str,
-        error_code: str | None,
-        response: Any,
-        latency_ms: int | None,
-    ) -> None:
-        async with self._factory() as session:
-            row = await session.get(ToolExecution, execution_id)
-            if row is None:
-                raise TraceWriteError("工具执行记录不存在")
-            row.result_status = result_status
-            row.error_code = error_code
-            row.response_redacted = redact_response(response)
-            row.latency_ms = latency_ms
-            await session.commit()
+    def _enqueue(self, event: _TraceEvent) -> None:
+        try:
+            self._queue.put_nowait(event)
+        except Full:
+            with suppress(Empty):
+                self._queue.get_nowait()
+            with suppress(Full):
+                self._queue.put_nowait(event)
+            metrics.increment("trace_dropped_total")
+        with suppress(RuntimeError):
+            self._loop.call_soon_threadsafe(self._wake.set)
 
-    async def _write_reject(
-        self,
-        *,
-        tool: str,
-        identity: Any,
-        order_id: str | None,
-        trace_id: str,
-        error_code: str,
-        payload: dict[str, Any],
-    ) -> None:
-        async with self._factory() as session:
-            session.add(
-                ToolExecution(
-                    id=str(uuid4()),
-                    trace_id=trace_id,
-                    tool_name=tool,
-                    tenant_id=identity.tenant_id,
-                    user_id=identity.user_id,
-                    order_id=order_id,
-                    input_digest=_digest_payload(payload),
-                    result_status="rejected",
-                    error_code=error_code,
-                )
-            )
-            await session.commit()
+    async def _writer(self) -> None:
+        while True:
+            try:
+                item = self._queue.get_nowait()
+            except Empty:
+                with suppress(TimeoutError):
+                    await asyncio.wait_for(self._wake.wait(), timeout=self._flush_interval)
+                self._wake.clear()
+                await self._drain()
+                if self._closing and self._queue.empty():
+                    return
+                continue
+            if item is _TRACE_SENTINEL:
+                await self._drain()
+                return
+            if not isinstance(item, _TraceEvent):
+                continue
+            batch: list[_TraceEvent] = [item]
+            while len(batch) < self._batch_size:
+                try:
+                    nxt = self._queue.get_nowait()
+                except Empty:
+                    break
+                if nxt is _TRACE_SENTINEL:
+                    await self._flush(batch)
+                    await self._drain()
+                    return
+                if isinstance(nxt, _TraceEvent):
+                    batch.append(nxt)
+            await self._flush(batch)
+            if self._closing and self._queue.empty():
+                return
+
+    async def _drain(self) -> None:
+        batch: list[_TraceEvent] = []
+        while True:
+            try:
+                item = self._queue.get_nowait()
+            except Empty:
+                break
+            if item is _TRACE_SENTINEL:
+                continue
+            if isinstance(item, _TraceEvent):
+                batch.append(item)
+            if len(batch) >= self._batch_size:
+                await self._flush(batch)
+                batch = []
+        if batch:
+            await self._flush(batch)
+
+    async def _flush(self, batch: list[_TraceEvent]) -> None:
+        if not batch:
+            return
+        try:
+            async with self._factory() as session:
+                for event in batch:
+                    if event.kind == "start":
+                        session.add(self._start_row(event))
+                    elif event.kind == "reject":
+                        session.add(self._reject_row(event))
+                    else:
+                        row = await session.get(ToolExecution, event.execution_id)
+                        if row is None:
+                            metrics.increment("trace_dropped_total")
+                            continue
+                        row.result_status = event.result_status
+                        row.error_code = event.error_code
+                        row.response_redacted = redact_response(event.response)
+                        row.latency_ms = event.latency_ms
+                await session.commit()
+            metrics.increment("trace_flush_total")
+        except Exception:  # noqa: BLE001 - trace 是可观测数据，失败只记录
+            metrics.increment("trace_write_failures_total", len(batch))
+            logger.warning("trace.flush_failed", exc_info=True)
+
+    @staticmethod
+    def _start_row(event: _TraceEvent) -> ToolExecution:
+        identity = event.identity
+        return ToolExecution(
+            id=event.execution_id or str(uuid4()),
+            trace_id=event.trace_id,
+            tool_name=event.tool,
+            tenant_id=identity.tenant_id,
+            user_id=identity.user_id,
+            order_id=event.order_id,
+            idempotency_key_digest=idempotency_digest(event.idempotency_key),
+            input_digest=_digest_payload(event.payload),
+            result_status="started",
+        )
+
+    @staticmethod
+    def _reject_row(event: _TraceEvent) -> ToolExecution:
+        identity = event.identity
+        return ToolExecution(
+            id=str(uuid4()),
+            trace_id=event.trace_id,
+            tool_name=event.tool,
+            tenant_id=identity.tenant_id,
+            user_id=identity.user_id,
+            order_id=event.order_id,
+            input_digest=_digest_payload(event.payload),
+            result_status="rejected",
+            error_code=event.error_code,
+        )
 
 
 @dataclass(frozen=True)
