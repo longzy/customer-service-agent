@@ -12,7 +12,7 @@
 
 > 客户登录 -> AI 自动回复/转人工 -> 进入队列 -> 坐席登录领取并接管 -> 回复 -> 关闭或转回 AI
 
-M1 正在按 F-01→F-14 实现：`apps/chat` 是客户入口，`apps/workspace` 是坐席工作台，`apps/web` 已退役；旧 `backend/` 路由保留为 M1-P 资产。退款、主管/管理员、客户自助注册、全渠道、OIDC/SSO 和真实 OMS 不在 M1 范围内。
+M1 正在按 F-01→F-14 实现：`apps/chat` 是客户入口，`apps/workspace` 是坐席工作台，`apps/web` 已退役；M1-P 的旧 Web 接口（`/session`、`/message`、`/handoff`、`/cancellation-requests`）已于 2026-11-19 退役，`agent_runtime`、`tools`、`workflows`（含订单取消工作流）保留供后续切片接入。退款、主管/管理员、客户自助注册、全渠道、OIDC/SSO 和真实 OMS 不在 M1 范围内。
 
 ## 文档入口
 

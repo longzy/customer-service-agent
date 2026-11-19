@@ -51,10 +51,12 @@ apps/web/                  # M1-P 归档，不再作为 M1 入口
 backend/api/
   customer_routes.py       # /customer/*
   workspace_routes.py      # /workspace/*
-  legacy/                  # M1-P 路由，测试保留
+  admin_routes.py          # 仅开发/测试的 Mock OMS 故障注入
 backend/conversations/    # 会话、消息、交接单、队列、转人工策略
 backend/identity/         # 客户/员工账号、session、RBAC
-backend/agent_runtime/    # 模型调用、intent/confidence
+backend/agent_runtime/    # 模型调用、intent/confidence（旧 Web 接口已退役，能力保留）
+backend/tools/            # 查询/取消 Tool（保留供 003/004 接入）
+backend/workflows/        # 取消工作流（保留供 004 接入）
 backend/platform/         # db/models/settings/observability/ratelimit
 ```
 
@@ -66,7 +68,7 @@ backend/platform/         # db/models/settings/observability/ratelimit
 
 ### 3.2 数据模型与迁移
 
-M1 使用新的 `service_*` 表；M1-P 的旧表/旧路由/旧测试原样保留。迁移只做加法。
+M1 使用新的 `service_*` 表；M1-P 的旧表与取消工作流保留，旧 Web 接口与对应测试已于 2026-11-19 退役。迁移只做加法。
 
 | 表 | 关键列/约束 |
 |---|---|
@@ -201,7 +203,7 @@ M1 使用新的 `service_*` 表；M1-P 的旧表/旧路由/旧测试原样保留
 |---|---|---|---|---|---|
 | 转人工触发 | 消息 + 关键词/模型 intent | 按钮 | 明确、可控 | 多一个 UI 控件，客户要先找到按钮 | 客户用自然语言就能切换；少一个控件 |
 | 前端 | 两个 Next app | 一个 app 两个路由 | 复用脚手架 | 客户/员工认证与部署边界混在一起 | 两个 app 的认证与部署边界更清楚 |
-| 数据 | 新 `service_*` 表 | 复用 M1-P 旧表 | 少建表 | 旧 `user_id`/唯一约束会把本切片拖回兼容债 | 新表避免兼容债，旧表/旧路由原样保留 |
+| 数据 | 新 `service_*` 表 | 复用 M1-P 旧表 | 少建表 | 旧 `user_id`/唯一约束会把本切片拖回兼容债 | 新表避免兼容债；旧表保留，旧 Web 路由已退役 |
 | 队列 | 领取优先 | 自动分配 | 坐席不用抢 | M1 没有 presence/分配规则 | 先证明领取/接管闭环，分配规则后续再加 |
 | 客户关闭 | 任意未关闭状态可关 | 仅坐席可关 | 坐席可控 | 客户被卡在队列里 | 客户不能被卡住；关闭同事务收口交接单 |
 | 空闲关闭 | 登录/读状态时惰性检查 | 后台 worker | 关闭更准时 | 引入 worker/调度 | 本切片不引入 worker；惰性检查足够 |
@@ -264,7 +266,7 @@ M1 使用新的 `service_*` 表；M1-P 的旧表/旧路由/旧测试原样保留
 ### 5.3 风险、回滚与发布
 
 - 主要风险：并发领取/接管竞态、模型超时/不可用、审计写失败、迁移回滚。对应控制：条件更新 + 部分唯一索引；10s 超时 + 自动转人工；同事务 503 回滚；只加法迁移。
-- 回滚：`M1_ENABLED` 控制新路由与两个 app；关闭时不挂载，旧 M1-P 仍保留。
+- 回滚：`M1_ENABLED` 控制新路由与两个 app；关闭时不挂载。M1-P 旧 Web 接口已于 2026-11-19 退役，代码回退依赖 git 历史；取消工作流与旧表保留。
 - 迁移只加法；回滚代码不删表；回滚目标是上一个 release。
 - 不做保留清理/outbox；B/C/D 再引入。
 
@@ -272,7 +274,7 @@ M1 使用新的 `service_*` 表；M1-P 的旧表/旧路由/旧测试原样保留
 
 - 性能/容量：本切片 2 客户/2 坐席；3s 轮询；无 WebSocket/SSE。
 - 成本：M1 不设成本目标；模型调用以 10s 超时封顶；成本/延迟目标在后续切片再定。
-- 兼容性：M1-P 旧表/旧路由/旧测试保留；新 `service_*` 表；不接真实 OMS。
+- 兼容性：M1-P 旧表与取消工作流保留，旧 Web 接口/测试已退役；新 `service_*` 表；不接真实 OMS。
 
 ## 6. 未决问题（Open Questions）
 

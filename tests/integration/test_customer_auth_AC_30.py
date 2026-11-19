@@ -273,17 +273,6 @@ def test_请求关联标识透传或生成_基座豁免() -> None:
     assert uuid.UUID(generated.headers["X-Request-ID"])
 
 
-def test_旧路由422响应格式不被新封套改写_基座豁免() -> None:
-    with api_client() as api:
-        response = api.post(
-            "/session",
-            json={"account_id": "zhang-ming", "tenant_id": "tenant-b"},
-        )
-    assert response.status_code == 422
-    assert "detail" in response.json()
-    assert "code" not in response.json()
-
-
 def test_M1关闭时客户路由不挂载_AC_30() -> None:
     active = Settings(environment="development", m1_enabled=False)
     with api_client(active) as api:

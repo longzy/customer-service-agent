@@ -1,7 +1,6 @@
 """AC-26：OMS 配置矩阵与生产启动失败。"""
 
 import pytest
-from fastapi.testclient import TestClient
 
 from backend.adapters.oms.factory import OmsConfigError, build_oms
 from backend.adapters.oms.http import HttpOmsAdapter
@@ -71,24 +70,3 @@ def test_create_app_uses_http_with_valid_url_AC_26() -> None:
     app = create_app(Settings(environment="test", oms_base_url="http://oms.test"))
 
     assert isinstance(app.state.oms, HttpOmsAdapter)
-
-
-def test_create_app_override_disables_test_login_AC_26() -> None:
-    app = create_app(
-        Settings(
-            environment="production",
-            oms_base_url="http://oms.test",
-            model_api_key="dummy",
-        )
-    )
-    client = TestClient(app)
-
-    assert client.post("/session", json={"account_id": "zhang-ming"}).status_code == 404
-    assert client.get("/accounts").status_code == 404
-
-
-def test_create_app_override_enables_test_login_AC_26() -> None:
-    app = create_app(Settings(environment="test", oms_base_url=""))
-    client = TestClient(app)
-
-    assert client.post("/session", json={"account_id": "zhang-ming"}).status_code == 200

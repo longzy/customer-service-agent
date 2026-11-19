@@ -16,19 +16,13 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from backend.adapters.oms.factory import build_oms
 from backend.adapters.oms.mock import MockOmsAdapter
 from backend.agent_runtime.model import build_model_client
-from backend.api.account_routes import router as account_router
 from backend.api.admin_routes import router as admin_router
 from backend.api.audit import audit_transition
-from backend.api.auth_web import resolve_identity
-from backend.api.cancellation_routes import router as cancellation_router
-from backend.api.conversation_routes import router as conversation_router
 from backend.api.csrf import verify_origin
 from backend.api.customer_routes import router as customer_router
 from backend.api.errors import ApiError, api_error_handler
-from backend.api.handoff_routes import router as handoff_router
 from backend.api.request_id import attach_request_id
 from backend.api.service_audit import audit_api_error
-from backend.api.session_routes import router as session_router
 from backend.api.workspace_routes import router as workspace_router
 from backend.audit import SqlAuditWriter
 from backend.domain.errors import ErrorCode
@@ -132,7 +126,7 @@ def create_app(settings_override: Settings | None = None) -> FastAPI:
 
     @app.exception_handler(RequestValidationError)
     async def _validation_error(request: Request, error: RequestValidationError) -> Response:
-        # 只有新 M1 客户 API 使用统一封套；旧 M1-P 路由保持原响应格式。
+        # 新 M1 API 使用统一封套；内部调试接口保持 FastAPI 默认格式。
         if request.url.path.startswith(("/customer/", "/workspace/")):
             return JSONResponse(status_code=422, content=error_envelope(ErrorCode.VALIDATION_ERROR))
         return await request_validation_exception_handler(request, error)
@@ -154,21 +148,14 @@ def create_app(settings_override: Settings | None = None) -> FastAPI:
     app.state.cancel_gateway = build_cancel_gateway(
         app.state.oms, timeout_seconds=active.oms_timeout_seconds
     )
-    # 后添加的中间件先执行：请求关联标识最外层，最后解析身份、校验来源
+    # 后添加的中间件先执行：请求关联标识最外层，最后校验来源
     app.middleware("http")(verify_origin)
-    app.middleware("http")(resolve_identity)
     app.middleware("http")(attach_request_id)
     if active.m1_enabled:
         app.include_router(customer_router)
         app.include_router(workspace_router)
-    app.include_router(session_router)
-    app.include_router(conversation_router)
-    app.include_router(cancellation_router)
-    app.include_router(handoff_router)
-    if active.test_accounts_enabled:
-        app.include_router(account_router)
-        if isinstance(app.state.oms, MockOmsAdapter):
-            app.include_router(admin_router)
+    if active.test_accounts_enabled and isinstance(app.state.oms, MockOmsAdapter):
+        app.include_router(admin_router)
 
     @app.get("/health")
     async def health() -> dict[str, str]:

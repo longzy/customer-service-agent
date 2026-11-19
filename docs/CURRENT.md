@@ -8,7 +8,7 @@
 - 当前工作：F-14 已完成并收口；F-13、F-12、F-11、F-10、F-09、F-08 已收口；F-15、F-16、F-17、F-18、F-19、F-20、F-21、F-22 待评审
 
 <!-- verify:start -->
-- 最近验证：`./scripts/verify.sh` 全部检查通过——pytest 747 passed（独立测试库）、mypy 69 个文件、追溯矩阵通过（20 条 AC）、文档与前端检查通过
+- 最近验证：`./scripts/verify.sh` 全部检查通过——pytest 678 passed（独立测试库）、mypy 62 个文件、追溯矩阵通过（20 条 AC）、文档与前端检查通过
 <!-- verify:end -->
 
 ## 进行中
@@ -24,6 +24,8 @@
 
 ## 已完成
 
+- 清理（2026-11-19，M1-P 旧 Web 接口退役）：删除 `/session`、`/message`、`/handoff`、`/cancellation-requests`、`/accounts` 与旧内存身份/会话中间件及 8 个强绑定旧测试文件；保留 `agent_runtime`、`tools`、`workflows`（含订单取消工作流与启动恢复）、旧表与 OMS 适配器；重新生成 OpenAPI、前端类型与测试快照（15 条路由）。
+- 流程改进（2026-11-19，评测门禁批次 A）：`evals/run.py` 的 AC 集合改为从 `docs/specs/*/brief.md` 动态发现，`AC-01~29` 不再参与门禁，`scripts/trace-baseline.txt` 中登记的待开工 AC 记 `待开工`、不算缺失；多轮场景只列覆盖当前 AC 的用例；同步 `evals/README.md`、场景测试说明与 7 条报告单测。
 - 流程改进（2026-11-19）：测试库默认一次性隔离（并行评审/门禁不再互删数据）、`make gen-contracts` 一键刷新契约与两个测试快照、评审结论按首句判定词解析、评审者不并行跑全量门禁；新增 4 条脚本自测。
 - F-14：客户甲/乙端到端闭环与跨客户隔离——两客户各自登录/聊天/转人工/被接管/回复/转回/关闭，甲读乙会话/消息 404 且与不存在不可区分，交接单按客户独立；4 条 AC-33 集成用例（双坐席、4 类消息负向探针）+ 三组反向验证；同一浏览器双 host UI 走查截图 `evals/reports/001-customer-handoff/F-14/`；双轴评审通过（`docs/reviews/001-customer-handoff/F-14.md`，2 轮、0 阻断）；提交 fda805b、97325c2、6d13306。
 - F-13：审计与限速收口——`service_audit_events` 只追加（触发器拒绝行级改删）、401/403/429 安全事件、登录/消息限速、审计失败 503 回滚、客户消息/AI 回复/Origin 403 审计；20 条 AC-39 集成用例 + 反向验证 4 组 + 迁移回滚演练；三轴独立评审通过（2 轮、0 阻断，`docs/reviews/001-customer-handoff/F-13.md`）；提交 46783aa、39924aa、555847b。
