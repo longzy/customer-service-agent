@@ -27,7 +27,7 @@ from backend.conversations.workspace_http import router as workspace_router
 from backend.domain.errors import ErrorCode
 from backend.identity.http import router as employee_router
 from backend.platform.db import engine, session_factory, trace_engine, trace_session_factory
-from backend.platform.observability import AsyncTraceSink, TraceSinkError, use_trace_sink
+from backend.platform.observability import AsyncTraceSink, AuditWriteError, use_trace_sink
 from backend.platform.settings import Settings, settings
 from backend.tools.cancel import build_cancel_gateway
 from backend.tools.gateway import error_envelope
@@ -112,9 +112,10 @@ def create_app(settings_override: Settings | None = None) -> FastAPI:
     app.state.settings = active
     app.state.audit_writer = SqlAuditWriter(session_factory)
 
-    @app.exception_handler(TraceSinkError)
-    async def _trace_sink_error(_request: Request, _error: TraceSinkError) -> JSONResponse:
-        return JSONResponse(status_code=500, content=error_envelope(ErrorCode.INTERNAL_ERROR))
+    @app.exception_handler(AuditWriteError)
+    async def _audit_write_error(_request: Request, _error: AuditWriteError) -> JSONResponse:
+        # 审计是强一致数据；写失败不能静默成功。Trace 写入失败不经过这里。
+        return JSONResponse(status_code=503, content=error_envelope(ErrorCode.INTERNAL_ERROR))
 
     @app.exception_handler(ApiError)
     async def _api_error(request: Request, error: ApiError) -> JSONResponse:

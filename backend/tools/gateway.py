@@ -3,6 +3,7 @@
 职责：白名单、契约校验、身份字段剥离、订单归属闸门、错误归一与审计。
 """
 
+import logging
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import TimeoutError as FutureTimeout
@@ -27,9 +28,14 @@ from backend.errors import (
     OrderNotFound,
 )
 from backend.identity import Identity
-from backend.platform.observability import TraceSinkError, current_trace_sink
+from backend.platform.observability import (
+    AuditWriteError,
+    current_trace_sink,
+    log_event,
+)
 
 IDENTITY_FIELDS = {"tenant_id", "user_id"}
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -161,14 +167,17 @@ class ToolGateway:
         started = monotonic()
         if sink is not None:
             idempotency_key = payload.get("idempotency_key")
-            execution_id = sink.start(
-                tool=name,
-                identity=identity,
-                order_id=order_id if isinstance(order_id, str) else None,
-                idempotency_key=idempotency_key if isinstance(idempotency_key, str) else None,
-                trace_id=trace_id,
-                payload=safe_payload,
-            )
+            try:
+                execution_id = sink.start(
+                    tool=name,
+                    identity=identity,
+                    order_id=order_id if isinstance(order_id, str) else None,
+                    idempotency_key=idempotency_key if isinstance(idempotency_key, str) else None,
+                    trace_id=trace_id,
+                    payload=safe_payload,
+                )
+            except Exception as error:  # noqa: BLE001 - 技术 trace 是 best-effort
+                self._log_trace_failure("start", name, trace_id, error)
 
         def elapsed() -> int:
             return int((monotonic() - started) * 1000)
@@ -183,8 +192,6 @@ class ToolGateway:
                 raise TimeoutError(name) from error
             finally:
                 pool.shutdown(wait=False)
-        except TraceSinkError:
-            raise
         except TimeoutError as error:
             code = self._timeout_code(name)
             self._record(
@@ -320,27 +327,44 @@ class ToolGateway:
         }
         try:
             self._audit(event)
-        except TraceSinkError:
+        except AuditWriteError:
             raise
         except Exception as error:  # noqa: BLE001 - 审计失败按失败关闭处理
-            raise TraceSinkError("审计写入失败") from error
+            raise AuditWriteError("审计写入失败") from error
         sink = current_trace_sink()
         if sink is None:
             return
-        if execution_id is not None:
-            sink.finish(
-                execution_id,
-                result_status=result,
-                error_code=error_code,
-                response=response if result == "ok" else None,
-                latency_ms=latency_ms,
+        try:
+            if execution_id is not None:
+                sink.finish(
+                    execution_id,
+                    result_status=result,
+                    error_code=error_code,
+                    response=response if result == "ok" else None,
+                    latency_ms=latency_ms,
+                )
+            elif result == "rejected":
+                sink.reject(
+                    tool=tool,
+                    identity=identity,
+                    order_id=order_id if isinstance(order_id, str) else None,
+                    trace_id=trace_id or "",
+                    error_code=error_code or "INTERNAL_ERROR",
+                    payload=payload or {},
+                )
+        except Exception as error:  # noqa: BLE001 - 技术 trace 是 best-effort
+            self._log_trace_failure(
+                "finish" if execution_id is not None else "reject", tool, trace_id, error
             )
-        elif result == "rejected":
-            sink.reject(
-                tool=tool,
-                identity=identity,
-                order_id=order_id if isinstance(order_id, str) else None,
-                trace_id=trace_id or "",
-                error_code=error_code or "INTERNAL_ERROR",
-                payload=payload or {},
-            )
+
+    @staticmethod
+    def _log_trace_failure(action: str, tool: str, trace_id: str | None, error: Exception) -> None:
+        log_event(
+            logger,
+            "trace.write_failed",
+            level=logging.WARNING,
+            action=action,
+            tool=tool,
+            trace_id=trace_id,
+            error_code=type(error).__name__,
+        )

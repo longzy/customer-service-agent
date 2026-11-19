@@ -58,8 +58,12 @@ RESPONSE_KEYS = frozenset(
 )
 
 
-class TraceSinkError(Exception):
+class AuditWriteError(Exception):
     """审计写入失败；不是 GatewayError，业务错误处理不得吞掉。"""
+
+
+class TraceWriteError(Exception):
+    """技术 trace 写入失败；可观测数据，不应阻断业务。"""
 
 
 def new_trace_id() -> str:
@@ -95,10 +99,12 @@ def redact_response(value: Any) -> Any:
     return None
 
 
-def log_event(logger: logging.Logger, event: str, **fields: Any) -> None:
+def log_event(
+    logger: logging.Logger, event: str, *, level: int = logging.INFO, **fields: Any
+) -> None:
     """结构化日志：只输出允许清单字段，消息/回复正文不会进入日志。"""
     payload = redact_event({"event": event, **fields})
-    logger.info(json.dumps(payload, ensure_ascii=False, default=str))
+    logger.log(level, json.dumps(payload, ensure_ascii=False, default=str))
 
 
 class TraceSink(Protocol):
@@ -162,8 +168,8 @@ class AsyncTraceSink:
         try:
             future = asyncio.run_coroutine_threadsafe(coro, self._loop)
             return future.result(timeout=5)
-        except Exception as error:  # noqa: BLE001 - 统一转审计失败
-            raise TraceSinkError("审计写入失败") from error
+        except Exception as error:  # noqa: BLE001 - 统一转 Trace 写入失败
+            raise TraceWriteError("工具执行记录写入失败") from error
 
     def start(
         self,
@@ -268,7 +274,7 @@ class AsyncTraceSink:
         async with self._factory() as session:
             row = await session.get(ToolExecution, execution_id)
             if row is None:
-                raise TraceSinkError("工具执行记录不存在")
+                raise TraceWriteError("工具执行记录不存在")
             row.result_status = result_status
             row.error_code = error_code
             row.response_redacted = redact_response(response)
