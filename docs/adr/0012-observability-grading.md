@@ -2,7 +2,8 @@
 
 - 状态：已批准
 - 日期：2026-11-19
-- 批准：2026-11-19（用户确认按调研结果分层设计；实现待排期）
+- 批准：2026-11-19（用户确认按调研结果分层设计；实现分步推进）
+- 实现进度：步骤 1 已完成（2026-11-19）；步骤 2–6 待排期
 - 关联：[调研笔记](../research/customer-service-trace-2026-11-19.md)、[总体架构](../architecture/overview.md) 第 5 节、[ADR-0009](0009-request-unit-of-work.md)、[ADR-0010](0010-connection-pool-and-trace-pool.md)、[ADR-0011](0011-model-failure-degradation.md)
 
 ## 背景
@@ -183,3 +184,7 @@ VIEW_AUDIT_DEDUP_SECONDS=300
 - **每 GET 都写读访问审计**：3s 轮询会淹没审计表；必须只审计主动查看并去重。
 - **同步写 trace + 无采样**：成本与延迟随工具调用量线性上升。
 - **M1 直接接 OTel**：字段与导出链路成本高，先保留兼容位。
+
+## 实现记录
+
+- 2026-11-19：步骤 1 完成——新增 `AuditWriteError` / `TraceWriteError`；`ToolGateway` 的 `sink.start/finish/reject` 改为 best-effort 并记结构化日志；`AuditWriteError` 映射 503；新增网关故障注入、HTTP 200 与审计 503 测试。

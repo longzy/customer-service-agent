@@ -448,29 +448,29 @@ async def test_放弃写状态转换审计_AC_17() -> None:
 
 
 async def test_审计失败向上抛_AC_18() -> None:
-    from backend.platform.observability import TraceSinkError
+    from backend.platform.observability import AuditWriteError
 
     async def failing(event: dict[str, Any]) -> None:
-        raise TraceSinkError("down")
+        raise AuditWriteError("down")
 
     flow, _, _ = workflow(audit=failing)
-    with pytest.raises(TraceSinkError):
+    with pytest.raises(AuditWriteError):
         await flow.request(OWNER, "ORD-10001", "trace-fail")
 
 
 async def test_确认审计失败不被吞_AC_18() -> None:
-    from backend.platform.observability import TraceSinkError
+    from backend.platform.observability import AuditWriteError
 
     events: list[dict[str, Any]] = []
 
     async def audit(event: dict[str, Any]) -> None:
         events.append(event)
         if event["to_state"] == "SUBMITTING":
-            raise TraceSinkError("down")
+            raise AuditWriteError("down")
 
     flow, _, _ = workflow(audit=audit)
     task = await flow.request(OWNER, "ORD-10001", "trace-confirm")
-    with pytest.raises(TraceSinkError):
+    with pytest.raises(AuditWriteError):
         await flow.confirm(OWNER, task.id)
 
 
@@ -526,13 +526,13 @@ async def test_重复确认写幂等确认审计_AC_17() -> None:
 
 
 async def test_确认审计失败不推进状态_AC_18() -> None:
-    from backend.platform.observability import TraceSinkError
+    from backend.platform.observability import AuditWriteError
 
     async def failing(event: dict[str, Any]) -> None:
-        raise TraceSinkError("down")
+        raise AuditWriteError("down")
 
     flow, _, _ = workflow(confirmation=failing)
     task = await flow.request(OWNER, "ORD-10001", "trace-confirm-fail")
-    with pytest.raises(TraceSinkError):
+    with pytest.raises(AuditWriteError):
         await flow.confirm(OWNER, task.id)
     assert task.state == CancellationState.AWAITING_CONFIRMATION

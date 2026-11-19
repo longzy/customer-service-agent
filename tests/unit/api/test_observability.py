@@ -3,7 +3,8 @@
 import logging
 
 from backend.platform.observability import (
-    TraceSinkError,
+    AuditWriteError,
+    TraceWriteError,
     idempotency_digest,
     log_event,
     redact_event,
@@ -80,8 +81,20 @@ def test_结构化日志不含正文与敏感字段_AC_18(caplog) -> None:
     assert '"trace_id": "t-1"' in caplog.text
 
 
-def test_审计异常不是网关业务异常_AC_18() -> None:
-    assert not issubclass(TraceSinkError, GatewayError)
+def test_审计与trace异常都不是网关业务异常_AC_18() -> None:
+    assert not issubclass(AuditWriteError, GatewayError)
+    assert not issubclass(TraceWriteError, GatewayError)
+    assert not issubclass(AuditWriteError, TraceWriteError)
+
+
+async def test_审计写失败映射为503_AC_18() -> None:
+    from backend.api.main import create_app
+
+    handler = create_app().exception_handlers[AuditWriteError]
+    response = await handler(None, AuditWriteError("audit down"))  # type: ignore[arg-type]
+
+    assert response.status_code == 503
+    assert b'"code":"INTERNAL_ERROR"' in response.body
 
 
 def test_应用创建后配置日志handler_AC_18() -> None:

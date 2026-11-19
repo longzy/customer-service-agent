@@ -1,5 +1,6 @@
 """Tool Gateway：契约校验、身份剥离、归属闸门、错误归一与审计。"""
 
+import logging
 from typing import Any
 
 import pytest
@@ -234,9 +235,9 @@ def test_审计失败按失败关闭处理_AC_18() -> None:
         oms=StubOms({("tenant-a", "user-a1", "ORD-10001")}),
         audit=broken_audit,
     )
-    from backend.platform.observability import TraceSinkError
+    from backend.platform.observability import AuditWriteError
 
-    with pytest.raises(TraceSinkError) as exc:
+    with pytest.raises(AuditWriteError) as exc:
         tool.invoke("get_order", {"order_id": "ORD-10001"}, IDENTITY, trace_id="t-1")
     assert str(exc.value) == "审计写入失败"
 
@@ -620,8 +621,9 @@ def test_工具失败写审计_AC_17() -> None:
     assert sink.finished[0]["error_code"] == "INTERNAL_ERROR"
 
 
-def test_审计start失败不调用handler_AC_18() -> None:
-    from backend.platform.observability import TraceSinkError, use_trace_sink
+def test_trace_start失败不阻断handler_AC_18(caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level(logging.INFO, logger="backend.tools.gateway")
+    from backend.platform.observability import TraceWriteError, use_trace_sink
 
     calls: list[str] = []
 
@@ -631,37 +633,71 @@ def test_审计start失败不调用handler_AC_18() -> None:
 
     class FailingStart(RecordingSink):
         def start(self, **kwargs: Any) -> str:
-            raise TraceSinkError("down")
+            raise TraceWriteError("down")
 
-    with use_trace_sink(FailingStart()), pytest.raises(TraceSinkError):
-        gateway(Recorder(), handler=handler).invoke(
+    with use_trace_sink(FailingStart()):
+        result = gateway(Recorder(), handler=handler).invoke(
             "get_order", {"order_id": "ORD-10001"}, IDENTITY, trace_id="t-1"
         )
-    assert calls == []
+    assert result == DETAIL
+    assert calls == ["t-1"]
+    assert "trace.write_failed" in caplog.text
 
 
-def test_审计finish失败向上抛_AC_18() -> None:
-    from backend.platform.observability import TraceSinkError, use_trace_sink
+def test_trace失败时HTTP仍200_AC_18() -> None:
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from backend.platform.observability import TraceWriteError, use_trace_sink
+
+    class FailingStart(RecordingSink):
+        def start(self, **kwargs: Any) -> str:
+            raise TraceWriteError("down")
+
+    app = FastAPI()
+
+    @app.get("/probe")
+    def probe() -> dict[str, Any]:
+        with use_trace_sink(FailingStart()):
+            return gateway(Recorder()).invoke(
+                "get_order", {"order_id": "ORD-10001"}, IDENTITY, trace_id="t-1"
+            )
+
+    response = TestClient(app).get("/probe")
+    assert response.status_code == 200
+    assert response.json()["order_id"] == "ORD-10001"
+
+
+def test_trace_finish失败不阻断业务_AC_18(caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level(logging.INFO, logger="backend.tools.gateway")
+    from backend.platform.observability import TraceWriteError, use_trace_sink
 
     class FailingFinish(RecordingSink):
         def finish(self, execution_id: str, **kwargs: Any) -> None:
-            raise TraceSinkError("down")
+            raise TraceWriteError("down")
 
-    with use_trace_sink(FailingFinish()), pytest.raises(TraceSinkError):
-        gateway(Recorder()).invoke("get_order", {"order_id": "ORD-10001"}, IDENTITY, trace_id="t-1")
+    with use_trace_sink(FailingFinish()):
+        result = gateway(Recorder()).invoke(
+            "get_order", {"order_id": "ORD-10001"}, IDENTITY, trace_id="t-1"
+        )
+    assert result == DETAIL
+    assert "trace.write_failed" in caplog.text
 
 
-def test_审计reject失败向上抛_AC_18() -> None:
-    from backend.platform.observability import TraceSinkError, use_trace_sink
+def test_trace_reject失败不阻断拒绝路径_AC_18(caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level(logging.INFO, logger="backend.tools.gateway")
+    from backend.platform.observability import TraceWriteError, use_trace_sink
 
     class FailingReject(RecordingSink):
         def reject(self, **kwargs: Any) -> None:
-            raise TraceSinkError("down")
+            raise TraceWriteError("down")
 
-    with use_trace_sink(FailingReject()), pytest.raises(TraceSinkError):
+    with use_trace_sink(FailingReject()), pytest.raises(GatewayError) as exc:
         gateway(Recorder()).invoke(
             "delete_everything", {"order_id": "ORD-10001"}, IDENTITY, trace_id="t-1"
         )
+    assert exc.value.status_code == 404
+    assert "trace.write_failed" in caplog.text
 
 
 def test_非法参数审计sink记录payload_AC_17() -> None:
