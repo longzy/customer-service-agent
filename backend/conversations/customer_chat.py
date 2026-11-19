@@ -166,6 +166,13 @@ async def _record_ai_event(
     now: datetime,
     event_type: str = "model",
     name: str = "customer_chat",
+    prompt_version: str | None = None,
+    prompt_hash: str | None = None,
+    model: str | None = None,
+    input_tokens: int | None = None,
+    output_tokens: int | None = None,
+    first_token_latency_ms: int | None = None,
+    retry_count: int = 0,
 ) -> None:
     db.add(
         ServiceAiEvent(
@@ -176,6 +183,13 @@ async def _record_ai_event(
             name=name,
             status=status,
             confidence=confidence,
+            prompt_version=prompt_version,
+            prompt_hash=prompt_hash,
+            model=model,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            first_token_latency_ms=first_token_latency_ms,
+            retry_count=retry_count,
             trace_id=trace_id,
             created_at=now,
         )
@@ -478,6 +492,13 @@ async def send_customer_message(
         confidence=reply.confidence,
         trace_id=trace_id,
         now=now,
+        prompt_version=reply.prompt_version,
+        prompt_hash=reply.prompt_hash,
+        model=reply.model,
+        input_tokens=reply.input_tokens,
+        output_tokens=reply.output_tokens,
+        first_token_latency_ms=reply.first_token_latency_ms,
+        retry_count=reply.retry_count,
     )
     # plan 3.3.4：低置信/转人工意图/订单/超范围不展示模型回复，直接入队
     decision = decide_model_handoff(

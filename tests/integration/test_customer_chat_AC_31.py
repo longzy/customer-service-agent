@@ -156,6 +156,9 @@ def test_普通消息落库并返回AI回复_AC_31() -> None:
     assert events[0].event_type == "model"
     assert events[0].status == "ok"
     assert events[0].confidence == 0.95
+    assert events[0].model == "fake"
+    assert events[0].prompt_version == "fake"
+    assert events[0].retry_count == 0
     assert rows(ServiceHandoff) == []
 
 

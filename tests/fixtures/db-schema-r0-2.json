@@ -359,6 +359,48 @@
         "type": "FLOAT"
       },
       {
+        "name": "prompt_version",
+        "nullable": true,
+        "primary_key": false,
+        "type": "VARCHAR(32)"
+      },
+      {
+        "name": "prompt_hash",
+        "nullable": true,
+        "primary_key": false,
+        "type": "VARCHAR(64)"
+      },
+      {
+        "name": "model",
+        "nullable": true,
+        "primary_key": false,
+        "type": "VARCHAR(64)"
+      },
+      {
+        "name": "input_tokens",
+        "nullable": true,
+        "primary_key": false,
+        "type": "INTEGER"
+      },
+      {
+        "name": "output_tokens",
+        "nullable": true,
+        "primary_key": false,
+        "type": "INTEGER"
+      },
+      {
+        "name": "first_token_latency_ms",
+        "nullable": true,
+        "primary_key": false,
+        "type": "INTEGER"
+      },
+      {
+        "name": "retry_count",
+        "nullable": false,
+        "primary_key": false,
+        "type": "INTEGER"
+      },
+      {
         "name": "trace_id",
         "nullable": false,
         "primary_key": false,
@@ -897,6 +939,36 @@
         "nullable": false,
         "primary_key": false,
         "type": "VARCHAR(36)"
+      },
+      {
+        "name": "span_id",
+        "nullable": true,
+        "primary_key": false,
+        "type": "VARCHAR(16)"
+      },
+      {
+        "name": "parent_span_id",
+        "nullable": true,
+        "primary_key": false,
+        "type": "VARCHAR(16)"
+      },
+      {
+        "name": "step",
+        "nullable": true,
+        "primary_key": false,
+        "type": "VARCHAR(32)"
+      },
+      {
+        "name": "sampled",
+        "nullable": false,
+        "primary_key": false,
+        "type": "BOOLEAN"
+      },
+      {
+        "name": "source",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(16)"
       },
       {
         "name": "tool_name",
