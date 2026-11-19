@@ -40,6 +40,14 @@ class Settings(BaseSettings):
     trace_buffer_size: int = 1000
     trace_flush_interval_ms: int = 2000
     trace_batch_size: int = 200
+    # 可观测数据保留；默认每日清理 L3/L3.5，审计只报告不删除。
+    retention_enabled: bool = True
+    retention_interval_seconds: int = 86400
+    trace_retention_days: int = 30
+    trace_error_retention_days: int = 365
+    ai_event_retention_days: int = 90
+    ai_event_critical_retention_days: int = 365
+    audit_retention_days: int = 180
     environment: str = "production"
     # Cookie 是否带 Secure；为空时按环境推导，显式设置可覆盖
     cookie_secure: bool | None = None
