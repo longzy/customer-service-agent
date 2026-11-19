@@ -243,7 +243,7 @@ evals/                      # 场景集、运行器和报告
 - 只有 `adapters/oms/factory` 读取 OMS 配置并选择 Adapter；生产缺配置启动失败。
 - `packages/contracts` 是跨模块接口的唯一定义来源。
 - 业务 HTTP 入口按域放在 `identity/http.py`、`conversations/*_http.py`；`api/` 只做装配与横切，不新增业务路由（[ADR-0008](../adr/0008-business-domain-http-layout.md)）。
-- `apps/web` 已于 2026-11-18 退役；M1-P 的旧 Web 接口（`/session`、`/message`、`/handoff`、`/cancellation-requests`）已于 2026-11-19 退役，`agent_runtime`/`tools`/`workflows` 与旧表保留供 003/004 接入。`mock_oms` 已在 R0-2 迁入 `backend/adapters/oms/`。
+- `apps/web` 已于 2026-11-18 退役；M1-P 的旧 Web 接口（`/session`、`/message`、`/handoff`、`/cancellation-requests`）已于 2026-11-19 退役，`agent_runtime`/`tools`/`workflows` 与旧表保留供 003/004 接入；其中无生产入口的 `agent_runtime/chat.py` 旧对话编排已于 2026-11-19 删除（保留 `model`/`types` 供现役链路）。`mock_oms` 已在 R0-2 迁入 `backend/adapters/oms/`。
 
 ## 10. 演进原则
 

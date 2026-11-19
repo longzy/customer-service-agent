@@ -8,7 +8,7 @@
 - 当前工作：002 UI 改版 F-15~F-23 已收口；F-24 已完成并收口；F-14、F-13、F-12、F-11、F-10、F-09、F-08 已收口
 
 <!-- verify:start -->
-- 最近验证：`./scripts/verify.sh` 全部检查通过——pytest 692 passed（独立测试库）、mypy 67 个文件、追溯矩阵通过（20 条 AC）、文档与前端检查通过
+- 最近验证：`./scripts/verify.sh` 全部检查通过——pytest 677 passed（独立测试库）、mypy 66 个文件、追溯矩阵通过（20 条 AC）、文档与前端检查通过
 <!-- verify:end -->
 
 ## 进行中
@@ -29,7 +29,7 @@
 - 重构（2026-11-19，请求级 Unit of Work）：`get_session` 成功提交、异常回滚；路由与业务模块移除手动 `commit()`；限速改为独立 session；决策见 ADR-0009，pytest 678 passed。
 - 重构（2026-11-19，只读 session 分离）：GET 改用 `get_read_session`（不提交），认证与读路由复用同一只读 session；客户 `last_seen_at` 改为 5 分钟节流独立事务；新增只读会话单元测试与节流集成测试；决策见 ADR-0009 修订，pytest 692 passed。
 - 重构（2026-11-19，后端按业务域组织）：HTTP 入口归位到 `identity/http.py`、`conversations/customer_http.py`、`conversations/workspace_http.py`，DTO 随域；`api/` 只保留装配、中间件与共享 HTTP 工具；OpenAPI 15 条路径不变，pytest 678 passed；决策见 ADR-0008。
-- 清理（2026-11-19，M1-P 旧 Web 接口退役）：删除 `/session`、`/message`、`/handoff`、`/cancellation-requests`、`/accounts` 与旧内存身份/会话中间件及 8 个强绑定旧测试文件；保留 `agent_runtime`、`tools`、`workflows`（含订单取消工作流与启动恢复）、旧表与 OMS 适配器；重新生成 OpenAPI、前端类型与测试快照（15 条路由）。
+- 清理（2026-11-19，M1-P 旧 Web 接口退役）：删除 `/session`、`/message`、`/handoff`、`/cancellation-requests`、`/accounts` 与旧内存身份/会话中间件及 8 个强绑定旧测试文件；保留 `agent_runtime`、`tools`、`workflows`（含订单取消工作流与启动恢复）、旧表与 OMS 适配器；重新生成 OpenAPI、前端类型与测试快照（15 条路由）；并删除无生产入口的 `agent_runtime/chat.py` 与 `test_chat.py`（旧对话编排，内部自行 `commit`），`agent_runtime` 只保留 `model`/`types`。
 - 流程改进（2026-11-19，评测门禁批次 A）：`evals/run.py` 的 AC 集合改为从 `docs/specs/*/brief.md` 动态发现，`AC-01~29` 不再参与门禁，`scripts/trace-baseline.txt` 中登记的待开工 AC 记 `待开工`、不算缺失；多轮场景只列覆盖当前 AC 的用例；同步 `evals/README.md`、场景测试说明与 7 条报告单测。
 - 流程改进（2026-11-19）：测试库默认一次性隔离（并行评审/门禁不再互删数据）、`make gen-contracts` 一键刷新契约与两个测试快照、评审结论按首句判定词解析、评审者不并行跑全量门禁；新增 4 条脚本自测。
 - F-14：客户甲/乙端到端闭环与跨客户隔离——两客户各自登录/聊天/转人工/被接管/回复/转回/关闭，甲读乙会话/消息 404 且与不存在不可区分，交接单按客户独立；4 条 AC-33 集成用例（双坐席、4 类消息负向探针）+ 三组反向验证；同一浏览器双 host UI 走查截图 `evals/reports/001-customer-handoff/F-14/`；双轴评审通过（`docs/reviews/001-customer-handoff/F-14.md`，2 轮、0 阻断）；提交 fda805b、97325c2、6d13306。
