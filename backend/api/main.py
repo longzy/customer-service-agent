@@ -29,8 +29,8 @@ from backend.identity.http import router as employee_router
 from backend.platform import metrics
 from backend.platform.db import engine, session_factory, trace_engine, trace_session_factory
 from backend.platform.observability import (
-    AsyncTraceSink,
     AuditWriteError,
+    BufferedTraceSink,
     SampledTraceSink,
     use_trace_sink,
 )
@@ -65,6 +65,14 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     async with engine.connect() as connection:
         await connection.execute(text("select 1"))
 
+    trace_sink = BufferedTraceSink(
+        trace_session_factory,
+        buffer_size=active.trace_buffer_size,
+        flush_interval_ms=active.trace_flush_interval_ms,
+        batch_size=active.trace_batch_size,
+    )
+    _app.state.trace_sink = trace_sink
+
     async def recover() -> None:
         try:
             async with session_factory() as session:
@@ -91,7 +99,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
                     retry_backoff_seconds=active.retry_backoff_seconds,
                     audit=audit,
                 )
-                with use_trace_sink(AsyncTraceSink(trace_session_factory)):
+                with use_trace_sink(trace_sink):
                     await workflow.recover_pending()
         except Exception:  # noqa: BLE001 - 恢复失败不应阻止服务启动
             logger.exception("启动恢复失败")
@@ -104,6 +112,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         task.cancel()
         await asyncio.gather(task, return_exceptions=True)
     finally:
+        await trace_sink.aclose()
         close = getattr(_app.state.oms, "close", None)
         if callable(close):
             close()
@@ -157,7 +166,10 @@ def create_app(settings_override: Settings | None = None) -> FastAPI:
     async def _attach_trace_sink(
         request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
-        sink = SampledTraceSink(AsyncTraceSink(trace_session_factory), active.trace_sample_rate)
+        base = getattr(app.state, "trace_sink", None)
+        if base is None:
+            return await call_next(request)
+        sink = SampledTraceSink(base, active.trace_sample_rate)
         with use_trace_sink(sink):
             return await call_next(request)
 

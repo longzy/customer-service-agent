@@ -36,6 +36,10 @@ class Settings(BaseSettings):
     trace_pool_timeout: float = 2.0
     # 技术 trace 正常成功的采样率；错误/关键工具始终 100%。
     trace_sample_rate: float = 0.05
+    # 技术 trace 有界缓冲与批量写：满了丢最旧，不阻断业务。
+    trace_buffer_size: int = 1000
+    trace_flush_interval_ms: int = 2000
+    trace_batch_size: int = 200
     environment: str = "production"
     # Cookie 是否带 Secure；为空时按环境推导，显式设置可覆盖
     cookie_secure: bool | None = None
