@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """场景评测报告生成器：把 pytest JUnit 的 `_AC_XX` 聚合为 AC 覆盖报告。
 
-只读 JUnit，不重新执行测试。缺任一 AC、空测试集、XML 解析失败、任一测试失败
-都按失败处理；失败也写 `latest.json`/`latest.md` 与带时间戳的历史报告。
+AC 集合从当前 `docs/specs/*/brief.md` 动态发现；`AC-01~29` 是 M1-P 历史标签，
+不参与门禁；`scripts/trace-baseline.txt` 中登记的待开工 AC 记 `pending`，
+不算缺失。只读 JUnit，不重新执行测试。缺未登记的 AC、空测试集、XML 解析失败、
+任一测试失败都按失败处理；失败也写 `latest.json`/`latest.md` 与带时间戳的历史报告。
 
 用法：
     python3 evals/run.py
@@ -21,11 +23,43 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-AC_IDS = tuple(f"AC-{number:02d}" for number in range(1, 22))
+ROOT = Path(__file__).resolve().parent.parent
+SPECS_DIR = ROOT / "docs" / "specs"
+BASELINE_PATH = ROOT / "scripts" / "trace-baseline.txt"
+# M1-P 原型的验收编号只保留为历史测试标签，不再进入当前门禁。
+LEGACY_AC = {f"AC-{number:02d}" for number in range(1, 30)}
+AC_ROW = re.compile(r"^\| (AC-\d{2}) \|", re.MULTILINE)
 AC_PATTERN = re.compile(r"_AC_(\d{2})")
 SCENARIO_MODULE = "test_eval_scenarios"
 DEFAULT_REPORTS_DIR = Path("evals/reports")
-STATUS_TEXT = {"passed": "通过", "failed": "失败", "skipped": "跳过", "missing": "缺失"}
+STATUS_TEXT = {
+    "passed": "通过",
+    "failed": "失败",
+    "skipped": "跳过",
+    "missing": "缺失",
+    "pending": "待开工",
+}
+
+
+def discover_ac_ids(specs_dir: Path = SPECS_DIR) -> list[str]:
+    """当前 spec 的 AC 集合；与 `scripts/trace.py` 同源（brief.md 的 AC 表）。"""
+    found: set[str] = set()
+    for path in sorted(specs_dir.glob("*/brief.md")):
+        found.update(AC_ROW.findall(path.read_text(encoding="utf-8")))
+    return sorted(ac for ac in found if ac not in LEGACY_AC)
+
+
+def read_baseline(path: Path = BASELINE_PATH) -> set[str]:
+    """`trace-baseline.txt` 中登记的待承接 AC；与 trace 门禁共用一份基线。"""
+    if not path.exists():
+        return set()
+    entries: set[str] = set()
+    for line in path.read_text(encoding="utf-8").splitlines():
+        entry = line.split("#", 1)[0].strip()
+        ac = entry.split(":", 1)[0].strip()
+        if re.fullmatch(r"AC-\d{2}", ac):
+            entries.add(ac)
+    return entries
 
 
 @dataclass
@@ -85,14 +119,18 @@ def build_report(
     junit: Path,
     generated_at: datetime,
     error: str | None,
+    ac_ids: list[str],
+    baseline: set[str],
 ) -> dict[str, Any]:
     errors: list[str] = []
     if error:
         errors.append(error)
     elif not cases:
         errors.append("JUnit 中没有测试用例")
+    elif not ac_ids:
+        errors.append("当前 spec 没有可判定的 AC")
 
-    by_ac: dict[str, list[TestCase]] = {ac: [] for ac in AC_IDS}
+    by_ac: dict[str, list[TestCase]] = {ac: [] for ac in ac_ids}
     for case in cases:
         for ac in _ac_tags(case.name):
             if ac in by_ac:
@@ -100,7 +138,8 @@ def build_report(
 
     acs: list[dict[str, Any]] = []
     missing: list[str] = []
-    for ac in AC_IDS:
+    pending: list[str] = []
+    for ac in ac_ids:
         tagged = by_ac[ac]
         failed_tests = [
             {"name": case.name, "classname": case.classname, "status": case.status}
@@ -108,8 +147,12 @@ def build_report(
             if case.status != "passed"
         ]
         if not tagged:
-            status = "missing"
-            missing.append(ac)
+            if ac in baseline:
+                status = "pending"
+                pending.append(ac)
+            else:
+                status = "missing"
+                missing.append(ac)
         elif failed_tests:
             status = "failed"
         else:
@@ -145,6 +188,7 @@ def build_report(
         else:
             errors.append(f"测试失败：{code}")
 
+    # 只列覆盖当前 AC 的场景；M1-P 场景（AC-01~08）不进入当前报告。
     scenarios = [
         {
             "name": case.name,
@@ -153,7 +197,7 @@ def build_report(
             "duration_seconds": round(case.duration_seconds, 3),
         }
         for case in cases
-        if SCENARIO_MODULE in case.classname
+        if SCENARIO_MODULE in case.classname and any(ac in by_ac for ac in _ac_tags(case.name))
     ]
 
     passed = sum(case.status == "passed" for case in cases)
@@ -171,11 +215,13 @@ def build_report(
             "duration_seconds": round(sum(case.duration_seconds for case in cases), 3),
         },
         "ac_coverage": {
-            "covered": len(AC_IDS) - len(missing),
-            "total": len(AC_IDS),
+            "covered": len(ac_ids) - len(missing) - len(pending),
+            "total": len(ac_ids),
+            "pending": len(pending),
         },
         "acs": acs,
         "missing_acs": missing,
+        "pending_acs": pending,
         "failed_tests": failed_tests,
         "scenarios": scenarios,
         "errors": errors,
@@ -207,7 +253,8 @@ def render_markdown(report: dict[str, Any]) -> str:
             f"- 用例：{totals['tests']} 个，{totals['passed']} 通过，"
             f"{totals['failed']} 失败，{totals['skipped']} 跳过"
         ),
-        f"- AC 覆盖：{coverage['covered']}/{coverage['total']}",
+        f"- AC 覆盖：{coverage['covered']}/{coverage['total']}"
+        + (f"（待开工 {coverage['pending']}）" if coverage["pending"] else ""),
         f"- 多轮场景：{scenario_passed}/{len(report['scenarios'])} 通过",
         "",
         "## AC 覆盖",
@@ -230,7 +277,7 @@ def render_markdown(report: dict[str, Any]) -> str:
                 f"{item['duration_seconds']:.3f} |"
             )
     else:
-        lines.append("（本次 JUnit 未包含多轮场景）")
+        lines.append("（当前 AC 未登记多轮场景；M1-P 场景测试仍由 pytest 覆盖）")
 
     lines.extend(["", "## 失败测试", ""])
     if report["failed_tests"]:
@@ -267,10 +314,12 @@ def write_reports(
 
 def print_summary(report: dict[str, Any], reports: tuple[Path, Path, Path]) -> None:
     totals = report["totals"]
+    coverage = report["ac_coverage"]
     conclusion = "通过" if report["ok"] else "失败"
+    pending = f"（待开工 {coverage['pending']}）" if coverage["pending"] else ""
     print(
         f"场景评测{conclusion}（退出码 {report['exit_code']}）："
-        f"AC {report['ac_coverage']['covered']}/{report['ac_coverage']['total']}，"
+        f"AC {coverage['covered']}/{coverage['total']}{pending}，"
         f"用例 {totals['tests']} 个（{totals['passed']} 通过，"
         f"{totals['failed']} 失败，{totals['skipped']} 跳过）"
     )
@@ -304,7 +353,14 @@ def main(argv: list[str] | None = None) -> int:
         except (ET.ParseError, OSError) as exc:
             error = f"JUnit 解析失败：{junit}：{exc}"
 
-    report = build_report(cases, junit=junit, generated_at=generated_at, error=error)
+    report = build_report(
+        cases,
+        junit=junit,
+        generated_at=generated_at,
+        error=error,
+        ac_ids=discover_ac_ids(),
+        baseline=read_baseline(),
+    )
     try:
         reports = write_reports(report, reports_dir, generated_at)
     except OSError as exc:
