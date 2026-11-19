@@ -54,6 +54,10 @@ class ChatResult:
     status: str
     messages: list[MessageView]
     after_id: int
+    # 审计 seam：新建交接单 / 本条客户消息 / 是否为幂等重放
+    handoff_id: str | None = None
+    customer_message_id: int | None = None
+    replayed: bool = False
 
 
 def view_message(row: ServiceMessage) -> MessageView:
@@ -138,6 +142,8 @@ async def _replay(
         status=conversation.status,
         messages=messages,
         after_id=after_id,
+        customer_message_id=original.id,
+        replayed=True,
     )
 
 
@@ -178,11 +184,11 @@ async def _queue_for_handoff(
     trace_id: str,
     now: datetime,
     matched_keyword: str | None = None,
-) -> ServiceMessage:
+) -> tuple[ServiceMessage, str | None]:
     conversation.status = QUEUED
     conversation.updated_at = now
     conversation.last_activity_at = now
-    await create_handoff(
+    handoff, created = await create_handoff(
         db,
         conversation,
         reason=reason,
@@ -202,13 +208,14 @@ async def _queue_for_handoff(
     )
     db.add(notice)
     await db.flush()
-    return notice
+    return notice, (handoff.id if created else None)
 
 
 def _queued_result(
     conversation: ServiceConversation,
     customer_message: ServiceMessage,
     notice: ServiceMessage,
+    handoff_id: str | None,
 ) -> ChatResult:
     """所有转人工路径共用的返回结构：客户消息 + 排队系统提示。"""
     return ChatResult(
@@ -216,6 +223,8 @@ def _queued_result(
         status=QUEUED,
         messages=[view_message(customer_message), view_message(notice)],
         after_id=notice.id,
+        handoff_id=handoff_id,
+        customer_message_id=customer_message.id,
     )
 
 
@@ -238,7 +247,7 @@ async def _model_failed(
         trace_id=trace_id,
         now=now,
     )
-    notice = await _queue_for_handoff(
+    notice, handoff_id = await _queue_for_handoff(
         db,
         conversation,
         reason="MODEL_UNAVAILABLE",
@@ -247,7 +256,7 @@ async def _model_failed(
         trace_id=trace_id,
         now=now,
     )
-    return _queued_result(conversation, customer_message, notice)
+    return _queued_result(conversation, customer_message, notice, handoff_id)
 
 
 async def send_customer_message(
@@ -289,6 +298,7 @@ async def send_customer_message(
             status=conversation.status,
             messages=[view_message(customer_message)],
             after_id=customer_message.id,
+            customer_message_id=customer_message.id,
         )
 
     # plan 3.3.4：关键词优先，命中后不调用模型
@@ -304,7 +314,7 @@ async def send_customer_message(
             event_type="intent",
             name="handoff_keyword",
         )
-        notice = await _queue_for_handoff(
+        notice, handoff_id = await _queue_for_handoff(
             db,
             conversation,
             reason="CUSTOMER_REQUEST",
@@ -314,7 +324,7 @@ async def send_customer_message(
             now=now,
             matched_keyword=keyword,
         )
-        return _queued_result(conversation, customer_message, notice)
+        return _queued_result(conversation, customer_message, notice, handoff_id)
 
     try:
         reply = await asyncio.wait_for(model.respond(content), timeout=timeout_seconds)
@@ -357,7 +367,7 @@ async def send_customer_message(
         reply=reply.reply,
     )
     if decision is not None:
-        notice = await _queue_for_handoff(
+        notice, handoff_id = await _queue_for_handoff(
             db,
             conversation,
             reason=decision.reason,
@@ -366,7 +376,7 @@ async def send_customer_message(
             trace_id=trace_id,
             now=now,
         )
-        return _queued_result(conversation, customer_message, notice)
+        return _queued_result(conversation, customer_message, notice, handoff_id)
 
     ai_message = ServiceMessage(
         conversation_id=conversation.id,
@@ -386,4 +396,5 @@ async def send_customer_message(
         status=conversation.status,
         messages=[view_message(customer_message), view_message(ai_message)],
         after_id=ai_message.id,
+        customer_message_id=customer_message.id,
     )

@@ -39,6 +39,7 @@ __all__ = [
     "hash_token",
     "login_employee",
     "logout_employee",
+    "revoke_employee_session",
     "resolve_employee_session",
     "utc_now",
 ]
@@ -70,12 +71,14 @@ class EmployeeLogin:
     token: str
     employee: Employee
     expires_at: datetime
+    session_id: str
 
 
 @dataclass(frozen=True)
 class ResolvedEmployeeSession:
     employee: Employee
     expires_at: datetime
+    session_id: str
 
 
 async def _lookup_employee(
@@ -135,9 +138,10 @@ async def login_employee(
         .values(revoked_at=now)
     )
     expires_at = now + EMPLOYEE_SESSION_TTL
+    session_id = str(uuid4())
     db.add(
         ServiceEmployeeSession(
-            id=str(uuid4()),
+            id=session_id,
             employee_id=row.id,
             token_hash=hash_token(token),
             created_at=now,
@@ -145,7 +149,12 @@ async def login_employee(
         )
     )
     await db.flush()
-    return EmployeeLogin(token=token, employee=_employee(row), expires_at=expires_at)
+    return EmployeeLogin(
+        token=token,
+        employee=_employee(row),
+        expires_at=expires_at,
+        session_id=session_id,
+    )
 
 
 async def resolve_employee_session(
@@ -166,11 +175,15 @@ async def resolve_employee_session(
         raise InvalidSessionError
     if employee.role != AGENT_ROLE:
         raise ForbiddenRoleError
-    return ResolvedEmployeeSession(employee=_employee(employee), expires_at=row.expires_at)
+    return ResolvedEmployeeSession(
+        employee=_employee(employee),
+        expires_at=row.expires_at,
+        session_id=row.id,
+    )
 
 
-async def logout_employee(db: AsyncSession, token: str) -> None:
-    """撤销当前 session；无 cookie 或已失效也返回成功（幂等登出）。"""
+async def revoke_employee_session(db: AsyncSession, token: str) -> None:
+    """撤销当前 session，只 flush；供登出路由与审计同事务提交。"""
     now = utc_now()
     await db.execute(
         update(ServiceEmployeeSession)
@@ -180,4 +193,10 @@ async def logout_employee(db: AsyncSession, token: str) -> None:
         )
         .values(revoked_at=now)
     )
+    await db.flush()
+
+
+async def logout_employee(db: AsyncSession, token: str) -> None:
+    """撤销当前 session；无 cookie 或已失效也返回成功（幂等登出）。"""
+    await revoke_employee_session(db, token)
     await db.commit()

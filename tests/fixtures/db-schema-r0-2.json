@@ -373,6 +373,83 @@
     ],
     "unique_constraints": []
   },
+  "service_audit_events": {
+    "columns": [
+      {
+        "name": "id",
+        "nullable": false,
+        "primary_key": true,
+        "type": "VARCHAR(36)"
+      },
+      {
+        "name": "tenant_id",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(64)"
+      },
+      {
+        "name": "actor_type",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(16)"
+      },
+      {
+        "name": "actor_id",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(64)"
+      },
+      {
+        "name": "event_type",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(64)"
+      },
+      {
+        "name": "entity_type",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(32)"
+      },
+      {
+        "name": "entity_id",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(64)"
+      },
+      {
+        "name": "result_status",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(16)"
+      },
+      {
+        "name": "journey_id",
+        "nullable": true,
+        "primary_key": false,
+        "type": "VARCHAR(36)"
+      },
+      {
+        "name": "trace_id",
+        "nullable": false,
+        "primary_key": false,
+        "type": "VARCHAR(36)"
+      },
+      {
+        "name": "metadata_redacted",
+        "nullable": false,
+        "primary_key": false,
+        "type": "JSON"
+      },
+      {
+        "name": "created_at",
+        "nullable": false,
+        "primary_key": false,
+        "type": "DATETIME"
+      }
+    ],
+    "unique_constraints": []
+  },
   "service_conversations": {
     "columns": [
       {

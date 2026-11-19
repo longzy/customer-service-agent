@@ -219,6 +219,33 @@ class ServiceConversation(Base):
     last_activity_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 
+class ServiceAuditEvent(Base):
+    """M1 审计事件：与业务写同事务、只追加；行级改删由数据库触发器拒绝。
+
+    字段按 plan 3.2；`journey_id` 把同一次客户旅程串起来，`trace_id` 对应请求标识。
+    metadata 只存审计允许清单内的字段（不含消息正文、密码、token）。
+    """
+
+    __tablename__ = "service_audit_events"
+    __table_args__ = (
+        Index("ix_service_audit_events_journey_created_at", "journey_id", "created_at"),
+        Index("ix_service_audit_events_event_type_created_at", "event_type", "created_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    tenant_id: Mapped[str] = mapped_column(String(64), index=True)
+    actor_type: Mapped[str] = mapped_column(String(16))
+    actor_id: Mapped[str] = mapped_column(String(64))
+    event_type: Mapped[str] = mapped_column(String(64))
+    entity_type: Mapped[str] = mapped_column(String(32))
+    entity_id: Mapped[str] = mapped_column(String(64))
+    result_status: Mapped[str] = mapped_column(String(16))
+    journey_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    trace_id: Mapped[str] = mapped_column(String(36), index=True)
+    metadata_redacted: Mapped[dict[str, object]] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
 class ServiceRateLimitBucket(Base):
     """PostgreSQL 固定窗口限速桶；先于业务副作用写入。"""
 

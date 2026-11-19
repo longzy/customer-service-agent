@@ -1,6 +1,6 @@
 """客户 API：登录、当前会话恢复、按所有权读取会话与登出。"""
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Annotated, Any
 from uuid import uuid4
 
@@ -17,7 +17,16 @@ from backend.api.customer_schemas import (
     MessagePublic,
 )
 from backend.api.errors import ApiError
+from backend.api.service_audit import audit_or_503, trace_of
 from backend.api.session_http import client_ip, set_session_cookie, settings_of, utc_text
+from backend.audit import (
+    CONVERSATION_CLOSED,
+    CUSTOMER_LOGIN,
+    CUSTOMER_LOGOUT,
+    HANDOFF_CREATED,
+    MESSAGE_SENT,
+    AuditRecord,
+)
 from backend.conversations.customer_chat import (
     ChatResult,
     ConversationClosedError,
@@ -36,9 +45,14 @@ from backend.conversations.customer_conversations import (
 from backend.domain.errors import ErrorCode
 from backend.identity import customer_sessions
 from backend.identity.customer_sessions import Customer, ResolvedCustomerSession
+from backend.identity.rate_limit import consume_fixed_window
 from backend.platform.db import get_session
 
 router = APIRouter(prefix="/customer", tags=["customer"])
+
+# plan 5.1：客户消息按 session 限速 30/min；限速先于消息写入
+MESSAGE_LIMIT = 30
+MESSAGE_WINDOW = timedelta(minutes=1)
 
 ERROR_RESPONSES: dict[int | str, dict[str, Any]] = {
     401: {"model": ErrorEnvelope},
@@ -172,6 +186,21 @@ async def login(
         result.customer.id,
         customer_sessions.utc_now(),
     )
+    await audit_or_503(
+        request,
+        db,
+        AuditRecord(
+            tenant_id=result.customer.tenant_id,
+            actor_type="customer",
+            actor_id=result.customer.id,
+            event_type=CUSTOMER_LOGIN,
+            entity_type="customer_session",
+            entity_id=result.session_id,
+            trace_id=trace_of(request),
+            journey_id=conversation.journey_id,
+            metadata={"conversation_id": conversation.id, "username": result.customer.username},
+        ),
+    )
     await db.commit()
     set_session_cookie(
         response,
@@ -229,12 +258,26 @@ async def send_message(
     idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=64),
 ) -> MessagePageResponse:
     now = customer_sessions.utc_now()
+    try:
+        await consume_fixed_window(
+            db,
+            bucket_key=f"msg:{session.session_id}",
+            limit=MESSAGE_LIMIT,
+            window=MESSAGE_WINDOW,
+            now=now,
+        )
+    except customer_sessions.RateLimitedError as error:
+        raise ApiError(
+            429,
+            ErrorCode.RATE_LIMITED,
+            headers={"Retry-After": str(error.retry_after_seconds)},
+        ) from None
     conversation = await get_sendable_conversation(
         db, session.customer.tenant_id, session.customer.id, now
     )
     if conversation is None:
         raise ApiError(409, ErrorCode.CONVERSATION_CLOSED)
-    trace_id = getattr(request.state, "trace_id", None) or str(uuid4())
+    trace_id = trace_of(request)
     try:
         result = await send_customer_message(
             db,
@@ -249,6 +292,45 @@ async def send_message(
         )
     except ConversationClosedError:
         raise ApiError(409, ErrorCode.CONVERSATION_CLOSED) from None
+    if not result.replayed and result.customer_message_id is not None:
+        await audit_or_503(
+            request,
+            db,
+            AuditRecord(
+                tenant_id=session.customer.tenant_id,
+                actor_type="customer",
+                actor_id=session.customer.id,
+                event_type=MESSAGE_SENT,
+                entity_type="message",
+                entity_id=str(result.customer_message_id),
+                trace_id=trace_id,
+                journey_id=conversation.journey_id,
+                metadata={
+                    "conversation_id": conversation.id,
+                    "message_id": result.customer_message_id,
+                },
+            ),
+        )
+    if result.handoff_id is not None:
+        await audit_or_503(
+            request,
+            db,
+            AuditRecord(
+                tenant_id=session.customer.tenant_id,
+                actor_type="customer",
+                actor_id=session.customer.id,
+                event_type=HANDOFF_CREATED,
+                entity_type="handoff",
+                entity_id=result.handoff_id,
+                trace_id=trace_id,
+                journey_id=conversation.journey_id,
+                metadata={
+                    "conversation_id": conversation.id,
+                    "handoff_id": result.handoff_id,
+                    "trigger": "customer_message",
+                },
+            ),
+        )
     await db.commit()
     return _chat_payload(result)
 
@@ -303,6 +385,26 @@ async def close_session(
     except ConversationClosedError:
         await db.rollback()
         raise ApiError(409, ErrorCode.CONVERSATION_CLOSED) from None
+    if not result.replayed:
+        await audit_or_503(
+            request,
+            db,
+            AuditRecord(
+                tenant_id=session.customer.tenant_id,
+                actor_type="customer",
+                actor_id=session.customer.id,
+                event_type=CONVERSATION_CLOSED,
+                entity_type="conversation",
+                entity_id=conversation.id,
+                trace_id=trace_id,
+                journey_id=conversation.journey_id,
+                metadata={
+                    "conversation_id": conversation.id,
+                    "from_status": conversation.status,
+                    "to_status": "CLOSED",
+                },
+            ),
+        )
     await db.commit()
     return _chat_payload(result)
 
@@ -315,5 +417,27 @@ async def logout(
 ) -> None:
     token = request.cookies.get(customer_sessions.CUSTOMER_COOKIE)
     if token:
-        await customer_sessions.logout_customer(db, token)
+        try:
+            resolved = await customer_sessions.resolve_customer_session(
+                db, settings_of(request).m1_tenant_id, token
+            )
+        except (customer_sessions.ExpiredSessionError, customer_sessions.InvalidSessionError):
+            resolved = None
+        if resolved is not None:
+            await audit_or_503(
+                request,
+                db,
+                AuditRecord(
+                    tenant_id=resolved.customer.tenant_id,
+                    actor_type="customer",
+                    actor_id=resolved.customer.id,
+                    event_type=CUSTOMER_LOGOUT,
+                    entity_type="customer_session",
+                    entity_id=resolved.session_id,
+                    trace_id=trace_of(request),
+                    metadata={"username": resolved.customer.username},
+                ),
+            )
+        await customer_sessions.revoke_customer_session(db, token)
+        await db.commit()
     response.delete_cookie(customer_sessions.CUSTOMER_COOKIE, path="/")

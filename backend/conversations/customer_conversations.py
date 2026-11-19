@@ -23,10 +23,13 @@ class CustomerConversation:
     id: str
     status: str
     after_id: int
+    journey_id: str
 
 
 def view(row: ServiceConversation, after_id: int) -> CustomerConversation:
-    return CustomerConversation(id=row.id, status=row.status, after_id=after_id)
+    return CustomerConversation(
+        id=row.id, status=row.status, after_id=after_id, journey_id=row.journey_id
+    )
 
 
 async def latest_message_id(db: AsyncSession, conversation_id: str) -> int:

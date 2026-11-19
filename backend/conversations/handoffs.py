@@ -303,8 +303,12 @@ async def create_handoff(
     now: datetime,
     summary_hint: str = "",
     matched_keyword: str | None = None,
-) -> ServiceHandoff:
-    """创建一张 open 交接单；已有 open 单时复用，避免撞部分唯一索引。"""
+) -> tuple[ServiceHandoff, bool]:
+    """创建一张 open 交接单；已有 open 单时复用，避免撞部分唯一索引。
+
+    返回 `(handoff, created)`：`created=False` 表示复用了既有 open 单，调用方不重复写
+    `handoff.created` 审计。
+    """
     existing = (
         await db.execute(
             select(ServiceHandoff).where(
@@ -316,7 +320,7 @@ async def create_handoff(
     ).scalar_one_or_none()
     if existing is not None:
         existing.updated_at = now
-        return existing
+        return existing, False
 
     username, display_name = await _customer_profile(db, conversation)
     messages = await _recent_messages(db, conversation.id)
@@ -359,4 +363,4 @@ async def create_handoff(
     )
     db.add(handoff)
     await db.flush()
-    return handoff
+    return handoff, True

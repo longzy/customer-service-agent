@@ -4,7 +4,7 @@ import asyncio
 from typing import Any
 
 from fastapi.testclient import TestClient
-from sqlalchemy import delete
+from sqlalchemy import delete, text
 
 from backend.identity.passwords import hash_password
 from backend.platform.models import (
@@ -25,6 +25,8 @@ CUSTOMERS = (("customer_a", "客户甲"), ("customer_b", "客户乙"))
 
 
 async def reset_customer_state(db: Any) -> None:
+    # 审计只追加：行级 DELETE 被触发器拒绝，测试清理用 TRUNCATE。
+    await db.execute(text("TRUNCATE service_audit_events"))
     await db.execute(delete(ServiceMessage))
     await db.execute(delete(ServiceAiEvent))
     await db.execute(delete(ServiceHandoff))

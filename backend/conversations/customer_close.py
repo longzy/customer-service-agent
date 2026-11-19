@@ -32,12 +32,15 @@ from backend.platform.models import ServiceConversation, ServiceMessage
 CLOSED_NOTICE = "会话已结束"
 
 
-def _closed_result(conversation_id: str, notice: ServiceMessage) -> ChatResult:
+def _closed_result(
+    conversation_id: str, notice: ServiceMessage, *, replayed: bool = False
+) -> ChatResult:
     return ChatResult(
         conversation_id=conversation_id,
         status=CLOSED,
         messages=[view_message(notice)],
         after_id=notice.id,
+        replayed=replayed,
     )
 
 
@@ -56,7 +59,7 @@ async def close_customer_conversation(
     """
     replay = await replay_system_message(db, conversation.id, idempotency_key)
     if replay is not None:
-        return _closed_result(conversation.id, replay)
+        return _closed_result(conversation.id, replay, replayed=True)
     if conversation.status == CLOSED:
         raise ConversationClosedError
 
@@ -80,7 +83,7 @@ async def close_customer_conversation(
         # 并发关闭：另一个事务先提交。同键重放返回首次消息，否则按 plan 409。
         replay = await replay_system_message(db, conversation.id, idempotency_key)
         if replay is not None:
-            return _closed_result(conversation.id, replay)
+            return _closed_result(conversation.id, replay, replayed=True)
         raise ConversationClosedError
 
     notice = await write_system_message(

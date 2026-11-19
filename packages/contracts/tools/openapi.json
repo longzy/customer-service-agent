@@ -251,6 +251,7 @@
           "VALIDATION_ERROR",
           "RATE_LIMITED",
           "CONVERSATION_CLOSED",
+          "AUDIT_UNAVAILABLE",
           "CLAIM_CONFLICT",
           "DEPENDENCY_UNAVAILABLE",
           "DEPENDENCY_TIMEOUT",
@@ -738,6 +739,28 @@
               "properties": {
                 "retryable": {
                   "const": false
+                },
+                "visible": {
+                  "const": true
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "code": {
+                  "const": "AUDIT_UNAVAILABLE"
+                }
+              },
+              "required": [
+                "code"
+              ]
+            },
+            "then": {
+              "properties": {
+                "retryable": {
+                  "const": true
                 },
                 "visible": {
                   "const": true

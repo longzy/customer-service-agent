@@ -48,12 +48,14 @@ class CustomerLogin:
     token: str
     customer: Customer
     expires_at: datetime
+    session_id: str
 
 
 @dataclass(frozen=True)
 class ResolvedCustomerSession:
     customer: Customer
     expires_at: datetime
+    session_id: str
 
 
 async def _check_login_rate_limit(db: AsyncSession, username: str, ip: str) -> None:
@@ -115,9 +117,10 @@ async def login_customer(
         .values(revoked_at=now)
     )
     expires_at = now + CUSTOMER_SESSION_TTL
+    session_id = str(uuid4())
     db.add(
         ServiceCustomerSession(
-            id=str(uuid4()),
+            id=session_id,
             customer_id=row.id,
             token_hash=hash_token(token),
             created_at=now,
@@ -125,7 +128,12 @@ async def login_customer(
         )
     )
     await db.flush()
-    return CustomerLogin(token=token, customer=_customer(row), expires_at=expires_at)
+    return CustomerLogin(
+        token=token,
+        customer=_customer(row),
+        expires_at=expires_at,
+        session_id=session_id,
+    )
 
 
 async def resolve_customer_session(
@@ -147,11 +155,15 @@ async def resolve_customer_session(
 
     row.last_seen_at = now
     await db.flush()
-    return ResolvedCustomerSession(customer=_customer(customer), expires_at=row.expires_at)
+    return ResolvedCustomerSession(
+        customer=_customer(customer),
+        expires_at=row.expires_at,
+        session_id=row.id,
+    )
 
 
-async def logout_customer(db: AsyncSession, token: str) -> None:
-    """撤销当前 session；无 cookie 或已失效也返回成功（幂等登出）。"""
+async def revoke_customer_session(db: AsyncSession, token: str) -> None:
+    """撤销当前 session，只 flush；供登出路由与审计同事务提交。"""
     now = utc_now()
     await db.execute(
         update(ServiceCustomerSession)
@@ -161,4 +173,10 @@ async def logout_customer(db: AsyncSession, token: str) -> None:
         )
         .values(revoked_at=now)
     )
+    await db.flush()
+
+
+async def logout_customer(db: AsyncSession, token: str) -> None:
+    """撤销当前 session；无 cookie 或已失效也返回成功（幂等登出）。"""
+    await revoke_customer_session(db, token)
     await db.commit()

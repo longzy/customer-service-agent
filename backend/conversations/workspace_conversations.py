@@ -83,12 +83,14 @@ class ClaimedHandoff:
     handoff_id: str
     conversation_id: str
     status: str
+    journey_id: str
 
 
 @dataclass(frozen=True)
 class TakenOverConversation:
     conversation_id: str
     status: str
+    journey_id: str
 
 
 @dataclass(frozen=True)
@@ -108,6 +110,8 @@ class ReplyResult:
     conversation_id: str
     status: str
     message: MessageView
+    journey_id: str
+    replayed: bool = False
 
 
 @dataclass(frozen=True)
@@ -318,9 +322,9 @@ async def claim_handoff(
                 assigned_employee_id=employee_id,
                 updated_at=now,
             )
-            .returning(ServiceConversation.id)
+            .returning(ServiceConversation.id, ServiceConversation.journey_id)
         )
-    ).scalar_one_or_none()
+    ).one_or_none()
     if conversation is None:
         # 交接单与会话状态应由 F-03 同事务维护；出现分歧时整体回滚，不留下半领取。
         raise ClaimConflictError
@@ -342,6 +346,7 @@ async def claim_handoff(
         handoff_id=handoff_id,
         conversation_id=conversation_id,
         status=CLAIMED,
+        journey_id=conversation.journey_id,
     )
 
 
@@ -361,17 +366,18 @@ async def take_over_conversation(
     - 两个条件更新在同事务内完成；交接单行被并发改走时不再更新会话。
     - 写系统消息“人工已接入”；审计留给 F-13。
     """
-    status = (
+    current = (
         await db.execute(
-            select(ServiceConversation.status).where(
+            select(ServiceConversation.status, ServiceConversation.journey_id).where(
                 ServiceConversation.id == conversation_id,
                 ServiceConversation.tenant_id == tenant_id,
                 ServiceConversation.assigned_employee_id == employee_id,
             )
         )
-    ).scalar_one_or_none()
-    if status is None:
+    ).one_or_none()
+    if current is None:
         return None
+    status, journey_id = current
     if status == CLOSED:
         raise HandoffClosedError
     if status != CLAIMED:
@@ -446,6 +452,7 @@ async def take_over_conversation(
     return TakenOverConversation(
         conversation_id=conversation_id,
         status=HUMAN_ACTIVE,
+        journey_id=journey_id,
     )
 
 
@@ -504,17 +511,18 @@ async def reply_to_conversation(
     - 幂等：同一 `(conversation_id, idempotency_key)` 重放返回首次落库的消息。
     - 先条件更新会话活跃时间再插消息：状态在读取后被并发改走时整体失败，不留下半条回复。
     """
-    status = (
+    current = (
         await db.execute(
-            select(ServiceConversation.status).where(
+            select(ServiceConversation.status, ServiceConversation.journey_id).where(
                 ServiceConversation.id == conversation_id,
                 ServiceConversation.tenant_id == tenant_id,
                 ServiceConversation.assigned_employee_id == employee_id,
             )
         )
-    ).scalar_one_or_none()
-    if status is None:
+    ).one_or_none()
+    if current is None:
         return None
+    status, journey_id = current
     if status == CLOSED:
         raise HandoffClosedError
     if status != HUMAN_ACTIVE:
@@ -534,6 +542,8 @@ async def reply_to_conversation(
             conversation_id=conversation_id,
             status=status,
             message=view_message(replay),
+            journey_id=journey_id,
+            replayed=True,
         )
 
     updated = (
@@ -568,4 +578,5 @@ async def reply_to_conversation(
         conversation_id=conversation_id,
         status=HUMAN_ACTIVE,
         message=view_message(message),
+        journey_id=journey_id,
     )

@@ -51,6 +51,8 @@ class AgentStateChange:
     conversation_id: str
     status: str
     message: MessageView
+    journey_id: str
+    replayed: bool = False
 
 
 async def _find_conversation(
@@ -94,14 +96,23 @@ async def _replay_state(
     )
     if replay is None:
         return None
-    return _result(conversation.id, status, replay)
+    return _result(conversation.id, status, replay, conversation.journey_id, replayed=True)
 
 
-def _result(conversation_id: str, status: str, message: ServiceMessage) -> AgentStateChange:
+def _result(
+    conversation_id: str,
+    status: str,
+    message: ServiceMessage,
+    journey_id: str,
+    *,
+    replayed: bool = False,
+) -> AgentStateChange:
     return AgentStateChange(
         conversation_id=conversation_id,
         status=status,
         message=view_message(message),
+        journey_id=journey_id,
+        replayed=replayed,
     )
 
 
@@ -166,7 +177,7 @@ async def close_conversation_by_agent(
         now=now,
         author_id=employee_id,
     )
-    return _result(conversation_id, CLOSED, notice)
+    return _result(conversation_id, CLOSED, notice, conversation.journey_id)
 
 
 async def return_conversation_to_ai(
@@ -234,4 +245,4 @@ async def return_conversation_to_ai(
         now=now,
         author_id=employee_id,
     )
-    return _result(conversation_id, AI_ACTIVE, notice)
+    return _result(conversation_id, AI_ACTIVE, notice, conversation.journey_id)

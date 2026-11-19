@@ -12,6 +12,7 @@ from backend.api.customer_schemas import (
     MessagePublic,
 )
 from backend.api.errors import ApiError
+from backend.api.service_audit import audit_or_503, trace_of
 from backend.api.session_http import client_ip, set_session_cookie, settings_of, utc_text
 from backend.api.workspace_schemas import (
     AgentMessageRequest,
@@ -27,6 +28,16 @@ from backend.api.workspace_schemas import (
     WorkspaceQueueItem,
     WorkspaceQueueResponse,
     WorkspaceTakeoverResponse,
+)
+from backend.audit import (
+    CONVERSATION_CLOSED,
+    CONVERSATION_RETURNED_TO_AI,
+    CONVERSATION_TAKEN_OVER,
+    EMPLOYEE_LOGIN,
+    EMPLOYEE_LOGOUT,
+    HANDOFF_CLAIMED,
+    MESSAGE_REPLIED,
+    AuditRecord,
 )
 from backend.conversations.customer_chat import MessageView
 from backend.conversations.workspace_conversations import (
@@ -207,6 +218,20 @@ async def login(
         raise ApiError(403, ErrorCode.FORBIDDEN) from None
     if result is None:
         raise ApiError(401, ErrorCode.AUTH_FAILED)
+    await audit_or_503(
+        request,
+        db,
+        AuditRecord(
+            tenant_id=result.employee.tenant_id,
+            actor_type="employee",
+            actor_id=result.employee.id,
+            event_type=EMPLOYEE_LOGIN,
+            entity_type="employee_session",
+            entity_id=result.session_id,
+            trace_id=trace_of(request),
+            metadata={"username": result.employee.username},
+        ),
+    )
     await db.commit()
     set_session_cookie(
         response,
@@ -266,6 +291,25 @@ async def claim_queue_item(
         raise ApiError(409, ErrorCode.CLAIM_CONFLICT) from None
     if claimed is None:
         raise ApiError(404, ErrorCode.NOT_FOUND)
+    await audit_or_503(
+        request,
+        db,
+        AuditRecord(
+            tenant_id=session.employee.tenant_id,
+            actor_type="employee",
+            actor_id=session.employee.id,
+            event_type=HANDOFF_CLAIMED,
+            entity_type="handoff",
+            entity_id=claimed.handoff_id,
+            trace_id=trace_of(request),
+            journey_id=claimed.journey_id,
+            metadata={
+                "conversation_id": claimed.conversation_id,
+                "handoff_id": claimed.handoff_id,
+                "to_status": claimed.status,
+            },
+        ),
+    )
     await db.commit()
     return WorkspaceClaimResponse.model_validate(claimed, from_attributes=True)
 
@@ -302,6 +346,21 @@ async def take_over(
         raise ApiError(409, ErrorCode.CLAIM_CONFLICT) from None
     if taken is None:
         raise ApiError(404, ErrorCode.NOT_FOUND)
+    await audit_or_503(
+        request,
+        db,
+        AuditRecord(
+            tenant_id=session.employee.tenant_id,
+            actor_type="employee",
+            actor_id=session.employee.id,
+            event_type=CONVERSATION_TAKEN_OVER,
+            entity_type="conversation",
+            entity_id=taken.conversation_id,
+            trace_id=trace_of(request),
+            journey_id=taken.journey_id,
+            metadata={"conversation_id": taken.conversation_id, "to_status": taken.status},
+        ),
+    )
     await db.commit()
     return WorkspaceTakeoverResponse.model_validate(taken, from_attributes=True)
 
@@ -393,6 +452,25 @@ async def reply_to_conversation(
         raise ApiError(409, ErrorCode.CONVERSATION_CLOSED) from None
     if result is None:
         raise ApiError(404, ErrorCode.NOT_FOUND)
+    if not result.replayed:
+        await audit_or_503(
+            request,
+            db,
+            AuditRecord(
+                tenant_id=session.employee.tenant_id,
+                actor_type="employee",
+                actor_id=session.employee.id,
+                event_type=MESSAGE_REPLIED,
+                entity_type="message",
+                entity_id=str(result.message.id),
+                trace_id=trace_of(request),
+                journey_id=result.journey_id,
+                metadata={
+                    "conversation_id": result.conversation_id,
+                    "message_id": result.message.id,
+                },
+            ),
+        )
     await db.commit()
     return MessagePageResponse(
         conversation_id=result.conversation_id,
@@ -435,6 +513,22 @@ async def close_conversation(
         raise ApiError(409, ErrorCode.CONVERSATION_CLOSED) from None
     if result is None:
         raise ApiError(404, ErrorCode.NOT_FOUND)
+    if not result.replayed:
+        await audit_or_503(
+            request,
+            db,
+            AuditRecord(
+                tenant_id=session.employee.tenant_id,
+                actor_type="employee",
+                actor_id=session.employee.id,
+                event_type=CONVERSATION_CLOSED,
+                entity_type="conversation",
+                entity_id=result.conversation_id,
+                trace_id=trace_of(request),
+                journey_id=result.journey_id,
+                metadata={"conversation_id": result.conversation_id, "to_status": result.status},
+            ),
+        )
     await db.commit()
     return _state_change_payload(result)
 
@@ -472,6 +566,22 @@ async def return_conversation_to_ai(
         raise ApiError(409, ErrorCode.CONVERSATION_CLOSED) from None
     if result is None:
         raise ApiError(404, ErrorCode.NOT_FOUND)
+    if not result.replayed:
+        await audit_or_503(
+            request,
+            db,
+            AuditRecord(
+                tenant_id=session.employee.tenant_id,
+                actor_type="employee",
+                actor_id=session.employee.id,
+                event_type=CONVERSATION_RETURNED_TO_AI,
+                entity_type="conversation",
+                entity_id=result.conversation_id,
+                trace_id=trace_of(request),
+                journey_id=result.journey_id,
+                metadata={"conversation_id": result.conversation_id, "to_status": result.status},
+            ),
+        )
     await db.commit()
     return _state_change_payload(result)
 
@@ -480,5 +590,31 @@ async def return_conversation_to_ai(
 async def logout(request: Request, response: Response, db: Db) -> None:
     token = request.cookies.get(employee_sessions.EMPLOYEE_COOKIE)
     if token:
-        await employee_sessions.logout_employee(db, token)
+        try:
+            resolved = await employee_sessions.resolve_employee_session(
+                db, settings_of(request).m1_tenant_id, token
+            )
+        except (
+            employee_sessions.ExpiredSessionError,
+            employee_sessions.InvalidSessionError,
+            employee_sessions.ForbiddenRoleError,
+        ):
+            resolved = None
+        if resolved is not None:
+            await audit_or_503(
+                request,
+                db,
+                AuditRecord(
+                    tenant_id=resolved.employee.tenant_id,
+                    actor_type="employee",
+                    actor_id=resolved.employee.id,
+                    event_type=EMPLOYEE_LOGOUT,
+                    entity_type="employee_session",
+                    entity_id=resolved.session_id,
+                    trace_id=trace_of(request),
+                    metadata={"username": resolved.employee.username},
+                ),
+            )
+        await employee_sessions.revoke_employee_session(db, token)
+        await db.commit()
     response.delete_cookie(employee_sessions.EMPLOYEE_COOKIE, path="/")

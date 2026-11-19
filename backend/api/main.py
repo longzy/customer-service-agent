@@ -27,9 +27,12 @@ from backend.api.customer_routes import router as customer_router
 from backend.api.errors import ApiError, api_error_handler
 from backend.api.handoff_routes import router as handoff_router
 from backend.api.request_id import attach_request_id
+from backend.api.service_audit import audit_api_error
 from backend.api.session_routes import router as session_router
 from backend.api.workspace_routes import router as workspace_router
+from backend.audit import SqlAuditWriter
 from backend.domain.errors import ErrorCode
+from backend.platform.db import session_factory
 from backend.platform.observability import AsyncTraceSink, TraceSinkError, use_trace_sink
 from backend.platform.settings import Settings, settings
 from backend.tools.cancel import build_cancel_gateway
@@ -115,6 +118,7 @@ def create_app(settings_override: Settings | None = None) -> FastAPI:
     active = settings_override or settings
     app = FastAPI(title="Customer Service Agent API", version="0.1.0", lifespan=lifespan)
     app.state.settings = active
+    app.state.audit_writer = SqlAuditWriter(session_factory)
 
     @app.exception_handler(TraceSinkError)
     async def _trace_sink_error(_request: Request, _error: TraceSinkError) -> JSONResponse:
@@ -122,6 +126,8 @@ def create_app(settings_override: Settings | None = None) -> FastAPI:
 
     @app.exception_handler(ApiError)
     async def _api_error(request: Request, error: ApiError) -> JSONResponse:
+        # 401/403/429 是安全事件：独立事务审计，写失败不改写原始响应。
+        await audit_api_error(request, error)
         return await api_error_handler(request, error)
 
     @app.exception_handler(RequestValidationError)

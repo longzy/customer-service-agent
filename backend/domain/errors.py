@@ -19,6 +19,7 @@ class ErrorCode(StrEnum):
     VALIDATION_ERROR = "VALIDATION_ERROR"
     RATE_LIMITED = "RATE_LIMITED"
     CONVERSATION_CLOSED = "CONVERSATION_CLOSED"
+    AUDIT_UNAVAILABLE = "AUDIT_UNAVAILABLE"
     # 队列领取竞态：同一交接单已被其他坐席领取（AC-35）
     CLAIM_CONFLICT = "CLAIM_CONFLICT"
     # 依赖不可用
@@ -49,6 +50,7 @@ SPECS: dict[ErrorCode, ErrorSpec] = {
     ErrorCode.VALIDATION_ERROR: ErrorSpec(False, True, "请求参数不正确"),
     ErrorCode.RATE_LIMITED: ErrorSpec(True, True, "请求过于频繁，请稍后再试"),
     ErrorCode.CONVERSATION_CLOSED: ErrorSpec(False, True, "会话已结束"),
+    ErrorCode.AUDIT_UNAVAILABLE: ErrorSpec(True, True, "服务暂时不可用，请稍后重试"),
     ErrorCode.CLAIM_CONFLICT: ErrorSpec(False, True, "该会话已被其他坐席领取，请刷新队列"),
     ErrorCode.DEPENDENCY_UNAVAILABLE: ErrorSpec(True, True, "服务暂时不可用，请稍后重试"),
     ErrorCode.DEPENDENCY_TIMEOUT: ErrorSpec(True, True, "响应超时，正在重试"),
