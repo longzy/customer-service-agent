@@ -224,7 +224,9 @@ def test_客户甲乙各自完整闭环_AC_33() -> None:
         assert "甲您好，我是坐席 1" in contents(a_after_reply)
 
         # 乙尚未领取，状态与队列不受甲的动作影响。
-        assert poll(customer_b).json()["status"] == QUEUED
+        b_pending = poll(customer_b)
+        assert b_pending.status_code == 200, b_pending.text
+        assert b_pending.json()["status"] == QUEUED
         assert queue_item(agent_b, "customer_b")["handoff_id"] == handoff_b
 
         # 甲：转回 AI 后同一会话继续，历史保留。
@@ -356,10 +358,12 @@ def test_客户甲读客户乙会话与消息404_AC_33() -> None:
         assert len(rows_of(ServiceMessage)) == before
 
         b_page = poll(customer_b)
+        assert b_page.status_code == 200, b_page.text
         b_last_id = b_page.json()["after_id"]
         cursor = customer_a.get(CUSTOMER_MESSAGES, params={"after_id": b_last_id})
-        assert cursor.status_code == 200
-        assert all("乙" not in item["content"] for item in cursor.json()["messages"])
+        assert cursor.status_code == 200, cursor.text
+        assert cursor.json()["conversation_id"] == conversation_a
+        assert cursor.json()["messages"] == []
 
     # 未登录读取他人会话 401，不泄露是否存在。
     with TestClient(create_app()) as anonymous:
