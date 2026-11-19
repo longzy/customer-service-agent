@@ -23,6 +23,7 @@ const MAX_REPLY_LENGTH = 500;
 export function useConversationMessages(
   conversationId: string,
   onStatus?: (status: MessagePage["status"]) => void,
+  live = true,
 ) {
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -85,6 +86,10 @@ export function useConversationMessages(
   useEffect(() => {
     let cancelled = false;
     stoppedRef.current = false;
+    if (!live) {
+      setLoading(false);
+      return;
+    }
 
     async function load(afterId: number) {
       try {
@@ -120,7 +125,7 @@ export function useConversationMessages(
       cancelled = true;
       clearInterval(timer);
     };
-  }, [conversationId, applyPage, handleFailure, router]);
+  }, [conversationId, applyPage, handleFailure, live, router]);
 
   const submitReply = useCallback(async () => {
     const content = draft.trim();

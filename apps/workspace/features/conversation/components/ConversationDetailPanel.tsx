@@ -2,8 +2,11 @@
 
 import { formatTime } from "@/lib/format";
 
+import type { ConversationActionKind } from "../hooks/useConversationActions";
 import { AUTHOR_LABEL } from "../labels";
 import type { ConversationDetail } from "../types";
+
+import { ConversationActions } from "./ConversationActions";
 
 const STATUS_META: Record<string, { label: string; chip: string; dot: string }> = {
   AI_ACTIVE: {
@@ -40,21 +43,33 @@ const REASON_LABEL: Record<string, string> = {
   MODEL_UNAVAILABLE: "模型不可用",
 };
 
-type ConversationDetailPanelProps = {
-  detail: ConversationDetail;
-  busy: boolean;
+export type ConversationFeedback = {
   notice: string | null;
   error: string | null;
+};
+
+export type ConversationPanelActions = {
+  /** 接管/登出等页面级动作进行中。 */
+  busy: boolean;
+  /** 关闭/转回动作进行中；与页面级 busy 分开，按钮各自给出文案。 */
+  acting: ConversationActionKind | null;
   onTakeOver: () => void;
+  onClose: () => void;
+  onReturnToAi: () => void;
+};
+
+type ConversationDetailPanelProps = {
+  detail: ConversationDetail;
+  feedback: ConversationFeedback;
+  actions: ConversationPanelActions;
 };
 
 export function ConversationDetailPanel({
   detail,
-  busy,
-  notice,
-  error,
-  onTakeOver,
+  feedback,
+  actions,
 }: ConversationDetailPanelProps) {
+  const { notice, error } = feedback;
   const meta = STATUS_META[detail.status] ?? {
     label: detail.status,
     chip: "border-border bg-surface-2 text-text-2",
@@ -88,11 +103,18 @@ export function ConversationDetailPanel({
             <button
               className="h-[34px] rounded-md border border-accent bg-accent px-3.5 text-sm font-medium text-surface hover:bg-brand-deep focus-visible:outline-none focus-visible:shadow-focus disabled:cursor-not-allowed disabled:border-border disabled:bg-surface-2 disabled:text-text-3"
               type="button"
-              onClick={onTakeOver}
-              disabled={busy}
+              onClick={actions.onTakeOver}
+              disabled={actions.busy}
             >
-              {busy ? "接管中…" : "接管会话"}
+              {actions.busy ? "接管中…" : "接管会话"}
             </button>
+          ) : null}
+          {detail.status === "HUMAN_ACTIVE" ? (
+            <ConversationActions
+              busy={actions.acting}
+              onClose={actions.onClose}
+              onReturnToAi={actions.onReturnToAi}
+            />
           ) : null}
         </div>
 
@@ -138,7 +160,10 @@ export function ConversationDetailPanel({
                   </div>
                   <div className="col-span-2 rounded-[9px] border border-line-soft px-3 py-2">
                     <dt className="text-text-3">待办</dt>
-                    <dd className="mt-1 font-medium text-text">{handoff.pending_step ?? "—"}</dd>
+                    {/* 待办是转人工时点的快照；交接单已结束时不再表示当前任务。 */}
+                    <dd className="mt-1 font-medium text-text">
+                      {handoff.status === "CLOSED" ? "—" : (handoff.pending_step ?? "—")}
+                    </dd>
                   </div>
                 </dl>
               </>

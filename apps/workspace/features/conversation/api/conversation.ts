@@ -57,6 +57,42 @@ export async function getConversationMessages(
   return (await response.json()) as MessagePage;
 }
 
+/**
+ * 坐席关闭/转回 AI，两接口同构：返回系统消息页与最新会话状态。
+ * 409（已结束）/404（状态已变化）抛 ApiError，401/403 返回 null 由页面回登录页。
+ */
+async function postConversationAction(
+  conversationId: string,
+  action: "close" | "return-to-ai",
+  idempotencyKey: string,
+): Promise<MessagePage | null> {
+  const response = await fetch(
+    `/api/workspace/conversations/${encodeURIComponent(conversationId)}/${action}`,
+    { method: "POST", headers: { "Idempotency-Key": idempotencyKey } },
+  );
+  if (response.status === 401 || response.status === 403) {
+    return null;
+  }
+  if (!response.ok) {
+    throw await readError(response);
+  }
+  return (await response.json()) as MessagePage;
+}
+
+export function closeConversation(
+  conversationId: string,
+  idempotencyKey: string,
+): Promise<MessagePage | null> {
+  return postConversationAction(conversationId, "close", idempotencyKey);
+}
+
+export function returnConversationToAi(
+  conversationId: string,
+  idempotencyKey: string,
+): Promise<MessagePage | null> {
+  return postConversationAction(conversationId, "return-to-ai", idempotencyKey);
+}
+
 export function newIdempotencyKey(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();

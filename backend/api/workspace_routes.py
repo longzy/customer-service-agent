@@ -47,6 +47,16 @@ from backend.conversations.workspace_conversations import (
 from backend.conversations.workspace_conversations import (
     reply_to_conversation as write_agent_reply,
 )
+from backend.conversations.workspace_lifecycle import (
+    AgentStateChange,
+    close_conversation_by_agent,
+)
+from backend.conversations.workspace_lifecycle import (
+    ConversationClosedError as AgentConversationClosedError,
+)
+from backend.conversations.workspace_lifecycle import (
+    return_conversation_to_ai as return_agent_conversation_to_ai,
+)
 from backend.domain.errors import ErrorCode
 from backend.identity import employee_sessions
 from backend.identity.employee_sessions import Employee, ResolvedEmployeeSession
@@ -129,6 +139,15 @@ def _messages_payload(result: ConversationMessages) -> MessagePageResponse:
         status=result.status,  # type: ignore[arg-type]
         after_id=result.after_id,
         messages=[_message_payload(message) for message in result.messages],
+    )
+
+
+def _state_change_payload(result: AgentStateChange) -> MessagePageResponse:
+    return MessagePageResponse(
+        conversation_id=result.conversation_id,
+        status=result.status,  # type: ignore[arg-type]
+        after_id=result.message.id,
+        messages=[_message_payload(result.message)],
     )
 
 
@@ -381,6 +400,80 @@ async def reply_to_conversation(
         after_id=result.message.id,
         messages=[_message_payload(result.message)],
     )
+
+
+@router.post(
+    "/conversations/{conversation_id}/close",
+    responses={
+        401: ERROR_RESPONSES[401],
+        403: ERROR_RESPONSES[403],
+        404: ERROR_RESPONSES[404],
+        409: ERROR_RESPONSES[409],
+        422: ERROR_RESPONSES[422],
+    },
+)
+async def close_conversation(
+    conversation_id: str,
+    request: Request,
+    session: CurrentEmployee,
+    db: Db,
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=64),
+) -> MessagePageResponse:
+    """坐席关闭已领取/人工中会话；已关闭 409，他人/跨租户/状态不可操作 404。"""
+    try:
+        result = await close_conversation_by_agent(
+            db,
+            session.employee.tenant_id,
+            session.employee.id,
+            conversation_id,
+            idempotency_key=idempotency_key,
+            trace_id=_trace_id(request),
+            now=utc_now(),
+        )
+    except AgentConversationClosedError:
+        await db.rollback()
+        raise ApiError(409, ErrorCode.CONVERSATION_CLOSED) from None
+    if result is None:
+        raise ApiError(404, ErrorCode.NOT_FOUND)
+    await db.commit()
+    return _state_change_payload(result)
+
+
+@router.post(
+    "/conversations/{conversation_id}/return-to-ai",
+    responses={
+        401: ERROR_RESPONSES[401],
+        403: ERROR_RESPONSES[403],
+        404: ERROR_RESPONSES[404],
+        409: ERROR_RESPONSES[409],
+        422: ERROR_RESPONSES[422],
+    },
+)
+async def return_conversation_to_ai(
+    conversation_id: str,
+    request: Request,
+    session: CurrentEmployee,
+    db: Db,
+    idempotency_key: str = Header(alias="Idempotency-Key", min_length=1, max_length=64),
+) -> MessagePageResponse:
+    """接管坐席把人工中会话转回 AI；非人工中/他人/跨租户 404，已关闭 409。"""
+    try:
+        result = await return_agent_conversation_to_ai(
+            db,
+            session.employee.tenant_id,
+            session.employee.id,
+            conversation_id,
+            idempotency_key=idempotency_key,
+            trace_id=_trace_id(request),
+            now=utc_now(),
+        )
+    except AgentConversationClosedError:
+        await db.rollback()
+        raise ApiError(409, ErrorCode.CONVERSATION_CLOSED) from None
+    if result is None:
+        raise ApiError(404, ErrorCode.NOT_FOUND)
+    await db.commit()
+    return _state_change_payload(result)
 
 
 @router.delete("/sessions", status_code=204)

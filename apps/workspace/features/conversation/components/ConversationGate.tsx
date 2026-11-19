@@ -8,7 +8,9 @@ import { ApiError } from "@/lib/api-client";
 import { getSession, logout, type Session } from "@/lib/session";
 
 import { getConversation, takeOverConversation } from "../api/conversation";
-import type { ConversationDetail } from "../types";
+import { useConversationActions } from "../hooks/useConversationActions";
+import { mergeConversationStatus } from "../status";
+import type { ConversationDetail, MessagePage } from "../types";
 
 import { ConversationDetailPanel } from "./ConversationDetailPanel";
 import { ConversationThread } from "./ConversationThread";
@@ -26,11 +28,33 @@ export function ConversationGate({ conversationId }: { conversationId: string })
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
+  const applyStatus = useCallback((status: MessagePage["status"], message?: string) => {
+    setConversation((current) => mergeConversationStatus(current, status));
+    if (message !== undefined) {
+      setNotice(message);
+    }
+  }, []);
+  const handleChanged = useCallback(
+    (status: MessagePage["status"], message: string) => {
+      applyStatus(status, message);
+      setError(null);
+    },
+    [applyStatus],
+  );
+  const {
+    busy: acting,
+    error: actionError,
+    clearError,
+    close,
+    returnToAi,
+  } = useConversationActions(conversationId, handleChanged);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     setNotice(null);
     setMissing(false);
+    clearError();
     try {
       const current = await getSession();
       if (!current) {
@@ -56,7 +80,7 @@ export function ConversationGate({ conversationId }: { conversationId: string })
     } finally {
       setLoading(false);
     }
-  }, [conversationId, router]);
+  }, [clearError, conversationId, router]);
 
   useEffect(() => {
     void load();
@@ -66,6 +90,7 @@ export function ConversationGate({ conversationId }: { conversationId: string })
     setBusy(true);
     setError(null);
     setNotice(null);
+    clearError();
     try {
       const result = await takeOverConversation(conversationId);
       if (!result) {
@@ -199,19 +224,20 @@ export function ConversationGate({ conversationId }: { conversationId: string })
           <div className="flex flex-col gap-4">
             <ConversationDetailPanel
               detail={conversation}
-              busy={busy}
-              notice={notice}
-              error={error}
-              onTakeOver={() => void handleTakeOver()}
+              feedback={{ notice, error: actionError ?? error }}
+              actions={{
+                busy,
+                acting,
+                onTakeOver: () => void handleTakeOver(),
+                onClose: close,
+                onReturnToAi: returnToAi,
+              }}
             />
             <ConversationThread
               conversationId={conversation.id}
               status={conversation.status}
-              onStatus={(status) =>
-                setConversation((current) =>
-                  current === null || current.status === status ? current : { ...current, status },
-                )
-              }
+              live={conversation.status === "CLAIMED" || conversation.status === "HUMAN_ACTIVE"}
+              onStatus={applyStatus}
             />
           </div>
         )}

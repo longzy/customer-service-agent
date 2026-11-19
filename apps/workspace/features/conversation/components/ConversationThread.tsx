@@ -10,6 +10,8 @@ import { ConversationReplyBox } from "./ConversationReplyBox";
 type ConversationThreadProps = {
   conversationId: string;
   status: ConversationDetail["status"];
+  /** 只有领取/人工中才轮询；转回 AI 后归属已清除，继续轮询只会 404。 */
+  live: boolean;
   onStatus?: (status: MessagePage["status"]) => void;
 };
 
@@ -21,9 +23,14 @@ const STATUS_HINT: Record<string, string> = {
 };
 
 /** 会话页实时消息区：3s 轮询 + 接管后回复；回复框只在 HUMAN_ACTIVE 出现。 */
-export function ConversationThread({ conversationId, status, onStatus }: ConversationThreadProps) {
+export function ConversationThread({
+  conversationId,
+  status,
+  live,
+  onStatus,
+}: ConversationThreadProps) {
   const { messages, loading, sending, error, draft, setDraft, maxLength, submitReply } =
-    useConversationMessages(conversationId, onStatus);
+    useConversationMessages(conversationId, onStatus, live);
 
   return (
     <article className="rounded-xl border border-border bg-surface px-4 py-4">
