@@ -9,11 +9,11 @@
 - 旧关闭键作用域是会话：客户关闭后登录新建会话，旧键不会跨会话重放（F-11 评审承接）。
 """
 
-import threading
-from concurrent.futures import ThreadPoolExecutor
+import asyncio
 from datetime import UTC, datetime
 from typing import Any
 
+import httpx2
 import pytest
 from fastapi.testclient import TestClient
 
@@ -27,6 +27,7 @@ from backend.platform.models import (
 from tests.integration.customer_support import login_customer
 from tests.integration.db_utils import db_available
 from tests.integration.workspace_support import (
+    DEMO_CREDENTIAL,
     cleanup_workspace_db,
     login_employee,
     prepare_workspace_db,
@@ -475,27 +476,39 @@ def test_坐席关闭已关闭会话409_AC_38() -> None:
     assert handoff.version == 0
 
 
+async def _race_close_and_return() -> list[tuple[str, int, dict[str, Any]]]:
+    """同一事件循环内并发两个写请求。
+
+    不用两个 TestClient 跨线程：每个 TestClient 有自己的 portal/事件循环，
+    与全局 async engine 的连接模型混用时会偶发挂起（不是业务死锁）；
+    也不要用两个 client 重复登录同一员工，第二次登录会撤销第一个 session。
+    """
+    app = create_app()
+    transport = httpx2.ASGITransport(app=app)
+    login = {"username": "agent_1", "password": DEMO_CREDENTIAL}
+    # 同一员工只登录一次：员工登录会撤销同员工旧 session，两个 client 各登录一次
+    # 会让先发的请求拿到 401，测的就不是并发了。
+    async with httpx2.AsyncClient(transport=transport, base_url="http://testserver") as api:
+        assert (await api.post("/workspace/sessions", json=login)).status_code == 200
+        close_response, return_response = await asyncio.gather(
+            api.post(
+                AGENT_CLOSE.format(conversation_id="conv-race"),
+                headers={"Idempotency-Key": "race-close-1"},
+            ),
+            api.post(
+                RETURN_TO_AI.format(conversation_id="conv-race"),
+                headers={"Idempotency-Key": "race-return-1"},
+            ),
+        )
+    return [
+        ("close", close_response.status_code, close_response.json()),
+        ("return", return_response.status_code, return_response.json()),
+    ]
+
+
 def test_坐席关闭与转回并发后状态一致_AC_38() -> None:
     seed_human_active("conv-race", "ho-race")
-    barrier = threading.Barrier(2)
-
-    def close_attempt() -> tuple[str, int, dict[str, Any]]:
-        with api_client() as api:
-            login_employee(api, "agent_1")
-            barrier.wait(timeout=10)
-            response = agent_close(api, "conv-race", key="race-close-1")
-            return "close", response.status_code, response.json()
-
-    def return_attempt() -> tuple[str, int, dict[str, Any]]:
-        with api_client() as api:
-            login_employee(api, "agent_1")
-            barrier.wait(timeout=10)
-            response = return_to_ai(api, "conv-race", key="race-return-1")
-            return "return", response.status_code, response.json()
-
-    with ThreadPoolExecutor(max_workers=2) as pool:
-        futures = [pool.submit(close_attempt), pool.submit(return_attempt)]
-        results = [future.result(timeout=30) for future in futures]
+    results = asyncio.run(_race_close_and_return())
 
     statuses = {actor: status for actor, status, _ in results}
     assert sorted(statuses.values()) in ([200, 404], [200, 409]), results
