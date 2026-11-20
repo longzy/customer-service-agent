@@ -111,6 +111,21 @@
   --halo-warning: rgba(181, 71, 8, 0.16);
   --shadow-drawer-ink: rgba(16, 24, 40, 0.4);
 
+  /* 回声图形（方案 A）：登录品牌区同心弧与队列等待脉冲共用同一组强度，
+     弧线由外向内加深，最内一圈是唯一可辨识的「回声」焦点。 */
+  --wave-track: #e2e5e9;
+  --wave-o-1: 0.09;
+  --wave-o-2: 0.11;
+  --wave-o-3: 0.14;
+  --wave-o-4: 0.18;
+  --wave-o-5: 0.24;
+  --wave-o-6: 0.34;
+
+  /* 坐席侧制图网格（方案 B 语言）：64px 主格 + 16px 次格，
+     只用于坐席登录品牌区与空态底板，不进入客户侧。 */
+  --grid-line: rgba(16, 24, 40, 0.085);
+  --grid-line-2: rgba(16, 24, 40, 0.045);
+
   /* HeroUI 根变量对齐项目令牌；派生色由官方 color-mix 自动跟随根变量 */
   --background: var(--bg);
   --foreground: var(--text);

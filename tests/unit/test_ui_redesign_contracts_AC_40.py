@@ -51,3 +51,46 @@ def test_components_have_no_color_literals_AC_40() -> None:
             if COLOR_LITERAL.search(path.read_text(encoding="utf-8")):
                 offenders.append(str(path.relative_to(ROOT)))
     assert offenders == []
+
+
+def test_echo_waves_contract_AC_40() -> None:
+    """方案 A（回声）：登录品牌区同心弧与队列等待轨道按 ui-spec 3.1/3.7 落地。"""
+    chat_brand = (APPS / "chat" / "features" / "auth" / "components" / "LoginBrand.tsx").read_text(
+        encoding="utf-8"
+    )
+    assert "<EchoWaves" in chat_brand
+
+    waves = (APPS / "chat" / "components" / "ui" / "EchoWaves.tsx").read_text(encoding="utf-8")
+    assert 'data-echo-waves=""' in waves
+    assert "--wave-o-6" in waves
+    assert "echo-ripple" in waves
+    assert "animationDelay" in waves
+
+    # v7：两侧分叉——坐席侧用制图网格与编号，不复制客户侧的同心弧。
+    workspace_brand = (
+        APPS / "workspace" / "features" / "auth" / "components" / "LoginBrand.tsx"
+    ).read_text(encoding="utf-8")
+    assert 'data-plan-grid=""' in workspace_brand
+    assert 'data-status-dot=""' in workspace_brand
+    assert "status-pulse" in workspace_brand
+    assert "--grid-line" in workspace_brand
+    assert "data-echo-waves" not in workspace_brand
+    assert "echo-ripple" not in workspace_brand
+
+    queue = (APPS / "workspace" / "features" / "queue" / "components" / "QueueTable.tsx").read_text(
+        encoding="utf-8"
+    )
+    # 2026-11-20 决策：等待轨道已删除（数字的冗余编码，满格后无区分度）。
+    assert "data-wait-track" not in queue
+    assert "OVERDUE_SECONDS" in queue
+
+    tokens = TOKENS.read_text(encoding="utf-8")
+    for index in range(1, 7):
+        assert f"--wave-o-{index}:" in tokens
+    assert "--wave-track:" in tokens
+
+    spec = (ROOT / "docs" / "design-system" / "ui-spec.md").read_text(encoding="utf-8")
+    assert "品牌回声" in spec
+    assert "两侧分叉边界" in spec
+    assert "--grid-line" in tokens
+    assert "不再画轨道" in spec

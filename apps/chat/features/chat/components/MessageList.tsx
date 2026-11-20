@@ -3,6 +3,8 @@
 import { useEffect, useRef } from "react";
 import { House, List, MessageCircle } from "lucide-react";
 
+import { EchoWaves } from "@/components/ui/EchoWaves";
+
 import type { Message, MessageAuthor } from "../types";
 
 const AUTHOR_LABELS: Record<MessageAuthor, string> = {
@@ -78,23 +80,29 @@ export function MessageList({ messages, loading, status, onQuick }: MessageListP
       ) : null}
 
       {!loading ? (
-        <section className="max-w-[560px] self-start rounded-2xl border border-border bg-surface p-4 shadow-panel">
-          <h2 className="m-0 text-base font-semibold tracking-[-0.01em]">你好，我是小回。</h2>
-          <p className="mb-0 mt-1 text-sm leading-relaxed text-text-2">
-            我可以帮你查订单、改配送、办理退换。需要真人时，直接说「转人工」。
-          </p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {QUICK_ACTIONS.map((action) => (
-              <button
-                key={action.label}
-                type="button"
-                className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-surface px-3 text-xs text-text-2 transition-colors hover:border-accent-line hover:bg-accent-soft hover:text-accent-ink focus-visible:outline-none focus-visible:shadow-focus"
-                onClick={() => onQuick(action.label)}
-              >
-                <span className="text-accent">{action.icon}</span>
-                {action.label}
-              </button>
-            ))}
+        <section className="relative max-w-[560px] self-start overflow-hidden rounded-2xl border border-border bg-surface p-4 shadow-panel">
+          {/* 品牌回声只在这一张欢迎卡上出现一次，进入对话后不再出现（ui-spec 2.7）。 */}
+          <div className="pointer-events-none absolute -bottom-10 -right-12 h-[170px] w-[170px] text-text opacity-70">
+            <EchoWaves className="h-full w-full" />
+          </div>
+          <div className="relative">
+            <h2 className="m-0 text-base font-semibold tracking-[-0.01em]">你好，我是小回。</h2>
+            <p className="mb-0 mt-1 text-sm leading-relaxed text-text-2">
+              我可以帮你查订单、改配送、办理退换。需要真人时，直接说「转人工」。
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {QUICK_ACTIONS.map((action) => (
+                <button
+                  key={action.label}
+                  type="button"
+                  className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-surface px-3 text-xs text-text-2 transition-colors hover:border-accent-line hover:bg-accent-soft hover:text-accent-ink focus-visible:outline-none focus-visible:shadow-focus"
+                  onClick={() => onQuick(action.label)}
+                >
+                  <span className="text-accent">{action.icon}</span>
+                  {action.label}
+                </button>
+              ))}
+            </div>
           </div>
         </section>
       ) : null}

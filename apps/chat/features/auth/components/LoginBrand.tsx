@@ -2,6 +2,8 @@
 
 import { Clock, MessageCircle, ShieldCheck } from "lucide-react";
 
+import { EchoWaves } from "@/components/ui/EchoWaves";
+
 const ECHO_MARK = (
   <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
     <path
@@ -32,33 +34,10 @@ export function LoginBrand() {
       aria-label="回声客服"
       className="relative flex flex-col overflow-hidden bg-brand-tint px-10 py-12 max-[1023px]:flex-row max-[1023px]:items-center max-[1023px]:px-6 max-[1023px]:py-5"
     >
-      {/* 品牌声波：从右下角向外扩散，只做背景层次，不承载信息 */}
-      <svg
-        aria-hidden="true"
-        className="pointer-events-none absolute -bottom-32 -right-32 h-[460px] w-[460px] text-text opacity-[0.045]"
-        viewBox="0 0 200 200"
-        fill="none"
-      >
-        <path
-          d="M8 132a92 92 0 0 1 184 0"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-        />
-        <path
-          d="M38 132a62 62 0 0 1 124 0"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-        />
-        <path
-          d="M68 132a32 32 0 0 1 64 0"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-        />
-        <circle cx="100" cy="140" r="4" fill="currentColor" />
-      </svg>
+      {/* 品牌回声：右下角同心弧，定位由容器决定（ui-spec 3.1）。 */}
+      <div className="pointer-events-none absolute inset-0 text-text">
+        <EchoWaves className="h-full w-full" />
+      </div>
 
       <div className="relative z-[1] flex items-center gap-3">
         <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-deep">
