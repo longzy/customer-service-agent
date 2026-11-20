@@ -2,23 +2,26 @@
 
 - 更新日期：2026-11-20
 - 项目阶段：M1 客户转人工闭环
-- 当前状态：002 UI 改版已完成并收口；F-24 模型失败分级降级已完成并收口；F-14、F-13、F-12、F-11、F-10、F-09、F-08 已完成并收口
+- 当前状态：003 订单查询 F-25 已实现待评审（F-26~F-29 未开始）；002 UI 改版已完成并收口；F-24 模型失败分级降级已完成并收口；F-14、F-13、F-12、F-11、F-10、F-09、F-08 已完成并收口
 - 当前 Milestone：M1 企业核心客服闭环（客户转人工闭环）
 - 方向重置：[2026-11-16 企业化方向重置](initiatives/2026-11-16-enterprise-reset.md)
-- 当前工作：002 UI 改版 F-15~F-23 已收口；F-24 已完成并收口；F-14、F-13、F-12、F-11、F-10、F-09、F-08 已收口；2026-11-20 两应用接入 HeroUI v3（3.2.7）与图标库 lucide-react（^1.76.0），frontend.md FE-CSS-05/06、ui-spec 2.5 按用户决策修订；同日 workspace 队列页按用户决策改为 HeroUI Drawer 详情（表格全宽）+ Tabs/Select/Button/Input/Chip/Avatar/Skeleton/Kbd 组件化，抽屉与选中解耦使 ⌘K 全局可用，ui-spec 2.8/3.9 同步修订；同日按用户反馈清理队列页假功能与重复入口（侧栏未开放项、批量领取/勾选、顶部重复搜索与通知/在线胶囊、表格订单列与调试脚注、禁用“查看完整交接单”），页面收敛为“标题 → 筛选/搜索 → 表格 → Drawer”单层动线，ui-spec 3.2/3.7/3.8/3.9 同步修订；queue 工具栏与表格曾一度由 HeroUI `Card` 统一承载，按用户反馈“偏离原设计稿”回退为设计稿结构：工具栏回到页面层（一条底线）、表格为唯一圆角描边框与内置页脚，`Tabs` 补 `Tabs.Indicator` 恢复下划线、状态回退圆点 + 文字、分页并入表格页脚，ui-spec 3.7/3.8/3.15 同步；002 规格正文不改、追加变更记录；2026-11-20 按用户决策重做全站主题（v5）：主色改近黑 `#111827`、画布 `#F4F8F7`、全站去衬线、卡片统一 16px 圆角与极轻阴影，客户侧深色品牌栏改为顶栏、工作台侧栏改浅色；ui-spec 2.1–2.9、3.1–3.13 与对比度表同步；同日按用户决策采用「回声」并做两侧分叉（ui-spec v7）：客户侧——登录品牌区右下角 6 条同心弧（`--wave-o-1..6`、2400ms 呼吸、`prefers-reduced-motion` 静止）、欢迎卡回声只出现一次；坐席侧——登录品牌区改 64/16 制图网格（`--grid-line*`）与 `CN-SH / BUILD` 编号，队列等待列增加 56px 刻度轨道（`waiting_seconds / 300`，超时转 `--danger`）；抽 `components/ui/EchoWaves.tsx`（chat 两处使用，workspace 不引用）
+- 当前工作：002 UI 改版 F-15~F-23 已收口；F-24 已完成并收口；F-14、F-13、F-12、F-11、F-10、F-09、F-08 已收口；2026-11-20 两应用接入 HeroUI v3（3.2.7）与图标库 lucide-react（^1.76.0），frontend.md FE-CSS-05/06、ui-spec 2.5 按用户决策修订；同日 workspace 队列页按用户决策改为 HeroUI Drawer 详情（表格全宽）+ Tabs/Select/Button/Input/Chip/Avatar/Skeleton/Kbd 组件化，抽屉与选中解耦使 ⌘K 全局可用，ui-spec 2.8/3.9 同步修订；同日按用户反馈清理队列页假功能与重复入口（侧栏未开放项、批量领取/勾选、顶部重复搜索与通知/在线胶囊、表格订单列与调试脚注、禁用“查看完整交接单”），页面收敛为“标题 → 筛选/搜索 → 表格 → Drawer”单层动线，ui-spec 3.2/3.7/3.8/3.9 同步修订；queue 工具栏与表格曾一度由 HeroUI `Card` 统一承载，按用户反馈“偏离原设计稿”回退为设计稿结构：工具栏回到页面层（一条底线）、表格为唯一圆角描边框与内置页脚，`Tabs` 补 `Tabs.Indicator` 恢复下划线、状态回退圆点 + 文字、分页并入表格页脚，ui-spec 3.7/3.8/3.15 同步；002 规格正文不改、追加变更记录；2026-11-20 按用户决策重做全站主题（v5）：主色改近黑 `#111827`、画布 `#F4F8F7`、全站去衬线、卡片统一 16px 圆角与极轻阴影，客户侧深色品牌栏改为顶栏、工作台侧栏改浅色；ui-spec 2.1–2.9、3.1–3.13 与对比度表同步；同日按用户决策采用「回声」并做两侧分叉（ui-spec v7）：客户侧——登录品牌区右下角 6 条同心弧（`--wave-o-1..6`、2400ms 呼吸、`prefers-reduced-motion` 静止）、欢迎卡回声只出现一次；坐席侧——登录品牌区改 64/16 制图网格（`--grid-line*`）与 `CN-SH / BUILD` 编号，队列等待列增加 56px 刻度轨道（`waiting_seconds / 300`，超时转 `--danger`）；抽 `components/ui/EchoWaves.tsx`（chat 两处使用，workspace 不引用）；2026-11-20 启动 003 订单查询：brief/plan/features 已批准（AC-50~58、F-25~F-29），F-25 订单访问基座与指定订单查询已收口（客户 `oms_customer_id` 绑定、迁移 0013、`ToolGateway` 接线、订单摘要 `payload`）
 
 <!-- verify:start -->
-- 最近验证：`./scripts/verify.sh` 全部检查通过——pytest 705 passed（独立测试库）、mypy 69 个文件、追溯矩阵通过（20 条 AC）、文档与前端检查通过
+- 最近验证：`./scripts/verify.sh` 全部检查通过——pytest 725 passed（独立测试库）、mypy 70 个文件、追溯矩阵通过（31 条 AC）、文档与前端检查通过
 <!-- verify:end -->
 
 ## 进行中
 
-- 后续切片：订单查询（003）、取消（004）、安全硬化（005）未启动。
+- 003 订单查询：F-25 已实现并跑通验证，等待独立评审；F-26（最近订单/澄清）、F-27（失败分级）、F-28（交接单/工作台）、F-29（前端/审计/评测）未开始。
+- 后续切片：取消（004）、安全硬化（005）未启动。
 - 分支保护：GitHub 私有仓库套餐限制，待决定是否升级/公开；不阻塞核心业务。
 
 ## 下一步
 
-1. 后续切片订单查询（003）、取消（004）、安全硬化（005）按 roadmap 排期。
+1. 003 F-26：最近订单列表、订单意图识别、多单/半截澄清、闲聊不查；同步修订 001 AC-31/32 的"问订单转人工、order_count=0"。
+2. 003 F-27~F-29：订单失败分级、交接单订单上下文与工作台订单区、客户订单卡片与审计/评测收口。
+3. 004 取消、005 安全硬化按 roadmap 排期。
 
 ## 已完成
 
@@ -30,8 +33,7 @@
 - 重构（2026-11-19，只读 session 分离）：GET 改用 `get_read_session`（不提交），认证与读路由复用同一只读 session；客户 `last_seen_at` 改为 5 分钟节流独立事务；新增只读会话单元测试与节流集成测试；决策见 ADR-0009 修订；2026-11-19 ADR-0012 步骤 1–6：Trace 失败不再 500；尾采样、`/metrics`、有界缓冲、字段迁移、读访问审计、保留清理与 `traceparent` 兼容上线。
 - 重构（2026-11-19，后端按业务域组织）：HTTP 入口归位到 `identity/http.py`、`conversations/customer_http.py`、`conversations/workspace_http.py`，DTO 随域；`api/` 只保留装配、中间件与共享 HTTP 工具；OpenAPI 15 条路径不变，pytest 678 passed；决策见 ADR-0008。
 - 清理（2026-11-19，M1-P 旧 Web 接口退役）：删除 `/session`、`/message`、`/handoff`、`/cancellation-requests`、`/accounts` 与旧内存身份/会话中间件及 8 个强绑定旧测试文件；保留 `agent_runtime`、`tools`、`workflows`（含订单取消工作流与启动恢复）、旧表与 OMS 适配器；重新生成 OpenAPI、前端类型与测试快照（15 条路由）；并删除无生产入口的 `agent_runtime/chat.py` 与 `test_chat.py`（旧对话编排，内部自行 `commit`），`agent_runtime` 只保留 `model`/`types`。
-- 流程改进（2026-11-19，评测门禁批次 A）：`evals/run.py` 的 AC 集合改为从 `docs/specs/*/brief.md` 动态发现，`AC-01~29` 不再参与门禁，`scripts/trace-baseline.txt` 中登记的待开工 AC 记 `待开工`、不算缺失；多轮场景只列覆盖当前 AC 的用例；同步 `evals/README.md`、场景测试说明与 7 条报告单测。
-- 流程改进（2026-11-19）：测试库默认一次性隔离（并行评审/门禁不再互删数据）、`make gen-contracts` 一键刷新契约与两个测试快照、评审结论按首句判定词解析、评审者不并行跑全量门禁；新增 4 条脚本自测；2026-11-20 `verify-changed` 改为按路径触发（后端/chat/workspace/文档/契约互不牵连），新增 `--paths-file`/`--dry-run` 与 5 条脚本自测。
+- 流程改进（2026-11-19）：`evals/run.py` 的 AC 集合改为从 `docs/specs/*/brief.md` 动态发现，`AC-01~29` 不再参与门禁，`trace-baseline.txt` 登记的待开工 AC 记 `待开工`；测试库默认一次性隔离、`make gen-contracts` 一键刷新契约与快照、评审结论按首句解析；2026-11-20 `verify-changed` 改为按路径触发；累计 16 条脚本自测。
 - F-14：客户甲/乙端到端闭环与跨客户隔离——两客户各自登录/聊天/转人工/被接管/回复/转回/关闭，甲读乙会话/消息 404 且与不存在不可区分，交接单按客户独立；4 条 AC-33 集成用例（双坐席、4 类消息负向探针）+ 三组反向验证；同一浏览器双 host UI 走查截图 `evals/reports/001-customer-handoff/F-14/`；双轴评审通过（`docs/reviews/001-customer-handoff/F-14.md`，2 轮、0 阻断）；提交 fda805b、97325c2、6d13306。
 - F-13：审计与限速收口——`service_audit_events` 只追加（触发器拒绝行级改删）、401/403/429 安全事件、登录/消息限速、审计失败 503 回滚、客户消息/AI 回复/Origin 403 审计；20 条 AC-39 集成用例 + 反向验证 4 组 + 迁移回滚演练；三轴独立评审通过（2 轮、0 阻断，`docs/reviews/001-customer-handoff/F-13.md`）；提交 46783aa、39924aa、555847b。
 - F-12：坐席在已领取/人工中关闭会话，或人工中转回 AI；转回后同一会话 AI 恢复历史，再次转人工生成新交接单且同会话仅一张 open 单；17 条 AC-38 集成用例 + 6 条工作台前端用例 + 三遍双身份走查；双轴评审通过（整改后增量复核 0 阻断，`docs/reviews/001-customer-handoff/F-12.md`）；提交 7aeb960、9266b3a、1147a0e、f7611e2、d76b796。
@@ -57,10 +59,8 @@
 - F-09：第二坐席越权矩阵（领取 409、查看/接管 404、404 与不存在资源不可区分、失败零副作用、并发仅归属者成功）；8 条 AC-36 集成用例 + 双坐席浏览器走查，独立双轴评审通过（C-1/C-2 已关闭）；提交 670c975、a99880a、da163b8、353c78e、c0c052f。
 - F-10：坐席回复持久化（`POST /workspace/conversations/{id}/messages`，幂等重放）、工作台 3s 增量轮询（`GET .../messages?after_id=`）、人工中客户消息不触发 AI 且工作台可见；9 条 AC-37 集成用例 + 3 条新增前端用例 + 双身份浏览器走查（客户 1352ms 看到回复），双轴独立评审通过（0 阻断，建议已整改，关闭/转回与审计限速由后续切片承接）；提交 f5d194d。
 - 前端代码规范（2026-11-18）：`docs/process/frontend.md` 草案落地，覆盖目录/组件/类型/Next 边界/样式/a11y/安全/AI 生成/测试；决策为两个应用各自维护、允许组件重复、不建共享包；现有缺口与强制点接入顺序见文档第 10 节；2026-11-19 stylelint 接入 verify/CI（tokens 外颜色字面量、`!important`、id 选择器）。
-- UI 改版规格（2026-11-18）：`002-ui-redesign` 的 brief/plan/features 草案落地（AC-40~49、9 个 feature、S1–S4 映射），trace 基线已登记；待批准后开工。
-- UI 设计冻结（2026-11-18）：编号顺延为 002（原拟 005）；补 CSS Modules 承载、动效参数、响应式断点、视觉基线；`ui-spec` v4 与 `baseline/` 已落地，应用代码未改。
-- 流程改进（2026-11-18）：验证默认摘要与 `--verbose`、check-docs 锚点/待创建路径、trace 按 feature 判部分覆盖、dev 非 TTY 安装、close_feature.py 收口检查、读模型投影/评审固定点/多身份走查模板、`make lint/typecheck/test`。 2026-11-19：ConversationGate 轮询用例改为状态等待，去除固定 sleep。
-- 流程改进（2026-11-18，评审内环）：新增 `make verify-changed`（按变更范围跑定向 AC 测试、改动 app 的 lint/typecheck/test 与文档/状态/追溯/契约）、`make review-check`（组件命名、trace 基线归属、CURRENT/评审记录一致的机械前置）、`make review-pack`（两轴评审包）；接入 verify、pre-commit、README 与 WORKFLOW。
+- UI 改版规格与设计冻结（2026-11-18）：编号顺延为 002；`002-ui-redesign` brief/plan/features 草案落地（AC-40~49、9 个 feature、S1–S4），`ui-spec` v4 与 `baseline/` 落地，应用代码未改；trace 基线已登记。
+- 流程改进（2026-11-18）：验证默认摘要与 `--verbose`、check-docs 锚点、trace 部分覆盖、`make lint/typecheck/test`；新增 `make verify-changed`/`review-check`/`review-pack` 并接入 verify/pre-commit/CI；2026-11-19 ConversationGate 轮询改状态等待。
 - 前端升级与目录（2026-11-18）：`apps/chat`、`apps/workspace` 升级 Next.js 16.4.6 + React 19.3 + ESLint 9 flat config（`next lint` 已移除，改用 `eslint .`）；目录迁到 `features/auth`、`features/chat`、`features/queue`、`features/conversation`，`app/` 只装配；`ChatShell` 拆出 `useChatMessages`，19/17 条前端用例与两应用 build 通过。
 
 ## 阻塞

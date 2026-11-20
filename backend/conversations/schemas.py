@@ -1,6 +1,6 @@
 """会话域的 HTTP 契约：客户会话、消息与工作台读模型。"""
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -79,6 +79,8 @@ class MessagePublic(BaseModel):
     author_type: MessageAuthor
     content: str
     created_at: str
+    # AI 订单消息的结构化快照；客户/系统消息为 None。字段只含白名单摘要。
+    payload: dict[str, Any] | None = None
 
 
 class MessagePageResponse(BaseModel):

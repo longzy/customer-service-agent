@@ -637,6 +637,12 @@
         "type": "VARCHAR(64)"
       },
       {
+        "name": "oms_customer_id",
+        "nullable": true,
+        "primary_key": false,
+        "type": "VARCHAR(64)"
+      },
+      {
         "name": "active",
         "nullable": false,
         "primary_key": false,
@@ -881,6 +887,12 @@
         "nullable": false,
         "primary_key": false,
         "type": "TEXT"
+      },
+      {
+        "name": "payload",
+        "nullable": true,
+        "primary_key": false,
+        "type": "JSON"
       },
       {
         "name": "idempotency_key",

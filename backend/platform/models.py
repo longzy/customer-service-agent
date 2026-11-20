@@ -136,6 +136,13 @@ class ServiceCustomer(Base):
     __tablename__ = "service_customers"
     __table_args__ = (
         UniqueConstraint("tenant_id", "username", name="uq_service_customers_tenant_username"),
+        Index(
+            "uq_service_customers_tenant_oms",
+            "tenant_id",
+            "oms_customer_id",
+            unique=True,
+            postgresql_where=text("oms_customer_id IS NOT NULL"),
+        ),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
@@ -143,6 +150,8 @@ class ServiceCustomer(Base):
     username: Mapped[str] = mapped_column(String(64))
     password_hash: Mapped[str] = mapped_column(String(256))
     display_name: Mapped[str] = mapped_column(String(64))
+    # 客户账号在 OMS 侧的客户 ID；订单归属只按它判定，未绑定时不查订单。
+    oms_customer_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
@@ -283,6 +292,8 @@ class ServiceMessage(Base):
     author_type: Mapped[str] = mapped_column(String(16))
     author_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     content: Mapped[str] = mapped_column(Text)
+    # AI 消息附带的订单快照（白名单摘要）；客户/系统消息为 NULL。
+    payload: Mapped[dict[str, object] | None] = mapped_column(JSON, nullable=True)
     idempotency_key: Mapped[str | None] = mapped_column(String(64), nullable=True)
     trace_id: Mapped[str] = mapped_column(String(36), index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)

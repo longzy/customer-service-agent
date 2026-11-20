@@ -416,6 +416,18 @@
           "id": {
             "title": "Id",
             "type": "integer"
+          },
+          "payload": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payload"
           }
         },
         "required": [

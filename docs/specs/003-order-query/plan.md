@@ -3,7 +3,8 @@
 > 结构依据：Google Design Doc（Context / Goals / Design / Alternatives / Cross-cutting）。
 > 状态：草案（Frame 阶段随 brief 一起评审；批准前不得进入 Build）。
 
-- 状态：草案
+- 状态：已批准
+- 批准：2026-11-20（与 brief 同时批准；F-25 起进入 Build）
 - 日期：2026-11-20
 - 风险级别：T3
 - 依据：`brief.md`、[总体架构 4.3 订单访问](../../architecture/overview.md)、[ADR-0006](../../adr/0006-customer-login.md)、[ADR-0011](../../adr/0011-model-failure-degradation.md)
@@ -172,7 +173,7 @@
 
 ## 6. 未决问题（Open Questions）
 
-1. `order_count` 口径：本切片取"最近订单条数（≤5）"还是"本人订单总数"？取总数需要 `OmsPort` 新增计数方法或返回 total。当前建议先取"最近 ≤5"，在 DTO 注释与文案中写清"最近订单"。
+1. `order_count` 口径：**已定（2026-11-20 用户确认）**取"最近订单条数（≤5）"，不改 `OmsPort` 契约；DTO 注释与文案写清"最近订单"。
 2. 订单卡片是否需要"状态可能已更新"的显式提示？当前建议卡片页脚标注"查询时状态"。
 3. 生产环境 `oms_customer_id` 的绑定流程（谁在何时写入）不在 M1 范围；M1 只保证种子回填与空值安全降级。
 4. 是否需要在 `ConversationDetail` 中实时刷新订单（打开详情时重新查 OMS）？当前建议不查，避免坐席侧放大 OMS 调用；004 取消时再评估。
