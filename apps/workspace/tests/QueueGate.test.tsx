@@ -94,11 +94,11 @@ describe("工作台 QueueGate", () => {
     expect(rows).toHaveLength(2);
     expect(rows[0]).toHaveTextContent("客户甲");
     expect(rows[0]).toHaveTextContent("客户要求转人工");
-    expect(rows[0]).toHaveTextContent("0:12");
+    expect(rows[0]).toHaveTextContent("0 分 12 秒");
     expect(rows[0]).toHaveTextContent("转人工");
     expect(rows[1]).toHaveTextContent("客户乙");
     expect(rows[1]).toHaveTextContent("AI 置信度不足");
-    expect(rows[1]).toHaveTextContent("0:07");
+    expect(rows[1]).toHaveTextContent("0 分 07 秒");
     expect(rows[1]).toHaveTextContent("我的订单到哪了，手机 138****5678");
   });
 

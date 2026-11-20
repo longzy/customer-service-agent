@@ -32,7 +32,7 @@ type QueueTableProps = {
 
 export function formatWait(seconds: number): string {
   const safe = Math.max(0, Math.floor(seconds));
-  return `${Math.floor(safe / 60)}:${String(safe % 60).padStart(2, "0")}`;
+  return `${Math.floor(safe / 60)} 分 ${String(safe % 60).padStart(2, "0")} 秒`;
 }
 
 export function isOverdue(item: QueueItem): boolean {
@@ -66,7 +66,7 @@ export function QueueTable({
         >
           <colgroup>
             <col style={{ width: 180 }} />
-            <col style={{ width: 76 }} />
+            <col style={{ width: 96 }} />
             <col style={{ width: 140 }} className="max-[767px]:hidden" />
             <col className="max-[767px]:hidden" />
             <col style={{ width: 94 }} />
@@ -116,11 +116,13 @@ export function QueueTable({
                     </div>
                   </td>
                   <td className={TD}>
-                    <span
-                      className={`font-medium tabular-nums ${overdue ? "text-danger" : "text-text"}`}
-                    >
-                      {formatWait(item.waiting_seconds)}
-                    </span>
+                    {/* 等待只留时长数字，不再加轨道：轨道是数字的冗余编码，
+                        满格后不提供区分度（2026-11-20 决策，ui-spec 3.7）。 */}
+                    <div className="flex flex-col gap-1.5">
+                      <span className="font-medium tabular-nums text-text">
+                        {formatWait(item.waiting_seconds)}
+                      </span>
+                    </div>
                   </td>
                   <td className={`${TD} text-text-2 max-[767px]:hidden`}>
                     {REASON_LABEL[item.reason] ?? item.reason}
@@ -130,9 +132,7 @@ export function QueueTable({
                   </td>
                   <td className={TD}>
                     {/* 状态用圆点 + 文字，不用胶囊：颜色只作辅助（ui-spec 3.10）。 */}
-                    <span
-                      className={`inline-flex items-center gap-1.5 text-xs ${overdue ? "text-danger" : "text-text-2"}`}
-                    >
+                    <span className="inline-flex items-center gap-1.5 text-sm font-medium text-text-2">
                       <span
                         aria-hidden="true"
                         className={`h-[7px] w-[7px] rounded-full ${overdue ? "bg-danger" : "bg-warning"}`}
