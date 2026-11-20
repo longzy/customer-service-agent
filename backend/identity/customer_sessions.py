@@ -44,6 +44,8 @@ class Customer:
     tenant_id: str
     username: str
     display_name: str
+    # 订单归属的 OMS 客户身份；未绑定时订单查询安全降级为"查无此单"。
+    oms_customer_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -89,6 +91,7 @@ def _customer(row: ServiceCustomer) -> Customer:
         tenant_id=row.tenant_id,
         username=row.username,
         display_name=row.display_name,
+        oms_customer_id=row.oms_customer_id,
     )
 
 

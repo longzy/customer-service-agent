@@ -95,6 +95,7 @@ def _message_json(message: MessageView) -> MessagePublic:
         author_type=message.author_type,  # type: ignore[arg-type]
         content=message.content,
         created_at=utc_text(message.created_at),
+        payload=message.payload,
     )
 
 
@@ -274,6 +275,8 @@ async def send_message(
             timeout_seconds=settings_of(request).customer_model_timeout_seconds,
             trace_id=trace_id,
             now=now,
+            customer=session.customer,
+            order_gateway=request.app.state.query_gateway,
         )
     except ConversationClosedError:
         raise ApiError(409, ErrorCode.CONVERSATION_CLOSED) from None

@@ -11,6 +11,7 @@
 import asyncio
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 from uuid import uuid4
 
 from sqlalchemy import select
@@ -23,17 +24,20 @@ from backend.conversations.handoffs import (
     decide_model_handoff,
     match_handoff_keyword,
 )
+from backend.conversations.order_queries import extract_order_ids, query_order
 from backend.conversations.statuses import (
     AI_ACTIVE,
     CLOSED,
     QUEUED,
     RETURNED_TO_AI_NOTICE,
 )
+from backend.identity.customer_sessions import Customer
 from backend.platform.models import (
     ServiceAiEvent,
     ServiceConversation,
     ServiceMessage,
 )
+from backend.tools.gateway import ToolGateway
 
 QUEUE_NOTICE = "排队中，请稍候"
 # ADR-0011：单次失败给客户出口；连续失败才兑换成人工队列
@@ -54,6 +58,8 @@ class MessageView:
     author_type: str
     content: str
     created_at: datetime
+    # AI 订单消息的结构化快照；其他消息为 None。
+    payload: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -75,6 +81,7 @@ def view_message(row: ServiceMessage) -> MessageView:
         author_type=row.author_type,
         content=row.content,
         created_at=row.created_at,
+        payload=row.payload,
     )
 
 
@@ -153,6 +160,53 @@ async def _replay(
         after_id=after_id,
         customer_message_id=original.id,
         replayed=True,
+    )
+
+
+async def _order_query_result(
+    db: AsyncSession,
+    conversation: ServiceConversation,
+    *,
+    customer: Customer,
+    order_id: str,
+    trace_id: str,
+    now: datetime,
+    customer_message: ServiceMessage,
+    gateway: ToolGateway | None,
+) -> ChatResult:
+    """指定的单笔订单查询；成功/查无/失败都只回消息，不建单、不改状态。"""
+    outcome = await query_order(gateway, customer, order_id, trace_id)
+    await _record_ai_event(
+        db,
+        conversation,
+        status=outcome.status,
+        confidence=None,
+        trace_id=trace_id,
+        now=now,
+        event_type="order_query",
+        name=outcome.tool,
+    )
+    ai_message = ServiceMessage(
+        conversation_id=conversation.id,
+        author_type="ai",
+        author_id=None,
+        content=outcome.reply,
+        payload={"orders": outcome.orders},
+        idempotency_key=None,
+        trace_id=trace_id,
+        created_at=now,
+    )
+    db.add(ai_message)
+    conversation.updated_at = now
+    conversation.last_activity_at = now
+    await db.flush()
+    return ChatResult(
+        conversation_id=conversation.id,
+        status=conversation.status,
+        messages=[view_message(customer_message), view_message(ai_message)],
+        after_id=ai_message.id,
+        customer_message_id=customer_message.id,
+        ai_message_id=ai_message.id,
     )
 
 
@@ -406,6 +460,8 @@ async def send_customer_message(
     timeout_seconds: float,
     trace_id: str,
     now: datetime,
+    customer: Customer | None = None,
+    order_gateway: ToolGateway | None = None,
 ) -> ChatResult:
     replay = await _replay(db, conversation, idempotency_key)
     if replay is not None:
@@ -461,6 +517,19 @@ async def send_customer_message(
             matched_keyword=keyword,
         )
         return _queued_result(conversation, customer_message, notice, handoff_id)
+
+    order_ids = extract_order_ids(content)
+    if len(order_ids) == 1 and customer is not None:
+        return await _order_query_result(
+            db,
+            conversation,
+            customer=customer,
+            order_id=order_ids[0],
+            trace_id=trace_id,
+            now=now,
+            customer_message=customer_message,
+            gateway=order_gateway,
+        )
 
     try:
         reply = await asyncio.wait_for(model.respond(content), timeout=timeout_seconds)

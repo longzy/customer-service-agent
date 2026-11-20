@@ -120,6 +120,7 @@ def _message_payload(message: MessageView) -> MessagePublic:
         author_type=message.author_type,  # type: ignore[arg-type]
         content=message.content,
         created_at=utc_text(message.created_at),
+        payload=message.payload,
     )
 
 

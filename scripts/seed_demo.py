@@ -20,9 +20,9 @@ from backend.platform.db import session_factory  # noqa: E402
 from backend.platform.models import ServiceCustomer, ServiceEmployee  # noqa: E402
 from backend.platform.settings import Settings  # noqa: E402
 
-DEMO_CUSTOMERS: tuple[tuple[str, str], ...] = (
-    ("customer_a", "客户甲"),
-    ("customer_b", "客户乙"),
+DEMO_CUSTOMERS: tuple[tuple[str, str, str], ...] = (
+    ("customer_a", "客户甲", "user-a1"),
+    ("customer_b", "客户乙", "user-b1"),
 )
 DEMO_EMPLOYEES: tuple[tuple[str, str], ...] = (
     ("agent_1", "坐席 1"),
@@ -36,7 +36,7 @@ async def seed(active: Settings) -> list[str]:
         raise SystemExit("DEMO_PASSWORD 为空：请在 .env 设置演示密码后重试")
     changed: list[str] = []
     async with session_factory() as db:
-        for username, display_name in DEMO_CUSTOMERS:
+        for username, display_name, oms_customer_id in DEMO_CUSTOMERS:
             statement = select(ServiceCustomer).where(
                 ServiceCustomer.tenant_id == active.m1_tenant_id,
                 ServiceCustomer.username == username,
@@ -50,6 +50,7 @@ async def seed(active: Settings) -> list[str]:
                         username=username,
                         password_hash=hash_password(password),
                         display_name=display_name,
+                        oms_customer_id=oms_customer_id,
                         active=True,
                     )
                 )
@@ -57,6 +58,7 @@ async def seed(active: Settings) -> list[str]:
                 continue
             row.password_hash = hash_password(password)
             row.display_name = display_name
+            row.oms_customer_id = oms_customer_id
             row.active = True
             changed.append(f"{username}（重置密码）")
         for username, display_name in DEMO_EMPLOYEES:

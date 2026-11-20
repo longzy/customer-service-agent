@@ -419,6 +419,10 @@ export interface components {
             created_at: string;
             /** Id */
             id: number;
+            /** Payload */
+            payload?: {
+                [key: string]: unknown;
+            } | null;
         };
         /** ValidationError */
         ValidationError: {
