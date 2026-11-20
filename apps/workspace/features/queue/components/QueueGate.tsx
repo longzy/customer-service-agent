@@ -7,6 +7,7 @@ import { ApiError } from "@/lib/api-client";
 import { getSession, logout, type Session } from "@/lib/session";
 
 import { getQueue } from "../api/queue";
+import { useElapsedSeconds } from "../hooks/useElapsedSeconds";
 import { useQueueClaim } from "../hooks/useQueueClaim";
 import { useQueueKeyboard } from "../hooks/useQueueKeyboard";
 import type { QueueItem } from "../types";
@@ -17,6 +18,9 @@ import { isOverdue } from "./QueueTable";
 import { QueueBody } from "./QueueBody";
 import { QueueKeyBar } from "./QueueKeyBar";
 import { QUEUE_PAGE_SIZE } from "./QueuePagination";
+
+/** 队列轮询间隔：新会话与状态变化靠它刷新，等待时长由本地每秒补。 */
+const QUEUE_POLL_MS = 20_000;
 import { QueueToolbar, type QueueFilter, type QueueSort } from "./QueueToolbar";
 import { WorkspaceHeader } from "./WorkspaceHeader";
 import { WorkspaceNav } from "./WorkspaceNav";
@@ -26,7 +30,9 @@ const ROLE_LABEL: Record<string, string> = { agent: "坐席" };
 export function QueueGate() {
   const router = useRouter();
   const [session, setSession] = useState<Session | null>(null);
-  const [items, setItems] = useState<QueueItem[] | null>(null);
+  // 服务端快照 + 快照到达的单调时刻：两次拉取之间由本地补秒（useElapsedSeconds）。
+  const [fetchedItems, setFetchedItems] = useState<QueueItem[] | null>(null);
+  const [receivedAt, setReceivedAt] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,43 +50,76 @@ export function QueueGate() {
 
   const searchRef = useRef<HTMLInputElement>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    setErrorCode(undefined);
-    setDenied(false);
-    try {
-      const current = await getSession();
-      if (!current) {
-        router.replace("/login");
-        return;
+  const load = useCallback(
+    async (options?: { silent?: boolean }) => {
+      const silent = options?.silent ?? false;
+      if (!silent) {
+        setLoading(true);
+        setError(null);
+        setErrorCode(undefined);
+        setDenied(false);
       }
-      setSession(current);
-      const queue = await getQueue();
-      if (!queue) {
-        router.replace("/login");
-        return;
+      try {
+        const current = await getSession();
+        if (!current) {
+          router.replace("/login");
+          return;
+        }
+        setSession(current);
+        const queue = await getQueue();
+        if (!queue) {
+          router.replace("/login");
+          return;
+        }
+        setFetchedItems(queue);
+        setReceivedAt(performance.now());
+      } catch (cause) {
+        if (cause instanceof ApiError && cause.status === 401) {
+          router.replace("/login");
+          return;
+        }
+        if (cause instanceof ApiError && cause.status === 403) {
+          setDenied(true);
+          return;
+        }
+        // 静默轮询失败时保留上一份数据，不打断正在看队列的坐席。
+        if (silent) {
+          return;
+        }
+        setErrorCode(cause instanceof ApiError ? cause.code : undefined);
+        setError("请求未完成，请重试");
+      } finally {
+        if (!silent) {
+          setLoading(false);
+        }
       }
-      setItems(queue);
-    } catch (cause) {
-      if (cause instanceof ApiError && cause.status === 401) {
-        router.replace("/login");
-        return;
-      }
-      if (cause instanceof ApiError && cause.status === 403) {
-        setDenied(true);
-        return;
-      }
-      setErrorCode(cause instanceof ApiError ? cause.code : undefined);
-      setError("请求未完成，请重试");
-    } finally {
-      setLoading(false);
-    }
-  }, [router]);
+    },
+    [router],
+  );
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  // 列表数据 20s 拉一次（新会话、状态变化）；等待时长由本地每秒补，避免秒数跳着走。
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      void load({ silent: true });
+    }, QUEUE_POLL_MS);
+    return () => window.clearInterval(timer);
+  }, [load]);
+
+  const elapsed = useElapsedSeconds(receivedAt);
+  const items = useMemo(
+    () =>
+      fetchedItems === null
+        ? null
+        : fetchedItems.map((item) => ({
+            ...item,
+            waiting_seconds: item.waiting_seconds + elapsed,
+          })),
+    [fetchedItems, elapsed],
+  );
 
   const handleLogout = useCallback(async () => {
     setBusy(true);
