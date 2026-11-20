@@ -4,8 +4,8 @@ import type { Conversation, Customer } from "@/lib/session";
 
 import { useChatMessages } from "../hooks/useChatMessages";
 
-import { ChatBrand } from "./ChatBrand";
 import { ChatComposer } from "./ChatComposer";
+import { ChatHeader } from "./ChatHeader";
 import { MessageList } from "./MessageList";
 
 const QUEUE_NOTICE = "排队中，请稍候";
@@ -21,17 +21,13 @@ type ChatShellProps = {
   onBack?: () => void;
 };
 
-const CHIP_BASE =
-  "inline-flex h-6 items-center gap-1.5 rounded-full border px-2.5 text-xs font-medium";
-const DOT_BASE = "h-1.5 w-1.5 rounded-full";
-
 function statusMeta(status: string): { label: string; chip: string; dot: string } {
   switch (status) {
     case "QUEUED":
     case "CLAIMED":
       return {
         label: "人工接入中",
-        chip: "border-warning-line bg-warning-soft text-warning",
+        chip: "border-warning-line bg-warning-soft text-warning-ink",
         dot: "bg-warning",
       };
     case "HUMAN_ACTIVE":
@@ -43,7 +39,7 @@ function statusMeta(status: string): { label: string; chip: string; dot: string 
     case "CLOSED":
       return {
         label: "已结束",
-        chip: "border-border bg-surface text-text-2",
+        chip: "border-border bg-surface-2 text-text-2",
         dot: "bg-text-3",
       };
     case "AI_ACTIVE":
@@ -55,7 +51,7 @@ function statusMeta(status: string): { label: string; chip: string; dot: string 
     default:
       return {
         label: status,
-        chip: "border-border bg-surface text-text-2",
+        chip: "border-border bg-surface-2 text-text-2",
         dot: "bg-text-3",
       };
   }
@@ -96,107 +92,92 @@ export function ChatShell({
   );
 
   return (
-    <main className="flex min-h-screen bg-canvas-deep p-10 max-[1023px]:p-0">
-      <div className="flex flex-1 overflow-hidden rounded-[28px] bg-paper shadow-panel max-[1023px]:flex-col max-[1023px]:rounded-none">
-        <ChatBrand customerName={customer.display_name} busy={busy} onLogout={onLogout} />
+    <main className="flex h-dvh flex-col overflow-hidden bg-bg">
+      <ChatHeader
+        customerName={customer.display_name}
+        statusLabel={meta.label}
+        chipClass={meta.chip}
+        dotClass={meta.dot}
+        closed={status === "CLOSED"}
+        closing={closing}
+        busy={busy}
+        onClose={() => void closeCurrentSession()}
+        onLogout={onLogout}
+      />
 
-        <section className="flex min-w-0 flex-1 flex-col bg-paper">
-          <header className="flex h-[76px] shrink-0 items-center gap-3 border-b border-border px-8 max-[1023px]:h-16 max-[1023px]:px-4">
-            <div>
-              <p className="m-0 text-xs font-semibold tracking-[0.2em] text-text-3">
-                ONLINE SUPPORT
-              </p>
-              <h1 className="mt-1 text-lg font-semibold">在线支持</h1>
-            </div>
-            <span className={`${CHIP_BASE} ${meta.chip}`}>
-              <span aria-hidden="true" className={`${DOT_BASE} ${meta.dot}`} />
-              {meta.label}
-            </span>
-            {status !== "CLOSED" ? (
+      <div className="mx-auto flex min-h-0 w-full max-w-[860px] flex-1 flex-col px-6 max-[1023px]:px-4">
+        {error ? (
+          <div
+            className="mt-4 flex items-center gap-2.5 rounded-xl border border-danger/15 bg-danger-soft px-3.5 py-2.5 text-sm text-danger"
+            role="alert"
+          >
+            <p className="m-0 flex-1">{error}</p>
+            {onRetry ? (
               <button
-                className="ml-auto rounded-md border border-border px-3 py-1.5 text-sm text-text-2 hover:border-border-strong focus-visible:outline-none focus-visible:shadow-focus disabled:opacity-50"
+                className="rounded-md border border-current px-2.5 py-1 text-xs font-medium transition-opacity hover:opacity-80 focus-visible:outline-none focus-visible:shadow-focus disabled:opacity-50"
                 type="button"
-                onClick={() => void closeCurrentSession()}
-                disabled={closing}
+                onClick={onRetry}
+                disabled={busy}
               >
-                {closing ? "结束中" : "结束会话"}
+                重试
               </button>
             ) : null}
-          </header>
+          </div>
+        ) : null}
 
-          {error ? (
-            <div
-              className="mx-8 mt-3.5 flex items-center gap-2.5 rounded-md bg-danger-soft px-3.5 py-2.5 text-sm text-danger max-[1023px]:mx-4"
-              role="alert"
-            >
-              <p className="m-0 flex-1">{error}</p>
-              {onRetry ? (
+        {conversationNotFound ? (
+          <div className="grid flex-1 place-items-center py-12">
+            <div className="w-full max-w-[380px] rounded-2xl border border-border bg-surface p-8 text-center shadow-panel">
+              <h2 className="m-0 text-lg font-semibold">会话不存在</h2>
+              <p className="mt-2 text-sm leading-relaxed text-text-2">
+                该会话不存在，或当前账号无权访问。
+              </p>
+              {onBack ? (
                 <button
-                  className="rounded-md border border-current px-2.5 py-1 text-xs text-danger focus-visible:outline-none focus-visible:shadow-focus disabled:opacity-50"
+                  className="mt-5 inline-flex h-9 items-center rounded-lg border border-border bg-surface px-4 text-sm text-text transition-colors hover:bg-surface-2 focus-visible:outline-none focus-visible:shadow-focus"
                   type="button"
-                  onClick={onRetry}
-                  disabled={busy}
+                  onClick={onBack}
                 >
-                  重试
+                  返回
                 </button>
               ) : null}
             </div>
-          ) : null}
-
-          {conversationNotFound ? (
-            <div className="grid flex-1 place-items-center p-8">
-              <div className="max-w-[360px] rounded-xl border border-border bg-surface p-6 text-center">
-                <h2 className="mb-2 text-lg">会话不存在</h2>
-                <p className="mb-4 text-sm leading-[1.7] text-text-2">
-                  该会话不存在，或当前账号无权访问。
+          </div>
+        ) : conversation ? (
+          <>
+            {messageError ? (
+              <p
+                className="mt-4 m-0 rounded-xl border border-warning-line bg-warning-soft px-3.5 py-2.5 text-sm text-warning-ink"
+                role="alert"
+              >
+                {messageError}
+              </p>
+            ) : null}
+            <MessageList
+              messages={visibleMessages}
+              loading={loading}
+              status={status}
+              onQuick={(text) => void submitMessage(text)}
+            />
+            {status === "CLOSED" ? null : (
+              <div className="shrink-0 pb-6 pt-4 max-[767px]:sticky max-[767px]:bottom-0 max-[767px]:bg-bg max-[767px]:pb-4">
+                <ChatComposer
+                  draft={draft}
+                  setDraft={setDraft}
+                  sending={sending}
+                  overLimit={overLimit}
+                  trimmedLength={trimmedLength}
+                  maxLength={maxLength}
+                  canSend={canSend}
+                  onSubmit={() => void submitMessage()}
+                />
+                <p className="mt-3 text-center text-xs text-text-3">
+                  对话由真人客服与 AI 助手共同提供 · 请勿发送支付密码等敏感信息
                 </p>
-                {onBack ? (
-                  <button
-                    className="rounded-md border border-border px-3.5 py-1.5 text-sm text-text focus-visible:outline-none focus-visible:shadow-focus"
-                    type="button"
-                    onClick={onBack}
-                  >
-                    返回
-                  </button>
-                ) : null}
               </div>
-            </div>
-          ) : conversation ? (
-            <>
-              {messageError ? (
-                <p
-                  className="mx-8 mt-3.5 rounded-md bg-warning-soft px-3 py-2 text-sm text-warning max-[1023px]:mx-4"
-                  role="alert"
-                >
-                  {messageError}
-                </p>
-              ) : null}
-              <MessageList
-                messages={visibleMessages}
-                loading={loading}
-                status={status}
-                onQuick={(text) => void submitMessage(text)}
-              />
-              {status === "CLOSED" ? null : (
-                <div className="shrink-0 px-8 pb-6 pt-3.5 max-[767px]:sticky max-[767px]:bottom-0 max-[767px]:bg-paper max-[1023px]:px-4 max-[1023px]:pb-4">
-                  <ChatComposer
-                    draft={draft}
-                    setDraft={setDraft}
-                    sending={sending}
-                    overLimit={overLimit}
-                    trimmedLength={trimmedLength}
-                    maxLength={maxLength}
-                    canSend={canSend}
-                    onSubmit={() => void submitMessage()}
-                  />
-                  <p className="mt-3 text-center text-xs text-text-3">
-                    对话由真人客服与 AI 助手共同提供 · 请勿发送支付密码等敏感信息
-                  </p>
-                </div>
-              )}
-            </>
-          ) : null}
-        </section>
+            )}
+          </>
+        ) : null}
       </div>
     </main>
   );

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
+import { Button } from "@/components/ui/Button";
 import { ApiError } from "@/lib/api-client";
 import { getSession, logout, type Session } from "@/lib/session";
 
@@ -14,9 +15,9 @@ import type { ConversationDetail, MessagePage } from "../types";
 
 import { ConversationDetailPanel } from "./ConversationDetailPanel";
 import { ConversationThread } from "./ConversationThread";
+import { WorkspaceNav } from "@/features/queue/components/WorkspaceNav";
 
-const BUTTON =
-  "h-8 rounded-md border border-border bg-surface px-3 text-sm text-text hover:border-border-strong focus-visible:outline-none focus-visible:shadow-focus disabled:cursor-not-allowed disabled:bg-surface-2 disabled:text-text-3";
+const ROLE_LABEL: Record<string, string> = { agent: "坐席" };
 
 export function ConversationGate({ conversationId }: { conversationId: string }) {
   const router = useRouter();
@@ -133,114 +134,118 @@ export function ConversationGate({ conversationId }: { conversationId: string })
   if (!session) {
     if (error) {
       return (
-        <main className="grid min-h-screen place-items-center bg-bg p-6">
-          <div className="w-full max-w-[360px] rounded-xl border border-border bg-surface p-5 text-center">
+        <main className="grid min-h-dvh place-items-center bg-bg p-6">
+          <div className="w-full max-w-[380px] rounded-2xl border border-border bg-surface p-6 text-center shadow-panel">
             <p className="m-0 text-sm text-danger" role="alert">
               {error}
             </p>
-            <button
-              type="button"
-              className={`${BUTTON} mt-4`}
-              onClick={() => void load()}
-              disabled={loading}
-            >
+            <Button className="mt-4" onClick={() => void load()} disabled={loading}>
               重试
-            </button>
+            </Button>
           </div>
         </main>
       );
     }
     return (
-      <main className="grid min-h-screen place-items-center bg-bg" aria-busy={loading}>
-        <p className="text-sm text-text-3">加载中…</p>
+      <main className="grid min-h-dvh place-items-center bg-bg" aria-busy={loading}>
+        <p className="flex items-center gap-2 text-sm text-text-3">
+          <span
+            aria-hidden="true"
+            className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-border border-t-accent motion-reduce:animate-none"
+          />
+          加载中…
+        </p>
       </main>
     );
   }
 
   const { employee } = session;
+  const roleLabel = ROLE_LABEL[employee.role] ?? employee.role;
+
   return (
-    <main className="flex min-h-screen flex-col bg-bg">
-      <header className="flex h-[60px] shrink-0 items-center gap-2 border-b border-border bg-surface px-6 max-[1023px]:px-4">
-        <Link
-          className="text-sm text-text-3 hover:text-text focus-visible:outline-none focus-visible:shadow-focus"
-          href="/queue"
-        >
-          ← 待接入队列
-        </Link>
-        <span aria-hidden="true" className="text-border-strong">
-          /
-        </span>
-        <b className="text-sm font-medium text-text">会话详情</b>
-        <span className="ml-auto text-sm text-text-2 max-[767px]:hidden">
-          {employee.display_name}（{employee.username}）
-        </span>
-        <button
-          type="button"
-          className={BUTTON}
-          onClick={() => void handleLogout()}
-          disabled={busy}
-        >
-          退出
-        </button>
-      </header>
+    <main className="flex h-dvh overflow-hidden bg-bg">
+      <WorkspaceNav
+        agentName={employee.display_name}
+        roleLabel={roleLabel}
+        busy={busy}
+        onLogout={() => void handleLogout()}
+      />
 
-      <section className="flex min-w-0 flex-1 flex-col gap-4 px-6 py-5 max-[1023px]:px-4">
-        {error && conversation === null ? (
-          <div className="rounded-xl border border-border bg-surface p-5">
-            <p className="m-0 text-sm text-danger" role="alert">
-              {error}
-            </p>
-            <button
-              type="button"
-              className={`${BUTTON} mt-3`}
-              onClick={() => void load()}
-              disabled={loading}
-            >
-              重试
-            </button>
-          </div>
-        ) : null}
+      <section className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border bg-surface px-8 max-[1023px]:px-4">
+          <Link
+            className="rounded-md text-sm text-text-2 transition-colors hover:text-text focus-visible:outline-none focus-visible:shadow-focus"
+            href="/queue"
+          >
+            ← 待接入队列
+          </Link>
+          <span aria-hidden="true" className="text-border-strong">
+            /
+          </span>
+          <b className="text-sm font-medium text-text">会话详情</b>
+          <span className="ml-auto text-xs text-text-3">
+            {employee.display_name}（{employee.username}）
+          </span>
+          <Button variant="secondary" size="sm" onClick={() => void handleLogout()} disabled={busy}>
+            退出
+          </Button>
+        </header>
 
-        {missing ? (
-          <div className="grid place-items-center rounded-xl border border-border bg-surface p-10 text-center">
-            <div className="max-w-[420px]">
-              <h2 className="m-0 text-base font-semibold">未找到该会话</h2>
-              <p className="mt-2 text-sm leading-[1.7] text-text-2">
-                它可能尚未被领取，或已由其他坐席接管。
+        <div className="relative min-h-0 flex-1 overflow-y-auto px-8 py-6 max-[1023px]:px-4 max-[1023px]:py-4">
+          <div className="mx-auto w-full max-w-[1160px]">
+            {error && conversation === null ? (
+              <div className="rounded-2xl border border-border bg-surface p-6 shadow-panel">
+                <p className="m-0 text-sm text-danger" role="alert">
+                  {error}
+                </p>
+                <Button className="mt-4" onClick={() => void load()} disabled={loading}>
+                  重试
+                </Button>
+              </div>
+            ) : null}
+
+            {missing ? (
+              <div className="grid place-items-center rounded-2xl border border-border bg-surface p-12 text-center shadow-panel">
+                <div className="max-w-[420px]">
+                  <h2 className="m-0 text-base font-semibold">未找到该会话</h2>
+                  <p className="mt-2 text-sm leading-relaxed text-text-2">
+                    它可能尚未被领取，或已由其他坐席接管。
+                  </p>
+                  <Link
+                    className="mt-5 inline-flex h-9 items-center rounded-lg border border-border bg-surface px-4 text-sm text-text transition-colors hover:bg-surface-2 focus-visible:outline-none focus-visible:shadow-focus"
+                    href="/queue"
+                  >
+                    返回队列
+                  </Link>
+                </div>
+              </div>
+            ) : conversation === null ? (
+              <p className="text-sm text-text-3" aria-busy={loading}>
+                {loading ? "加载中…" : "暂无会话数据。"}
               </p>
-              <Link
-                className="mt-4 inline-flex h-8 items-center rounded-md border border-border px-3 text-sm text-text hover:border-border-strong focus-visible:outline-none focus-visible:shadow-focus"
-                href="/queue"
-              >
-                返回队列
-              </Link>
-            </div>
+            ) : (
+              <div className="flex flex-col gap-5">
+                <ConversationDetailPanel
+                  detail={conversation}
+                  feedback={{ notice, error: actionError ?? error }}
+                  actions={{
+                    busy,
+                    acting,
+                    onTakeOver: () => void handleTakeOver(),
+                    onClose: close,
+                    onReturnToAi: returnToAi,
+                  }}
+                />
+                <ConversationThread
+                  conversationId={conversation.id}
+                  status={conversation.status}
+                  live={conversation.status === "CLAIMED" || conversation.status === "HUMAN_ACTIVE"}
+                  onStatus={applyStatus}
+                />
+              </div>
+            )}
           </div>
-        ) : conversation === null ? (
-          <p className="text-sm text-text-3" aria-busy={loading}>
-            {loading ? "加载中…" : "暂无会话数据。"}
-          </p>
-        ) : (
-          <div className="flex flex-col gap-4">
-            <ConversationDetailPanel
-              detail={conversation}
-              feedback={{ notice, error: actionError ?? error }}
-              actions={{
-                busy,
-                acting,
-                onTakeOver: () => void handleTakeOver(),
-                onClose: close,
-                onReturnToAi: returnToAi,
-              }}
-            />
-            <ConversationThread
-              conversationId={conversation.id}
-              status={conversation.status}
-              live={conversation.status === "CLAIMED" || conversation.status === "HUMAN_ACTIVE"}
-              onStatus={applyStatus}
-            />
-          </div>
-        )}
+        </div>
       </section>
     </main>
   );

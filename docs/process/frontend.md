@@ -75,8 +75,8 @@ tests/                   组件测试
 - **FE-CSS-02** 新增样式优先用令牌；尚无令牌时使用 4px 基数的间距（2/4/6/8/12/16/24/32），禁止 5/7/9/10/14 这类非标值。ui-spec 组件契约中的 18/26 等历史值不作为新增依据。
 - **FE-CSS-03** 颜色只能出现在 `tokens.css` 与 `globals.css` 的 `@theme`；新样式一律用 Tailwind utility（颜色/字号/圆角取 theme 映射），禁止新增全局选择器与新的 `.module.css`。
 - **FE-CSS-04** 状态不得只靠颜色表意，必须同时有文字或图标。
-- **FE-CSS-05** 不引入 UI 库、图标库、远程字体；图标内联 SVG，颜色继承 `currentColor`。
-- **FE-CSS-06** 样式承载、动效、响应式与视觉基线以 [ui-spec 2.6–2.9](../design-system/ui-spec.md) 为准；Tailwind 是唯一方案，不得再引入 styled-components 或新的 CSS Modules。
+- **FE-CSS-05** UI 组件库仅允许 HeroUI v3（`@heroui/react` + `@heroui/styles`，样式在 `globals.css` 中于 `@import "tailwindcss"` 之后引入）；图标库仅允许 `lucide-react`，不得引入第二套 UI/CSS 框架、图标库或远程字体；通用图标用 lucide 组件，品牌图形等无对应图标保留内联 SVG，颜色继承 `currentColor`。
+- **FE-CSS-06** 样式承载、动效、响应式与视觉基线以 [ui-spec 2.6–2.9](../design-system/ui-spec.md) 为准；Tailwind 仍是唯一的样式编写方案，HeroUI v3 自带的组件样式按 FE-CSS-05 引入、不算第二套方案；组件级定制只用 `className` 的 Tailwind utility，禁止全局 BEM 选择器覆盖；不得引入 styled-components/Emotion 等 CSS-in-JS 或新的 CSS Modules。
 
 ## 6. 可访问性（FE-A11Y）
 
@@ -145,3 +145,4 @@ tests/                   组件测试
 - 2026-11-18：草案建立。依据用户确定的“只出规范、不做代码与配置改动；两个应用各自维护、允许重复”落地；列出现状缺口与强制点接入顺序。
 - 2026-11-19：接入 stylelint（两个应用各自 devDependency 与 `.stylelintrc.json`），`scripts/lint-styles.sh` 进 verify/CI；强制 tokens 外无颜色字面量、无 `!important`、无 id 选择器。
 - 2026-11-18：两个应用升级 Next.js 16.4（React 19.3；`next lint` 移除后改用 ESLint CLI + flat config）；组件、请求与类型迁入 `features/`，`app/` 只装配；`ChatShell` 拆出 `useChatMessages`，FE-DIR-05 豁免移除；核心 lint 接入 verify 与 CI。两个应用暂时关闭 `react-hooks/set-state-in-effect`（存量 gate 在 effect 内拉数据并 setState），迁到数据获取层后删除该例外。
+- 2026-11-20：按用户决策接入 HeroUI v3（`@heroui/react` + `@heroui/styles` 3.2.7），修订 FE-CSS-05/06：HeroUI 成为唯一允许的 UI 组件库，Tailwind 仍是唯一样式编写方案。`globals.css` 中 `@heroui/styles` 排在 `@import "tailwindcss"` 之后、`tokens.css` 之前，使项目令牌覆盖同名变量、保持视觉基线；其自带样式属外部依赖，不计入 FE-CSS-03 的项目内颜色字面量约束。主题策略：项目令牌仍是单一事实源，不启用 HeroUI 默认主题，只在 `tokens.css` 映射其根变量；HeroUI 组件由 `@apply` 写死的尺寸/圆角/动效在首次落地组件时用 `className` 的 Tailwind utility 约束，不预先建 wrapper、不写全局 BEM 覆盖。

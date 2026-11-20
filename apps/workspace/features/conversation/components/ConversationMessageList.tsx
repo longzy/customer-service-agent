@@ -7,7 +7,8 @@ import { formatTime } from "@/lib/format";
 import { AUTHOR_LABEL } from "../labels";
 import type { Message } from "../types";
 
-const BUBBLE = "rounded-xl px-3 py-2 text-sm leading-[1.7] whitespace-pre-wrap break-words";
+const BUBBLE =
+  "max-w-[560px] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap break-words";
 
 type ConversationMessageListProps = {
   messages: Message[];
@@ -27,7 +28,7 @@ export function ConversationMessageList({ messages, loading }: ConversationMessa
 
   return (
     <div
-      className="flex max-h-[360px] min-h-[120px] flex-col gap-2 overflow-y-auto rounded-[9px] border border-line-soft bg-surface-soft px-3 py-3"
+      className="flex max-h-[380px] min-h-[140px] flex-col gap-3 overflow-y-auto rounded-xl border border-line-soft bg-surface-2 px-4 py-4"
       ref={listRef}
       role="log"
       aria-live="polite"
@@ -47,24 +48,25 @@ export function ConversationMessageList({ messages, loading }: ConversationMessa
         const author = message.author_type;
         if (author === "system") {
           return (
-            <p key={message.id} className="m-0 self-center text-center text-xs text-text-3">
+            <p
+              key={message.id}
+              className="m-0 self-center rounded-full bg-surface px-3 py-1 text-center text-xs text-text-3"
+            >
               {message.content}
             </p>
           );
         }
         const isCustomer = author === "customer";
         const tone = isCustomer
-          ? "bg-brand-deep text-paper rounded-tr-[4px]"
-          : author === "agent"
-            ? "border border-accent-line bg-accent-soft text-accent-ink rounded-tl-[4px]"
-            : "border border-border bg-surface rounded-tl-[4px]";
+          ? "bg-accent text-white"
+          : "border border-border bg-surface text-text";
         return (
           <article
             key={message.id}
             className={`flex max-w-[640px] flex-col gap-1 ${isCustomer ? "self-end items-end" : "items-start"}`}
             data-author={author}
           >
-            <span className="text-xs text-text-3">
+            <span className="text-[11px] text-text-3">
               {AUTHOR_LABEL[author] ?? "系统"} ·{" "}
               <time dateTime={message.created_at}>{formatTime(message.created_at)}</time>
             </span>

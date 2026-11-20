@@ -48,14 +48,15 @@ describe("客户侧可访问性与响应式", () => {
     expect(pulse?.className).toContain("motion-reduce:animate-none");
   });
 
-  it("AC-48 窄屏快捷入口两列且输入区固定底部", async () => {
+  it("AC-48 窄屏快捷入口自动换行且输入区固定底部", async () => {
     vi.spyOn(global, "fetch").mockResolvedValue(
       json({ conversation_id: "conv-1", status: "AI_ACTIVE", after_id: 0, messages: [] }),
     );
     renderShell();
 
     const quick = await screen.findByRole("button", { name: "查订单" });
-    expect(quick.parentElement?.className).toContain("max-[767px]:grid-cols-2");
+    expect(quick.parentElement?.className).toContain("flex-wrap");
+    expect(quick.closest("section")?.className).toContain("max-w-[560px]");
 
     const composer = screen.getByLabelText("消息").closest("form")?.parentElement;
     expect(composer?.className).toContain("max-[767px]:sticky");

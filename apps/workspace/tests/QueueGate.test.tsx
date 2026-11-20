@@ -110,18 +110,21 @@ describe("工作台 QueueGate", () => {
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/login"));
   });
 
-  it("AC-45 选中行展示摘要详情", async () => {
+  it("AC-45 选中行打开抽屉并展示摘要详情", async () => {
     vi.spyOn(global, "fetch")
       .mockResolvedValueOnce(json(session))
       .mockResolvedValueOnce(json({ items: queueItems }));
     render(<QueueGate />);
-    await screen.findAllByText("客户甲");
+    const rows = await screen.findAllByRole("row");
 
-    const detail = screen.getByLabelText("会话详情");
+    // 抽屉模式下默认不选中；点击行才打开会话详情抽屉
+    expect(screen.queryByLabelText("会话详情")).not.toBeInTheDocument();
+    fireEvent.click(rows[1]);
+    const detail = await screen.findByLabelText("会话详情");
     await waitFor(() => expect(within(detail).getByText("最后一条消息")).toBeInTheDocument());
     expect(within(detail).getByText("领取后进入会话页")).toBeInTheDocument();
     expect(within(detail).getByText("领取规则")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "查看完整交接单" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "查看完整交接单" })).not.toBeInTheDocument();
   });
 
   it("AC-47 J/K 切换选中，Esc 清除", async () => {
@@ -131,10 +134,12 @@ describe("工作台 QueueGate", () => {
     render(<QueueGate />);
     await screen.findAllByText("客户甲");
 
-    const dataRows = () => screen.getAllByRole("row").slice(1);
+    // 抽屉模态会把背景标记 aria-hidden，用 hidden:true 读取行的选中态
+    const dataRows = () => screen.getAllByRole("row", { hidden: true }).slice(1);
+    fireEvent.click(dataRows()[0]);
     await waitFor(() => expect(dataRows()[0]).toHaveAttribute("aria-selected", "true"));
 
-    fireEvent.click(dataRows()[1]);
+    fireEvent.keyDown(document.body, { key: "j" });
     await waitFor(() => expect(dataRows()[1]).toHaveAttribute("aria-selected", "true"));
 
     fireEvent.keyDown(document.body, { key: "Escape" });
@@ -269,7 +274,8 @@ describe("工作台 QueueGate", () => {
     render(<QueueGate />);
     await screen.findAllByText("客户甲");
 
-    const dataRows = () => screen.getAllByRole("row").slice(1);
+    const dataRows = () => screen.getAllByRole("row", { hidden: true }).slice(1);
+    fireEvent.keyDown(document.body, { key: "j" });
     await waitFor(() => expect(dataRows()[0]).toHaveAttribute("aria-selected", "true"));
     fireEvent.keyDown(document.body, { key: "j" });
     await waitFor(() => expect(dataRows()[1]).toHaveAttribute("aria-selected", "true"));
@@ -286,13 +292,17 @@ describe("工作台 QueueGate", () => {
       );
     render(<QueueGate />);
     await screen.findByText("客户甲");
+    fireEvent.keyDown(document.body, { key: "j" });
     await waitFor(() =>
-      expect(screen.getAllByRole("row")[1]).toHaveAttribute("aria-selected", "true"),
+      expect(screen.getAllByRole("row", { hidden: true })[1]).toHaveAttribute(
+        "aria-selected",
+        "true",
+      ),
     );
 
     const search = screen.getByLabelText("搜索客户、账号或会话 ID");
     fireEvent.keyDown(document.body, { key: "k", metaKey: true });
-    expect(search).toHaveFocus();
+    await waitFor(() => expect(search).toHaveFocus());
 
     (search as HTMLInputElement).blur();
     fireEvent.keyDown(document.body, { key: "Enter" });
@@ -307,7 +317,8 @@ describe("工作台 QueueGate", () => {
         json({ handoff_id: "ho-1", conversation_id: "conv-1", status: "CLAIMED" }),
       );
     render(<QueueGate />);
-    await screen.findByText("客户甲");
+    const rows = await screen.findAllByRole("row");
+    fireEvent.click(rows[1]);
     await waitFor(() => expect(screen.getByRole("button", { name: "领取会话" })).toBeEnabled());
 
     fireEvent.click(screen.getByRole("button", { name: "领取会话" }));
@@ -323,9 +334,9 @@ describe("工作台 QueueGate", () => {
     const overtimeRows = await screen.findAllByRole("row");
     expect(within(overtimeRows[1]).getByText("已超时")).toBeInTheDocument();
 
-    fireEvent.change(screen.getByRole("combobox", { name: /排序/ }), {
-      target: { value: "newest" },
-    });
+    // HeroUI Select 是复合组件：可见触发器为 button，点击后从列表选中 option
+    fireEvent.click(screen.getByRole("button", { name: /排序方式/ }));
+    fireEvent.click(await screen.findByRole("option", { name: "最新进入" }));
     await waitFor(() => {
       const rows = screen.getAllByRole("row").slice(1);
       expect(rows[0]).toHaveTextContent("客户乙");
@@ -346,6 +357,34 @@ describe("工作台 QueueGate", () => {
       const rows = screen.getAllByRole("row").slice(1);
       expect(rows).toHaveLength(1);
       expect(rows[0]).toHaveTextContent("客户乙");
+    });
+  });
+
+  it("AC-44 超过 10 条时显示 HeroUI Pagination 并可翻页", async () => {
+    const many = Array.from({ length: 12 }, (_, index) => ({
+      handoff_id: `ho-${index + 1}`,
+      conversation_id: `conv-${index + 1}`,
+      customer_username: `customer_${index + 1}`,
+      customer_display_name: `客户${index + 1}`,
+      waiting_seconds: 12 - index,
+      reason: "CUSTOMER_REQUEST",
+      order_count: 0,
+      last_message: `消息 ${index + 1}`,
+    }));
+    vi.spyOn(global, "fetch")
+      .mockResolvedValueOnce(json(session))
+      .mockResolvedValueOnce(json({ items: many }));
+    render(<QueueGate />);
+    await screen.findAllByText("客户1");
+
+    expect(screen.getByRole("navigation", { name: "队列分页" })).toBeInTheDocument();
+    expect(screen.getAllByRole("row").slice(1)).toHaveLength(10);
+
+    fireEvent.click(screen.getByRole("button", { name: "第 2 页" }));
+    await waitFor(() => {
+      const rows = screen.getAllByRole("row").slice(1);
+      expect(rows).toHaveLength(2);
+      expect(rows[0]).toHaveTextContent("客户11");
     });
   });
 });

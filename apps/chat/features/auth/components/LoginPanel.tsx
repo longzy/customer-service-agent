@@ -2,8 +2,10 @@
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { Eye } from "lucide-react";
 
 import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 import { getSession, login } from "@/lib/session";
 
 import { LoginBrand } from "./LoginBrand";
@@ -13,22 +15,14 @@ type LoginError = {
   retryCheck: boolean;
 };
 
-const EYE_ICON = (
-  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-    <path
-      d="M1.8 8S4 3.8 8 3.8 14.2 8 14.2 8 12 12.2 8 12.2 1.8 8 1.8 8Z"
-      stroke="currentColor"
-      strokeWidth="1.3"
-    />
-    <circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.3" />
-  </svg>
-);
+const EYE_ICON = <Eye size={16} strokeWidth={1.6} aria-hidden="true" />;
 
-const INPUT_WRAP =
-  "flex h-11 items-center gap-2 rounded-lg border border-input-border bg-surface px-3 transition-colors focus-within:border-accent focus-within:shadow-focus";
+const FIELD = "flex flex-col gap-2";
 
-const INPUT =
-  "min-w-0 flex-1 bg-transparent text-base text-text outline-none placeholder:text-text-3";
+const FIELD_LABEL = "text-sm font-medium text-text-2";
+
+const REVEAL =
+  "absolute right-1.5 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-md text-text-3 transition-colors hover:bg-surface-2 hover:text-text-2 focus-visible:outline-none focus-visible:shadow-focus";
 
 export function LoginPanel() {
   const router = useRouter();
@@ -76,87 +70,75 @@ export function LoginPanel() {
   }
 
   return (
-    <main className="flex min-h-screen bg-canvas-deep p-10 max-[1023px]:p-0">
-      <div className="flex flex-1 overflow-hidden rounded-[28px] bg-bg shadow-panel max-[1023px]:flex-col max-[1023px]:rounded-none">
+    <main className="flex min-h-screen items-center justify-center bg-bg p-8 max-[1023px]:p-0">
+      <div className="grid w-full max-w-[1040px] overflow-hidden rounded-3xl border border-border bg-surface shadow-panel min-[1024px]:min-h-[620px] min-[1024px]:grid-cols-[0.9fr_1fr] max-[1023px]:min-h-screen max-[1023px]:max-w-none max-[1023px]:grid-cols-1 max-[1023px]:rounded-none max-[1023px]:border-0 max-[1023px]:shadow-none">
         <LoginBrand />
 
-        <section className="relative flex flex-1 flex-col items-center justify-center gap-4 px-10 py-10 max-[1023px]:px-5 max-[1023px]:pb-10 max-[1023px]:pt-6">
-          <p className="absolute right-10 top-8 text-xs tracking-[0.18em] text-text-3 max-[1023px]:hidden">
-            SECURE SIGN IN
-          </p>
-
-          <form
-            className="w-full max-w-[400px] rounded-[20px] border border-border bg-surface px-9 pb-7 pt-9 shadow-panel max-[1023px]:px-6"
-            onSubmit={handleSubmit}
-            aria-busy={busy}
-          >
-            <p className="text-xs font-semibold tracking-[0.2em] text-text-3">CUSTOMER CENTER</p>
-            <h2 className="mt-2.5 font-serif text-[27px] font-semibold tracking-[0.01em]">
-              登录客服中心
-            </h2>
-            <p className="mt-2 text-sm leading-[1.7] text-text-2">
+        <section className="flex flex-col px-10 py-12 max-[1023px]:px-6 max-[1023px]:py-8">
+          <div className="mx-auto flex w-full max-w-[368px] flex-1 flex-col justify-center">
+            <p className="text-xs font-medium uppercase tracking-[0.14em] text-accent-ink">
+              客户登录
+            </p>
+            <h2 className="mt-3 text-2xl font-semibold tracking-[-0.02em]">登录客服中心</h2>
+            <p className="mt-2 text-sm leading-relaxed text-text-2">
               使用你的客户账号登录，继续之前的对话。
             </p>
 
             {error ? (
               <div
-                className="mt-4 rounded-md bg-danger-soft px-3 py-2.5 text-sm leading-relaxed text-danger"
+                className="mt-6 flex items-start gap-2.5 rounded-xl border border-danger/15 bg-danger-soft px-3.5 py-3 text-sm leading-relaxed text-danger"
                 role="alert"
               >
-                <div className="flex items-center gap-2.5">
-                  <p className="flex-1">{error.message}</p>
-                  {error.retryCheck ? (
-                    <Button
-                      variant="ghost"
-                      type="button"
-                      onClick={() => void checkSession()}
-                      disabled={checking}
-                    >
-                      重试
-                    </Button>
-                  ) : null}
-                </div>
+                <p className="flex-1">{error.message}</p>
+                {error.retryCheck ? (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    type="button"
+                    onClick={() => void checkSession()}
+                    disabled={checking}
+                  >
+                    重试
+                  </Button>
+                ) : null}
               </div>
             ) : null}
 
-            <div className="mt-6 flex flex-col gap-4">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium text-text-2" htmlFor="username">
+            <form className="mt-7 flex flex-col gap-5" onSubmit={handleSubmit} aria-busy={busy}>
+              <div className={FIELD}>
+                <label className={FIELD_LABEL} htmlFor="username">
                   账号
                 </label>
-                <div className={INPUT_WRAP}>
-                  <input
-                    className={INPUT}
-                    id="username"
-                    name="username"
-                    type="text"
-                    autoComplete="username"
-                    autoCapitalize="none"
-                    spellCheck={false}
-                    value={username}
-                    onChange={(event) => setUsername(event.target.value)}
-                    required
-                  />
-                </div>
+                <Input
+                  id="username"
+                  name="username"
+                  type="text"
+                  autoComplete="username"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  value={username}
+                  onChange={(event) => setUsername(event.target.value)}
+                  required
+                />
               </div>
 
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-medium text-text-2" htmlFor="password">
+              <div className={FIELD}>
+                <label className={FIELD_LABEL} htmlFor="password">
                   密码
                 </label>
-                <div className={INPUT_WRAP}>
-                  <input
-                    className={INPUT}
+                <div className="relative">
+                  <Input
                     id="password"
                     name="password"
                     type={showPassword ? "text" : "password"}
                     autoComplete="current-password"
+                    className="pr-11"
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
                     required
                   />
                   <button
-                    className="-m-1 grid place-items-center rounded-sm p-1 text-text-3 hover:text-text-2 focus-visible:outline-none focus-visible:shadow-focus"
+                    className={REVEAL}
                     type="button"
                     aria-label={showPassword ? "隐藏密码" : "显示密码"}
                     aria-pressed={showPassword}
@@ -170,31 +152,32 @@ export function LoginPanel() {
               <p className="-mt-1 text-xs text-text-3">连续 5 次失败将锁定 15 分钟</p>
 
               <Button
-                className="mt-0.5 w-full"
+                className="w-full"
                 size="lg"
                 type="submit"
                 disabled={checking || busy || !username.trim() || !password}
               >
                 {busy ? "进入对话中…" : "进入对话"}
               </Button>
-            </div>
+            </form>
 
-            <div className="mt-5 flex items-center gap-2.5 text-xs text-text-3 before:h-px before:flex-1 before:bg-line-soft after:h-px after:flex-1 after:bg-line-soft">
-              <span>账号由客服中心开通</span>
+            <div className="mt-8 border-t border-line-soft pt-5">
+              <p className="text-xs leading-relaxed text-text-3">
+                账号由客服中心开通，忘记密码请联系在线客服重置，无需注册。
+              </p>
             </div>
-            <p className="mt-3.5 text-center text-xs leading-[1.7] text-text-2">
-              忘记密码？联系在线客服重置，无需注册。
-            </p>
 
             {process.env.NODE_ENV !== "production" ? (
-              <p className="mt-4 rounded-md border border-notice-line bg-notice-bg px-3 py-2.5 text-xs leading-[1.7] text-notice-ink">
+              <p className="mt-4 rounded-xl border border-notice-line bg-notice-bg px-3.5 py-2.5 text-xs leading-relaxed text-notice-ink">
                 <b className="font-semibold text-notice-strong">开发期测试账号</b>：见项目 README，
                 生产环境不展示此提示。
               </p>
             ) : null}
-          </form>
 
-          <p className="mt-auto text-xs text-text-3">对话内容加密传输 · 仅用于本次服务</p>
+            <p className="mt-8 text-center text-xs text-text-3">
+              对话内容加密传输 · 仅用于本次服务
+            </p>
+          </div>
         </section>
       </div>
     </main>

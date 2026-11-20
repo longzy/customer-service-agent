@@ -10,6 +10,8 @@ type Options = {
   selected: QueueItem | null;
   searchRef: RefObject<HTMLInputElement | null>;
   onSelect: (id: string | null) => void;
+  /** ⌘K 时先收起详情抽屉，否则 RAC 焦点陷阱会把焦点拉回抽屉内 */
+  onDismissDrawer: () => void;
   onClaim: (item: QueueItem) => void;
   onNotice: (message: string) => void;
 };
@@ -21,6 +23,7 @@ export function useQueueKeyboard({
   selected,
   searchRef,
   onSelect,
+  onDismissDrawer,
   onClaim,
   onNotice,
 }: Options) {
@@ -34,7 +37,9 @@ export function useQueueKeyboard({
 
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
-        searchRef.current?.focus();
+        onDismissDrawer();
+        // 抽屉卸载时 RAC 会在 effect 里恢复焦点；下一帧再聚焦搜索框才不被覆盖。
+        requestAnimationFrame(() => searchRef.current?.focus());
         return;
       }
       if (typing) {
@@ -68,5 +73,5 @@ export function useQueueKeyboard({
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClaim, onNotice, onSelect, searchRef, selected, selectedId, visible]);
+  }, [onClaim, onDismissDrawer, onNotice, onSelect, searchRef, selected, selectedId, visible]);
 }

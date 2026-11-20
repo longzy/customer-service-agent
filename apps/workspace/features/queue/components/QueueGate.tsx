@@ -16,6 +16,7 @@ import { QueueFallback } from "./QueueFallback";
 import { isOverdue } from "./QueueTable";
 import { QueueBody } from "./QueueBody";
 import { QueueKeyBar } from "./QueueKeyBar";
+import { QUEUE_PAGE_SIZE } from "./QueuePagination";
 import { QueueToolbar, type QueueFilter, type QueueSort } from "./QueueToolbar";
 import { WorkspaceHeader } from "./WorkspaceHeader";
 import { WorkspaceNav } from "./WorkspaceNav";
@@ -37,9 +38,11 @@ export function QueueGate() {
   const [sort, setSort] = useState<QueueSort>("waited");
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // 抽屉开合与选中解耦：⌘K 可只收起抽屉而保留选中行，供 Enter 领取。
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [page, setPage] = useState(1);
 
   const searchRef = useRef<HTMLInputElement>(null);
-  const initializedRef = useRef(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -121,25 +124,41 @@ export function QueueGate() {
     );
   }, [filter, items, query, reason, sort]);
 
+  const pageCount = Math.max(1, Math.ceil(visible.length / QUEUE_PAGE_SIZE));
+  const pagedVisible = useMemo(
+    () => visible.slice((page - 1) * QUEUE_PAGE_SIZE, page * QUEUE_PAGE_SIZE),
+    [page, visible],
+  );
+
   useEffect(() => {
-    if (!items || visible.length === 0) {
-      setSelectedId(null);
-      return;
-    }
-    if (!initializedRef.current) {
-      initializedRef.current = true;
-      // 桌面默认选中首行；<1024 用覆盖层，不能加载即弹开详情。
-      const isDesktop =
-        typeof window.matchMedia !== "function" || window.matchMedia("(min-width: 1024px)").matches;
-      if (isDesktop) {
-        setSelectedId(visible[0].handoff_id);
-      }
-      return;
-    }
+    setPage(1);
+  }, [filter, reason, sort, query]);
+
+  useEffect(() => {
+    if (page > pageCount) setPage(pageCount);
+  }, [page, pageCount]);
+
+  // J/K 跨页移动时自动翻到选中行所在页，避免“选中了但看不见”。
+  useEffect(() => {
+    if (!selectedId) return;
+    const index = visible.findIndex((item) => item.handoff_id === selectedId);
+    if (index < 0) return;
+    const target = Math.floor(index / QUEUE_PAGE_SIZE) + 1;
+    if (target !== page) setPage(target);
+  }, [page, selectedId, visible]);
+
+  // 抽屉模式下不再默认选中首行（否则加载即弹开抽屉）；仅当已选项被筛掉时清除。
+  useEffect(() => {
     if (selectedId && !visible.some((item) => item.handoff_id === selectedId)) {
       setSelectedId(null);
+      setDrawerOpen(false);
     }
-  }, [items, selectedId, visible]);
+  }, [selectedId, visible]);
+
+  const handleSelect = useCallback((id: string | null) => {
+    setSelectedId(id);
+    setDrawerOpen(Boolean(id));
+  }, []);
 
   const selected = visible.find((item) => item.handoff_id === selectedId) ?? null;
 
@@ -148,7 +167,8 @@ export function QueueGate() {
     selectedId,
     selected,
     searchRef,
-    onSelect: setSelectedId,
+    onSelect: handleSelect,
+    onDismissDrawer: () => setDrawerOpen(false),
     onClaim: (item) => void claim(item),
     onNotice: setNotice,
   });
@@ -170,7 +190,7 @@ export function QueueGate() {
   const roleLabel = ROLE_LABEL[employee.role] ?? employee.role;
 
   return (
-    <main className="flex min-h-screen bg-bg font-sans">
+    <main className="flex h-dvh overflow-hidden bg-bg font-sans">
       <WorkspaceNav
         agentName={employee.display_name}
         roleLabel={roleLabel}
@@ -179,35 +199,36 @@ export function QueueGate() {
         onLogout={() => void handleLogout()}
       />
 
-      <section className="flex min-w-0 flex-1 flex-col bg-bg">
-        <WorkspaceHeader
-          agentName={employee.display_name}
-          total={counts.all}
-          overdue={counts.overdue}
-          loading={loading}
-          query={query}
-          searchRef={searchRef}
-          onQuery={setQuery}
-          onRefresh={() => void load()}
-        />
+      <section className="flex min-h-0 min-w-0 flex-1 flex-col bg-bg">
+        <header className="shrink-0 bg-surface px-8 max-[1279px]:px-6 max-[1023px]:px-4">
+          <WorkspaceHeader
+            total={counts.all}
+            overdue={counts.overdue}
+            loading={loading}
+            onRefresh={() => void load()}
+          />
 
-        <div className="flex min-w-0 flex-1 flex-col px-6 max-[1023px]:px-4">
           <QueueToolbar
             filter={filter}
             counts={counts}
             reason={reason}
             sort={sort}
             query={query}
+            searchRef={searchRef}
             onFilter={setFilter}
             onReason={setReason}
             onSort={setSort}
             onQuery={setQuery}
           />
+        </header>
 
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col px-8 pb-2 pt-5 max-[1279px]:px-6 max-[1023px]:px-4">
           <QueueBody
             items={items}
-            visible={visible}
+            visible={pagedVisible}
             total={counts.all}
+            page={page}
+            pageCount={pageCount}
             loading={loading}
             error={error}
             errorCode={errorCode}
@@ -215,6 +236,7 @@ export function QueueGate() {
             selectedId={selectedId}
             claimingId={claimingId}
             disabled={claimingId !== null || loading || busy}
+            onPageChange={setPage}
             onRetry={() => void load()}
             onRefresh={() => void load()}
             onClearFilters={() => {
@@ -222,7 +244,7 @@ export function QueueGate() {
               setReason("ALL");
               setFilter("all");
             }}
-            onSelect={setSelectedId}
+            onSelect={handleSelect}
             onClaim={(item) => void claim(item)}
           />
 
@@ -232,13 +254,16 @@ export function QueueGate() {
 
       <DetailPanel
         item={selected}
-        open={Boolean(selected)}
+        open={drawerOpen && Boolean(selected)}
         claiming={claimingId === selected?.handoff_id}
         disabled={claimingId !== null || loading || busy}
         onClaim={() => {
           if (selected) void claim(selected);
         }}
-        onClose={() => setSelectedId(null)}
+        onClose={() => {
+          setDrawerOpen(false);
+          setSelectedId(null);
+        }}
       />
     </main>
   );

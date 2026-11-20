@@ -33,13 +33,21 @@ export function ConversationThread({
     useConversationMessages(conversationId, onStatus, live);
 
   return (
-    <article className="rounded-xl border border-border bg-surface px-4 py-4">
-      <h3 className="m-0 text-xs font-semibold tracking-[0.06em] text-text-2">实时消息</h3>
-      <div className="mt-3 flex flex-col gap-2">
+    <article className="rounded-2xl border border-border bg-surface px-6 py-5 shadow-panel max-[767px]:px-4">
+      <div className="flex items-center gap-2">
+        <h3 className="m-0 text-xs font-medium text-text-3">实时消息</h3>
+        {live ? (
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-surface-2 px-2 py-0.5 text-[11px] text-text-3">
+            <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-online" />
+            自动刷新
+          </span>
+        ) : null}
+      </div>
+      <div className="mt-3 flex flex-col gap-3">
         <ConversationMessageList messages={messages} loading={loading} />
         {error ? (
           <p
-            className="m-0 rounded-md bg-danger-soft px-2.5 py-1.5 text-sm text-danger"
+            className="m-0 rounded-xl border border-danger/15 bg-danger-soft px-3 py-2 text-sm text-danger"
             role="alert"
           >
             {error}

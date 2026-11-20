@@ -1,4 +1,8 @@
-"""002 UI 改版的响应式契约：断点、横向滚动与窄屏只读。"""
+"""002 UI 改版的响应式契约：断点、横向滚动与窄屏只读。
+
+2026-11-20 v5 主题重设计后同步：客户侧深色品牌栏改为顶栏与浅色登录品牌区，
+工作台侧栏 208/232，队列表格 768 以下收敛为只读三列（原因/末条/操作隐藏）。
+"""
 
 from __future__ import annotations
 
@@ -20,12 +24,11 @@ def test_breakpoints_and_horizontal_scroll_AC_48() -> None:
     queue_nav = _read("apps/workspace/features/queue/components/WorkspaceNav.tsx")
     detail = _read("apps/workspace/features/queue/components/DetailPanel.tsx")
 
-    assert "min-[1024px]:max-[1279px]:w-[300px]" in chat_login
-    assert "max-[767px]:grid-cols-2" in chat_chat
+    assert "max-[1023px]:flex-row" in chat_login
+    assert "max-w-[560px]" in chat_chat
     assert "max-[767px]:sticky" in chat_shell
-    assert "overflow-x-auto" in queue_table
+    assert "overflow-auto" in queue_table
     assert "min-w-[760px]" in queue_table
-    assert "max-[1023px]:hidden" in queue_table
-    assert "max-[1279px]:w-[200px]" in queue_nav
     assert "max-[767px]:hidden" in queue_table
+    assert "max-[1279px]:w-[208px]" in queue_nav
     assert "请使用桌面端领取会话" in detail
