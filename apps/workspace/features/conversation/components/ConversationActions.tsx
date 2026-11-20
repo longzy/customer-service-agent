@@ -11,7 +11,7 @@ export type ConversationActionsProps = {
 };
 
 const BASE =
-  "inline-flex h-[34px] items-center rounded-md border bg-surface px-3 text-sm focus-visible:outline-none focus-visible:shadow-focus disabled:cursor-not-allowed disabled:border-border disabled:bg-surface-2 disabled:text-text-3";
+  "inline-flex h-9 items-center rounded-lg border bg-surface px-3.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:shadow-focus disabled:cursor-not-allowed disabled:border-border disabled:bg-surface-2 disabled:text-text-3";
 
 /** 已领取/人工中会话的出口：关闭是终态；只有人工中可转回 AI。已结束不渲染。 */
 export function ConversationActions({
@@ -24,7 +24,7 @@ export function ConversationActions({
     <span className="flex items-center gap-2">
       {showReturn ? (
         <button
-          className={`${BASE} border-border text-text hover:border-border-strong`}
+          className={`${BASE} border-border text-text-2 hover:border-border-strong hover:text-text`}
           type="button"
           onClick={onReturnToAi}
           disabled={busy !== null}
@@ -33,7 +33,7 @@ export function ConversationActions({
         </button>
       ) : null}
       <button
-        className={`${BASE} border-border text-danger hover:border-danger`}
+        className={`${BASE} border-border text-danger hover:border-danger/40 hover:bg-danger-soft`}
         type="button"
         onClick={onClose}
         disabled={busy !== null}

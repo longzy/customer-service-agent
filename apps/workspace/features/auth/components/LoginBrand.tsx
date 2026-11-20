@@ -1,5 +1,7 @@
 "use client";
 
+import { Clock, LockKeyhole, ShieldCheck } from "lucide-react";
+
 const ECHO_MARK = (
   <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
     <path
@@ -10,7 +12,7 @@ const ECHO_MARK = (
     />
     <path
       d="M6.2 9.5a4.6 4.6 0 0 1 7.6 0"
-      stroke="var(--brand-mint)"
+      stroke="var(--presence-ink)"
       strokeWidth="1.6"
       strokeLinecap="round"
     />
@@ -18,66 +20,90 @@ const ECHO_MARK = (
   </svg>
 );
 
-const FACTS = [
-  { value: "9–22", label: "服务时间" },
-  { value: "8h", label: "会话锁定" },
-  { value: "审计", label: "全程留痕" },
+const POINTS = [
+  { icon: Clock, text: "服务时间 9:00 – 22:00" },
+  { icon: LockKeyhole, text: "登录后会话锁定 8 小时" },
+  { icon: ShieldCheck, text: "领取、回复、关闭全程审计留痕" },
 ];
 
 export function LoginBrand({ isDev }: { isDev: boolean }) {
   return (
     <aside
       aria-label="ECHO 工作台"
-      className="relative flex w-[520px] shrink-0 flex-col overflow-hidden bg-brand-deep px-12 pb-[34px] pt-10 text-paper min-[1024px]:max-[1279px]:w-[300px] max-[1023px]:w-auto max-[1023px]:flex-row max-[1023px]:items-center max-[1023px]:px-5 max-[1023px]:py-4"
+      className="relative flex flex-col overflow-hidden bg-brand-tint px-10 py-12 max-[1023px]:flex-row max-[1023px]:items-center max-[1023px]:px-6 max-[1023px]:py-5"
     >
-      <span
+      {/* 品牌声波：从右上角向外扩散，只做背景层次，不承载信息 */}
+      <svg
         aria-hidden="true"
-        className="pointer-events-none absolute -right-40 -top-16 h-[520px] w-[520px] rounded-full border border-brand-mint/[0.14]"
-      />
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute -right-40 -top-16 h-[440px] w-[440px] rounded-full border border-brand-mint/[0.10]"
-      />
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute -right-40 -top-16 h-[360px] w-[360px] rounded-full border border-brand-mint/[0.07]"
-      />
+        className="pointer-events-none absolute -right-32 -top-32 h-[460px] w-[460px] text-text opacity-[0.045]"
+        viewBox="0 0 200 200"
+        fill="none"
+      >
+        <path
+          d="M8 68a92 92 0 0 0 184 0"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+        <path
+          d="M38 68a62 62 0 0 0 124 0"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+        <path
+          d="M68 68a32 32 0 0 0 64 0"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+        <circle cx="100" cy="60" r="4" fill="currentColor" />
+      </svg>
 
       <div className="relative z-[1] flex items-center gap-3">
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-accent">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-deep">
           {ECHO_MARK}
         </span>
         <span className="flex flex-col">
-          <span className="text-base font-semibold tracking-[0.14em]">ECHO</span>
-          <span className="mt-0.5 text-xs tracking-[0.2em] text-paper/65">CONSOLE</span>
+          <span className="text-lg font-semibold tracking-[-0.01em]">ECHO</span>
+          <span className="mt-0.5 text-xs tracking-[0.16em] text-text-3">CONSOLE</span>
         </span>
       </div>
 
-      <h1 className="relative z-[1] mt-24 text-[40px] font-semibold leading-[1.22] tracking-[-0.01em] max-[1023px]:hidden">
-        客服工作台
-        <span className="mt-0 block text-brand-mint">登录后开始接待。</span>
-      </h1>
-      <p className="relative z-[1] mt-5 max-w-[340px] text-base leading-[1.9] text-paper/60 max-[1023px]:hidden">
-        待接入队列、会话详情与完整交接记录。登录后你可以看到本租户的客户会话，所有操作都会被审计。
-      </p>
-
-      <div className="relative z-[1] mt-9 flex gap-8 max-[1023px]:hidden">
-        {FACTS.map((fact) => (
-          <div key={fact.label}>
-            <div className="text-[22px] font-semibold tabular-nums text-presence-ink">
-              {fact.value}
-            </div>
-            <div className="mt-1 text-xs tracking-[0.04em] text-paper/65">{fact.label}</div>
-          </div>
-        ))}
+      <div className="relative z-[1] mt-14 max-[1023px]:hidden">
+        <span className="inline-flex h-7 items-center gap-2 rounded-full border border-border bg-surface px-3 text-xs font-medium text-text-2">
+          <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-text-3" />
+          内部系统 · 仅限员工
+        </span>
+        <h1 className="mt-6 max-w-[340px] text-[40px] font-semibold leading-[1.15] tracking-[-0.03em]">
+          客服工作台
+          <br />
+          <span className="text-text-3">登录后开始接待。</span>
+        </h1>
+        <p className="mt-5 max-w-[340px] text-sm leading-[1.8] text-text-2">
+          待接入队列、会话详情与完整交接记录。所有操作都会被记录，用于安全追溯。
+        </p>
       </div>
 
+      <ul className="relative z-[1] mt-9 flex list-none flex-col gap-3 p-0 text-sm text-text-2 max-[1023px]:hidden">
+        {POINTS.map((point) => (
+          <li key={point.text} className="flex items-center gap-2.5">
+            <point.icon
+              size={15}
+              strokeWidth={1.7}
+              aria-hidden="true"
+              className="shrink-0 text-text-3"
+            />
+            {point.text}
+          </li>
+        ))}
+      </ul>
+
       <div className="relative z-[1] mt-auto flex items-end gap-3 max-[1023px]:ml-auto max-[1023px]:mt-0">
-        <div className="text-xs leading-[1.9] text-paper/65">
-          <strong className="block font-medium text-paper/60">内部系统 · 仅限员工使用</strong>
+        <div className="text-xs leading-[1.9] text-text-3 max-[1023px]:hidden">
           ECHO CONSOLE v0.1.0
         </div>
-        <span className="ml-auto inline-flex h-6 items-center gap-1.5 rounded-full border border-paper/20 px-2.5 text-xs tracking-[0.1em] text-paper/60">
+        <span className="ml-auto inline-flex h-6 items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 text-xs text-text-2">
           <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-env-dot" />
           {isDev ? "开发环境" : "生产环境"}
         </span>

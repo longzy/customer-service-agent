@@ -1,6 +1,8 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { Avatar, Drawer } from "@heroui/react";
+
+import { Button } from "@/components/ui/Button";
 
 import type { QueueItem } from "../types";
 
@@ -23,7 +25,7 @@ type DetailPanelProps = {
   onClose: () => void;
 };
 
-const METRIC_LABEL = "block text-xs tracking-[0.04em] text-text-3";
+const METRIC_LABEL = "block text-xs text-text-3";
 const METRIC_VALUE = "mt-1 block text-sm font-semibold tabular-nums";
 
 export function DetailPanel({
@@ -34,119 +36,85 @@ export function DetailPanel({
   onClaim,
   onClose,
 }: DetailPanelProps) {
-  const [isNarrow, setIsNarrow] = useState(false);
-  const closeRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    if (typeof window.matchMedia !== "function") return;
-    const query = window.matchMedia("(max-width: 1023px)");
-    const sync = () => setIsNarrow(query.matches);
-    sync();
-    query.addEventListener("change", sync);
-    return () => query.removeEventListener("change", sync);
-  }, []);
-
-  useEffect(() => {
-    if (open && isNarrow) {
-      closeRef.current?.focus();
-    }
-  }, [isNarrow, open]);
-
   return (
-    <aside
-      aria-label="会话详情"
-      aria-modal={isNarrow && open ? true : undefined}
-      role={isNarrow ? "dialog" : undefined}
-      // 关闭态不可聚焦；桌面空态同样不应把焦点吸进侧栏。
-      inert={!open ? true : undefined}
-      className={`flex min-h-screen w-[352px] shrink-0 flex-col gap-4 border-l border-border bg-surface px-[22px] py-5 max-[1279px]:w-[320px] max-[1023px]:fixed max-[1023px]:inset-y-0 max-[1023px]:right-0 max-[1023px]:z-20 max-[1023px]:min-h-0 max-[1023px]:overflow-y-auto max-[1023px]:shadow-[-24px_0_48px_-32px_var(--shadow-drawer-ink)] max-[1023px]:transition-transform ${
-        open ? "max-[1023px]:translate-x-0" : "max-[1023px]:translate-x-full"
-      }`}
+    <Drawer
+      isOpen={open}
+      onOpenChange={(next) => {
+        if (!next) onClose();
+      }}
     >
-      <div className="flex items-center">
-        <h2 className="m-0 text-sm font-semibold">会话详情</h2>
-        <button
-          ref={closeRef}
-          className="ml-auto rounded-sm px-1.5 py-0.5 text-lg leading-none text-text-3 hover:text-text focus-visible:outline-none focus-visible:shadow-focus disabled:cursor-default disabled:opacity-40"
-          type="button"
-          onClick={onClose}
-          aria-label="关闭详情"
-          disabled={!item}
+      <Drawer.Backdrop />
+      <Drawer.Content
+        placement="right"
+        className="[--drawer-enter-duration:200ms] [--drawer-exit-duration:200ms]"
+      >
+        <Drawer.Dialog
+          aria-label="会话详情"
+          className="w-[380px] gap-5 border-l border-border bg-surface px-6 py-5 max-[1279px]:w-[340px]"
         >
-          ×
-        </button>
-      </div>
-
-      {item ? (
-        <>
           <div className="flex items-center gap-3">
-            <span className="grid h-[42px] w-[42px] shrink-0 place-items-center rounded-full bg-avatar-strong-bg text-base text-avatar-strong-ink">
-              {item.customer_display_name.slice(0, 1)}
-            </span>
-            <span>
-              <span className="flex items-center gap-1.5 text-base font-semibold">
-                {item.customer_display_name}
-                <span className="inline-flex h-[18px] items-center rounded-full border border-border bg-bg px-2 text-xs font-normal text-text-2">
-                  本租户
-                </span>
-              </span>
-              <span className="mt-1 block text-xs tabular-nums text-text-3">
-                {item.customer_username} · 会话 {item.conversation_id.slice(0, 8)}
-              </span>
-            </span>
+            <h2 className="m-0 text-base font-semibold">会话详情</h2>
+            <Drawer.CloseTrigger aria-label="关闭详情" className="ml-auto" />
           </div>
 
-          <div className="grid grid-cols-[1fr_1.25fr_1fr] overflow-hidden rounded-lg border border-border">
-            <div className="min-w-0 border-r border-border px-2.5 py-2.5">
-              <span className={METRIC_LABEL}>等待</span>
-              <span className={`${METRIC_VALUE} ${isOverdue(item) ? "text-danger" : ""}`}>
-                {formatWait(item.waiting_seconds)}
-              </span>
-            </div>
-            <div className="min-w-0 border-r border-border px-2.5 py-2.5">
-              <span className={METRIC_LABEL}>转人工原因</span>
-              <span className="mt-1 block text-xs leading-[1.4] text-text">
-                {REASON_LABEL[item.reason] ?? item.reason}
-              </span>
-            </div>
-            <div className="min-w-0 px-2.5 py-2.5">
-              <span className={METRIC_LABEL}>订单</span>
-              <span className={METRIC_VALUE}>{item.order_count}</span>
-            </div>
-          </div>
+          <Drawer.Body className="flex flex-col gap-5 overflow-y-auto p-0">
+            {item ? (
+              <>
+                <div className="flex items-center gap-3">
+                  <Avatar className="h-11 w-11 shrink-0 bg-accent-soft text-base font-medium text-accent-ink">
+                    <Avatar.Fallback>{item.customer_display_name.slice(0, 1)}</Avatar.Fallback>
+                  </Avatar>
+                  <span className="min-w-0">
+                    <span className="block truncate text-base font-semibold">
+                      {item.customer_display_name}
+                    </span>
+                    <span className="mt-1 block truncate text-xs text-text-3">
+                      {item.customer_username} · 会话 {item.conversation_id.slice(0, 8)}
+                    </span>
+                  </span>
+                </div>
 
-          <DetailSections item={item} />
+                <div className="grid grid-cols-[1fr_1.25fr_1fr] divide-x divide-border overflow-hidden rounded-xl border border-border bg-surface-2">
+                  <div className="min-w-0 px-3 py-3">
+                    <span className={METRIC_LABEL}>等待</span>
+                    <span className={`${METRIC_VALUE} ${isOverdue(item) ? "text-danger" : ""}`}>
+                      {formatWait(item.waiting_seconds)}
+                    </span>
+                  </div>
+                  <div className="min-w-0 px-3 py-3">
+                    <span className={METRIC_LABEL}>转人工原因</span>
+                    <span className="mt-1 block text-xs leading-snug text-text">
+                      {REASON_LABEL[item.reason] ?? item.reason}
+                    </span>
+                  </div>
+                  <div className="min-w-0 px-3 py-3">
+                    <span className={METRIC_LABEL}>订单</span>
+                    <span className={METRIC_VALUE}>{item.order_count}</span>
+                  </div>
+                </div>
 
-          <div className="mt-auto flex flex-col gap-2">
-            <p className="m-0 hidden rounded-md border border-border bg-bg px-3 py-2 text-xs text-text-2 max-[767px]:block">
-              请使用桌面端领取会话。
-            </p>
-            <button
-              className="h-[38px] rounded-md border border-accent bg-accent text-sm font-medium text-surface hover:bg-brand-deep focus-visible:outline-none focus-visible:shadow-focus disabled:cursor-not-allowed disabled:border-border disabled:bg-surface-2 disabled:text-text-3 max-[767px]:hidden"
-              type="button"
-              onClick={onClaim}
-              disabled={disabled || claiming}
-            >
-              {claiming ? "领取中…" : "领取会话"}
-            </button>
-            <button
-              className="h-[38px] rounded-md border border-border bg-surface text-sm text-text-3"
-              type="button"
-              disabled
-              title="领取后进入会话页查看"
-            >
-              查看完整交接单
-            </button>
-            <p className="m-0 border-t border-line-soft pt-2.5 text-xs leading-[1.7] text-text-3">
-              数据范围：本租户 · 仅坐席可见。超时阈值 5 分钟，超过后在列表中标记。
-            </p>
-          </div>
-        </>
-      ) : (
-        <div className="grid flex-1 place-items-center p-6 text-center text-xs leading-[1.7] text-text-3">
-          <p>选择左侧一行，查看客户与领取规则。</p>
-        </div>
-      )}
-    </aside>
+                <DetailSections item={item} />
+              </>
+            ) : null}
+          </Drawer.Body>
+
+          {item ? (
+            <Drawer.Footer className="p-0">
+              <p className="m-0 hidden rounded-xl border border-border bg-surface-2 px-3.5 py-2.5 text-xs text-text-2 max-[767px]:block">
+                请使用桌面端领取会话。
+              </p>
+              <Button
+                variant="primary"
+                className="h-10 w-full max-[767px]:hidden"
+                onClick={onClaim}
+                disabled={disabled || claiming}
+              >
+                {claiming ? "领取中…" : "领取会话"}
+              </Button>
+            </Drawer.Footer>
+          ) : null}
+        </Drawer.Dialog>
+      </Drawer.Content>
+    </Drawer>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { House, List, MessageCircle } from "lucide-react";
 
 import type { Message, MessageAuthor } from "../types";
 
@@ -14,42 +15,15 @@ const AUTHOR_LABELS: Record<MessageAuthor, string> = {
 const QUICK_ACTIONS = [
   {
     label: "查订单",
-    icon: (
-      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-        <path
-          d="M3 4.5h10M3 8h10M3 11.5h6"
-          stroke="currentColor"
-          strokeWidth="1.4"
-          strokeLinecap="round"
-        />
-      </svg>
-    ),
+    icon: <List size={15} strokeWidth={1.6} aria-hidden="true" />,
   },
   {
     label: "改地址",
-    icon: (
-      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-        <path
-          d="M8 2.5l5 4.5v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V7l5-4.5Z"
-          stroke="currentColor"
-          strokeWidth="1.4"
-          strokeLinejoin="round"
-        />
-      </svg>
-    ),
+    icon: <House size={15} strokeWidth={1.6} aria-hidden="true" />,
   },
   {
     label: "转人工",
-    icon: (
-      <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-        <path
-          d="M3 4.5A2.5 2.5 0 0 1 5.5 2h5A2.5 2.5 0 0 1 13 4.5v4a2.5 2.5 0 0 1-2.5 2.5H7l-3 2.5V11A2.5 2.5 0 0 1 3 8.5v-4Z"
-          stroke="currentColor"
-          strokeWidth="1.4"
-          strokeLinejoin="round"
-        />
-      </svg>
-    ),
+    icon: <MessageCircle size={15} strokeWidth={1.6} aria-hidden="true" />,
   },
 ];
 
@@ -73,7 +47,9 @@ function authorLabel(authorType: MessageAuthor): string {
 }
 
 const BUBBLE_BASE =
-  "rounded-xl px-3.5 py-2.5 text-base leading-[1.7] whitespace-pre-wrap break-words";
+  "max-w-[min(560px,100%)] rounded-2xl px-4 py-2.5 text-base leading-[1.65] whitespace-pre-wrap break-words";
+
+const AVATAR = "grid h-8 w-8 shrink-0 place-items-center rounded-full text-xs font-semibold";
 
 export function MessageList({ messages, loading, status, onQuick }: MessageListProps) {
   const listRef = useRef<HTMLDivElement>(null);
@@ -87,34 +63,32 @@ export function MessageList({ messages, loading, status, onQuick }: MessageListP
 
   return (
     <div
-      className="flex min-h-0 flex-1 flex-col gap-[18px] overflow-y-auto px-8 pb-3 pt-[26px] max-[1023px]:px-4 max-[1023px]:py-4"
+      className="flex min-h-0 flex-1 flex-col gap-5 overflow-y-auto py-7 max-[1023px]:py-5"
       ref={listRef}
       role="log"
       aria-live="polite"
       aria-label="消息记录"
     >
       {loading ? (
-        <div className="flex flex-col gap-2.5 py-1.5" aria-label="加载中">
-          <span className="block h-11 w-[62%] animate-pulse motion-reduce:animate-none rounded-xl bg-surface-muted" />
-          <span className="block h-11 w-[48%] animate-pulse motion-reduce:animate-none self-end rounded-xl bg-surface-muted" />
-          <span className="block h-11 w-[70%] animate-pulse motion-reduce:animate-none rounded-xl bg-surface-muted" />
+        <div className="flex flex-col gap-3" aria-label="加载中">
+          <span className="block h-16 w-[70%] animate-pulse motion-reduce:animate-none rounded-2xl bg-surface-2" />
+          <span className="block h-10 w-[46%] animate-pulse motion-reduce:animate-none self-end rounded-2xl bg-surface-2" />
+          <span className="block h-12 w-[58%] animate-pulse motion-reduce:animate-none rounded-2xl bg-surface-2" />
         </div>
       ) : null}
 
       {!loading ? (
-        <div className="max-w-[640px] rounded-xl border border-sand-line bg-sand p-[18px]">
-          <h2 className="m-0 font-serif text-[20px] font-semibold tracking-[0.01em]">
-            你好，我是小回。
-          </h2>
-          <p className="mb-0 mt-2 max-w-[520px] text-base leading-[1.75] text-text-2">
+        <section className="max-w-[560px] self-start rounded-2xl border border-border bg-surface p-4 shadow-panel">
+          <h2 className="m-0 text-base font-semibold tracking-[-0.01em]">你好，我是小回。</h2>
+          <p className="mb-0 mt-1 text-sm leading-relaxed text-text-2">
             我可以帮你查订单、改配送、办理退换。需要真人时，直接说「转人工」。
           </p>
-          <div className="mt-3.5 grid grid-cols-3 gap-2 min-[768px]:max-[1023px]:grid-cols-1 max-[767px]:grid-cols-2">
+          <div className="mt-3 flex flex-wrap gap-2">
             {QUICK_ACTIONS.map((action) => (
               <button
                 key={action.label}
                 type="button"
-                className="flex items-center gap-2 rounded-[11px] border border-border bg-surface px-2.5 py-2 text-left text-sm text-text hover:border-border-strong focus-visible:outline-none focus-visible:shadow-focus"
+                className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-border bg-surface px-3 text-xs text-text-2 transition-colors hover:border-accent-line hover:bg-accent-soft hover:text-accent-ink focus-visible:outline-none focus-visible:shadow-focus"
                 onClick={() => onQuick(action.label)}
               >
                 <span className="text-accent">{action.icon}</span>
@@ -122,7 +96,7 @@ export function MessageList({ messages, loading, status, onQuick }: MessageListP
               </button>
             ))}
           </div>
-        </div>
+        </section>
       ) : null}
 
       {messages.map((message) => {
@@ -132,42 +106,51 @@ export function MessageList({ messages, loading, status, onQuick }: MessageListP
 
         if (isSystem) {
           return (
-            <p key={message.id} className="m-0 self-center text-center text-xs text-text-3">
+            <p
+              key={message.id}
+              className="m-0 self-center rounded-full bg-surface-2 px-3 py-1 text-xs text-text-3"
+            >
               {message.content}
             </p>
           );
         }
 
+        // 客户黑底、AI/坐席白底：近黑主题下强调色浅底与表面色过于接近，
+        // 非客户消息统一白底 + 描边，用头像与作者标签区分 AI 与坐席。
         const tone = isCustomer
-          ? "bg-brand-deep text-paper rounded-tr-[4px]"
-          : author === "agent"
-            ? "border border-accent-line bg-accent-soft text-accent-ink rounded-tl-[4px]"
-            : "border border-border bg-surface rounded-tl-[4px]";
+          ? "bg-accent text-white"
+          : "border border-border bg-surface text-text";
 
         return (
           <article
             key={message.id}
-            className={`flex max-w-[560px] gap-2.5 ${isCustomer ? "justify-end self-end" : "items-start"}`}
+            className={`flex max-w-[640px] gap-2.5 ${isCustomer ? "justify-end self-end" : "items-start"}`}
             data-author={author}
           >
             {!isCustomer ? (
               <span
                 aria-hidden="true"
-                className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-[9px] bg-brand-deep font-serif text-base text-presence-ink"
+                className={`${AVATAR} ${
+                  author === "agent"
+                    ? "bg-accent-soft text-accent-ink"
+                    : "bg-brand-deep text-presence-ink"
+                }`}
               >
                 {author === "agent" ? "座" : "回"}
               </span>
             ) : null}
-            <div className="flex min-w-0 flex-col gap-1">
+            <div
+              className={`flex min-w-0 flex-col gap-1 ${isCustomer ? "items-end" : "items-start"}`}
+            >
               <span className="sr-only">{authorLabel(author)}</span>
               <div className={`${BUBBLE_BASE} ${tone}`}>{message.content}</div>
+              <time
+                className="px-0.5 text-[11px] tabular-nums text-text-3"
+                dateTime={message.created_at}
+              >
+                {formatTime(message.created_at)}
+              </time>
             </div>
-            <time
-              className="mb-0.5 shrink-0 self-end text-xs tabular-nums text-text-3"
-              dateTime={message.created_at}
-            >
-              {formatTime(message.created_at)}
-            </time>
           </article>
         );
       })}
@@ -179,11 +162,11 @@ export function MessageList({ messages, loading, status, onQuick }: MessageListP
         >
           <span
             aria-hidden="true"
-            className="mt-1 h-[9px] w-[9px] shrink-0 animate-pulse motion-reduce:animate-none rounded-full bg-warning shadow-[0_0_0_5px_var(--halo-warning)]"
+            className="mt-1 h-2 w-2 shrink-0 animate-pulse motion-reduce:animate-none rounded-full bg-warning shadow-[0_0_0_4px_var(--halo-warning)]"
           />
           <div>
             <div className="text-sm font-semibold text-warning-ink">正在为你接通人工客服</div>
-            <div className="mt-1 text-xs leading-[1.65] text-warning-ink">
+            <div className="mt-1 text-xs leading-relaxed text-warning-ink">
               接通后会在这里提示你，也可以先补充问题。
             </div>
           </div>

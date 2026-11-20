@@ -1,69 +1,71 @@
 /*
  * M1 设计令牌（单一来源）。
- * v2（2026-11-18）：按 UI 改版提案更新品牌色，补齐间距/圆角/字体/阴影令牌。
- * 取值与用途见 docs/design-system/ui-spec.md 第 2 节；旧版数值不再使用。
+ * v5（2026-11-20）：按用户决策重做主题——冷调中性底 + 近黑强调色、去衬线、
+ * 统一圆角与轻阴影，并直接对齐 HeroUI v3 语义变量，让组件自带样式跟随主题。
+ * 取值与用途见 docs/design-system/ui-spec.md 第 2 节。
  */
 :root {
   /* 品牌 */
-  --brand-deep: #13211c;
-  --canvas-deep: #e9e3d8;
+  --brand-deep: #111827; /* 墨黑锚点：logo、极少数深色块 */
+  --canvas-deep: #eceff3;
   --brand: var(--accent);
   --brand-soft: var(--accent-soft);
+  --brand-tint: #f3f5f7; /* 品牌浅底：登录品牌区、空态插图底板 */
 
   /* 画布与表面 */
-  --bg: #f6f5f1; /* 页面画布 */
-  --paper: #fffcf6; /* 客户侧纸面 */
+  --bg: #f7f8fa; /* 页面画布：中性极浅灰 */
+  --paper: #ffffff; /* 对话纸面 */
   --surface: #ffffff;
-  --surface-2: #f4f4f2;
-  --sand: #f2ebdd;
+  --surface-2: #f2f4f5;
+  --sand: #f9fafb;
 
   /* 描边 */
-  --border: #e6e2d8;
-  --border-strong: #d6d2c6;
-  --input-border: #dcd7ca;
-  --line-soft: #efece4;
+  --border: #e5e8eb;
+  --border-strong: #d0d5dd;
+  --input-border: #cfd6dd;
+  --line-soft: #eef0f2;
 
   /* 文字 */
-  --text: #1b1b17;
-  --text-2: #57554e;
-  --text-3: #726f65;
+  --text: #101828;
+  --text-2: #475467;
+  --text-3: #667085;
 
   /* 组件契约色（ui-spec 3.x 引用） */
-  --accent-ink: #145c4d;
-  --accent-line: #cfe2da;
-  --brand-mint: #9ec7b8;
-  --online: #58c49a;
-  --surface-muted: #faf9f5;
-  --surface-quiet: #fcfbf8;
-  --surface-selected: #f0f4f1;
-  --surface-soft: #fdfcf9;
-  --surface-disabled: #f1efe8;
-  --avatar-bg: #eef0e9;
-  --avatar-ink: #5b6a5f;
-  --avatar-strong-bg: #e7ede8;
-  --avatar-strong-ink: #2f4a3f;
-  --sand-line: #e9e0cd;
-  --warning-line: #ecd9bb;
-  --warning-ink: #7c4708;
-  --warning-ink-2: #8a5a24;
-  --notice-bg: #faf6ec;
-  --notice-line: #ece2cc;
-  --notice-ink: #8a6a34;
-  --notice-strong: #6f5222;
-  --env-dot: #d8a54a;
-  --presence-ink: #e9f3ee;
-  --skeleton-mid: #f7f4ec;
-  --sidebar-ink: #e9e6db;
-  --avatar-deep: #2b463c;
+  --accent-ink: #111827;
+  --accent-line: #e2e5e9;
+  --brand-mint: #9ca3af;
+  --online: #12b76a;
+  --surface-muted: #f9fafb;
+  --surface-quiet: #fcfcfd;
+  --surface-selected: #f3f4f6;
+  --surface-soft: #f9fafb;
+  --surface-disabled: #f2f4f7;
+  --avatar-bg: #eef2f6;
+  --avatar-ink: #475467;
+  --avatar-strong-bg: #f3f4f6;
+  --avatar-strong-ink: #111827;
+  --sand-line: #e5e8eb;
+  --warning-line: #fedf89;
+  --warning-ink: #93370d;
+  --warning-ink-2: #b54708;
+  --notice-bg: #fffaeb;
+  --notice-line: #fedf89;
+  --notice-ink: #93370d;
+  --notice-strong: #7a2e0e;
+  --env-dot: #f79009;
+  --presence-ink: #ffffff;
+  --skeleton-mid: #f2f4f7;
+  --sidebar-ink: #344054;
+  --avatar-deep: #134e4a;
 
   /* 强调与语义 */
-  --accent: #0f5c4c;
-  --accent-soft: #eaf2ee;
-  --success: #1f8a6c;
-  --warning: #94550a;
-  --warning-soft: #f8efdf;
-  --danger: #b4441c;
-  --danger-soft: #fbeee8;
+  --accent: #111827;
+  --accent-soft: #f3f4f6;
+  --success: #15803d;
+  --warning: #b54708;
+  --warning-soft: #fffaeb;
+  --danger: #d92d20;
+  --danger-soft: #fef3f2;
 
   /* 间距（4px 基数；允许值 2/4/6/8/12/16/24/32） */
   --space-1: 2px;
@@ -76,33 +78,66 @@
   --space-8: 32px;
 
   /* 圆角 */
-  --radius-sm: 4px;
-  --radius-md: 9px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
   --radius-lg: 10px;
-  --radius-xl: 14px;
+  --radius-xl: 12px;
+  --radius-2xl: 16px;
   --radius-pill: 999px;
 
-  /* 字体 */
+  /* 字体：全站无衬线，标题靠字重与字距建立层级 */
   --font-sans:
-    -apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Helvetica Neue", Arial,
-    sans-serif;
-  --font-serif: "Songti SC", "Noto Serif SC", "Source Han Serif SC", Georgia, serif;
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", "PingFang SC", "Segoe UI",
+    "Helvetica Neue", Arial, sans-serif;
+  --font-serif: var(--font-sans);
 
   /* 字号 */
-  --text-xs: 11px;
-  --text-sm: 12.5px;
-  --text-base: 13.5px;
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-base: 14px;
   --text-md: 14px;
-  --text-lg: 15px;
-  --text-xl: 22px;
+  --text-lg: 16px;
+  --text-xl: 20px;
 
-  /* 阴影与焦点 */
-  --shadow-card: 0 1px 2px rgba(19, 33, 28, 0.04), 0 24px 48px -36px rgba(19, 33, 28, 0.22);
-  --shadow-float: 0 1px 2px rgba(19, 33, 28, 0.05), 0 16px 32px -24px rgba(19, 33, 28, 0.3);
-  --focus-ring: 0 0 0 3px var(--accent);
+  /* 阴影：平面元素只描边，阴影只给浮起层 */
+  --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.05);
+  --shadow-float: 0 8px 24px -6px rgba(16, 24, 40, 0.12), 0 2px 6px -2px rgba(16, 24, 40, 0.06);
+  --focus-ring: 0 0 0 3px rgba(17, 24, 39, 0.18);
+  /* 输入框焦点环：字段区域用 1px 细环，避免与 1px 描边叠成粗边框 */
+  --focus-ring-field: 0 0 0 1px var(--accent);
   /* 装饰光晕与阴影色；组件只引用变量，不写字面量 */
-  --halo-mint: rgba(158, 199, 184, 0.05);
-  --halo-online: rgba(88, 196, 154, 0.12);
-  --halo-warning: rgba(148, 85, 10, 0.12);
-  --shadow-drawer-ink: rgba(19, 33, 28, 0.4);
+  --halo-mint: rgba(156, 163, 175, 0.08);
+  --halo-online: rgba(18, 183, 106, 0.16);
+  --halo-warning: rgba(181, 71, 8, 0.16);
+  --shadow-drawer-ink: rgba(16, 24, 40, 0.4);
+
+  /* HeroUI 根变量对齐项目令牌；派生色由官方 color-mix 自动跟随根变量 */
+  --background: var(--bg);
+  --foreground: var(--text);
+  --surface-foreground: var(--text);
+  --surface-secondary: var(--surface-2);
+  --surface-tertiary: #eef0f2;
+  --overlay: var(--surface);
+  --overlay-foreground: var(--text);
+  --muted: var(--text-3);
+  --default: var(--surface-2);
+  --default-foreground: #344054;
+  --border-secondary: var(--border-strong);
+  --separator: var(--line-soft);
+  --field-background: var(--surface);
+  --field-foreground: var(--text);
+  --field-placeholder: var(--text-3);
+  --field-border: var(--input-border);
+  --field-border-width: 1px;
+  --accent-foreground: #ffffff;
+  --danger-foreground: #ffffff;
+  --warning-foreground: #ffffff;
+  --success-foreground: #ffffff;
+  --focus: var(--accent);
+  --radius: 10px;
+  --field-radius: 10px;
+  --backdrop: rgba(16, 24, 40, 0.45);
+  --surface-shadow: var(--shadow-card);
+  --overlay-shadow: var(--shadow-float);
+  --field-shadow: none;
 }

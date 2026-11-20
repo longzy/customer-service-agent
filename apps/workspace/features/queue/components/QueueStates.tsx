@@ -1,52 +1,28 @@
 "use client";
 
+import { Check, CircleAlert, LockKeyhole } from "lucide-react";
+
+import { Button } from "@/components/ui/Button";
+
 const STATE =
-  "mt-3.5 flex min-h-[360px] flex-col items-center justify-center gap-1.5 rounded-xl border border-border bg-surface p-8 text-center";
-const ICON = "mb-0.5 grid h-[38px] w-[38px] place-items-center rounded-full";
-const TITLE = "m-0 text-sm font-semibold";
-const TEXT = "m-0 max-w-[320px] text-xs leading-[1.6] text-text-2";
-const PRIMARY =
-  "mt-1.5 h-[30px] rounded-md border border-accent bg-accent px-3 text-xs text-surface focus-visible:outline-none focus-visible:shadow-focus disabled:cursor-not-allowed disabled:border-border disabled:bg-surface-2 disabled:text-text-3";
-const SECONDARY =
-  "mt-1.5 h-[30px] rounded-md border border-border bg-surface px-3 text-xs text-text focus-visible:outline-none focus-visible:shadow-focus";
+  "flex min-h-0 flex-1 flex-col items-center justify-center gap-2 rounded-2xl border border-border bg-surface p-8 text-center shadow-panel";
+const ICON = "mb-1 grid h-11 w-11 place-items-center rounded-full";
+const TITLE = "m-0 text-base font-semibold";
+const TEXT = "m-0 max-w-[340px] text-sm leading-relaxed text-text-2";
 
 export function QueueSkeleton() {
+  // 首次加载用居中 spinner，不渲染表格骨架：避免刷新瞬间先闪一层表格网格线。
   return (
     <div
-      className="mt-3.5 overflow-x-auto rounded-xl border border-border bg-surface"
+      className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 rounded-2xl border border-border bg-surface shadow-panel"
       aria-busy="true"
       aria-label="队列加载中"
     >
-      <div className="h-[38px] border-b border-border bg-surface-muted" />
-      <table className="w-full min-w-[760px] table-fixed border-collapse">
-        <colgroup>
-          <col style={{ width: 40 }} />
-          <col style={{ width: 168 }} />
-          <col style={{ width: 70 }} />
-          <col style={{ width: 122 }} />
-          <col />
-          <col style={{ width: 50 }} />
-          <col style={{ width: 78 }} />
-          <col style={{ width: 76 }} />
-        </colgroup>
-        <tbody>
-          {Array.from({ length: 8 }).map((_, row) => (
-            <tr key={row} className="border-b border-line-soft last:border-0">
-              {[24, 120, 48, 96, 180, 36, 56, 48].map((width, cell) => (
-                <td key={cell} className="h-14 px-2.5">
-                  <span
-                    className="block h-2 animate-pulse motion-reduce:animate-none rounded-sm bg-surface-muted"
-                    style={{ width }}
-                  />
-                </td>
-              ))}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      <div className="flex h-[38px] items-center bg-surface-quiet px-3 text-xs text-text-3">
-        正在同步队列
-      </div>
+      <span
+        aria-hidden="true"
+        className="h-5 w-5 animate-spin rounded-full border-2 border-border border-t-accent motion-reduce:animate-none"
+      />
+      <p className="m-0 text-sm text-text-3">正在同步队列…</p>
     </div>
   );
 }
@@ -55,21 +31,13 @@ export function QueueEmpty({ onRefresh }: { onRefresh: () => void }) {
   return (
     <div className={STATE}>
       <span className={`${ICON} bg-accent-soft text-accent`}>
-        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
-          <path
-            d="M4 9.2 7.2 12.4 14 5.6"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
-        </svg>
+        <Check size={20} strokeWidth={1.8} aria-hidden="true" />
       </span>
       <h2 className={TITLE}>队列已清空</h2>
       <p className={TEXT}>当前没有等待中的会话。保持在线，点击刷新即可查看新请求。</p>
-      <button className={SECONDARY} type="button" onClick={onRefresh}>
+      <Button variant="secondary" size="sm" className="mt-1" onClick={onRefresh}>
         手动刷新
-      </button>
+      </Button>
     </div>
   );
 }
@@ -88,56 +56,43 @@ export function QueueError({
   return (
     <div className={STATE} role="alert">
       <span className={`${ICON} bg-danger-soft text-danger`}>
-        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
-          <path
-            d="M9 5.2v4.2M9 12.2v.3"
-            stroke="currentColor"
-            strokeWidth="1.8"
-            strokeLinecap="round"
-          />
-          <circle cx="9" cy="9" r="6.6" stroke="currentColor" strokeWidth="1.5" />
-        </svg>
+        <CircleAlert size={20} strokeWidth={1.7} aria-hidden="true" />
       </span>
       <h2 className={TITLE}>队列加载失败</h2>
       <p className={TEXT}>{message}</p>
       <span className="text-xs tabular-nums text-text-3">{code ?? "QUEUE_UNAVAILABLE"}</span>
-      <button className={PRIMARY} type="button" onClick={onRetry} disabled={retrying}>
+      <Button variant="primary" size="sm" className="mt-1" onClick={onRetry} disabled={retrying}>
         {retrying ? "重试中…" : "重试"}
-      </button>
+      </Button>
     </div>
   );
 }
 
 export function DeniedState({ onLogout }: { onLogout: () => void }) {
   return (
-    <div className={STATE} role="alert">
-      <span className={`${ICON} bg-bg text-text-2`}>
-        <svg width="17" height="17" viewBox="0 0 18 18" fill="none" aria-hidden="true">
-          <rect
-            x="4"
-            y="8"
-            width="10"
-            height="7"
-            rx="1.6"
-            stroke="currentColor"
-            strokeWidth="1.5"
-          />
-          <path d="M6.4 8V6.2a2.6 2.6 0 0 1 5.2 0V8" stroke="currentColor" strokeWidth="1.5" />
-        </svg>
+    <div className={`${STATE} m-auto max-w-[440px]`} role="alert">
+      <span className={`${ICON} bg-surface-2 text-text-2`}>
+        <LockKeyhole size={19} strokeWidth={1.7} aria-hidden="true" />
       </span>
       <h2 className={TITLE}>无权访问该队列</h2>
-      <p className={TEXT}>当前账号不是坐席角色。如需处理会话，请联系管理员开通权限。</p>
-      <button className={SECONDARY} type="button" onClick={onLogout}>
+      <p className={TEXT}>当前账号不是坐席角色。如需处理会话，请先联系管理员开通权限。</p>
+      <Button variant="secondary" size="sm" className="mt-1" onClick={onLogout}>
         返回登录
-      </button>
+      </Button>
     </div>
   );
 }
 
 export function PageLoading({ label = "加载中…" }: { label?: string }) {
   return (
-    <main className="grid min-h-screen place-items-center bg-bg font-sans text-sm text-text-2">
-      <p aria-busy="true">{label}</p>
+    <main className="grid min-h-dvh place-items-center bg-bg font-sans text-sm text-text-3">
+      <p aria-busy="true" className="m-0 flex items-center gap-2">
+        <span
+          aria-hidden="true"
+          className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-border border-t-accent motion-reduce:animate-none"
+        />
+        {label}
+      </p>
     </main>
   );
 }

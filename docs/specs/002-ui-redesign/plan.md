@@ -130,3 +130,10 @@
 - `python3 scripts/trace.py --strict` 通过；AC-40~AC-49 均被 feature 引用且有测试。
 - `python3 scripts/check-docs.py` 通过；S4 基线比对记录进执行卡。
 - 实现者不得自审；S2/S3 完成后各做一次独立评审。
+
+## 8. 变更记录
+
+- 2026-11-20：002 切片已收口，第 3.2 节 Non-Goals 与第 4 节对「引入 Tailwind 之外的 UI/CSS 库」的否决结论只约束本切片实施期，正文保留不改。后续依据用户决策接入 HeroUI v3，前端依赖规则以 [frontend.md](../../process/frontend.md) 的 FE-CSS-05 为准，状态记录见 [CURRENT.md](../../CURRENT.md)。
+- 2026-11-20：依据用户反馈清理队列页假功能与重复入口，UI 契约以 [ui-spec](../../design-system/ui-spec.md) 3.2/3.7/3.8/3.9 为准；002 正文不改。
+- 2026-11-20：queue 工具栏与表格统一由 HeroUI `Card` 承载，搜索改 `SearchField`，Select 补 `Indicator`，超过 10 条显示真实客户端 `Pagination`；UI 契约以 ui-spec 3.7/3.8/3.15 为准，002 正文不改。
+- 2026-11-20：用户反馈上述 `Card` 包法偏离原设计稿。结论：HeroUI 只承担组件行为层，版式回到设计稿契约——工具栏在页面层、表格唯一外框、`Tabs` 下划线（`Tabs.Indicator` 必须在 `Tabs.Tab` 内）、状态用圆点 + 文字、分页并入表格页脚；ui-spec 3.7/3.8/3.15 已按此修订。
