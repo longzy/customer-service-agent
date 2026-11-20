@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>创意方向提案 · 回声 ECHO</title>
+<style>
+  :root{
+    --bg:#f7f8fa; --surface:#fff; --surface-2:#f2f4f5; --border:#e5e8eb; --line:#eef0f2;
+    --text:#101828; --text-2:#475467; --text-3:#667085;
+    --accent:#111827; --soft:#f3f4f6; --danger:#d92d20; --ok:#15803d; --warn:#b54708;
+    --mono:"SF Mono",ui-monospace,Menlo,monospace;
+    --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Inter","PingFang SC","Segoe UI",Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.65;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1240px;margin:0 auto;padding:56px 32px 96px}
+  header{border-bottom:1px solid var(--border);padding-bottom:28px;margin-bottom:36px}
+  .kicker{font-size:11px;font-weight:600;letter-spacing:.16em;color:var(--text-3);text-transform:uppercase}
+  h1{margin:14px 0 0;font-size:36px;line-height:1.2;letter-spacing:-.03em;font-weight:600}
+  .sub{margin:12px 0 0;font-size:15px;color:var(--text-2);max-width:720px}
+  .meta{margin-top:18px;display:flex;gap:20px;font-size:12px;color:var(--text-3)}
+  h2{margin:48px 0 16px;font-size:20px;letter-spacing:-.02em;font-weight:600}
+  h3{margin:0;font-size:17px;letter-spacing:-.01em;font-weight:600}
+  p{margin:0 0 10px}
+  ul{margin:0;padding-left:18px}
+  li{margin:5px 0}
+  .muted{color:var(--text-2);font-size:14px}
+  .small{font-size:12.5px;color:var(--text-3)}
+
+  .diag{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1px;background:var(--border);
+        border:1px solid var(--border);border-radius:14px;overflow:hidden}
+  .diag div{background:var(--surface);padding:18px 20px}
+  .diag b{display:block;font-size:13px;margin-bottom:6px}
+  .diag span{font-size:13px;color:var(--text-2);line-height:1.6}
+
+  .shots{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:8px 0 0}
+  .shot{border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--surface)}
+  .shot img{display:block;width:100%;height:auto}
+  .shot figcaption{padding:9px 12px;font-size:12px;color:var(--text-3);border-top:1px solid var(--line)}
+
+  .card{border:1px solid var(--border);border-radius:16px;background:var(--surface);padding:24px;margin-top:18px}
+  .card .head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+  .tag{font-size:11px;font-family:var(--mono);padding:2px 8px;border-radius:6px;background:var(--soft);color:var(--text-2)}
+  .tag.warn{background:#fffaeb;color:var(--warn)}
+  .tag.ok{background:#ecfdf3;color:var(--ok)}
+  .tag.danger{background:#fef3f2;color:var(--danger)}
+  .concept{margin:10px 0 0;font-size:14.5px;color:var(--text-2)}
+
+  table{width:100%;border-collapse:collapse;margin-top:18px;font-size:13.5px}
+  th,td{text-align:left;padding:11px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-size:12px;font-weight:600;color:var(--text-3);letter-spacing:.04em;border-bottom:1px solid var(--border)}
+  td:first-child,th:first-child{padding-left:0}
+  td:last-child,th:last-child{padding-right:0}
+  code{font-family:var(--mono);font-size:12px;background:var(--soft);padding:1px 6px;border-radius:5px}
+
+  .rec{border:1px solid var(--border);border-radius:16px;background:var(--surface);padding:24px;margin-top:16px}
+  .rec .row{display:flex;gap:16px;padding:14px 0;border-bottom:1px solid var(--line)}
+  .rec .row:last-child{border-bottom:0;padding-bottom:0}
+  .rec .row b{flex:none;width:96px;font-size:13px}
+  .rec .row span{font-size:13.5px;color:var(--text-2)}
+
+  .ask{border:1px solid var(--accent);border-radius:16px;padding:22px 24px;margin-top:32px;background:#fff}
+  .ask b{display:block;font-size:15px;margin-bottom:10px}
+  .ask ol{margin:0;padding-left:20px;font-size:13.5px;color:var(--text-2)}
+  .ask li{margin:7px 0}
+  footer{margin-top:48px;padding-top:20px;border-top:1px solid var(--border);font-size:12px;color:var(--text-3)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <p class="kicker">UI 提案 · 2026-11-20 · 待决策</p>
+  <h1>给登录页和工作台补上「设计记忆点」</h1>
+  <p class="sub">当前 v5 主题已经做到干净、中性、可用，但没有一处形状、图形或节奏是「回声 ECHO 特有」的。下面三个方向都在现有令牌体系内实现，差别在<b>介入深度</b>与<b>要放开的约束</b>；第 3、4 节补齐了坐席登录与客户聊天，并回答「两侧要不要完全一致」。</p>
+  <div class="meta">
+    <span>样张尺寸 1200 × 800</span><span>同一套真实文案</span><span>代码都在本目录</span>
+  </div>
+</header>
+
+<h2>1 · 先说清楚「少了什么」</h2>
+<div class="diag">
+  <div><b>只有一个强调色，而且是黑</b><span>主按钮、导航选中、当前行、聊天气泡全是同一片 <code>#111827</code>，界面九成是灰阶，眼睛找不到落点。</span></div>
+  <div><b>登录页左侧 44% 是空白预算</b><span>品牌区只放文案，声波背景只有 4.5% 不透明度——它存在，但没人看得见。</span></div>
+  <div><b>内部页面没有形态语言</b><span>侧栏、表格、抽屉全靠 1px 描边和 16px 圆角区分，形状本身不承载任何品牌信息。</span></div>
+  <div><b>动效被压到接近静止</b><span>规范只留入场 240ms、反馈 120ms、等待脉冲 1600ms，页面之间切换像在翻静态图。</span></div>
+  <div><b>字号五档，节奏偏平</b><span>标题 20 与正文 14 只差 6px，页面层级主要靠留白撑，读起来「规整但不兴奋」。</span></div>
+  <div><b>两个登录页几乎一样</b><span>客户与坐席共用同一布局、同一张卡片，只换文案——从登录页看不出这是两个不同的使用场景。</span></div>
+</div>
+
+<h2>2 · 三个方向</h2>
+
+<figure class="shots">
+  <div class="shot"><img src="a-login.png" alt="方向 A 登录页"><figcaption>A · 登录页：右下角同心弧，实线与虚线交替，外淡内浓</figcaption></div>
+  <div class="shot"><img src="a-queue.png" alt="方向 A 队列页"><figcaption>A · 队列页：等待时长变成一条脉冲轨道，超时整条转红</figcaption></div>
+</figure>
+<figure class="shots">
+  <div class="shot"><img src="b-login.png" alt="方向 B 登录页"><figcaption>B · 登录页：制图网格 + 超大标题 + 底部三栏事实</figcaption></div>
+  <div class="shot"><img src="b-queue.png" alt="方向 B 队列页"><figcaption>B · 队列页：编号、列刻度、等宽数字、带阈值的等待标尺</figcaption></div>
+</figure>
+<figure class="shots">
+  <div class="shot"><img src="c-login.png" alt="方向 C 登录页"><figcaption>C · 登录页：近黑底 + 低饱和光晕 + 反色主按钮</figcaption></div>
+  <div class="shot"><img src="c-queue.png" alt="方向 C 队列页"><figcaption>C · 队列页：深色侧栏、发光状态点、全页唯一高亮的主按钮</figcaption></div>
+</figure>
+
+<article class="card">
+  <div class="head"><span class="tag">方向 A</span><h3>回声 · 把品牌名做成图形系统</h3><span class="tag ok">改动面最小</span></div>
+  <p class="concept">「ECHO」不是虚名：声音碰到东西会回来。用同心弧把「发出 → 返回」画出来，弧线从品牌角发出，末端收成一个实心点。</p>
+  <ul class="muted">
+    <li><b>登录页</b>：右下角 6 条同心弧，实线与虚线交替，外淡内浓（9%→34%），末端实心点。</li>
+    <li><b>队列页</b>：等待列换成一条 56px 的脉冲轨道，光点位置 = 等待时长，超过 5 分钟整条转红。</li>
+    <li><b>延伸</b>：AI 消息尾部一个小三弧标记；加载态是「声波呼吸」而不是转圈。</li>
+  </ul>
+  <table>
+    <tr><th>代价</th><th>说明</th></tr>
+    <tr><td>工作量</td><td>登录品牌组件 + 队列等待列 + 2 个令牌；无后端、无新依赖</td></tr>
+    <tr><td>要放开的约束</td><td>ui-spec 2.7 禁止「装饰性循环动画」、第 6 节禁止「装饰插画」。不放开就只能是静态弧线，生命力少一半</td></tr>
+    <tr><td>风险</td><td>弧线一旦变浓就会抢标题；需要锁死在 35% 不透明度以内</td></tr>
+  </table>
+</article>
+
+<article class="card">
+  <div class="head"><span class="tag">方向 B</span><h3>值班台 · 用制图语言建立专业感</h3><span class="tag ok">风险最低</span></div>
+  <p class="concept">客服工作台本质是一台值班仪表：谁在等、等多久、有没有超时。用网格、编号、刻度、等宽数字把它说得更「工程」。</p>
+  <ul class="muted">
+    <li><b>登录页</b>：64px 主格 + 16px 次格的淡网格；标题放大到 66px；底部三栏事实（服务时间 / 首次响应 / 加密）用竖线分隔。</li>
+    <li><b>队列页</b>：标题前 <code>01</code> 编号；表头每列起点一个刻度短线；等待时长的标尺带 5 分钟阈值线；侧栏当前项左侧 2px 标尺。</li>
+    <li><b>字体</b>：版本号、构建号、等待秒数、计数全部走等宽 + tabular-nums。</li>
+  </ul>
+  <table>
+    <tr><th>代价</th><th>说明</th></tr>
+    <tr><td>工作量</td><td>登录品牌区重排 + 队列页头/表头 + 字体栈新增等宽族</td></tr>
+    <tr><td>要放开的约束</td><td>ui-spec 2.2「全站唯一字体」需补一条「等宽仅用于数字与构建元信息」</td></tr>
+    <tr><td>风险</td><td>网格超过 8% 不透明度就会显脏；移动端要关掉网格，否则小屏噪点</td></tr>
+  </table>
+</article>
+
+<article class="card">
+  <div class="head"><span class="tag">方向 C</span><h3>夜航 · 把近黑从强调色变成底色</h3><span class="tag danger">成本最高</span></div>
+  <p class="concept">现在「近黑」只是按钮的颜色。让它成为整个界面，用低饱和光晕做纵深，主按钮反成白色——全页唯一的高亮点。</p>
+  <ul class="muted">
+    <li><b>令牌</b>：画布 <code>#0A0C10</code>、表面 <code>#111419</code>、描边 <code>rgba(255,255,255,.075)</code>。</li>
+    <li><b>登录页</b>：两团径向光晕（青 12%、琥珀 8.5%）+ 网格；白底黑字主按钮。</li>
+    <li><b>队列页</b>：深色侧栏、发光状态点、带渐变的等待条、表格靠 1px 亮描边浮起。</li>
+  </ul>
+  <table>
+    <tr><th>代价</th><th>说明</th></tr>
+    <tr><td>工作量</td><td>两套令牌 + 全部页面视觉回归 + 对比度表重算 + AC-40/48 契约测试同步</td></tr>
+    <tr><td>要放开的约束</td><td>与 v5「浅色画布」的决策相反；第 6 节禁用渐变需改为允许「低饱和径向光晕」</td></tr>
+    <tr><td>风险</td><td>长时间值班的深色疲劳争议；截图与基线全部重做</td></tr>
+  </table>
+</article>
+
+<h2>3 · 补齐的两张</h2>
+<p class="muted">用「B 的骨架 + A 的点睛」画的：坐席登录走网格与编号（制图语言），客户聊天走弧线与大留白（回声语言）。</p>
+<figure class="shots">
+  <div class="shot"><img src="agent-login.png" alt="坐席登录页"><figcaption>坐席登录：网格、CN-SH / BUILD 编号、三栏事实、环境标识</figcaption></div>
+  <div class="shot"><img src="customer-chat.png" alt="客户聊天页"><figcaption>客户聊天：64px 顶栏、860 消息列、18px 气泡、声波只在欢迎卡露一次</figcaption></div>
+</figure>
+
+<h2>4 · 两侧要不要完全一致？</h2>
+<p class="muted">结论：<b>不要完全一致，要「同源、不同节奏」</b>。令牌必须一套，图形语言与信息密度可以分叉——这两件事的读者本来就不一样。对照图见 <code>tone-split.png</code>。</p>
+<table>
+  <tr><th>维度</th><th>客户侧</th><th>坐席侧</th><th>为什么</th></tr>
+  <tr><td>令牌</td><td>同一套</td><td>同一套</td><td>换一套色板，用户会觉得「换了家公司」</td></tr>
+  <tr><td>图形语言</td><td>弧线（声波）</td><td>网格与标尺</td><td>客户要的是被回应，坐席要的是秩序</td></tr>
+  <tr><td>信息密度</td><td>低，一屏一件事</td><td>高，一屏 N 个会话</td><td>客户在等一个答案，坐席在并行处理</td></tr>
+  <tr><td>导航</td><td>没有，只有 64px 顶栏</td><td>232px 固定侧栏</td><td>客户只有一条路径，坐席要随时切换</td></tr>
+  <tr><td>品牌露出</td><td>多：大标题、声波、欢迎卡</td><td>少：mark + 版本 + 环境</td><td>客户在建立信任，坐席在开始工作</td></tr>
+  <tr><td>动效</td><td>慢、少，像呼吸</td><td>快、准，只做反馈</td><td>客户侧慢一点不焦虑，坐席侧慢一点就是积压</td></tr>
+  <tr><td>术语</td><td>「转人工」「正在接通」</td><td>「5 分钟超时」「领取」「交接单」</td><td>客户不关心内部阈值，坐席必须看到它</td></tr>
+</table>
+<div class="rec">
+  <div class="row"><b>唯一的例外</b><span>登录页是「品牌时刻」，两侧可以几乎共用一套布局；但坐席侧必须露出内部系统、审计、环境标识，客户侧必须露出服务时间与加密承诺——这个差异本身就是语气。</span></div>
+  <div class="row"><b>如果完全一致</b><span>客户聊天页会被塞进侧栏、编号和刻度，客户第一眼看到的是「系统」而不是「人在回话」；坐席队列页反过来会被放大标题和大留白拖累，一屏只能看 4 条。</span></div>
+  <div class="row"><b>如果完全不一致</b><span>两套色板、两套圆角、两套图标，用户从客户侧切到坐席侧会觉得是两个产品——而他们本来就是同一家公司的同一条链路。</span></div>
+</div>
+
+<h2>5 · 怎么选</h2>
+<div class="rec">
+  <div class="row"><b>要冲击力</b><span>C。换肤，一眼就不一样，但它改变的是「色调」而不是「品牌」，而且和 v5 的浅色决策正相反。</span></div>
+  <div class="row"><b>要性价比</b><span>B。改动集中在排版与少量背景，和现有「中性优先、文字承载语义」的原则最兼容，同时顺手补上信息密度。</span></div>
+  <div class="row"><b>要品牌感</b><span>A。最贴「回声」这个名字，但必须先想清楚要不要放开循环动画；不放开就只是第二条淡淡的背景线。</span></div>
+  <div class="row"><b>我的建议</b><span>以 B 为骨架（网格 + 编号 + 等宽数字 + 标尺等待），把 A 的唯一一处动效（登录页声波、队列等待脉冲）作为点睛，C 作为可选的「夜间模式」增量而不是替换。三者共用同一套令牌，不冲突。</span></div>
+</div>
+
+<div class="ask">
+  <b>需要你定的三件事</b>
+  <ol>
+    <li>选哪个方向：A / B / C / B+A 组合 / C 作为夜间模式。</li>
+    <li>是否接受放开这三条约束：装饰性循环动画、低饱和渐变光晕、等宽字体用于数字。</li>
+    <li>如果是 C，是替换当前浅色主题，还是做成可切换的夜间模式（多一套令牌 + 前置判断）。</li>
+  </ol>
+  <p class="small" style="margin-top:12px">定下来之后，我按项目流程先改 <code>ui-spec</code> 与 <code>tokens.css</code>，再改组件，最后补视觉基线与契约测试。</p>
+</div>
+
+<footer>
+  样张源码：<code>direction-a.html</code> / <code>direction-b.html</code> / <code>direction-c.html</code>（两屏纵向，可滚动）/ <code>agent-login.html</code> / <code>customer-chat.html</code> · 拼图：<code>montage.png</code> / <code>tone-split.png</code>
+</footer>
+
+</div>
+</body>
+</html>
