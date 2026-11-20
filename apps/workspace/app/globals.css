@@ -93,3 +93,15 @@ html {
   background: var(--accent-soft);
   color: var(--accent-ink);
 }
+
+/* 值守信号：坐席登录右上角的在线心跳，与等待脉冲同一参数（ui-spec 2.7）。
+   prefers-reduced-motion 由元素上的 motion-reduce:animate-none 关闭。 */
+@keyframes status-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}

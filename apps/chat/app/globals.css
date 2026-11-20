@@ -93,3 +93,15 @@ html {
   background: var(--accent-soft);
   color: var(--accent-ink);
 }
+
+/* 品牌回声：登录品牌区 6 条弧线依次亮起，形成由内向外扩散的涟漪（ui-spec 2.7）。
+   prefers-reduced-motion 由元素上的 motion-reduce:animate-none 关闭。 */
+@keyframes echo-ripple {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 1;
+  }
+}

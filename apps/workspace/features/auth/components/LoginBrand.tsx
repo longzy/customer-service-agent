@@ -32,42 +32,41 @@ export function LoginBrand({ isDev }: { isDev: boolean }) {
       aria-label="ECHO 工作台"
       className="relative flex flex-col overflow-hidden bg-brand-tint px-10 py-12 max-[1023px]:flex-row max-[1023px]:items-center max-[1023px]:px-6 max-[1023px]:py-5"
     >
-      {/* 品牌声波：从右上角向外扩散，只做背景层次，不承载信息 */}
-      <svg
+      {/* 坐席侧制图网格（ui-spec 3.1 / 方案 B 语言）：64px 主格 + 16px 次格，
+          只做背景层次；客户侧用同心弧，两侧不共用同一张脸。 */}
+      <div
         aria-hidden="true"
-        className="pointer-events-none absolute -right-32 -top-32 h-[460px] w-[460px] text-text opacity-[0.045]"
-        viewBox="0 0 200 200"
-        fill="none"
-      >
-        <path
-          d="M8 68a92 92 0 0 0 184 0"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-        />
-        <path
-          d="M38 68a62 62 0 0 0 124 0"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-        />
-        <path
-          d="M68 68a32 32 0 0 0 64 0"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-        />
-        <circle cx="100" cy="60" r="4" fill="currentColor" />
-      </svg>
+        data-plan-grid=""
+        className="pointer-events-none absolute inset-0 [background-image:linear-gradient(to_right,var(--grid-line)_1px,transparent_1px),linear-gradient(to_bottom,var(--grid-line)_1px,transparent_1px)] [background-size:64px_64px] [mask-image:linear-gradient(155deg,black_0%,black_52%,transparent_88%)]"
+      />
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 [background-image:linear-gradient(to_right,var(--grid-line-2)_1px,transparent_1px),linear-gradient(to_bottom,var(--grid-line-2)_1px,transparent_1px)] [background-size:16px_16px] [mask-image:linear-gradient(155deg,black_0%,black_58%,transparent_92%)]"
+      />
 
-      <div className="relative z-[1] flex items-center gap-3">
-        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-deep">
-          {ECHO_MARK}
-        </span>
-        <span className="flex flex-col">
-          <span className="text-lg font-semibold tracking-[-0.01em]">ECHO</span>
-          <span className="mt-0.5 text-xs tracking-[0.16em] text-text-3">CONSOLE</span>
-        </span>
+      <div className="relative z-[1] flex items-start justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-brand-deep">
+            {ECHO_MARK}
+          </span>
+          <span className="flex flex-col">
+            <span className="text-lg font-semibold tracking-[-0.01em]">ECHO</span>
+            <span className="mt-0.5 text-xs tracking-[0.16em] text-text-3">CONSOLE</span>
+          </span>
+        </div>
+        <div className="hidden text-right font-mono text-[10px] leading-[1.75] tracking-[0.1em] text-text-3 min-[1024px]:block">
+          <b className="block font-medium text-text-2">CN-SH / 01</b>
+          BUILD 0.1.0
+          {/* 值守信号：内部系统在线的心跳，1600ms 与等待脉冲同一参数（ui-spec 2.7）。 */}
+          <span className="mt-1 flex items-center justify-end gap-1.5 text-text-3">
+            <span
+              aria-hidden="true"
+              data-status-dot=""
+              className="h-1.5 w-1.5 rounded-full bg-online animate-[status-pulse_1600ms_ease-in-out_infinite] motion-reduce:animate-none"
+            />
+            值守中
+          </span>
+        </div>
       </div>
 
       <div className="relative z-[1] mt-14 max-[1023px]:hidden">
