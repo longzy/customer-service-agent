@@ -84,7 +84,7 @@ M1 演示账号：客户 `customer_a`/`customer_b`，坐席 `agent_1`/`agent_2`�
 
 ```bash
 # 一键验证：ruff、mypy、pytest（独立测试库）、路由覆盖、追溯、状态、文档、前端检查与构建
-make verify-changed ARGS=F-08     # 实现内环：按变更范围跑定向 AC 测试、改动 app 的 lint/typecheck/test
+make verify-changed ARGS=F-08     # 实现内环：按路径触发，只跑改动涉及的检查（后端/chat/workspace/文档/契约）
 make verify-check                 # 评审门禁：全量验证，不写回 CURRENT（保留退出码，默认一行摘要）
 make verify                       # 收口：全量验证并写回 CURRENT
 ./scripts/verify.sh --no-record   # CI 使用：只验证，不写回状态快照

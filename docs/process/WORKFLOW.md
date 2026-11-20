@@ -80,7 +80,7 @@ Frame（目标/非目标/完成标准）
 - 每完成一个 feature，`Steps` 全绿、`Evidence` 非空后才把 `passes` 改为 `true`；
 - 不得改 `Description`/`Steps`/`AC` 来迁就实现；要改先改 brief/plan 并重新评审；
 - 跑 `make verify-check`；关键路径加端到端/浏览器验证（多身份配方见 [浏览器走查](e2e-walkthrough.md)）；API 契约变更必须跑 `./scripts/check-contracts.sh`（verify 已包含；`check-api-types.sh` 为兼容入口）；
-- 实现过程用 `make verify-changed ARGS=F-08`（按变更范围：定向 AC 测试 + 改动 app 的 lint/typecheck/test + 文档/状态/追溯/契约；不跑全量 pytest/评测/构建）；`make verify-check` 只留给评审门禁与收口；
+- 实现过程用 `make verify-changed ARGS=F-08`（按路径触发，只跑改动涉及的检查：后端 ruff/mypy/pytest、chat 或 workspace 前端、文档/状态/追溯、契约；互不牵连，`--dry-run` 可先看计划；不跑全量 pytest/评测/构建）；`make verify-check` 只留给评审门禁与收口；
 - 演示数据重置统一用 `make dev-reset`，不手写 `DELETE`/`UPDATE` 修改开发库；
 - 提交保持小步，main 始终可运行。
 
