@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>方向 C · 夜航</title>
+<style>
+  :root{
+    --bg:#0a0c10; --surface:#111419; --surface-2:#171b22; --surface-3:#1d222b;
+    --border:rgba(255,255,255,.075); --border-strong:rgba(255,255,255,.14);
+    --text:#e8eaed; --text-2:#9aa3ae; --text-3:#6b737e; --text-4:#4d545d;
+    --accent:#f2f4f6; --accent-soft:rgba(255,255,255,.06); --accent-line:rgba(255,255,255,.1);
+    --online:#34d399; --danger:#f87171; --warning:#fbbf24;
+    --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Inter","PingFang SC","Segoe UI","Helvetica Neue",Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#000;font-family:var(--font);color:var(--text);-webkit-font-smoothing:antialiased}
+  body{min-height:1500px}
+  .screen{width:1200px;height:800px;background:var(--bg);overflow:hidden;position:relative}
+  .screen + .screen{margin-top:0}
+
+  /* ============ 登录页 ============ */
+  .login{display:flex;align-items:center;justify-content:center}
+  .glow-a{position:absolute;width:900px;height:900px;left:-260px;top:-300px;border-radius:50%;
+          background:radial-gradient(circle,rgba(45,212,191,.12) 0%,rgba(45,212,191,0) 62%)}
+  .glow-b{position:absolute;width:760px;height:760px;right:-220px;bottom:-320px;border-radius:50%;
+          background:radial-gradient(circle,rgba(251,191,36,.085) 0%,rgba(251,191,36,0) 64%)}
+  .card{position:relative;z-index:2;width:1040px;height:620px;display:grid;grid-template-columns:.95fr 1fr;
+        border:1px solid var(--border-strong);border-radius:24px;overflow:hidden;
+        background:linear-gradient(180deg,#12151b 0%,#0e1116 100%);
+        box-shadow:0 40px 100px -40px rgba(0,0,0,.9),inset 0 1px 0 rgba(255,255,255,.05)}
+  .brand{position:relative;padding:40px;display:flex;flex-direction:column;overflow:hidden;
+         border-right:1px solid var(--border);
+         background:radial-gradient(120% 90% at 10% 0%,rgba(45,212,191,.095) 0%,transparent 58%)}
+  .mesh{position:absolute;inset:0;
+        background-image:linear-gradient(to right,rgba(255,255,255,.032) 1px,transparent 1px),
+                         linear-gradient(to bottom,rgba(255,255,255,.032) 1px,transparent 1px);
+        background-size:44px 44px;
+        -webkit-mask-image:radial-gradient(120% 90% at 0% 0%,#000 0%,transparent 72%)}
+  .brand > .top,.brand > .hero,.brand > .facts,.brand > .foot{position:relative;z-index:2}
+  .top{display:flex;align-items:center;gap:12px}
+  .mk{width:40px;height:40px;border-radius:12px;background:var(--accent);display:grid;place-items:center;flex:none}
+  .nm{font-size:16px;font-weight:600;letter-spacing:-.01em;line-height:1.2;color:#fff}
+  .sub{font-size:11px;letter-spacing:.16em;color:var(--text-3);margin-top:3px}
+
+  .hero{margin-top:auto;margin-bottom:auto}
+  .pill{display:inline-flex;align-items:center;gap:8px;height:28px;padding:0 12px;border-radius:999px;
+        border:1px solid var(--border-strong);background:rgba(255,255,255,.03);font-size:12px;
+        font-weight:500;color:var(--text-2);width:max-content}
+  .dot{width:6px;height:6px;border-radius:50%;background:var(--online);box-shadow:0 0 12px rgba(52,211,153,.9)}
+  .hero h1{margin:26px 0 0;font-size:44px;line-height:1.14;font-weight:600;letter-spacing:-.035em;color:#fff}
+  .hero h1 span{color:var(--text-3)}
+  .hero p{margin:20px 0 0;max-width:300px;font-size:14px;line-height:1.85;color:var(--text-2)}
+
+  .facts{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}
+  .facts li{display:flex;align-items:center;gap:11px;font-size:13px;color:var(--text-2)}
+  .facts svg{flex:none;color:var(--text-3)}
+  .foot{margin-top:32px;font-size:12px;color:var(--text-4);letter-spacing:.02em}
+
+  .form{padding:44px 40px;display:flex;flex-direction:column;justify-content:center;background:rgba(255,255,255,.012)}
+  .form .inner{width:100%;max-width:368px;margin:0 auto}
+  .eyebrow{font-size:11px;font-weight:600;letter-spacing:.16em;color:var(--text-3);text-transform:uppercase}
+  .form h2{margin:12px 0 0;font-size:24px;font-weight:600;letter-spacing:-.025em;color:#fff}
+  .form .hint{margin:8px 0 0;font-size:14px;line-height:1.6;color:var(--text-2)}
+  .field{margin-top:22px}
+  .field label{display:block;font-size:13px;font-weight:500;color:var(--text-2);margin-bottom:8px}
+  .input{height:44px;border:1px solid var(--border-strong);border-radius:10px;background:#0d1015;
+         display:flex;align-items:center;padding:0 12px;font-size:14px;color:var(--text-3);position:relative}
+  .input.focus{border-color:rgba(255,255,255,.5);box-shadow:0 0 0 3px rgba(255,255,255,.09)}
+  .input .eye{position:absolute;right:6px;width:32px;height:32px;display:grid;place-items:center;color:var(--text-3)}
+  .meta{margin:10px 0 0;font-size:12px;color:var(--text-3)}
+  /* C 的核心：近黑底上的主按钮反色为白，形成唯一高亮点 */
+  .cta{width:100%;height:44px;border:0;border-radius:10px;background:#f2f4f6;color:#0a0c10;
+       font-size:14px;font-weight:600;font-family:var(--font);margin-top:24px;letter-spacing:.01em;
+       box-shadow:0 6px 20px -8px rgba(242,244,246,.4)}
+  .split{margin-top:26px;padding-top:20px;border-top:1px solid var(--border);font-size:12px;line-height:1.8;color:var(--text-3)}
+  .dev{margin-top:16px;border:1px solid rgba(251,191,36,.22);background:rgba(251,191,36,.085);
+       border-radius:12px;padding:10px 14px;font-size:12px;line-height:1.7;color:#fcd34d}
+  .crypt{margin-top:28px;text-align:center;font-size:12px;color:var(--text-4)}
+
+  /* ============ 队列页 ============ */
+  .app{display:flex;height:100%}
+  .side{width:232px;flex:none;border-right:1px solid var(--border);background:#0d1015;
+        padding:16px 12px;display:flex;flex-direction:column}
+  .side .top{padding:4px 8px 24px}
+  .mk-sm{width:36px;height:36px;border-radius:12px;background:var(--accent);display:grid;place-items:center;flex:none}
+  .cap{margin:0;padding:0 12px 8px;font-size:10.5px;font-weight:500;letter-spacing:.14em;color:var(--text-4);text-transform:uppercase}
+  .nav{display:flex;align-items:center;gap:10px;height:40px;padding:0 12px;border-radius:10px;
+       background:rgba(255,255,255,.055);color:#fff;font-size:14px;font-weight:500;text-decoration:none;
+       border:1px solid var(--border)}
+  .nav .badge{margin-left:auto;height:20px;min-width:20px;padding:0 6px;border-radius:999px;background:#f2f4f6;
+              color:#0a0c10;font-size:11px;font-weight:700;display:grid;place-items:center;font-variant-numeric:tabular-nums}
+  .note{margin:12px 0 0;padding:0 12px;font-size:11px;line-height:1.7;color:var(--text-4)}
+  .me{margin-top:auto;border-top:1px solid var(--border);padding:12px 8px 0;display:flex;align-items:center;gap:10px}
+  .av{width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.07);color:#c9ced5;display:grid;place-items:center;font-size:12px;font-weight:600;flex:none;border:1px solid var(--border)}
+
+  .main{flex:1;min-width:0;display:flex;flex-direction:column;background:var(--bg);position:relative}
+  .main::before{content:"";position:absolute;left:0;right:0;top:0;height:280px;
+        background:radial-gradient(80% 100% at 50% 0%,rgba(45,212,191,.05) 0%,transparent 70%);pointer-events:none}
+  .head{background:rgba(17,20,25,.6);border-bottom:1px solid var(--border);padding:26px 32px 0;position:relative;z-index:1;backdrop-filter:blur(8px)}
+  .headrow{display:flex;align-items:flex-end;gap:14px}
+  .headrow h1{margin:0;font-size:20px;font-weight:600;letter-spacing:-.02em;color:#fff}
+  .sum{margin:0 0 2px;font-size:13px;color:var(--text-3);font-variant-numeric:tabular-nums}
+  .sum b{color:var(--text);font-weight:600}
+  .tabs{display:flex;gap:28px;margin-top:18px}
+  .tab{position:relative;height:36px;display:flex;align-items:center;gap:6px;font-size:14px;color:var(--text-3)}
+  .tab .n{font-size:12px;font-weight:600;font-variant-numeric:tabular-nums}
+  .tab.on{color:#fff}
+  .tab.on::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:#fff;border-radius:2px}
+  .tools{display:flex;align-items:center;gap:8px;margin:0 0 12px auto}
+  .ctl{height:32px;border:1px solid var(--border-strong);border-radius:10px;background:rgba(255,255,255,.03);
+       display:flex;align-items:center;padding:0 10px;font-size:13px;color:var(--text-2);gap:6px}
+
+  .body{padding:20px;display:flex;flex-direction:column;position:relative;z-index:1}
+  .table{border:1px solid var(--border);border-radius:16px;background:rgba(17,20,25,.75);overflow:hidden;
+         display:flex;flex-direction:column;box-shadow:0 24px 60px -40px #000,inset 0 1px 0 rgba(255,255,255,.04)}
+  .thead{display:grid;grid-template-columns:200px 96px 158px 1fr 104px 96px;height:40px;align-items:center;
+         border-bottom:1px solid var(--border);padding:0 16px;font-size:11px;font-weight:500;
+         letter-spacing:.06em;color:var(--text-4);text-transform:uppercase}
+  .row{display:grid;grid-template-columns:200px 96px 158px 1fr 104px 96px;height:60px;align-items:center;
+       padding:0 16px;border-bottom:1px solid var(--border);font-size:13px;color:var(--text-2)}
+  .row:last-of-type{border-bottom:0}
+  .row.sel{background:rgba(255,255,255,.035);box-shadow:inset 2px 0 0 #f2f4f6}
+  .who{display:flex;align-items:center;gap:10px;min-width:0}
+  .who .av{width:32px;height:32px;font-size:11px}
+  .who b{display:block;font-size:13px;font-weight:500;color:var(--text)}
+  .who span{display:block;font-size:11px;color:var(--text-4);margin-top:2px}
+
+  .wait{display:flex;flex-direction:column;gap:6px}
+  .wait .t{font-size:13px;font-variant-numeric:tabular-nums;color:var(--text)}
+  .wait .t.late{color:var(--danger)}
+  /* 等待：一条在近黑上会“呼吸”的光带 */
+  .bar{position:relative;width:56px;height:3px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden}
+  .bar i{position:absolute;inset:0 auto 0 0;border-radius:99px;background:linear-gradient(90deg,rgba(52,211,153,.15),#34d399)}
+  .bar.hot i{background:linear-gradient(90deg,rgba(248,113,113,.2),#f87171)}
+
+  .chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text-2)}
+  .chip .d{width:7px;height:7px;border-radius:50%;background:var(--online);box-shadow:0 0 8px rgba(52,211,153,.8)}
+  .chip .d.warn{background:var(--warning);box-shadow:0 0 8px rgba(251,191,36,.7)}
+  .chip .d.dng{background:var(--danger);box-shadow:0 0 8px rgba(248,113,113,.7)}
+  .btn{height:32px;padding:0 14px;border-radius:10px;border:1px solid transparent;background:#f2f4f6;
+       color:#0a0c10;font-size:13px;font-weight:600;font-family:var(--font)}
+  .btn.ghost{background:rgba(255,255,255,.05);color:var(--text);border-color:var(--border-strong)}
+  .tfoot{height:48px;display:flex;align-items:center;padding:0 16px;border-top:1px solid var(--border);
+         font-size:12px;color:var(--text-4);font-variant-numeric:tabular-nums}
+  .tfoot .pg{margin-left:auto;display:flex;align-items:center;gap:10px}
+  .tfoot .pg b{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;background:#f2f4f6;color:#0a0c10;font-size:12px}
+</style>
+</head>
+<body>
+
+<!-- ========================= 登录页 ========================= -->
+<div class="screen login">
+  <div class="glow-a"></div>
+  <div class="glow-b"></div>
+
+  <div class="card">
+    <div class="brand">
+      <div class="mesh"></div>
+
+      <div class="top">
+        <span class="mk">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+            <path d="M4 6.5a7 7 0 0 1 12 0" stroke="#0a0c10" stroke-width="1.7" stroke-linecap="round"/>
+            <path d="M6.2 9.5a4.6 4.6 0 0 1 7.6 0" stroke="#0a0c10" stroke-width="1.7" stroke-linecap="round"/>
+            <circle cx="10" cy="12.6" r="1.6" fill="#0a0c10"/>
+          </svg>
+        </span>
+        <span>
+          <span class="nm" style="display:block">回声 ECHO</span>
+          <span class="sub" style="display:block">CUSTOMER CARE</span>
+        </span>
+      </div>
+
+      <div class="hero">
+        <span class="pill"><span class="dot"></span>真人客服在线</span>
+        <h1>有问题，<br><span>随时说。</span></h1>
+        <p>订单、退换、物流，都可以直接问。需要真人时，随时为你转接。</p>
+      </div>
+
+      <ul class="facts">
+        <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>服务时间 9:00 – 22:00</li>
+        <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.4A8 8 0 1 1 21 12Z"/></svg>非服务时间可留言，次日优先处理</li>
+        <li><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6l7-3Z"/><path d="m9 12 2 2 4-4"/></svg>对话内容加密传输，仅用于本次服务</li>
+      </ul>
+
+      <div class="foot">回声 ECHO · 客户服务中心</div>
+    </div>
+
+    <div class="form">
+      <div class="inner">
+        <p class="eyebrow">客户登录</p>
+        <h2>登录客服中心</h2>
+        <p class="hint">使用你的客户账号登录，继续之前的对话。</p>
+
+        <div class="field">
+          <label>账号</label>
+          <div class="input focus">echo.customer.01<span style="margin-left:auto;width:1px;height:18px;background:#fff"></span></div>
+        </div>
+        <div class="field">
+          <label>密码</label>
+          <div class="input">••••••••••••
+            <span class="eye"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12Z"/><circle cx="12" cy="12" r="2.6"/></svg></span>
+          </div>
+        </div>
+        <p class="meta">连续 5 次失败将锁定 15 分钟</p>
+        <button class="cta">进入对话</button>
+
+        <div class="split">账号由客服中心开通，忘记密码请联系在线客服重置，无需注册。</div>
+        <div class="dev"><b style="font-weight:600">开发期测试账号</b>：见项目 README，生产环境不展示此提示。</div>
+        <p class="crypt">对话内容加密传输 · 仅用于本次服务</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========================= 队列页 ========================= -->
+<div class="screen">
+  <div class="app">
+    <aside class="side">
+      <div class="top">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span class="mk-sm">
+            <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+              <path d="M4 6.5a7 7 0 0 1 12 0" stroke="#0a0c10" stroke-width="1.7" stroke-linecap="round"/>
+              <path d="M6.2 9.5a4.6 4.6 0 0 1 7.6 0" stroke="#0a0c10" stroke-width="1.7" stroke-linecap="round"/>
+              <circle cx="10" cy="12.6" r="1.6" fill="#0a0c10"/>
+            </svg>
+          </span>
+          <span>
+            <span style="display:block;font-size:14px;font-weight:600;line-height:1.2;color:#fff">ECHO</span>
+            <span style="display:block;font-size:10px;letter-spacing:.16em;color:var(--text-4);margin-top:3px">CONSOLE</span>
+          </span>
+        </div>
+      </div>
+      <p class="cap">工作区</p>
+      <a class="nav">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+        待接入队列
+        <span class="badge">4</span>
+      </a>
+      <p class="note">新会话会出现在队列中；领取后进入会话页回复客户。</p>
+      <div class="me">
+        <span class="av">林</span>
+        <span style="min-width:0;flex:1">
+          <span style="display:block;font-size:13px;font-weight:500;color:var(--text)">林晓</span>
+          <span style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-4);margin-top:3px">
+            <span style="width:6px;height:6px;border-radius:50%;background:var(--online);box-shadow:0 0 6px rgba(52,211,153,.9)"></span>在线 · 客服专员
+          </span>
+        </span>
+      </div>
+    </aside>
+
+    <div class="main">
+      <div class="head">
+        <div class="headrow">
+          <h1>待接入队列</h1>
+          <p class="sum"><b>4</b> 个等待 · <b style="color:var(--danger)">1</b> 个超时 · 平均等待 <b>1 分 42 秒</b></p>
+          <div class="tools">
+            <div class="ctl" style="width:280px;color:var(--text-3)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+              搜索客户、账号或会话 ID
+            </div>
+            <div class="ctl">原因 全部</div>
+            <div class="ctl">等待最久</div>
+          </div>
+        </div>
+        <div class="tabs">
+          <div class="tab on">全部 <span class="n">4</span></div>
+          <div class="tab">等待中 <span class="n">3</span></div>
+          <div class="tab">已超时 <span class="n">1</span></div>
+        </div>
+      </div>
+
+      <div class="body">
+        <div class="table">
+          <div class="thead">
+            <span>客户</span><span>等待</span><span>原因</span><span>末条消息</span><span>状态</span><span>操作</span>
+          </div>
+
+          <div class="row sel">
+            <div class="who"><span class="av">周</span><span><b>周文</b><span>zh***@example.com</span></span></div>
+            <div class="wait"><span class="t late">6 分 12 秒</span><span class="bar hot"><i style="width:100%"></i></span></div>
+            <span>客户要求转人工</span>
+            <span style="color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">我想退掉上周买的那件外套</span>
+            <span class="chip"><span class="d dng"></span>已超时</span>
+            <button class="btn">领取</button>
+          </div>
+
+          <div class="row">
+            <div class="who"><span class="av">陈</span><span><b>陈可</b><span>ch***@example.com</span></span></div>
+            <div class="wait"><span class="t">2 分 05 秒</span><span class="bar"><i style="width:36%"></i></span></div>
+            <span>AI 置信度不足</span>
+            <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">发票抬头能改成公司名吗</span>
+            <span class="chip"><span class="d warn"></span>等待中</span>
+            <button class="btn ghost">领取</button>
+          </div>
+
+          <div class="row">
+            <div class="who"><span class="av">李</span><span><b>李沐</b><span>li***@example.com</span></span></div>
+            <div class="wait"><span class="t">1 分 18 秒</span><span class="bar"><i style="width:23%"></i></span></div>
+            <span>超出 AI 处理范围</span>
+            <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">跨境订单能不能加急</span>
+            <span class="chip"><span class="d"></span>等待中</span>
+            <button class="btn ghost">领取</button>
+          </div>
+
+          <div class="row">
+            <div class="who"><span class="av">吴</span><span><b>吴桐</b><span>wu***@example.com</span></span></div>
+            <div class="wait"><span class="t">0 分 41 秒</span><span class="bar"><i style="width:12%"></i></span></div>
+            <span>模型不可用</span>
+            <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">刚才那条回复好像没发出去</span>
+            <span class="chip"><span class="d"></span>等待中</span>
+            <button class="btn ghost">领取</button>
+          </div>
+
+          <div class="row">
+            <div class="who"><span class="av">郑</span><span><b>郑好</b><span>zh***@example.com</span></span></div>
+            <div class="wait"><span class="t">3 分 40 秒</span><span class="bar"><i style="width:62%"></i></span></div>
+            <span>客户要求转人工</span>
+            <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">快递显示签收但我没收到</span>
+            <span class="chip"><span class="d warn"></span>等待中</span>
+            <button class="btn ghost">领取</button>
+          </div>
+
+          <div class="row">
+            <div class="who"><span class="av">孙</span><span><b>孙悦</b><span>su***@example.com</span></span></div>
+            <div class="wait"><span class="t">0 分 22 秒</span><span class="bar"><i style="width:7%"></i></span></div>
+            <span>超出 AI 处理范围</span>
+            <span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">满减券和会员折扣能叠加吗</span>
+            <span class="chip"><span class="d"></span>等待中</span>
+            <button class="btn ghost">领取</button>
+          </div>
+
+          <div class="tfoot">
+            <span>共 4 个 · 每页 10 条</span>
+            <span class="pg"><span>1 / 1</span><b>1</b></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  var q = new URLSearchParams(location.search), pick = q.get("s");
+  if (pick !== null) {
+    document.querySelectorAll(".screen").forEach(function (el, i) {
+      if (i !== Number(pick)) el.style.display = "none";
+    });
+    document.body.style.overflow = "hidden";
+  }
+</script>
+</body>
+</html>

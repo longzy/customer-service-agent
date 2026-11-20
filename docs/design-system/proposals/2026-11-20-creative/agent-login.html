@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>坐席登录 · B+A</title>
+<style>
+  :root{
+    --bg:#f7f8fa; --surface:#fff; --surface-2:#f2f4f5;
+    --border:#e5e8eb; --border-strong:#d0d5dd; --input-border:#cfd6dd; --line-soft:#eef0f2;
+    --text:#101828; --text-2:#475467; --text-3:#667085;
+    --accent:#111827; --accent-soft:#f3f4f6;
+    --warning-soft:#fffaeb; --warning-line:#fedf89; --warning-ink:#93370d;
+    --env:#f79009;
+    --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","Inter","PingFang SC","Segoe UI",Arial,sans-serif;
+    --mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:#e9ebee;font-family:var(--font);color:var(--text);-webkit-font-smoothing:antialiased;min-height:1500px}
+  .screen{width:1200px;height:800px;background:var(--bg);overflow:hidden;display:flex;align-items:center;justify-content:center}
+  .card{width:1040px;height:640px;display:grid;grid-template-columns:1.04fr 1fr;
+        border:1px solid var(--border);border-radius:20px;overflow:hidden;background:var(--surface);
+        box-shadow:0 28px 70px -30px rgba(16,24,40,.2)}
+
+  /* 左侧：制图语言 —— 与「值班台」同一套网格、编号与等宽元信息 */
+  .brand{position:relative;padding:34px 40px 30px;display:flex;flex-direction:column;overflow:hidden;background:var(--surface)}
+  .grid{position:absolute;inset:0;
+        background-image:linear-gradient(to right,rgba(16,24,40,.11) 1px,transparent 1px),
+                         linear-gradient(to bottom,rgba(16,24,40,.11) 1px,transparent 1px);
+        background-size:64px 64px;background-position:-1px -1px;
+        -webkit-mask-image:linear-gradient(150deg,#000 0%,#000 64%,rgba(0,0,0,.35) 100%)}
+  .grid::after{content:"";position:absolute;inset:0;
+        background-image:linear-gradient(to right,rgba(16,24,40,.055) 1px,transparent 1px),
+                         linear-gradient(to bottom,rgba(16,24,40,.055) 1px,transparent 1px);
+        background-size:16px 16px;background-position:-1px -1px;
+        -webkit-mask-image:linear-gradient(150deg,#000 0%,#000 46%,transparent 84%)}
+  .brand > .top,.brand > .hero,.brand > .meta{position:relative;z-index:2}
+  .top{display:flex;align-items:flex-start;justify-content:space-between}
+  .brandline{display:flex;align-items:center;gap:11px}
+  .mk{width:34px;height:34px;border-radius:9px;background:var(--accent);display:grid;place-items:center}
+  .nm{font-size:14px;font-weight:600;letter-spacing:.02em;line-height:1.2}
+  .sub{font-family:var(--mono);font-size:10px;letter-spacing:.18em;color:var(--text-3);margin-top:4px}
+  .stamp{text-align:right;font-family:var(--mono);font-size:10px;line-height:1.75;letter-spacing:.1em;color:var(--text-3)}
+  .stamp b{display:block;color:var(--text-2);font-weight:500}
+
+  .hero{margin:auto 0;padding:8px 0}
+  .kicker{display:inline-flex;align-items:center;gap:8px;height:26px;padding:0 10px;border-radius:999px;
+          border:1px solid var(--border);background:var(--surface);font-size:11px;font-weight:500;color:var(--text-2)}
+  .kicker .dot{width:5px;height:5px;border-radius:50%;background:var(--text-3)}
+  .hero h1{margin:20px 0 0;font-size:58px;line-height:1.04;font-weight:500;letter-spacing:-.045em}
+  .hero h1 em{font-style:normal;color:var(--text-3)}
+  .hero p{margin:20px 0 0;max-width:340px;font-size:14px;line-height:1.8;color:var(--text-2)}
+
+  .meta{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--border);padding-top:16px}
+  .meta div + div{border-left:1px solid var(--border);padding-left:16px}
+  .meta dt{font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;color:var(--text-3);margin:0 0 7px}
+  .meta dd{margin:0;font-size:21px;font-weight:500;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+  .meta dd small{font-size:11px;font-weight:400;color:var(--text-3);letter-spacing:0;margin-left:3px}
+
+  /* 右侧：表单 */
+  .form{padding:36px 40px;display:flex;flex-direction:column;justify-content:center;border-left:1px solid var(--border)}
+  .form .inner{width:100%;max-width:356px;margin:0 auto}
+  .eyebrow{display:flex;align-items:center;justify-content:space-between;font-family:var(--mono);font-size:10px;letter-spacing:.18em;color:var(--text-3)}
+  .envchip{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 9px;border-radius:999px;
+           border:1px solid var(--border);font-family:var(--font);font-size:11px;letter-spacing:0;color:var(--text-2)}
+  .envchip .dot{width:5px;height:5px;border-radius:50%;background:var(--env)}
+  h2{margin:12px 0 0;font-size:23px;font-weight:600;letter-spacing:-.03em}
+  .hint{margin:8px 0 0;font-size:13px;line-height:1.65;color:var(--text-2)}
+  .field{margin-top:19px}
+  .field label{display:flex;justify-content:space-between;align-items:baseline;font-size:12px;font-weight:500;color:var(--text-2);margin-bottom:7px}
+  .field label i{font-family:var(--mono);font-style:normal;font-size:9.5px;color:var(--text-3);letter-spacing:.08em}
+  .input{height:44px;border:1px solid var(--input-border);border-radius:9px;background:var(--surface);
+         display:flex;align-items:center;padding:0 12px;font-size:14px;color:var(--text-3);position:relative}
+  .input.focus{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+  .input .eye{position:absolute;right:6px;width:32px;height:32px;display:grid;place-items:center;color:var(--text-3)}
+  .policy{display:flex;align-items:center;gap:8px;margin-top:12px;font-size:12px;color:var(--text-2)}
+  .policy .box{width:14px;height:14px;border-radius:4px;background:var(--accent);display:grid;place-items:center;flex:none}
+  .cta{width:100%;height:44px;border:0;border-radius:9px;background:var(--accent);color:#fff;
+       font-size:14px;font-weight:500;font-family:var(--font);margin-top:18px;letter-spacing:.01em}
+  .audit{display:flex;gap:9px;margin-top:22px;padding-top:18px;border-top:1px solid var(--line-soft);
+         font-size:12px;line-height:1.75;color:var(--text-3)}
+  .audit svg{flex:none;margin-top:2px;color:var(--text-3)}
+  .footrow{display:flex;align-items:center;gap:8px;margin-top:22px;font-family:var(--mono);font-size:10px;letter-spacing:.08em;color:var(--text-3)}
+</style>
+</head>
+<body>
+<div class="screen">
+  <div class="card">
+    <div class="brand">
+      <div class="grid"></div>
+
+      <div class="top">
+        <div class="brandline">
+          <span class="mk">
+            <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+              <path d="M4 6.5a7 7 0 0 1 12 0" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/>
+              <path d="M6.2 9.5a4.6 4.6 0 0 1 7.6 0" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/>
+              <circle cx="10" cy="12.6" r="1.5" fill="#fff"/>
+            </svg>
+          </span>
+          <span>
+            <span class="nm" style="display:block">ECHO</span>
+            <span class="sub" style="display:block">CONSOLE</span>
+          </span>
+        </div>
+        <div class="stamp"><b>CN-SH / 01</b>BUILD 0.1.0<br>AGENT SIGN IN</div>
+      </div>
+
+      <div class="hero">
+        <span class="kicker"><span class="dot"></span>内部系统 · 仅限员工</span>
+        <h1>客服工作台<br><em>登录后开始接待。</em></h1>
+        <p>待接入队列、会话详情与完整交接记录。所有操作都会被记录，用于安全追溯。</p>
+      </div>
+
+      <dl class="meta">
+        <div><dt>SERVICE HOURS</dt><dd>09–22<small>点</small></dd></div>
+        <div><dt>SESSION LOCK</dt><dd>8<small>小时</small></dd></div>
+        <div><dt>AUDIT</dt><dd>全程<small>留痕</small></dd></div>
+      </dl>
+    </div>
+
+    <div class="form">
+      <div class="inner">
+        <p class="eyebrow">AGENT SIGN IN <span class="envchip"><span class="dot"></span>开发环境</span></p>
+        <h2>登录工作台</h2>
+        <p class="hint">使用员工账号登录，进入待接入队列。</p>
+
+        <div class="field">
+          <label>工号或邮箱 <i>REQUIRED</i></label>
+          <div class="input focus">lin.xiao@echo.example<span style="margin-left:auto;width:1px;height:18px;background:var(--accent)"></span></div>
+        </div>
+        <div class="field">
+          <label>密码 <i>REQUIRED</i></label>
+          <div class="input">••••••••••••
+            <span class="eye"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12Z"/><circle cx="12" cy="12" r="2.6"/></svg></span>
+          </div>
+        </div>
+
+        <div class="policy">
+          <span class="box"><svg width="9" height="9" viewBox="0 0 12 12" fill="none"><path d="m2.5 6.2 2.2 2.2 4.8-4.8" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span>
+          在此设备保持登录 8 小时（固定策略）
+        </div>
+
+        <button class="cta">登录</button>
+
+        <div class="audit">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6l7-3Z"/></svg>
+          <span>仅限内部员工。登录、领取与关闭会话均记录在审计日志中，用于安全追溯。</span>
+        </div>
+
+        <div class="footrow">ECHO CONSOLE v0.1.0 · CN-SH</div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
