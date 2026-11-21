@@ -26,6 +26,7 @@ const REASONS = [
   { id: "LOW_CONFIDENCE", label: "AI 置信度不足" },
   { id: "OUT_OF_SCOPE", label: "超出 AI 处理范围" },
   { id: "MODEL_UNAVAILABLE", label: "模型不可用" },
+  { id: "ORDER_QUERY_FAILURE", label: "订单查询失败" },
 ];
 
 const SORTS = [

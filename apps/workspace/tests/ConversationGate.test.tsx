@@ -326,4 +326,26 @@ describe("工作台 ConversationGate", () => {
     expect(screen.getByText("连续模型失败")).toBeInTheDocument();
     expect(screen.getByText("2 次 · MODEL_TIMEOUT")).toBeInTheDocument();
   });
+
+  it("AC-53 订单连续失败交接单展示原因与错误码", async () => {
+    const failedDetail = {
+      ...detail,
+      handoff: {
+        ...detail.handoff,
+        reason: "ORDER_QUERY_FAILURE",
+        failure_count: 2,
+        last_error: "DEPENDENCY_UNAVAILABLE",
+      },
+    };
+    mockRoutes({
+      "/api/workspace/session": () => json(session),
+      "/api/workspace/conversations/conv-1": () => json(failedDetail),
+      "/api/workspace/conversations/conv-1/messages": messagesRoute(claimedMessages),
+    });
+    render(<ConversationGate conversationId="conv-1" />);
+
+    expect(await screen.findByText("订单查询失败")).toBeInTheDocument();
+    expect(screen.getByText("连续订单失败")).toBeInTheDocument();
+    expect(screen.getByText("2 次 · DEPENDENCY_UNAVAILABLE")).toBeInTheDocument();
+  });
 });

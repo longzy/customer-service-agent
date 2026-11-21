@@ -16,7 +16,6 @@ from backend.conversations.customer_chat import (
     MODEL_FAILURE_HANDOFF_NOTICE,
     RETRY_NOTICE,
 )
-from backend.conversations.statuses import RETURNED_TO_AI_NOTICE
 from backend.identity.customer_sessions import CUSTOMER_COOKIE
 from backend.platform.models import (
     ServiceAiEvent,
@@ -30,6 +29,7 @@ from tests.integration.customer_support import (
     login_customer,
     prepare_customer_db,
     rows_of,
+    simulate_return_to_ai,
     with_db,
 )
 from tests.integration.db_utils import db_available
@@ -287,36 +287,6 @@ def test_连续失败可混合超时与异常_AC_31() -> None:
     assert handoff.context["last_error"] == "MODEL_ERROR"
     events = sorted(rows(ServiceAiEvent), key=lambda event: event.created_at)
     assert [event.status for event in events] == ["timeout", "error"]
-
-
-def simulate_return_to_ai(conversation_id: str) -> None:
-    """用数据库状态模拟 F-12 的转回：会话回 AI_ACTIVE、旧单关闭、写转回系统消息。"""
-
-    async def write(db: Any) -> None:
-        await db.execute(
-            update(ServiceConversation)
-            .where(ServiceConversation.id == conversation_id)
-            .values(status="AI_ACTIVE", assigned_employee_id=None)
-        )
-        await db.execute(
-            update(ServiceHandoff)
-            .where(ServiceHandoff.conversation_id == conversation_id)
-            .values(status="CLOSED")
-        )
-        db.add(
-            ServiceMessage(
-                conversation_id=conversation_id,
-                author_type="system",
-                author_id=None,
-                content=RETURNED_TO_AI_NOTICE,
-                idempotency_key=None,
-                trace_id="trace-return",
-                created_at=datetime.now(UTC),
-            )
-        )
-        await db.commit()
-
-    asyncio.run(with_db(write))
 
 
 def test_转回AI后首次失败不沿用旧计数_AC_31() -> None:
