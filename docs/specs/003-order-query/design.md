@@ -7,7 +7,7 @@
 - 批准：2026-11-20（与 brief 同时批准；F-25 起进入 Build）
 - 日期：2026-11-20
 - 风险级别：T3
-- 依据：`brief.md`、[总体架构 4.3 订单访问](../../architecture/overview.md)、[ADR-0006](../../adr/0006-customer-login.md)、[ADR-0011](../../adr/0011-model-failure-degradation.md)
+- 依据：`requirements.md`、[总体架构 4.3 订单访问](../../architecture/overview.md)、[ADR-0006](../../adr/0006-customer-login.md)、[ADR-0011](../../adr/0011-model-failure-degradation.md)
 
 ## 1. 背景与范围（Context and Scope）
 

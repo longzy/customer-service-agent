@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """验收标准（AC）追溯矩阵：需求 → feature → 执行卡 → 测试。
 
-检查器只保证“AC 在 features.md 里被提到”，本脚本检查“AC 有没有真实测试”，
+检查器只保证“AC 在 tasks.md 里被提到”，本脚本检查“AC 有没有真实测试”，
 并按 feature 的 Passes 区分“完全覆盖”与“部分覆盖”：
 - 没有测试的 AC 必须登记基线并写明承接任务；
 - 有测试但仍有未通过 feature 的 AC 属于部分覆盖，也要登记基线；
@@ -21,6 +21,7 @@ SPECS = ROOT / "docs" / "specs"
 CARDS = ROOT / "docs" / "tasks"
 BASELINE = ROOT / "scripts" / "trace-baseline.txt"
 AC_ID = re.compile(r"AC[-_](\d{2})")
+FRONTMATTER = re.compile(r"^---\n(.*?)\n---\n", re.S)
 LEGACY_AC = {f"AC-{number:02d}" for number in range(1, 30)}
 
 
@@ -66,19 +67,23 @@ def ac_from_cards() -> dict[str, list[str]]:
 
 
 def ac_from_features() -> dict[str, list[tuple[str, bool]]]:
-    """AC → 承接它的 feature 与 Passes；用于区分完全覆盖与部分覆盖。"""
+    """AC → 承接它的执行卡与是否完成；状态源是执行卡 frontmatter。"""
     found: dict[str, list[tuple[str, bool]]] = {}
-    for path in SPECS.glob("*/features.md"):
-        for line in path.read_text(encoding="utf-8").splitlines():
-            if not line.startswith("| F-"):
-                continue
-            cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
-            if len(cells) < 7:
-                continue
-            feature = cells[0]
-            passes = cells[5].lower() == "true"
-            for ac in AC_ID.findall(cells[4]):
-                found.setdefault(f"AC-{ac}", []).append((feature, passes))
+    for path in sorted(CARDS.rglob("F-*.md")):
+        match = FRONTMATTER.match(path.read_text(encoding="utf-8"))
+        if not match:
+            continue
+        meta: dict[str, str] = {}
+        for line in match.group(1).splitlines():
+            key, sep, value = line.partition(":")
+            if sep:
+                meta[key.strip()] = value.strip()
+        feature = meta.get("id")
+        if not feature:
+            continue
+        passed = meta.get("status") == "done"
+        for ac in AC_ID.findall(meta.get("ac", "")):
+            found.setdefault(f"AC-{ac}", []).append((feature, passed))
     return found
 
 
@@ -112,9 +117,7 @@ def read_baseline() -> dict[str, str]:
 
 def main() -> int:
     strict = "--strict" in sys.argv
-    requirements = [p for p in SPECS.glob("*/requirements.md")] + [
-        p for p in SPECS.glob("*/brief.md")
-    ]
+    requirements = [p for p in SPECS.glob("*/requirements.md")]
     if not requirements:
         print("没有找到需求文档")
         return 1

@@ -6,8 +6,9 @@
 
 ## 每次开工
 
-1. 读 `docs/CURRENT.md`（一页事实，唯一状态视图）。
-2. 按任务加载，不预读全仓：
+1. 读 `docs/STATUS.md`（一页事实，唯一状态视图）。
+2. 任务状态看 `docs/tasks/<spec>/F-XX.md` 的 frontmatter；`tasks.md`、`dashboard.html`、`status.json` 是生成物，不手改。
+3. 按任务加载，不预读全仓：
    - 改代码：`docs/process/WORKFLOW.md`。
    - 改前端：`docs/process/frontend.md`。
    - 硬约束：`docs/architecture/invariants.md`、`docs/process/standards.md`。
@@ -16,7 +17,7 @@
    - 事务与 seam 归属：`docs/architecture/overview.md`。
    - 接管：`docs/handoffs/` 最新一篇（归档，不默认加载）。
 
-恢复结果与用户指令冲突时，以用户指令为准，先更新 `docs/CURRENT.md` 再继续。
+恢复结果与用户指令冲突时，以用户指令为准，先更新 `docs/STATUS.md` 再继续。
 
 ## 文档权威顺序
 

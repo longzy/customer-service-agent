@@ -4,7 +4,7 @@
 - 评审者：独立上下文（未参与实现），共 N 轮；Standards 轴与 Spec 轴并行
 - 评审范围：`git diff <fixed>...<head>`（`<fixed>` 为本 feature 开工前 HEAD，即首个 feature 提交的父提交；可用 `git rev-parse <first-commit>^`）
 - 评审输入：`python3 scripts/review_pack.py F-XX` 生成的评审包
-- 依据：执行卡、`plan.md` 第 X 节、AC-XX
+- 依据：执行卡、`design.md` 第 X 节、AC-XX
 
 ## 0. 门禁复核
 

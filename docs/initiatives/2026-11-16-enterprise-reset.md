@@ -3,7 +3,7 @@
 - 状态：进行中（M1 客户转人工闭环）
 - 负责人：产品/技术负责人
 - 依据：2026-11-16 会话复盘；用户明确目标为“真实企业内部 AI 客服系统”，不是消费者 demo
-- 作用：记录方向重置的决策、阶段、退出条件与风险；任务级进度仍以 `docs/tasks/` 与 `docs/CURRENT.md` 为准
+- 作用：记录方向重置的决策、阶段、退出条件与风险；任务级进度仍以 `docs/tasks/` 与 `docs/STATUS.md` 为准
 
 ## 1. 为什么重置
 
@@ -77,9 +77,9 @@ M1 的 21/21 是**原型验收**，不是企业 MVP 出口。原型按“消费�
 产出：
 
 - 重写 `docs/product/charter.md`；
-- 重写 `docs/roadmap.md`；
+- 重写 `docs/ROADMAP.md`；
 - 新 `docs/adr/0005-enterprise-boundary.md`；
-- 更新 `docs/architecture/overview.md`、`docs/architecture/invariants.md` 与 `docs/CURRENT.md`；
+- 更新 `docs/architecture/overview.md`、`docs/architecture/invariants.md` 与 `docs/STATUS.md`；
 - 本文决策日志确认。
 
 退出条件：
@@ -158,7 +158,7 @@ Mock 只能出现在 `adapters/` 与测试；业务上下文不得直接 import 
 ## 9. 跟踪规则
 
 - 本文只记阶段、决策、退出条件、风险；不记任务进度。
-- 任务状态写 `docs/tasks/` 与 `docs/CURRENT.md`。
+- 任务状态写 `docs/tasks/` 与 `docs/STATUS.md`。
 - 评审证据写 `docs/reviews/`。
 - 阶段或决策变化才更新本文；变更记入文末。
 

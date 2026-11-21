@@ -9,8 +9,8 @@
 - 风险级别：T3（订单归属、跨客户隐私、AI 事实性）
 - 客户：终端消费者（客户甲/乙）；客服坐席（坐席 1/2）
 - 依据：[产品宪章](../../product/charter.md)、[ADR-0006](../../adr/0006-customer-login.md)、[ADR-0011](../../adr/0011-model-failure-degradation.md)、[总体架构](../../architecture/overview.md)
-- 关联 plan：`plan.md`
-- 关联 features：`features.md`
+- 关联 plan：`design.md`
+- 关联 features：`tasks.md`
 - 变更说明：本切片落地后修订 001 的 **AC-31**（"不接订单 Tool"改为"订单意图接订单 Tool，只查本人订单"）与 **AC-32**（"问订单一律转人工、`order_count=0`"改为"先查询；取消/退款等操作、低置信或连续失败才转人工（查无与单次查询失败不建单）；交接单带实际订单上下文"）。修订文本随本切片批准后同步到 001 brief，并更新对应测试。2026-11-21 F-28 追加：001 **AC-35/36** 的 `order_count` 由"恒 0"同步为"交接单快照订单数"，与 003 AC-55 一致。
 > 2026-11-21 追加（用户决策）：多单/半截不再要求客户手输订单号，允许查一次最近订单列出候选，不替客户选单；“我的订单/查订单”作为确定性列表入口，快捷入口不依赖模型意图；客户侧卡片与常驻入口由 F-29 承接。
 
@@ -81,7 +81,7 @@ M1 转人工闭环里，客户一提到订单就被转人工：AI 不接订单 T
 
 ## 附录 A. 验收标准（AC）
 
-> 仓库门禁：`scripts/trace.py` 从本表的 `| AC-` 行读取验收编号；`scripts/check-docs.py` 要求每个 AC 在 `features.md` 出现。
+> 仓库门禁：`scripts/trace.py` 从本表的 `| AC-` 行读取验收编号；`scripts/check-docs.py` 要求每个 AC 在 `tasks.md` 出现。
 > AC 是 PR/FAQ 之外的追溯附录，不是需求大全；一行一个可观察结果。
 
 | AC | 角色 | 场景 | 期望（可观察） |

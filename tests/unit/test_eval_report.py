@@ -1,6 +1,6 @@
 """场景评测报告生成器：用合成 JUnit 验证 AC 聚合与失败退出码。
 
-AC 集合来自当前 `docs/specs/*/brief.md`；`scripts/trace-baseline.txt` 登记的
+AC 集合来自当前 `docs/specs/*/requirements.md`；`scripts/trace-baseline.txt` 登记的
 待开工 AC 记 pending，不算缺失。覆盖全绿、缺 AC、空测试集、非法 XML 与失败
 用例；报告必须实际落盘，失败输入也必须留下报告。
 """

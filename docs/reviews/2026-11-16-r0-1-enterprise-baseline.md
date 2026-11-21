@@ -11,12 +11,12 @@
 | 文件 | 变更 |
 |---|---|
 | [`docs/product/charter.md`](../product/charter.md) | 重写为企业内部 AI 客服定位；角色、M1 范围、Mock 边界、指标与假设 |
-| [`docs/roadmap.md`](../roadmap.md) | 重写为 M0 → M1-P → R0 → 企业 M1 → M2–M5 |
+| [`docs/ROADMAP.md`](../ROADMAP.md) | 重写为 M0 → M1-P → R0 → 企业 M1 → M2–M5 |
 | [`docs/adr/0005-enterprise-boundary.md`](../adr/0005-enterprise-boundary.md) | 新增产品/角色/身份/Mock/模块/验收边界与不变量影响 |
 | [`docs/architecture/overview.md`](../architecture/overview.md) | 两个前端、匿名会话、队列/接管、OmsPort 与依赖规则 |
 | [`docs/architecture/invariants.md`](../architecture/invariants.md) | 修订 INV-01/02/03/11，新增 INV-17/18/19 |
 | [`docs/GLOSSARY.md`](../GLOSSARY.md)、`README.md`、`CLAUDE.md`、`GEMINI.md` | 术语、入口与链接对齐 |
-| [`docs/CURRENT.md`](../CURRENT.md)、[`docs/initiatives/2026-11-16-enterprise-reset.md`](../initiatives/2026-11-16-enterprise-reset.md) | 状态与决策日志更新 |
+| [`docs/STATUS.md`](../STATUS.md)、[`docs/initiatives/2026-11-16-enterprise-reset.md`](../initiatives/2026-11-16-enterprise-reset.md) | 状态与决策日志更新 |
 
 ## 2. 用户确认的决策
 
@@ -33,13 +33,13 @@ $ python3 scripts/check-docs.py
 文档检查通过：81 个文件、53 条链接、1 个规格目录、21 条 AC、0 张执行卡已检查、21 张跳过、21 份评审记录已核对。
 
 $ python3 scripts/check-status.py
-状态一致性检查通过：21 个已完成任务、0 个未完成任务、21 张执行卡与 CURRENT.md 对齐。
+状态一致性检查通过：21 个已完成任务、0 个未完成任务、21 张执行卡与 STATUS.md 对齐。
 
 $ python3 scripts/trace.py --strict
 追溯检查通过：21 条 AC，0 条已登记基线。
 ```
 
-完整门禁 `./scripts/verify.sh` 结果见本文第 6 节与 `docs/CURRENT.md` 的验证块。
+完整门禁 `./scripts/verify.sh` 结果见本文第 6 节与 `docs/STATUS.md` 的验证块。
 
 ## 4. 不变量变更
 
@@ -80,7 +80,7 @@ Tests  40 passed (40)
   mypy 39 个文件、追溯矩阵通过（21 条 AC）、文档与前端检查通过
 ```
 
-退出码 0。`docs/CURRENT.md` 的验证块由 `verify.sh` 自动回写。
+退出码 0。`docs/STATUS.md` 的验证块由 `verify.sh` 自动回写。
 
 ## 结论
 

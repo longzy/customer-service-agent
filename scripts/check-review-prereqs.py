@@ -6,7 +6,7 @@
 1. 组件文件与导出组件同名、一个文件只导出一个组件、feature 组件不默认导出（FE-DIR-06/07）。
 2. hook 文件以 `use` 开头且导出同名 hook（FE-DIR-06）。
 3. `scripts/trace-baseline.txt` 的承接理由里出现的 F-xx 必须真的绑定该 AC。
-4. `docs/CURRENT.md` 声称某个 F-xx“评审通过”时，必须有对应评审记录且结论通过（STD-DOC-01）。
+4. `docs/STATUS.md` 声称某个 F-xx“评审通过”时，必须有对应评审记录且结论通过（STD-DOC-01）。
 
 用法：
     python3 scripts/check-review-prereqs.py
@@ -26,8 +26,9 @@ from review_conclusion import conclusion_verdict
 
 ROOT = Path(__file__).resolve().parent.parent
 SPECS = ROOT / "docs" / "specs"
+CARDS = ROOT / "docs" / "tasks"
 REVIEWS = ROOT / "docs" / "reviews"
-CURRENT = ROOT / "docs" / "CURRENT.md"
+CURRENT = ROOT / "docs" / "STATUS.md"
 STRUCTURE_BASELINE = ROOT / "scripts" / "frontend-structure-baseline.txt"
 TRACE_BASELINE = ROOT / "scripts" / "trace-baseline.txt"
 
@@ -61,11 +62,12 @@ class Violation:
 
 def configure(root: Path) -> None:
     """允许测试用临时仓库根目录运行，不依赖调用点位置。"""
-    global ROOT, SPECS, REVIEWS, CURRENT, STRUCTURE_BASELINE, TRACE_BASELINE
+    global ROOT, SPECS, CARDS, REVIEWS, CURRENT, STRUCTURE_BASELINE, TRACE_BASELINE
     ROOT = root.resolve()
+    CARDS = ROOT / "docs" / "tasks"
     SPECS = ROOT / "docs" / "specs"
     REVIEWS = ROOT / "docs" / "reviews"
-    CURRENT = ROOT / "docs" / "CURRENT.md"
+    CURRENT = ROOT / "docs" / "STATUS.md"
     STRUCTURE_BASELINE = ROOT / "scripts" / "frontend-structure-baseline.txt"
     TRACE_BASELINE = ROOT / "scripts" / "trace-baseline.txt"
 
@@ -161,16 +163,20 @@ def structure_violations() -> list[str]:
 
 def feature_acs() -> dict[str, tuple[str, set[str]]]:
     mapping: dict[str, tuple[str, set[str]]] = {}
-    for path in sorted(SPECS.glob("*/features.md")):
-        for line in path.read_text(encoding="utf-8").splitlines():
-            if not line.startswith("| F-"):
-                continue
-            cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
-            if len(cells) < 6:
-                continue
-            mapping[cells[0]] = (
+    for path in sorted(CARDS.glob("*/F-*.md")):
+        text = path.read_text(encoding="utf-8")
+        match = re.match(r"^---\n(.*?)\n---\n", text, re.S)
+        if not match:
+            continue
+        meta: dict[str, str] = {}
+        for line in match.group(1).splitlines():
+            key, sep, value = line.partition(":")
+            if sep:
+                meta[key.strip()] = value.strip()
+        if meta.get("id"):
+            mapping[meta["id"]] = (
                 path.parent.name,
-                set(re.findall(r"AC-\d{2}", cells[4])),
+                set(re.findall(r"AC-\d{2}", meta.get("ac", ""))),
             )
     return mapping
 
@@ -211,12 +217,12 @@ def current_review_violations() -> list[str]:
         for feature in sorted(set(FEATURE_ID.findall(line))):
             found = features.get(feature)
             if found is None:
-                errors.append(f"docs/CURRENT.md:{lineno}：{feature} 未在 features 中定义")
+                errors.append(f"docs/STATUS.md:{lineno}：{feature} 未在 features 中定义")
                 continue
             review = REVIEWS / found[0] / f"{feature}.md"
             if not review.exists():
                 errors.append(
-                    f"docs/CURRENT.md:{lineno}：{feature} 声称评审通过，"
+                    f"docs/STATUS.md:{lineno}：{feature} 声称评审通过，"
                     f"但 {_relative(review)} 不存在"
                 )
                 continue

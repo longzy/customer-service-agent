@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-"""当前状态一致性检查：CURRENT.md ↔ features.md ↔ 执行卡。
+"""当前状态一致性检查：STATUS.md ↔ tasks.md ↔ 执行卡。
 
-CURRENT.md 是给人看的一页状态，但它的每个事实都必须能从产物推导出来。
+STATUS.md 是给人看的一页状态，但它的每个事实都必须能从产物推导出来。
 本脚本检查四件事：
 
-1. 状态与事实一致：执行卡状态、features 的 `Passes`、CURRENT.md 三处不能互相矛盾。
-2. 引用的任务必须存在：CURRENT.md 里出现的 F-XX（或历史 T-XX）必须能在执行卡中找到。
-3. 未完成任务不能消失：未完成的执行卡必须出现在 CURRENT.md 的进行中/阻塞/下一步。
+1. 状态与事实一致：执行卡状态、features 的 `Passes`、STATUS.md 三处不能互相矛盾。
+2. 引用的任务必须存在：STATUS.md 里出现的 F-XX（或历史 T-XX）必须能在执行卡中找到。
+3. 未完成任务不能消失：未完成的执行卡必须出现在 STATUS.md 的进行中/阻塞/下一步。
 4. 列表编号连续：手工追加导致 2、2、3、3 的序号重复会被拦下。
 5. 任务号全局唯一：同一 F-XX/T-XX 不允许跨规格或重复出现。
 
@@ -19,7 +19,7 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-CURRENT = ROOT / "docs" / "CURRENT.md"
+CURRENT = ROOT / "docs" / "STATUS.md"
 SPECS = ROOT / "docs" / "specs"
 TASK_FILES: list[Path] = []
 CARDS = ROOT / "docs" / "tasks"
@@ -37,14 +37,29 @@ def configure(root: Path) -> None:
     """允许测试用临时仓库根目录运行，不依赖调用点位置。"""
     global ROOT, CURRENT, SPECS, TASK_FILES, CARDS
     ROOT = root.resolve()
-    CURRENT = ROOT / "docs" / "CURRENT.md"
+    CURRENT = ROOT / "docs" / "STATUS.md"
     SPECS = ROOT / "docs" / "specs"
-    TASK_FILES = sorted(SPECS.glob("*/tasks.md")) + sorted(SPECS.glob("*/features.md"))
+    TASK_FILES = sorted(SPECS.glob("*/tasks.md"))
     CARDS = ROOT / "docs" / "tasks"
 
 
 def card_paths() -> list[Path]:
     return sorted(path for path in CARDS.rglob("*.md") if CARD_FILE.match(path.name))
+
+
+FRONTMATTER = re.compile(r"^---\n(.*?)\n---\n", re.S)
+
+
+def parse_frontmatter(text: str) -> dict[str, str]:
+    match = FRONTMATTER.match(text)
+    if not match:
+        return {}
+    meta: dict[str, str] = {}
+    for line in match.group(1).splitlines():
+        key, sep, value = line.partition(":")
+        if sep:
+            meta[key.strip()] = value.strip()
+    return meta
 
 
 def section(text: str, title: str) -> str:
@@ -98,64 +113,48 @@ def main(argv=None) -> int:
 
     closed: set[str] = set()
     opened: set[str] = set()
-    passed_features: set[str] = set()
     feature_ids: set[str] = set()
     for tasks_text in task_texts.values():
         for line in tasks_text.splitlines():
-            match = CHECKBOX.match(line)
-            if match:
-                (closed if match.group(1) == "x" else opened).add(match.group(2))
-                continue
             feature = FEATURE_ROW.match(line)
-            if not feature:
-                continue
-            feature_ids.add(feature.group(1))
-            cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
-            if len(cells) >= 7 and cells[5] == "true":
-                passed_features.add(feature.group(1))
+            if feature:
+                feature_ids.add(feature.group(1))
 
     cards: dict[str, str] = {}
     for path in card_paths():
-        lines = path.read_text(encoding="utf-8").splitlines()
-        status_line = next((line for line in lines if line.startswith("- 状态：")), "")
-        cards[path.stem] = status_line.removeprefix("- 状态：").strip()
+        meta = parse_frontmatter(path.read_text(encoding="utf-8"))
+        cards[path.stem] = meta.get("status", "todo")
     for card, status in cards.items():
-        if not status.startswith("已完成"):
-            opened.add(card)
-        elif card in passed_features:
+        if status == "done":
             closed.add(card)
+        else:
+            opened.add(card)
 
     sections = {name: section(text, name) for name in ("已完成", "进行中", "阻塞", "下一步")}
     mentioned = {match.group(0) for body in sections.values() for match in TASK_ID.finditer(body)}
     known = closed | opened | set(cards) | feature_ids
 
     for task in sorted(mentioned - known):
-        errors.append(f"docs/CURRENT.md：引用了不存在的任务 {task}")
-
-    for task in sorted(passed_features - set(cards)):
-        errors.append(f"{task}：features Passes=true，但没有执行卡")
-    for task in sorted(set(cards) - closed):
-        if cards[task].startswith("已完成"):
-            errors.append(f"{task}：执行卡已完成，但 tasks.md 未勾选或 features Passes 未置 true")
+        errors.append(f"docs/STATUS.md：引用了不存在的任务 {task}")
 
     for task in sorted({match.group(0) for match in TASK_ID.finditer(sections["已完成"])}):
         if task not in closed:
-            errors.append(f"docs/CURRENT.md：{task} 列在「已完成」，但 tasks.md 未勾选或不存在")
+            errors.append(f"docs/STATUS.md：{task} 列在「已完成」，但执行卡不存在或状态不是 done")
     for task in sorted({match.group(0) for match in TASK_ID.finditer(sections["进行中"])}):
         if task in closed:
-            errors.append(f"docs/CURRENT.md：{task} 已勾选，不应再列在「进行中」")
+            errors.append(f"docs/STATUS.md：{task} 已勾选，不应再列在「进行中」")
     for task in sorted({match.group(0) for match in TASK_ID.finditer(sections["下一步"])}):
         if task in closed:
-            errors.append(f"docs/CURRENT.md：{task} 已完成，不应出现在「下一步」")
+            errors.append(f"docs/STATUS.md：{task} 已完成，不应出现在「下一步」")
 
     for task in sorted(opened - mentioned):
-        errors.append(f"docs/CURRENT.md：未完成任务 {task} 没有出现在进行中/阻塞/下一步")
+        errors.append(f"docs/STATUS.md：未完成任务 {task} 没有出现在进行中/阻塞/下一步")
 
     for name, body in sections.items():
         numbers = [int(n) for n in re.findall(r"^(\d+)\. ", body, re.M)]
         expected = list(range(1, len(numbers) + 1))
         if numbers and numbers != expected:
-            errors.append(f"docs/CURRENT.md：{name} 的列表编号不连续 {numbers}")
+            errors.append(f"docs/STATUS.md：{name} 的列表编号不连续 {numbers}")
 
     for path, tasks_text in task_texts.items():
         for line in tasks_text.splitlines():
@@ -179,7 +178,7 @@ def main(argv=None) -> int:
 
     print(
         f"状态一致性检查通过：{len(closed)} 个已完成任务、{len(opened)} 个未完成任务、"
-        f"{len(cards)} 张执行卡与 CURRENT.md 对齐。"
+        f"{len(cards)} 张执行卡与 STATUS.md 对齐。"
     )
     return 0
 

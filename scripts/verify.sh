@@ -1,7 +1,7 @@
 #!/bin/sh
 # 本地/CI 统一验证入口。默认只输出一行摘要；失败时打印失败步骤与日志尾部。
 # 用法：
-#   ./scripts/verify.sh              # 全量验证并回写 docs/CURRENT.md 的验证块
+#   ./scripts/verify.sh              # 全量验证并回写 docs/STATUS.md 的验证块
 #   ./scripts/verify.sh --verbose    # 逐步输出完整日志
 #   ./scripts/verify.sh --no-record  # 只验证，不修改仓库（CI 使用）
 #   ./scripts/verify.sh --fast       # 后端快速反馈：ruff/format/mypy/unit，不写状态
@@ -80,6 +80,8 @@ run_step "评审前置" python3 scripts/check-review-prereqs.py
 run_step "当前状态一致性" python3 scripts/check-status.py
 run_step "docs" python3 scripts/check-docs.py
 cp "$STEP_LOG" "$DOCS_LOG"
+run_step "任务索引同步" python3 scripts/gen_tasks.py --check
+run_step "看板同步" python3 scripts/gen_board.py --check
 run_step "设计令牌" ./scripts/check-tokens.sh
 run_step "样式检查" ./scripts/lint-styles.sh
 
@@ -147,10 +149,10 @@ summary = (
 )
 print(summary)
 if record != "1":
-    print("（--no-record：未写入 docs/CURRENT.md）")
+    print("（--no-record：未写入 docs/STATUS.md）")
     raise SystemExit(0)
 
-path = Path("docs/CURRENT.md")
+path = Path("docs/STATUS.md")
 content = path.read_text(encoding="utf-8")
 before, rest = content.split("<!-- verify:start -->", 1)
 _, after = rest.split("<!-- verify:end -->", 1)

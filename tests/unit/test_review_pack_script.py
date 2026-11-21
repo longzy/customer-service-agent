@@ -30,14 +30,14 @@ def test_评审包包含执行卡与plan_基座豁免() -> None:
     result = run("F-08", "--base", "HEAD")
     assert result.returncode == 0, result.stderr
     assert "## 4. 执行卡：改变范围与任务决策" in result.stdout
-    assert "## 5. 规格 plan 全文" in result.stdout
+    assert "## 5. 设计全文（design.md）" in result.stdout
     assert "领取后接管" in result.stdout
 
 
 def test_未知feature返回非零_基座豁免() -> None:
     result = run("F-99", "--base", "HEAD")
     assert result.returncode != 0
-    assert "找不到对应行" in result.stderr
+    assert "找不到执行卡" in result.stderr
 
 
 def test_固定点可从任务号自动识别_基座豁免() -> None:
