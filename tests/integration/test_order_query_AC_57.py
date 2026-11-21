@@ -131,7 +131,7 @@ def test_订单查询写审计与工具记录_AC_57() -> None:
     assert "items" not in str(execution.response_redacted)
     assert "39900" not in str(execution.response_redacted)
     assert counter("order_query_total", tool="get_order", status="ok") == 1
-    assert metrics.snapshot()["order_query_latency_ms_total"] >= 0
+    assert "order_query_latency_ms_total" in metrics.snapshot()
 
 
 def test_最近订单查询审计带订单数_AC_57() -> None:
@@ -143,7 +143,7 @@ def test_最近订单查询审计带订单数_AC_57() -> None:
 
     assert response.status_code == 200, response.text
     [audit] = order_audits()
-    assert audit.entity_type == "order"
+    assert audit.entity_type == "conversation"
     assert audit.entity_id == response.json()["conversation_id"]
     metadata = audit.metadata_redacted
     assert "order_id" not in metadata
@@ -159,6 +159,29 @@ def test_最近订单查询审计带订单数_AC_57() -> None:
     assert counter("order_query_total", tool="list_recent_orders", status="ok") == 1
 
 
+def test_查无订单也写审计与工具记录_AC_57() -> None:
+    """他人/不存在：客户看到统一“查无”，审计与工具记录仍保留真实失败原因。"""
+    app = order_app()
+    with api_client(app) as api:
+        login(api)
+        other = send(api, "查 ORD-20001")
+        missing = send(api, "查 ORD-99999")
+
+    assert other.status_code == 200
+    assert missing.status_code == 200
+    audits = order_audits()
+    # 同一请求时间戳相同；审计按 id 排序不稳定，用集合断言。
+    assert {row.metadata_redacted["result"] for row in audits} == {"not_found"}
+    assert {row.metadata_redacted["order_id"] for row in audits} == {"ORD-20001", "ORD-99999"}
+    executions = tool_rows()
+    assert {row.tool_name for row in executions} == {"get_order"}
+    # 他人与不存在订单都在网关归属闸门被 rejected（不调用 OMS），错误码统一。
+    assert {row.result_status for row in executions} == {"rejected"}
+    assert {row.error_code for row in executions} == {"NOT_FOUND_OR_UNAUTHORIZED"}
+    # 审计、工具记录、AI 消息共用各自请求的 trace。
+    assert {row.trace_id for row in audits} == {row.trace_id for row in executions}
+
+
 def test_未绑定客户查询记unbound_AC_57() -> None:
     """解绑后查询：对客户仍是查无，但指标单独记 unbound，运维可区分。"""
     unbind_customer("customer_a")
@@ -172,7 +195,7 @@ def test_未绑定客户查询记unbound_AC_57() -> None:
     assert audit.metadata_redacted["result"] == "not_found"
     assert audit.metadata_redacted["order_id"] == "ORD-10001"
     assert counter("order_query_unbound_total", tool="get_order") == 1
-    # 未绑定不调用 OMS，因此没有工具记录。
+    # plan 3.2：未绑定不调用 OMS，因此没有工具记录；审计与 unbound 指标仍记录。
     assert tool_rows() == []
 
 

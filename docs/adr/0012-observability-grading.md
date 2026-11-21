@@ -82,6 +82,7 @@ class TraceWriteError(Exception):
 ### 5. 采样
 
 - 100%：`error_code` 非空、handoff、cancel、模型失败、安全事件、工具失败。
+- 100%（2026-11-21 追加）：订单查询 `get_order`/`list_recent_orders`。隐私敏感的读操作即使成功也必须可追溯（003 AC-57：每次查询有工具记录），因此加入 `ALWAYS_SAMPLE_TOOLS`，不按正常成功 5% 采样。
 - 正常成功：默认 5%，`TRACE_SAMPLE_RATE` 可配。
 - 采样决策在请求入口一次完成，随 `trace_id` 传递；不允许半条链。
 - 审计不采样；AI 关键事件不采样。
@@ -191,6 +192,7 @@ VIEW_AUDIT_DEDUP_SECONDS=300
 
 - 2026-11-19：步骤 1 完成——新增 `AuditWriteError` / `TraceWriteError`；`ToolGateway` 的 `sink.start/finish/reject` 改为 best-effort 并记结构化日志；`AuditWriteError` 映射 503；新增网关故障注入、HTTP 200 与审计 503 测试。
 - 2026-11-19：步骤 2 完成——`SampledTraceSink` 尾采样（异常/关键工具 100%，正常成功默认 5%）；请求级 trace 中间件；进程内 `metrics` 计数器与 `/metrics` 文本端点，暴露 `trace_write_failures_total` 与 `trace_dropped_total`。`/metrics` 只含计数、无 PII，生产需在网络层限制访问。
+- 2026-11-21：订单查询 `get_order`/`list_recent_orders` 加入 100% 采样清单（003 AC-57）；`metrics` 增加带标签计数（`increment_labeled`），用于 `order_query_total{tool,status}`。
 - 2026-11-19：步骤 3 完成——`BufferedTraceSink` 有界队列（默认 1000）+ 后台批量写（2s/200 条），队列满丢最旧并计数，lifespan 关闭时 flush；`AsyncTraceSink` 由该实现取代。
 - 2026-11-19：步骤 4 完成——迁移 `0012_trace_ai_fields`：`tool_executions` 增加 `span_id`/`parent_span_id`/`step`/`sampled`/`source`；`service_ai_events` 增加 `prompt_version`/`prompt_hash`/`model`/tokens/首 token 延迟/`retry_count`；模型返回与 AI 事件写入回填可用字段，schema 快照已重生成。
 - 2026-11-19：步骤 5 完成——客户/坐席打开会话详情时写 `conversation.viewed` 审计；轮询消息不写；同一 actor/记录/动作 5 分钟进程内去重；`record_view` 独立事务，失败返回 503。

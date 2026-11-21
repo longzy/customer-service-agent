@@ -19,7 +19,7 @@ export function OrderSummaryCard({ order }: OrderSummaryCardProps) {
   return (
     <article
       aria-labelledby={headingId}
-      className="rounded-xl border border-border bg-surface px-3.5 py-2.5 focus-visible:outline-none focus-visible:shadow-focus"
+      className="rounded-xl border border-border bg-surface px-4 py-3 focus-visible:outline-none focus-visible:shadow-focus"
       tabIndex={0}
     >
       <div className="flex flex-wrap items-center gap-2">
@@ -30,7 +30,7 @@ export function OrderSummaryCard({ order }: OrderSummaryCardProps) {
           {order.order_id}
         </h4>
         <span className="inline-flex h-6 items-center gap-1.5 rounded-full border border-border px-2 text-xs">
-          <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${tone.dot}`} />
+          <span aria-hidden="true" className={`h-[7px] w-[7px] rounded-full ${tone.dot}`} />
           <span className={tone.text}>{order.status_label}</span>
         </span>
       </div>

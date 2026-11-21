@@ -34,7 +34,7 @@
 
 ### Non-Goals
 
-- 不做订单 Tool/真实 OMS；本切片 `order_count=0`。
+- 不做订单 Tool/真实 OMS；本切片 `order_count=0`（003 订单查询已接入订单 Tool 与 Mock OMS，交接单 `order_count` 改为快照订单数）。
 - 不做自动分配、主管/管理员视图、历史会话、客户注册/OTP/MFA。
 - 不做 WebSocket/SSE；3s 轮询先证明闭环。
 - 不做服务端阻塞式重试或多模型自动切换；重试由客户触发，连续失败才转人工。
@@ -184,12 +184,12 @@ M1 使用新的 `service_*` 表；M1-P 的旧表与取消工作流保留，旧 W
 - 同一会话连续 2 次 `MODEL_TIMEOUT`/`MODEL_ERROR`：自动建单，系统消息改为「AI 暂时不可用，已为你转接人工（排队中）。」，避免客户反复失败无出口。
 - 「连续」指同一会话相邻两条客户消息均失败，中间没有成功的 AI 回复；成功回复后失败计数清零。
 - 本切片没有订单 Tool；AI 不得编造订单信息；超范围直接转人工。
-- 交接单：customer_id、summary≤500、context（最近 20 条且≤4000 字）、AI 轨迹、reason、priority、pending_step；`order_count=0`；脱敏；连续失败时记录失败次数与最后一次错误码。
+- 交接单：customer_id、summary≤500、context（最近 20 条且≤4000 字）、AI 轨迹、reason、priority、pending_step；`order_count`（交接单快照订单数，003 F-28 起）；脱敏；连续失败时记录失败次数与最后一次错误码。
 - AI 轨迹写 `service_ai_events`：`event_type`（model/intent）、name、status、confidence、trace_id；不存 prompt/response 正文。
 
 #### 3.3.5 队列与接管
 
-- 队列：`status='QUEUED'`，`ORDER BY created_at, id`；摘要：handoff_id、conversation_id、客户账号/显示名、等待秒数、reason、order_count=0、脱敏末条≤100 字。
+- 队列：`status='QUEUED'`，`ORDER BY created_at, id`；摘要：handoff_id、conversation_id、客户账号/显示名、等待秒数、reason、order_count（交接单快照订单数，003 F-28 起）、脱敏末条≤100 字。
 - 领取：`UPDATE service_handoffs SET status='CLAIMED', claimed_by=:me, claimed_at=now(), version=version+1 WHERE id=:id AND tenant_id=:tenant AND status='QUEUED' RETURNING ...`；无行 → 404/409。
 - 领取同事务：`service_conversations.status='CLAIMED'`、`assigned_employee_id=:me`、审计。
 - 接管：`WHERE id=:id AND claimed_by=:me AND status='CLAIMED'`；设 `HUMAN_ACTIVE`/`ACTIVE`，写系统消息“人工已接入”，审计；无行 404。

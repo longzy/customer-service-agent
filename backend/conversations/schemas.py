@@ -3,7 +3,7 @@
 from collections.abc import Mapping
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 
 ConversationStatus = Literal[
     "AI_ACTIVE",
@@ -97,13 +97,22 @@ class MessagePayload(BaseModel):
 
     @classmethod
     def from_stored(cls, payload: Mapping[str, Any] | None) -> "MessagePayload | None":
-        """读模型只投影 `orders`；旧消息的非订单载荷不会被带到 API。"""
+        """读模型只投影 `orders`；坏元素丢弃，旧消息的非订单载荷不会被带到 API。"""
         if not isinstance(payload, Mapping):
             return None
-        orders = payload.get("orders")
-        if not isinstance(orders, list):
+        raw = payload.get("orders")
+        if not isinstance(raw, list):
             return cls()
-        return cls.model_validate({"orders": [item for item in orders if isinstance(item, dict)]})
+        orders: list[OrderSummaryPublic] = []
+        for item in raw[:5]:
+            if not isinstance(item, dict):
+                continue
+            try:
+                orders.append(OrderSummaryPublic.model_validate(item))
+            except ValidationError:
+                # 落库快照由服务端构造；坏行只说明历史/手工数据，读模型降级不击穿页面。
+                continue
+        return cls(orders=orders)
 
 
 class MessagePublic(BaseModel):

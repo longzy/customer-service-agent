@@ -34,7 +34,7 @@ export function OrderCard({ order }: OrderCardProps) {
           {order.order_id}
         </h4>
         <span className="inline-flex h-6 items-center gap-1.5 rounded-full border border-border px-2 text-xs">
-          <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${tone.dot}`} />
+          <span aria-hidden="true" className={`h-[7px] w-[7px] rounded-full ${tone.dot}`} />
           <span className={tone.text}>{order.status_label}</span>
         </span>
       </div>
