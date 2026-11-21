@@ -73,8 +73,26 @@ OUT_OF_SCOPE_TERMS = (
     "投诉",
     "售后",
 )
-# 模型回复仍按完整词表拦截：AI 不应在回复里自行发散订单话题或编造订单信息。
-REPLY_OUT_OF_SCOPE_TERMS = OUT_OF_SCOPE_TERMS + ("订单", "单号")
+# 模型回复不再因单独出现“订单/单号”而转人工：F-26 起闲聊带“订单”必须是
+# 不建单的正常回复（AC-52）；回复里的订单号与物流/退款等具体事实仍被拦截。
+# 回复同时提到订单与下列事实词时，视为模型在编造订单事实（AC-54）。
+REPLY_ORDER_FACT_TERMS = (
+    "金额",
+    "价格",
+    "多少钱",
+    "元",
+    "明天",
+    "今天",
+    "后天",
+    "预计",
+    "正在",
+    "已处理",
+    "已发货",
+    "已到",
+    "路上",
+    "签收",
+    "备货",
+)
 ORDER_ID_PATTERN = re.compile(r"(?<![A-Za-z0-9-])ORD-\d{4,12}(?![\d-])", re.IGNORECASE)
 
 
@@ -118,6 +136,21 @@ def match_handoff_keyword(text: str) -> str | None:
     return next((keyword for keyword in HANDOFF_KEYWORDS if keyword in normalized), None)
 
 
+def _reply_order_fact(reply: str) -> str | None:
+    """回复同时提到订单/单号与价格、时间或履约状态时，返回命中的事实词。
+
+    单独提到“订单/单号”是正常引导（AC-52 不建单）；与事实词同现才视为
+    模型在编造订单信息（AC-54）。
+    """
+    normalized = normalize_text(reply)
+    if "订单" not in normalized and "单号" not in normalized:
+        return None
+    return next(
+        (term for term in REPLY_ORDER_FACT_TERMS if normalize_text(term) in normalized),
+        None,
+    )
+
+
 def match_out_of_scope_term(text: str, terms: tuple[str, ...] = OUT_OF_SCOPE_TERMS) -> str | None:
     """返回命中的订单/超范围词；归一化后匹配，容忍空格与中文标点。"""
     normalized = normalize_text(text)
@@ -133,9 +166,10 @@ def decide_model_handoff(
     """判定关键词未命中的模型输出是否转人工（plan 3.3.4）。
 
     优先级：订单/超范围文本 > 模型转人工意图 > 模型超范围意图 > 低置信 >
-    模型回复含订单/超范围内容。文本与回复规则是确定性护栏：订单查询由
-    F-26 的订单分支（服务端确定性执行）承接，模型回复里的订单信息不可信，
-    出现订单号或订单话题直接丢弃并转人工。
+    模型回复含订单号/超范围内容。文本与回复规则是确定性护栏：订单查询由
+    F-26 的订单分支（服务端确定性执行）承接，模型回复里的订单事实不可信；
+    回复出现订单号或物流/退款等具体事实直接丢弃并转人工。单独提到“订单”
+    不再拦截，避免闲聊带“订单”被误建单（003 AC-52）。
     """
     matched_term = match_out_of_scope_term(content)
     if matched_term is not None:
@@ -165,9 +199,15 @@ def decide_model_handoff(
             summary_hint=f"AI 置信度不足（{confidence:.2f}），已自动转人工",
         )
 
-    reply_term = match_out_of_scope_term(reply, REPLY_OUT_OF_SCOPE_TERMS)
-    if reply_term is not None or ORDER_ID_PATTERN.search(reply):
-        detail = f"命中“{reply_term}”" if reply_term is not None else "包含订单号"
+    reply_term = match_out_of_scope_term(reply)
+    reply_fact = _reply_order_fact(reply)
+    if reply_term is not None or ORDER_ID_PATTERN.search(reply) or reply_fact is not None:
+        if reply_term is not None:
+            detail = f"命中“{reply_term}”"
+        elif reply_fact is not None:
+            detail = f"订单事实“{reply_fact}”"
+        else:
+            detail = "包含订单号"
         return HandoffDecision(
             reason="OUT_OF_SCOPE",
             trigger="model_out_of_scope",

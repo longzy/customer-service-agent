@@ -15,6 +15,7 @@ from tests.integration.db_utils import db_available
 from tests.integration.order_query_support import (
     ai_messages,
     api_client,
+    bind_customer,
     login,
     order_app,
     send,
@@ -97,7 +98,7 @@ def test_模型订单意图但未提订单号也查最近订单_AC_50() -> None:
     assert rows_of(ServiceHandoff) == []
 
 
-def test_无订单明确告知且不建单_AC_50() -> None:
+def test_未绑定时按无订单告知且不建单_AC_50() -> None:
     unbind_customer("customer_a")
     app = order_app({"我的订单": MY_ORDERS})
     with api_client(app) as api:
@@ -128,3 +129,50 @@ def test_低置信订单意图不触发查询_AC_50() -> None:
     [handoff] = rows_of(ServiceHandoff)
     assert handoff.reason == "LOW_CONFIDENCE"
     assert handoff.context["trigger"] == "low_confidence"
+
+
+def test_绑定但无订单也明确告知_AC_50() -> None:
+    """有 OMS 归属但名下无订单：仍走 OMS 查询，空结果给下一步。"""
+    bind_customer("customer_a", "user-a-empty")
+    app = order_app({"我的订单": MY_ORDERS})
+    with api_client(app) as api:
+        login(api, "customer_a")
+        response = send(api, "我的订单")
+        assert response.status_code == 200, response.text
+        [message] = ai_messages(response.json())
+        assert message["content"] == RECENT_EMPTY_REPLY
+        assert message["payload"]["orders"] == []
+
+    assert app.state.oms.calls["list_recent_orders"] == 1
+    assert rows_of(ServiceHandoff) == []
+    assert order_query_events() == [("order_query", "list_recent_orders", "not_found")]
+
+
+def test_最近订单只含本人订单_AC_50() -> None:
+    """customer_a 的列表不得出现同租户他人（user-a2 的 ORD-10005）订单。"""
+    app = order_app({"我的订单": MY_ORDERS})
+    with api_client(app) as api:
+        login(api, "customer_a")
+        response = send(api, "我的订单")
+        assert response.status_code == 200, response.text
+        [message] = ai_messages(response.json())
+        order_ids = [order["order_id"] for order in message["payload"]["orders"]]
+        assert order_ids == ["ORD-10002", "ORD-10001", "ORD-10003", "ORD-10004"]
+
+    assert "ORD-10005" not in order_ids
+    assert app.state.oms.calls["list_recent_orders"] == 1
+
+
+def test_跨租户客户列表不外泄_AC_50() -> None:
+    """customer_b 的会话租户与夹具订单租户不同，列表必须为空而非泄漏他人订单。"""
+    app = order_app({"我的订单": MY_ORDERS})
+    with api_client(app) as api:
+        login(api, "customer_b")
+        response = send(api, "我的订单")
+        assert response.status_code == 200, response.text
+        [message] = ai_messages(response.json())
+        assert message["payload"]["orders"] == []
+        assert message["content"] == RECENT_EMPTY_REPLY
+
+    assert app.state.oms.calls["list_recent_orders"] == 1
+    assert rows_of(ServiceHandoff) == []

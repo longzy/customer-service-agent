@@ -14,6 +14,7 @@ from datetime import UTC, datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from backend.agent_runtime.types import Intent
 from backend.conversations.handoffs import ORDER_ID_PATTERN, normalize_text
 from backend.identity import Identity
 from backend.identity.customer_sessions import Customer
@@ -35,7 +36,8 @@ PARTIAL_ORDER_ID_PATTERN = re.compile(
 )
 
 # 订单查询意图：模型判断客户在问订单，但正文没给订单号时，查最近订单。
-ORDER_QUERY_INTENTS = frozenset({"QUERY_ORDER", "QUERY_RECENT"})
+# 从 Intent 枚举派生，避免字符串在多个模块各写一份。
+ORDER_QUERY_INTENTS = frozenset({Intent.QUERY_ORDER.value, Intent.QUERY_RECENT.value})
 
 ORDER_QUERY_NONE = "none"
 ORDER_QUERY_SINGLE = "single"

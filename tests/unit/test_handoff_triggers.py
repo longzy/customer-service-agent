@@ -104,17 +104,47 @@ def test_订单查询意图不再直接转人工_AC_32(intent: str) -> None:
     "reply",
     [
         "您的订单 ORD-10001 已发货。",
-        "请提供订单号，我帮您查。",
         "退款会在 3 天内到账。",
         "预计明天送达。",
     ],
 )
-def test_模型回复涉及订单与超范围内容被拦截_AC_32(reply: str) -> None:
+def test_模型回复涉及订单事实与超范围内容被拦截_AC_32(reply: str) -> None:
     decision = decide_model_handoff(
         content="你好呀", intent="UNKNOWN", confidence=0.98, reply=reply
     )
     assert decision is not None
     assert (decision.reason, decision.trigger) == ("OUT_OF_SCOPE", "model_out_of_scope")
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        "您的订单明天就到。",
+        "您的订单已处理，请放心。",
+        "您的订单金额是 ¥399。",
+        "这个订单价格是 399 元。",
+    ],
+)
+def test_模型回复编造订单事实被拦截_AC_32(reply: str) -> None:
+    """AC-54：模型自由回复里的订单价格/时间/履约状态不可信。"""
+    decision = decide_model_handoff(
+        content="你好呀", intent="UNKNOWN", confidence=0.98, reply=reply
+    )
+    assert decision is not None
+    assert (decision.reason, decision.trigger) == ("OUT_OF_SCOPE", "model_out_of_scope")
+
+
+def test_模型回复单独提到订单不拦截_AC_32() -> None:
+    """F-26：闲聊带“订单”时，模型正常引导查单不得被转人工（AC-52）。"""
+    assert (
+        decide_model_handoff(
+            content="订单",
+            intent="UNKNOWN",
+            confidence=0.95,
+            reply="您好，您想查询订单吗？可以发订单号。",
+        )
+        is None
+    )
 
 
 @pytest.mark.parametrize("reply", ["查询结果：ORD-10001", "ORD-20002"])
