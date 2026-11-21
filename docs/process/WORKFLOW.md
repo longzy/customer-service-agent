@@ -1,7 +1,7 @@
 # 开发流程
 
 - 状态：已批准
-- 批准：2026-11-17（用户确认替换 S0–S8；规范先行，样板后做）；2026-11-21（用户确认门禁频率：全量只在收口跑一次，评审前用定向测试）；2026-11-21（文档模型改为 requirements/design/tasks，任务状态源改为执行卡 frontmatter）
+- 批准：2026-11-17（用户确认替换 S0–S8；规范先行，样板后做）；2026-11-21（用户确认门禁频率：全量只在收口跑一次，评审前用定向测试）；2026-11-21（文档模型改为 requirements/design/tasks，任务状态源改为执行卡 frontmatter）；2026-11-21（用户确认 design/tasks 模板基线重构）
 - 适用：本仓库全部变更；人类与 AI Agent 同权
 - 关系：[工程标准](standards.md) 定义“什么算合格”；[架构不变量](../architecture/invariants.md) 定义“什么不能破”；[当前状态](../STATUS.md) 是唯一状态视图
 
@@ -25,6 +25,7 @@ Frame（目标/非目标/完成标准）
 | P-3 | 单一事实源：一处写入，其余派生 | 4 份手写状态副本 |
 | P-4 | 人决策、AI 执行：人定目标/取舍，AI 探索/实现/验证 | 让 reviewer 猜产品方向 |
 | P-5 | 规则预算：新增必须替换或删除 | 同一规则在 3 份文档重复 |
+| P-6 | 模板先行：模板是 schema，文档是 instance；先定模板再生成/评审文档 | 先写文档再反复改模板，文档结构随人漂移 |
 
 ## 2. 风险分级
 
@@ -41,6 +42,8 @@ Frame（目标/非目标/完成标准）
 
 ### 3.1 Frame
 
+前置：模板基线已定（[模板目录](../templates/README.md)、本文件 §8）；没有模板基线不写 spec。
+
 产物：`requirements.md`（PR ≤1 页 + FAQ ≤5 页，模板 [requirements](../templates/requirements.md)）。
 
 必须写：
@@ -56,22 +59,23 @@ Frame（目标/非目标/完成标准）
 
 产物：`design.md`（T2 1–3 页，T3 按需扩展，附录不计；模板 [design](../templates/design.md)）。
 
-必须写（Google Design Doc 五节，另列未决问题）：
+必须写（Google Design Doc 五节，另列未决问题；模板 [design](../templates/design.md)）：
 
 - Context and Scope、Goals and Non-Goals；
-- The Design：模块/数据/API/状态机/并发/失败路径；
-- Alternatives Considered：至少 1 个真实备选及不选原因；
-- Cross-cutting Concerns：安全/权限/审计、可观测性/测试 seam、风险/回滚；T3 加威胁模型与越权矩阵；
+- The Design：模块边界、数据模型/一致性/迁移、API/状态机/并发/幂等/事务归属、失败路径；T3 加测试策略；
+- Alternatives Considered：至少 1 个真实备选及不选原因；另写 Drawbacks（选了它的代价）与 Prior art（可选）；
+- Cross-cutting Concerns：安全/权限/审计、可观测性/测试 seam、兼容/迁移/发布/回滚、性能/成本；T3 加威胁模型与越权矩阵；
 - 未决问题：评审前清零。
 
-设计文档只在有歧义/有取舍时写；没有取舍的机械改动直接在执行卡里做；评审一次，不按阶段重复评审。
+设计文档只在有歧义/有取舍时写；没有取舍的机械改动直接在执行卡里做；评审一次，不按阶段重复评审。模板基线：Google Design Doc（Context/Goals/Design/Alternatives/Cross-cutting）、Rust RFC（Drawbacks/Prior art/Unresolved）、MADR（决策后果）、DoR/DoD（任务卡）。
 
 完成标志：**未决项为空；每个关键决策有 why/替代方案；reviewer 能按 design 实现。**
 
 #### 3.2.1 生成任务（Plan 批准后）
 
 - 从 design 的契约与 requirements 的 AC/垂直切片派生执行卡：`docs/tasks/<spec>/F-XX.md`；
-- 执行卡 frontmatter 是唯一状态源：`id`、`title`、`spec`、`milestone`、`status`、`category`、`ac`、`updated`；
+- 执行卡 frontmatter 是唯一状态源：`id`、`title`、`spec`、`milestone`、`status`、`category`、`ac`、`updated`；可选 `depends_on`（前置任务）、`slice`（垂直切片）、`risk`（覆盖默认级别）；
+- 执行卡必须有 Definition of Ready（§2.1）、声明 seam（§2.3）、判定表映射（§2.5）、验证（§3）、证据（§4）、评审（§5）、Definition of Done（§6）；T2/T3 写发布与回滚（§7）；
 - `make gen-tasks` 从所有执行卡生成 `docs/specs/<spec>/tasks.md`；`check-docs.py` 强制每个 AC 至少被一张执行卡引用；
 - `tasks.md` 是派生索引，不要手改；覆盖或粒度不对，退回改 design/切片。
 
@@ -130,7 +134,7 @@ docs/adr/                                 # lasting decisions
 
 门禁：
 
-- G0：在 milestone 内，风险级别已定；
+- G0：在 milestone 内，风险级别已定；模板基线已定（requirements/design/tasks）；
 - G1：requirements 的成功度量与 AC 可验证，且每个 AC 被执行卡 frontmatter 引用；
 - G2：收口时 `verify.sh` 全绿；
 - G3：T3 的安全评审/回滚通过；
@@ -154,6 +158,13 @@ docs/adr/                                 # lasting decisions
 - 引入生产基础设施/付费服务/真实业务系统；
 - 与宪章、ADR、验收冲突；
 - 证据不足且错误代价涉及资金、隐私、合规。
+
+## 8. 模板基线（2026-11-21）
+
+- `requirements.md`：PR/FAQ + AC + 垂直切片；2026-11-21 增可选“产品决策/用户故事/判定表”，AC 用可观察语言。
+- `design.md`：Google Design Doc 五节 + Rust RFC 的 Drawbacks/Prior art/Unresolved + MADR 的决策后果；新增“数据模型、一致性与迁移”“测试策略（可选）”“兼容、迁移与发布/回滚”。
+- 执行卡：DoR（§2.1）、seam（§2.3）、判定表（§2.5）、测试层级、证据、DoD（§6）、T2/T3 发布与回滚（§7）；frontmatter 可选 `depends_on`/`slice`/`risk`。
+- 旧执行卡不批量重写；新卡从 004 起按本模板。`check-docs.py` 兼容旧卡的第 4/5 节编号。
 
 ## 附录 A：旧 S0–S8 映射
 

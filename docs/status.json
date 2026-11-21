@@ -70,11 +70,11 @@
     },
     {
       "id": "004",
-      "folder": "",
+      "folder": "004-order-cancel",
       "name": "取消",
-      "status": "todo",
+      "status": "doing",
       "done": 0,
-      "total": 0
+      "total": 7
     },
     {
       "id": "005",
@@ -471,12 +471,110 @@
         "AC-58"
       ],
       "card": "docs/tasks/003-order-query/F-29.md"
+    },
+    {
+      "id": "F-30",
+      "title": "我的订单独立页面与列表查询",
+      "spec": "004",
+      "spec_dir": "004-order-cancel",
+      "milestone": "M1",
+      "status": "todo",
+      "category": "functional",
+      "ac": [
+        "AC-59"
+      ],
+      "card": "docs/tasks/004-order-cancel/F-30.md"
+    },
+    {
+      "id": "F-31",
+      "title": "列表取消按钮与客户确认",
+      "spec": "004",
+      "spec_dir": "004-order-cancel",
+      "milestone": "M1",
+      "status": "todo",
+      "category": "functional",
+      "ac": [
+        "AC-60",
+        "AC-61",
+        "AC-62"
+      ],
+      "card": "docs/tasks/004-order-cancel/F-31.md"
+    },
+    {
+      "id": "F-32",
+      "title": "聊天入口与订单号兜底",
+      "spec": "004",
+      "spec_dir": "004-order-cancel",
+      "milestone": "M1",
+      "status": "todo",
+      "category": "functional",
+      "ac": [
+        "AC-63"
+      ],
+      "card": "docs/tasks/004-order-cancel/F-32.md"
+    },
+    {
+      "id": "F-33",
+      "title": "资格、越权与幂等",
+      "spec": "004",
+      "spec_dir": "004-order-cancel",
+      "milestone": "M1",
+      "status": "todo",
+      "category": "security",
+      "ac": [
+        "AC-64",
+        "AC-65",
+        "AC-66"
+      ],
+      "card": "docs/tasks/004-order-cancel/F-33.md"
+    },
+    {
+      "id": "F-34",
+      "title": "提交恢复与可观测",
+      "spec": "004",
+      "spec_dir": "004-order-cancel",
+      "milestone": "M1",
+      "status": "todo",
+      "category": "security",
+      "ac": [
+        "AC-67",
+        "AC-70"
+      ],
+      "card": "docs/tasks/004-order-cancel/F-34.md"
+    },
+    {
+      "id": "F-35",
+      "title": "异常转人工与交接单",
+      "spec": "004",
+      "spec_dir": "004-order-cancel",
+      "milestone": "M1",
+      "status": "todo",
+      "category": "functional",
+      "ac": [
+        "AC-68"
+      ],
+      "card": "docs/tasks/004-order-cancel/F-35.md"
+    },
+    {
+      "id": "F-36",
+      "title": "坐席发起、工作台取消区与评测收口",
+      "spec": "004",
+      "spec_dir": "004-order-cancel",
+      "milestone": "M1",
+      "status": "todo",
+      "category": "functional",
+      "ac": [
+        "AC-69",
+        "AC-71",
+        "AC-72"
+      ],
+      "card": "docs/tasks/004-order-cancel/F-36.md"
     }
   ],
   "status": {
-    "doing": "无。M1 三个切片（001/002/003）已收口，004 取消尚未启动。",
+    "doing": "004 取消：requirements/design 已批准，执行卡 F-30~F-36 已建（todo）；尚未开工。",
     "blocked": "分支保护受 GitHub 私有仓库套餐限制；不影响核心开发。",
-    "next": "1. 004 取消：订单取消工作流、状态语义与越权矩阵。 2. 005 安全硬化：PII 覆盖扩展、清理任务频率与审计归档。 3. 补充 003 的收口提交说明（代码与证据已齐）。"
+    "next": "1. 按 F-30、F-31、F-32、F-33、F-34、F-35、F-36 顺序开工（一次一个，先红后绿）。 2. 005 安全硬化：PII 覆盖扩展、清理任务频率与审计归档。 3. 补充 003 的收口提交说明（代码与证据已齐）。"
   },
   "done_count": 29,
   "open_count": 0
