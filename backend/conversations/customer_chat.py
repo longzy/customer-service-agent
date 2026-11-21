@@ -23,6 +23,9 @@ from backend.agent_runtime.model import ChatModel, ModelError
 from backend.conversations.customer_conversations import latest_message_id
 from backend.conversations.handoffs import (
     HANDOFF_CONFIDENCE_THRESHOLD,
+    ORDER_CONTEXT_EMPTY,
+    ORDER_CONTEXT_FAILED,
+    ORDER_CONTEXT_OK,
     create_handoff,
     decide_model_handoff,
     match_handoff_keyword,
@@ -67,6 +70,8 @@ MODEL_FAILURE_HANDOFF_NOTICE = "AI 暂时不可用，已为你转接人工（排
 MODEL_FAILURE_STATUSES = frozenset({"timeout", "error"})
 MODEL_ERROR_CODES = {"timeout": "MODEL_TIMEOUT", "error": "MODEL_ERROR"}
 CONSECUTIVE_FAILURE_LIMIT = 2
+# F-28：转人工时回看本会话最近多少条带 payload 的 AI 消息，找最近的订单快照。
+HANDOFF_SNAPSHOT_LOOKBACK = 20
 # F-27：订单失败与模型失败是两套独立计数，交接单用同一组字段表达。
 ORDER_QUERY_FAILURE_REASON = "ORDER_QUERY_FAILURE"
 ORDER_QUERY_FAILURE_TRIGGER = "order_query_failure"
@@ -230,6 +235,9 @@ async def _order_result(
                 notice_text=ORDER_FAILURE_HANDOFF_NOTICE,
                 failure_count=failures,
                 last_error=last_error,
+                # 已知 OMS 不可用：不再补查，订单上下文明确标记为不可用。
+                orders=[],
+                order_context_status=ORDER_CONTEXT_FAILED,
             )
             return _queued_result(conversation, customer_message, notice, handoff_id)
     # 候选只在查询成功时拼接引导；失败/空结果用独立文案，避免“先列出…：不可用”。
@@ -341,6 +349,73 @@ async def _recent_orders_result(
     )
 
 
+async def _latest_order_snapshot(
+    db: AsyncSession, conversation: ServiceConversation
+) -> list[dict[str, Any]] | None:
+    """本会话最近一条非空订单快照；转人工时复用，不重新查 OMS（plan 3.1）。"""
+    rows = (
+        (
+            await db.execute(
+                select(ServiceMessage.payload)
+                .where(
+                    ServiceMessage.conversation_id == conversation.id,
+                    ServiceMessage.author_type == "ai",
+                    ServiceMessage.payload.is_not(None),
+                )
+                .order_by(ServiceMessage.id.desc())
+                .limit(HANDOFF_SNAPSHOT_LOOKBACK)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    for payload in rows:
+        if not isinstance(payload, dict):
+            continue
+        orders = payload.get("orders")
+        if isinstance(orders, list) and orders and all(isinstance(order, dict) for order in orders):
+            return orders
+    return None
+
+
+async def _handoff_order_context(
+    db: AsyncSession,
+    conversation: ServiceConversation,
+    *,
+    customer: Customer,
+    order_gateway: ToolGateway | None,
+    trace_id: str,
+    now: datetime,
+    allow_lookup: bool,
+) -> tuple[list[dict[str, Any]], str]:
+    """转人工时的订单上下文：优先复用快照，客户主动要人时才补查一次。
+
+    返回 `(orders, order_context_status)`：有订单 `ok`、查无/未绑定 `empty`、
+    补查失败 `failed`（AC-55/AC-56）。补查失败不抛、不阻塞转人工（plan 3.1）。
+    """
+    snapshot = await _latest_order_snapshot(db, conversation)
+    if snapshot is not None:
+        return snapshot, ORDER_CONTEXT_OK
+    if not allow_lookup:
+        return [], ORDER_CONTEXT_EMPTY
+    outcome = await query_recent_orders(order_gateway, customer, trace_id)
+    await _record_ai_event(
+        db,
+        conversation,
+        status=outcome.status,
+        confidence=None,
+        trace_id=trace_id,
+        now=now,
+        event_type="order_query",
+        name=outcome.tool,
+    )
+    if outcome.status == "ok" and outcome.orders:
+        return outcome.orders, ORDER_CONTEXT_OK
+    if outcome.status in ORDER_FAILURE_STATUSES:
+        return [], ORDER_CONTEXT_FAILED
+    return [], ORDER_CONTEXT_EMPTY
+
+
 async def _record_ai_event(
     db: AsyncSession,
     conversation: ServiceConversation,
@@ -416,11 +491,36 @@ async def _queue_for_handoff(
     summary_hint: str,
     trace_id: str,
     now: datetime,
+    customer: Customer | None = None,
+    order_gateway: ToolGateway | None = None,
+    allow_order_lookup: bool = False,
+    orders: list[dict[str, Any]] | None = None,
+    order_context_status: str | None = None,
     matched_keyword: str | None = None,
     notice_text: str = QUEUE_NOTICE,
     failure_count: int | None = None,
     last_error: str | None = None,
 ) -> tuple[ServiceMessage, str | None]:
+    """转人工统一入口：先落订单上下文，再改状态、建单、写排队提示。
+
+    `orders is None` 表示还没算过上下文：有 `customer` 时复用快照，客户主动
+    要人（`allow_order_lookup=True`）才补查一次最近订单；显式传 `orders` 的
+    路径（如订单连续失败）直接使用给定快照，不再打 OMS。
+    """
+    if orders is None:
+        if customer is None:
+            orders, order_context_status = [], ORDER_CONTEXT_EMPTY
+        else:
+            orders, order_context_status = await _handoff_order_context(
+                db,
+                conversation,
+                customer=customer,
+                order_gateway=order_gateway,
+                trace_id=trace_id,
+                now=now,
+                allow_lookup=allow_order_lookup,
+            )
+    status = order_context_status or (ORDER_CONTEXT_OK if orders else ORDER_CONTEXT_EMPTY)
     conversation.status = QUEUED
     conversation.updated_at = now
     conversation.last_activity_at = now
@@ -434,6 +534,8 @@ async def _queue_for_handoff(
         matched_keyword=matched_keyword,
         failure_count=failure_count,
         last_error=last_error,
+        orders=orders,
+        order_context_status=status,
     )
     notice = await _append_notice(
         db,
@@ -522,6 +624,8 @@ async def _model_failed(
     trace_id: str,
     now: datetime,
     customer_message: ServiceMessage,
+    customer: Customer,
+    order_gateway: ToolGateway | None,
 ) -> ChatResult:
     await _record_ai_event(
         db,
@@ -562,6 +666,8 @@ async def _model_failed(
         notice_text=MODEL_FAILURE_HANDOFF_NOTICE,
         failure_count=failures,
         last_error=error_code,
+        customer=customer,
+        order_gateway=order_gateway,
     )
     return _queued_result(conversation, customer_message, notice, handoff_id)
 
@@ -632,6 +738,10 @@ async def send_customer_message(
             trace_id=trace_id,
             now=now,
             matched_keyword=keyword,
+            customer=customer,
+            order_gateway=order_gateway,
+            # 客户主动要人：无快照时补查一次最近订单（plan 3.1）。
+            allow_order_lookup=True,
         )
         return _queued_result(conversation, customer_message, notice, handoff_id)
 
@@ -696,6 +806,8 @@ async def send_customer_message(
             trace_id=trace_id,
             now=now,
             customer_message=customer_message,
+            customer=customer,
+            order_gateway=order_gateway,
         )
     except ModelError:
         return await _model_failed(
@@ -706,6 +818,8 @@ async def send_customer_message(
             trace_id=trace_id,
             now=now,
             customer_message=customer_message,
+            customer=customer,
+            order_gateway=order_gateway,
         )
 
     await _record_ai_event(
@@ -758,6 +872,9 @@ async def send_customer_message(
             summary_hint=decision.summary_hint,
             trace_id=trace_id,
             now=now,
+            customer=customer,
+            order_gateway=order_gateway,
+            # AI 主动转人工：只复用会话内已有快照，不额外打 OMS（D-2）。
         )
         return _queued_result(conversation, customer_message, notice, handoff_id)
 

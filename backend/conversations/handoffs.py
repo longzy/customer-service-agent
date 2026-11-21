@@ -11,6 +11,7 @@ import unicodedata
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from typing import Any
 from uuid import uuid4
 
 from sqlalchemy import select
@@ -33,6 +34,12 @@ HANDOFF_CONTEXT_CHAR_LIMIT = 4000
 HANDOFF_SUMMARY_CHAR_LIMIT = 500
 HANDOFF_AI_TRACE_LIMIT = 20
 PENDING_STEP = "等待坐席接入"
+
+# 交接单订单上下文状态（F-28）：区分“有订单 / 查无 / 查询不可用”，
+# 让坐席看到“暂无订单”与“订单信息暂不可用”是两件事（AC-56）。
+ORDER_CONTEXT_OK = "ok"
+ORDER_CONTEXT_EMPTY = "empty"
+ORDER_CONTEXT_FAILED = "failed"
 
 # plan 3.3.4：关键词未命中时，由模型 intent/confidence 与确定性规则共同判定转人工
 HANDOFF_CONFIDENCE_THRESHOLD = 0.6
@@ -345,11 +352,15 @@ async def create_handoff(
     matched_keyword: str | None = None,
     failure_count: int | None = None,
     last_error: str | None = None,
+    orders: list[dict[str, Any]] | None = None,
+    order_context_status: str = ORDER_CONTEXT_EMPTY,
 ) -> tuple[ServiceHandoff, bool]:
     """创建一张 open 交接单；已有 open 单时复用，避免撞部分唯一索引。
 
     返回 `(handoff, created)`：`created=False` 表示复用了既有 open 单，调用方不重复写
     `handoff.created` 审计。连续模型失败时写入失败次数与最后一次错误码。
+    `orders` 是客户本人订单摘要快照（≤5 条，白名单字段）：AC-55 要求无订单时
+    `order_count=0` 且不写空摘要，因此仅在非空时写入 context。
     """
     existing = (
         await db.execute(
@@ -377,13 +388,16 @@ async def create_handoff(
     summary = _summary(display_name, username, reason_label, str(last_customer))
 
     context: dict[str, object] = {
-        "order_count": 0,
+        "order_count": len(orders) if orders else 0,
+        "order_context_status": order_context_status,
         "trigger": trigger,
         "customer_username": username,
         "customer_display_name": display_name,
         "messages": messages,
         "ai_trace": await _ai_trace(db, conversation.id),
     }
+    if orders:
+        context["orders"] = orders
     if matched_keyword is not None:
         context["matched_keyword"] = matched_keyword
     if failure_count is not None:

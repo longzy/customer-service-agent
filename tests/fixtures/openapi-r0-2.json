@@ -696,10 +696,27 @@
             "title": "Messages",
             "type": "array"
           },
+          "order_context_status": {
+            "enum": [
+              "ok",
+              "empty",
+              "failed"
+            ],
+            "title": "Order Context Status",
+            "type": "string"
+          },
           "order_count": {
             "minimum": 0.0,
             "title": "Order Count",
             "type": "integer"
+          },
+          "orders": {
+            "items": {
+              "$ref": "#/components/schemas/WorkspaceHandoffOrder"
+            },
+            "maxItems": 5,
+            "title": "Orders",
+            "type": "array"
           },
           "pending_step": {
             "anyOf": [
@@ -732,10 +749,62 @@
           "summary",
           "pending_step",
           "order_count",
+          "order_context_status",
           "messages",
           "ai_trace"
         ],
         "title": "WorkspaceHandoffDetail",
+        "type": "object"
+      },
+      "WorkspaceHandoffOrder": {
+        "additionalProperties": false,
+        "description": "交接单里的订单摘要快照；只含白名单字段，不含 items/支付/联系方式。",
+        "properties": {
+          "amount_cents": {
+            "minimum": 0.0,
+            "title": "Amount Cents",
+            "type": "integer"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_at_local": {
+            "title": "Created At Local",
+            "type": "string"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "item_summary": {
+            "title": "Item Summary",
+            "type": "string"
+          },
+          "order_id": {
+            "title": "Order Id",
+            "type": "string"
+          },
+          "order_status": {
+            "title": "Order Status",
+            "type": "string"
+          },
+          "status_label": {
+            "title": "Status Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "order_id",
+          "item_summary",
+          "order_status",
+          "status_label",
+          "amount_cents",
+          "currency",
+          "created_at",
+          "created_at_local"
+        ],
+        "title": "WorkspaceHandoffOrder",
         "type": "object"
       },
       "WorkspaceQueueItem": {

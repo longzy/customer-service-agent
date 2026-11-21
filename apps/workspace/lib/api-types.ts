@@ -525,8 +525,15 @@ export interface components {
             last_error?: string | null;
             /** Messages */
             messages: components["schemas"]["WorkspaceContextMessage"][];
+            /**
+             * Order Context Status
+             * @enum {string}
+             */
+            order_context_status: "ok" | "empty" | "failed";
             /** Order Count */
             order_count: number;
+            /** Orders */
+            orders?: components["schemas"]["WorkspaceHandoffOrder"][];
             /** Pending Step */
             pending_step: string | null;
             /** Reason */
@@ -535,6 +542,28 @@ export interface components {
             status: string;
             /** Summary */
             summary: string;
+        };
+        /**
+         * WorkspaceHandoffOrder
+         * @description 交接单里的订单摘要快照；只含白名单字段，不含 items/支付/联系方式。
+         */
+        WorkspaceHandoffOrder: {
+            /** Amount Cents */
+            amount_cents: number;
+            /** Created At */
+            created_at: string;
+            /** Created At Local */
+            created_at_local: string;
+            /** Currency */
+            currency: string;
+            /** Item Summary */
+            item_summary: string;
+            /** Order Id */
+            order_id: string;
+            /** Order Status */
+            order_status: string;
+            /** Status Label */
+            status_label: string;
         };
         /**
          * WorkspaceQueueItem

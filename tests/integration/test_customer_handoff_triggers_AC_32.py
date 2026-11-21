@@ -242,6 +242,8 @@ def test_排队中再问订单不重复建单_AC_32() -> None:
     with TestClient(app) as api:
         login_customer(api)
         first = send(api, "转人工")
+        # F-28：关键词转人工补查一次最近订单；排队中再问订单不应新增查询。
+        list_calls = app.state.oms.calls["list_recent_orders"]
         second = send(api, "我的订单")
         assert first.status_code == 200
         assert second.status_code == 200
@@ -249,7 +251,8 @@ def test_排队中再问订单不重复建单_AC_32() -> None:
         assert second.json()["status"] == "QUEUED"
         assert [item["author_type"] for item in second.json()["messages"]] == ["customer"]
     assert model.calls == []
-    assert app.state.oms.calls["list_recent_orders"] == 0
+    assert list_calls == 1
+    assert app.state.oms.calls["list_recent_orders"] == list_calls
     assert len(rows_of(ServiceHandoff)) == 1
 
 

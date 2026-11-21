@@ -27,6 +27,7 @@ from backend.conversations.schemas import (
     WorkspaceConversationResponse,
     WorkspaceCustomerPublic,
     WorkspaceHandoffDetail,
+    WorkspaceHandoffOrder,
     WorkspaceQueueItem,
     WorkspaceQueueResponse,
     WorkspaceTakeoverResponse,
@@ -87,6 +88,8 @@ def _handoff_payload(handoff: HandoffDetail) -> WorkspaceHandoffDetail:
         summary=handoff.summary,
         pending_step=handoff.pending_step,
         order_count=handoff.order_count,
+        order_context_status=handoff.order_context_status,  # type: ignore[arg-type]
+        orders=[WorkspaceHandoffOrder.model_validate(item) for item in handoff.orders],
         messages=[WorkspaceContextMessage.model_validate(item) for item in handoff.messages],
         ai_trace=[WorkspaceAiTraceEvent.model_validate(item) for item in handoff.ai_trace],
         failure_count=handoff.failure_count,
