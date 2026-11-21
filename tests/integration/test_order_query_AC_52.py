@@ -79,9 +79,9 @@ def test_半截或格式错误订单号先澄清_AC_52(content: str) -> None:
 
 
 def test_闲聊带订单不查询也不转人工_AC_52() -> None:
-    app = order_app(
-        {"订单": {"intent": "UNKNOWN", "confidence": 0.95, "reply": "您好，请问需要什么帮助？"}}
-    )
+    """模型回复里提到“订单”是正常引导，不得因此建单（AC-52）。"""
+    reply = "您好，您想查询订单吗？可以发订单号。"
+    app = order_app({"订单": {"intent": "UNKNOWN", "confidence": 0.95, "reply": reply}})
     with api_client(app) as api:
         login(api, "customer_a")
         response = send(api, "订单")
@@ -90,7 +90,7 @@ def test_闲聊带订单不查询也不转人工_AC_52() -> None:
 
         assert body["status"] == "AI_ACTIVE"
         [message] = ai_messages(body)
-        assert message["content"] == "您好，请问需要什么帮助？"
+        assert message["content"] == reply
         assert message["payload"] is None
 
     assert app.state.oms.calls["get_order"] == 0
@@ -117,3 +117,48 @@ def test_订单意图不能截走取消诉求_AC_52() -> None:
     [handoff] = rows_of(ServiceHandoff)
     assert handoff.reason == "OUT_OF_SCOPE"
     assert handoff.context["trigger"] == "out_of_scope"
+
+
+def test_模型订单意图不能覆盖快递超范围_AC_52() -> None:
+    """确定性超范围词优先于模型订单意图（001 AC-32）。"""
+    app = order_app(
+        {"我的快递到哪了": {"intent": "QUERY_RECENT", "confidence": 0.95, "reply": "好的。"}}
+    )
+    with api_client(app) as api:
+        login(api, "customer_a")
+        response = send(api, "我的快递到哪了")
+        assert response.status_code == 200, response.text
+        assert response.json()["status"] == "QUEUED"
+
+    assert app.state.oms.calls["get_order"] == 0
+    assert app.state.oms.calls["list_recent_orders"] == 0
+    [handoff] = rows_of(ServiceHandoff)
+    assert handoff.reason == "OUT_OF_SCOPE"
+    assert handoff.context["trigger"] == "out_of_scope"
+
+
+def test_半截订单号含超范围词仍转人工_AC_52() -> None:
+    app = order_app()
+    with api_client(app) as api:
+        login(api, "customer_a")
+        response = send(api, "查 ORD-10 的快递")
+        assert response.status_code == 200, response.text
+        assert response.json()["status"] == "QUEUED"
+
+    assert app.state.oms.calls["get_order"] == 0
+    assert app.state.oms.calls["list_recent_orders"] == 0
+    [handoff] = rows_of(ServiceHandoff)
+    assert handoff.reason == "OUT_OF_SCOPE"
+
+
+def test_完整订单号含超范围诉求仍转人工_AC_52() -> None:
+    app = order_app()
+    with api_client(app) as api:
+        login(api, "customer_a")
+        response = send(api, "查 ORD-10001 的快递")
+        assert response.status_code == 200, response.text
+        assert response.json()["status"] == "QUEUED"
+
+    assert app.state.oms.calls["get_order"] == 0
+    [handoff] = rows_of(ServiceHandoff)
+    assert handoff.reason == "OUT_OF_SCOPE"

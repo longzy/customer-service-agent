@@ -303,3 +303,19 @@ async def test_query_recent_orders_未知异常不抛出() -> None:
     outcome = await query_recent_orders(FakeGateway(error=RuntimeError("boom")), customer(), "t")
     assert outcome.status == "error"
     assert outcome.reply == UNAVAILABLE_REPLY
+
+
+async def test_query_recent_orders_超过5条截断() -> None:
+    orders = [
+        {**ORDER, "order_id": f"ORD-1000{index}", "created_at": ORDER["created_at"]}
+        for index in range(1, 8)
+    ]
+    outcome = await query_recent_orders(FakeGateway(result=orders), customer(), "t")
+    assert outcome.status == "ok"
+    assert [order["order_id"] for order in outcome.orders] == [
+        "ORD-10001",
+        "ORD-10002",
+        "ORD-10003",
+        "ORD-10004",
+        "ORD-10005",
+    ]

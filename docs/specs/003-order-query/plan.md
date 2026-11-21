@@ -75,7 +75,7 @@
 | `service_messages` | `payload JSON NULL` | AI 消息的订单摘要快照（≤5 条）；客户消息为 NULL |
 
 - 回填：`scripts/seed_demo.py` 写入 `oms_customer_id`；`scripts/reset_dev_db.py`/迁移不猜测生产数据。
-- 未绑定 `oms_customer_id` 的客户：所有订单查询返回"查无此单"（与不存在/他人不可区分，不报错、不泄露）；AI 事件按 `not_found` 记录，运维区分靠 `order_query_total{status}` 与日志（F-29 承接），不阻塞聊天。
+- 未绑定 `oms_customer_id` 的客户：单笔查询返回"查无此单"，最近订单查询返回"你名下暂时没有订单"（与真无订单不可区分，不报错、不泄露，且不调用 OMS）；AI 事件按 `not_found` 记录，运维区分靠 `order_query_total{status}` 与日志（F-29 承接），不阻塞聊天。
 - 订单摘要白名单字段：`order_id`、`item_summary`、`order_status`、`amount_cents`、`currency`、`created_at`，另派生 `status_label`（中文状态）与 `created_at_local`（上海本地时间）。`items`、`paid_at`、`shipped_at` 不进快照。
 
 ### 3.3 API / 状态机 / 并发
@@ -85,7 +85,7 @@
 - **状态机**：不变。订单查询成功/查无/失败都不改 `conversations.status`；只有连续失败转人工走现有 `_queue_for_handoff`。
 - **并发**：同一会话的消息处理已有串行语义（001）；订单查询不新开连接/事务，在请求事务内通过 `asyncio.to_thread` 调用 Gateway（查询期间仍持有请求事务连接），完成后在同一事务写消息与事件；Gateway 超时 2s，总响应时间受 `MODEL_TIMEOUT` 与 2s 上限约束。
 - **幂等**：消息幂等键重放直接返回已存消息与 `payload`，不重新查 OMS；订单查询失败的重试是客户的新消息，按新请求处理。
-- **顺序**：先做关键词转人工与订单号护栏；正文恰好一个订单号且不含取消/退款等操作词时直接查询（不调模型），其余走模型意图分类；查询后再落库。
+- **顺序**：先做关键词转人工与确定性超范围护栏；正文命中取消/退款等操作词或物流/快递等超范围词时不进入订单分支，交回 001 的模型/转人工判定；恰好一个订单号时直接查询（不调模型），多个或半截先澄清；其余走模型意图分类（`QUERY_ORDER`/`QUERY_RECENT` 且置信 ≥0.6 时查最近订单）；查询后再落库。
 
 ### 3.4 失败路径与用户可见文案
 
@@ -100,6 +100,7 @@
 | 同会话连续 2 次订单失败 | 转人工，`trigger=order_query_failure`，交接单带 `failure_count` | "订单查询连续失败，已为你转接人工。" |
 | 模型分类失败 | 走 F-24 既有路径，不影响订单计数 | 沿用 AC-31 文案 |
 
+- 模型回复护栏：回复中出现订单号或物流/退款等具体事实仍按 001 转人工；单独出现"订单/单号"不转人工，避免闲聊带"订单"被误建单（AC-52）。
 - `order_failure_count` 只统计订单查询失败，不并入模型失败计数（AC-53）；任一成功查询清零。
 - 订单失败不写审计失败语义（审计只在查询成功/查无/失败各记一条 `order.queried`，见 5.1）。
 

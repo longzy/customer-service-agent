@@ -24,11 +24,13 @@ from backend.conversations.handoffs import (
     create_handoff,
     decide_model_handoff,
     match_handoff_keyword,
+    match_out_of_scope_term,
 )
 from backend.conversations.order_queries import (
     MULTIPLE_ORDERS_REPLY,
     ORDER_QUERY_INTENTS,
     ORDER_QUERY_MULTIPLE,
+    ORDER_QUERY_NONE,
     ORDER_QUERY_PARTIAL,
     ORDER_QUERY_SINGLE,
     PARTIAL_ORDER_ID_REPLY,
@@ -564,8 +566,10 @@ async def send_customer_message(
         return _queued_result(conversation, customer_message, notice, handoff_id)
 
     # plan 3.3.4：关键词优先；订单分支先做确定性护栏，再决定是否调模型。
-    # 取消/退款等"对订单做别的操作"保持 001 的转人工路径，不能被查询分支截走。
-    order_kind = order_query_kind(content)
+    # 取消/退款等操作词由 `order_query_kind` 排除；物流/快递/退款等确定性
+    # 超范围词（001 AC-32）让整条订单分支让路，不能被订单意图截走。
+    overscope = match_out_of_scope_term(content)
+    order_kind = ORDER_QUERY_NONE if overscope is not None else order_query_kind(content)
     if order_kind == ORDER_QUERY_MULTIPLE:
         return await _order_clarification(
             db,
@@ -640,6 +644,7 @@ async def send_customer_message(
     if (
         normalized_intent in ORDER_QUERY_INTENTS
         and reply.confidence >= HANDOFF_CONFIDENCE_THRESHOLD
+        and overscope is None
         and not has_non_query_order_intent(content)
     ):
         outcome = await query_recent_orders(order_gateway, customer, trace_id)

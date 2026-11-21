@@ -44,15 +44,20 @@ def ai_messages(body: dict[str, Any]) -> list[dict[str, Any]]:
     return [item for item in body["messages"] if item["author_type"] == "ai"]
 
 
-def unbind_customer(username: str) -> None:
-    """把客户账号与 OMS 身份解绑，用于验证空归属的安全降级。"""
+def bind_customer(username: str, oms_customer_id: str | None) -> None:
+    """改写客户账号的 OMS 身份，用于空归属/无订单/跨客户隔离场景。"""
 
     async def write(db: Any) -> None:
         await db.execute(
             update(ServiceCustomer)
             .where(ServiceCustomer.username == username)
-            .values(oms_customer_id=None)
+            .values(oms_customer_id=oms_customer_id)
         )
         await db.commit()
 
     asyncio.run(with_db(write))
+
+
+def unbind_customer(username: str) -> None:
+    """把客户账号与 OMS 身份解绑，用于验证空归属的安全降级。"""
+    bind_customer(username, None)
