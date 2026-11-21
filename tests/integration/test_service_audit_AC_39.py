@@ -9,6 +9,7 @@
 
 import asyncio
 import json
+from datetime import UTC, datetime
 from typing import Any
 
 import pytest
@@ -480,7 +481,14 @@ def test_审计禁止修改与删除_AC_39() -> None:
     assert rows[0].result_status == "committed"
 
 
-def test_客户消息限速与无副作用_AC_39() -> None:
+def test_客户消息限速与无副作用_AC_39(monkeypatch: pytest.MonkeyPatch) -> None:
+    # 固定窗口按 wall-clock 对齐；把 now 钉在窗口内靠前位置，避免整套测试跑到
+    # 分钟边界时 30 条消息跨窗口导致第 31 条不被限速（偶发 flaky）。
+    fixed_now = datetime.now(UTC).replace(second=5, microsecond=0)
+    monkeypatch.setattr(
+        "backend.identity.customer_sessions.utc_now",
+        lambda: fixed_now,
+    )
     with api_client() as api:
         login_customer(api)
         first = send_customer_message(api, "转人工", key="k-0")
