@@ -7,6 +7,7 @@ import { AUTHOR_LABEL } from "../labels";
 import type { ConversationDetail } from "../types";
 
 import { ConversationActions } from "./ConversationActions";
+import { OrderSummaryList } from "./OrderSummaryList";
 
 const STATUS_META: Record<string, { label: string; chip: string; dot: string }> = {
   AI_ACTIVE: {
@@ -216,6 +217,15 @@ export function ConversationDetailPanel({
               )}
             </section>
           </div>
+
+          {handoff ? (
+            <div className="mt-6 border-t border-line-soft pt-5">
+              <OrderSummaryList
+                orders={handoff.orders ?? []}
+                status={handoff.order_context_status}
+              />
+            </div>
+          ) : null}
         </div>
       </article>
 

@@ -35,6 +35,7 @@ AI_REPLIED = "ai.replied"
 CONVERSATION_CLOSED = "conversation.closed"
 CONVERSATION_RETURNED_TO_AI = "conversation.returned_to_ai"
 CONVERSATION_VIEWED = "conversation.viewed"
+ORDER_QUERIED = "order.queried"
 AUTH_FAILED = "auth.failed"
 RATE_LIMITED = "rate_limited"
 FORBIDDEN = "forbidden"
@@ -45,6 +46,10 @@ AUDIT_METADATA_KEYS = frozenset(
         "conversation_id",
         "handoff_id",
         "message_id",
+        "order_id",
+        "order_count",
+        "result",
+        "tool",
         "from_status",
         "to_status",
         "path",

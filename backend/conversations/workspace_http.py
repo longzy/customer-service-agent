@@ -20,14 +20,15 @@ from backend.conversations.customer_chat import MessageView
 from backend.conversations.schemas import (
     AgentMessageRequest,
     MessagePageResponse,
+    MessagePayload,
     MessagePublic,
+    OrderSummaryPublic,
     WorkspaceAiTraceEvent,
     WorkspaceClaimResponse,
     WorkspaceContextMessage,
     WorkspaceConversationResponse,
     WorkspaceCustomerPublic,
     WorkspaceHandoffDetail,
-    WorkspaceHandoffOrder,
     WorkspaceQueueItem,
     WorkspaceQueueResponse,
     WorkspaceTakeoverResponse,
@@ -89,7 +90,7 @@ def _handoff_payload(handoff: HandoffDetail) -> WorkspaceHandoffDetail:
         pending_step=handoff.pending_step,
         order_count=handoff.order_count,
         order_context_status=handoff.order_context_status,
-        orders=[WorkspaceHandoffOrder.model_validate(item) for item in handoff.orders],
+        orders=[OrderSummaryPublic.model_validate(item) for item in handoff.orders],
         messages=[WorkspaceContextMessage.model_validate(item) for item in handoff.messages],
         ai_trace=[WorkspaceAiTraceEvent.model_validate(item) for item in handoff.ai_trace],
         failure_count=handoff.failure_count,
@@ -123,7 +124,7 @@ def _message_payload(message: MessageView) -> MessagePublic:
         author_type=message.author_type,  # type: ignore[arg-type]
         content=message.content,
         created_at=utc_text(message.created_at),
-        payload=message.payload,
+        payload=MessagePayload.from_stored(message.payload),
     )
 
 

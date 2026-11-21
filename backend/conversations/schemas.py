@@ -1,5 +1,6 @@
 """会话域的 HTTP 契约：客户会话、消息与工作台读模型。"""
 
+from collections.abc import Mapping
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -72,6 +73,39 @@ class CustomerSessionResponse(BaseModel):
     expires_at: str
 
 
+class OrderSummaryPublic(BaseModel):
+    """订单摘要快照（消息载荷与交接单共用）；只含白名单字段。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    order_id: str
+    item_summary: str
+    order_status: str
+    status_label: str
+    amount_cents: int = Field(ge=0)
+    currency: str
+    created_at: str
+    created_at_local: str
+
+
+class MessagePayload(BaseModel):
+    """AI 订单消息的结构化快照；空列表表示查无/失败，前端不渲染卡片。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    orders: list[OrderSummaryPublic] = Field(default_factory=list, max_length=5)
+
+    @classmethod
+    def from_stored(cls, payload: Mapping[str, Any] | None) -> "MessagePayload | None":
+        """读模型只投影 `orders`；旧消息的非订单载荷不会被带到 API。"""
+        if not isinstance(payload, Mapping):
+            return None
+        orders = payload.get("orders")
+        if not isinstance(orders, list):
+            return cls()
+        return cls.model_validate({"orders": [item for item in orders if isinstance(item, dict)]})
+
+
 class MessagePublic(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -80,7 +114,7 @@ class MessagePublic(BaseModel):
     content: str
     created_at: str
     # AI 订单消息的结构化快照；客户/系统消息为 None。字段只含白名单摘要。
-    payload: dict[str, Any] | None = None
+    payload: MessagePayload | None = None
 
 
 class MessagePageResponse(BaseModel):
@@ -124,21 +158,6 @@ class WorkspaceAiTraceEvent(BaseModel):
     created_at: str
 
 
-class WorkspaceHandoffOrder(BaseModel):
-    """交接单里的订单摘要快照；只含白名单字段，不含 items/支付/联系方式。"""
-
-    model_config = ConfigDict(extra="forbid")
-
-    order_id: str
-    item_summary: str
-    order_status: str
-    status_label: str
-    amount_cents: int = Field(ge=0)
-    currency: str
-    created_at: str
-    created_at_local: str
-
-
 class WorkspaceHandoffDetail(BaseModel):
     """完整交接单：摘要、原因、待办与创建时的上下文快照。"""
 
@@ -153,7 +172,7 @@ class WorkspaceHandoffDetail(BaseModel):
     # F-28：区分“有订单 / 暂无订单 / 订单信息不可用”，空列表不写空摘要。
     # 契约层保持独立字面量；取值与 `handoffs.OrderContextStatus` 一致。
     order_context_status: Literal["ok", "empty", "failed", "unknown"]
-    orders: list[WorkspaceHandoffOrder] = Field(default_factory=list, max_length=5)
+    orders: list[OrderSummaryPublic] = Field(default_factory=list, max_length=5)
     messages: list[WorkspaceContextMessage]
     ai_trace: list[WorkspaceAiTraceEvent]
     failure_count: int | None = Field(default=None, ge=2)

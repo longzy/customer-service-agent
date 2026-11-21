@@ -43,9 +43,11 @@ from backend.conversations.order_queries import (
     ORDER_QUERY_PARTIAL,
     ORDER_QUERY_SINGLE,
     PARTIAL_ORDER_ID_REPLY,
+    OrderQueryAudit,
     OrderQueryOutcome,
     extract_order_ids,
     has_non_query_order_intent,
+    order_query_audit,
     order_query_kind,
     query_order,
     query_recent_orders,
@@ -105,6 +107,8 @@ class ChatResult:
     customer_message_id: int | None = None
     ai_message_id: int | None = None
     replayed: bool = False
+    # 本次消息触发的真实订单查询；HTTP 层据此写 `order.queried`。
+    order_query: OrderQueryAudit | None = None
 
 
 def view_message(row: ServiceMessage) -> MessageView:
@@ -225,7 +229,7 @@ async def _order_result(
         failures = await _consecutive_order_failures(db, conversation)
         if failures >= CONSECUTIVE_FAILURE_LIMIT:
             last_error = outcome.error_code or ORDER_QUERY_ERROR_FALLBACK
-            notice, handoff_id = await _queue_for_handoff(
+            notice, handoff_id, _ = await _queue_for_handoff(
                 db,
                 conversation,
                 reason=ORDER_QUERY_FAILURE_REASON,
@@ -243,7 +247,13 @@ async def _order_result(
                 orders=[],
                 order_context_status=ORDER_CONTEXT_FAILED,
             )
-            return _queued_result(conversation, customer_message, notice, handoff_id)
+            return _queued_result(
+                conversation,
+                customer_message,
+                notice,
+                handoff_id,
+                order_query=order_query_audit(outcome),
+            )
     # 候选只在查询成功时拼接引导；失败/空结果用独立文案，避免“先列出…：不可用”。
     content = (
         f"{preface}\n{outcome.reply}"
@@ -271,6 +281,7 @@ async def _order_result(
         after_id=ai_message.id,
         customer_message_id=customer_message.id,
         ai_message_id=ai_message.id,
+        order_query=order_query_audit(outcome),
     )
 
 
@@ -392,19 +403,19 @@ async def _handoff_order_context(
     trace_id: str,
     now: datetime,
     allow_lookup: bool,
-) -> tuple[list[dict[str, Any]], OrderContextStatus]:
+) -> tuple[list[dict[str, Any]], OrderContextStatus, OrderQueryAudit | None]:
     """转人工时的订单上下文：优先复用快照，客户主动要人时才补查一次。
 
-    返回 `(orders, order_context_status)`：有订单 `ok`、查无/未绑定 `empty`、
-    补查失败 `failed`、未发起查询 `unknown`（AC-55/AC-56）。补查失败不抛、
-    不阻塞转人工（plan 3.1）。
+    返回 `(orders, order_context_status, order_query)`：有订单 `ok`、查无/未绑定
+    `empty`、补查失败 `failed`、未发起查询 `unknown`（AC-55/AC-56）。补查失败
+    不抛、不阻塞转人工（plan 3.1）；补查是真实查询，需带审计事实（AC-57）。
     """
     snapshot = await _latest_order_snapshot(db, conversation)
     if snapshot is not None:
-        return snapshot, ORDER_CONTEXT_OK
+        return snapshot, ORDER_CONTEXT_OK, None
     if not allow_lookup:
         # AI 主动转人工且会话内没有已查快照：没有发起查询，不能断言“无订单”。
-        return [], ORDER_CONTEXT_UNKNOWN
+        return [], ORDER_CONTEXT_UNKNOWN, None
     outcome = await query_recent_orders(order_gateway, customer, trace_id)
     await _record_ai_event(
         db,
@@ -416,11 +427,12 @@ async def _handoff_order_context(
         event_type="order_query",
         name=outcome.tool,
     )
+    audit = order_query_audit(outcome)
     if outcome.status == "ok" and outcome.orders:
-        return outcome.orders, ORDER_CONTEXT_OK
+        return outcome.orders, ORDER_CONTEXT_OK, audit
     if outcome.status in ORDER_FAILURE_STATUSES:
-        return [], ORDER_CONTEXT_FAILED
-    return [], ORDER_CONTEXT_EMPTY
+        return [], ORDER_CONTEXT_FAILED, audit
+    return [], ORDER_CONTEXT_EMPTY, audit
 
 
 async def _record_ai_event(
@@ -507,15 +519,16 @@ async def _queue_for_handoff(
     notice_text: str = QUEUE_NOTICE,
     failure_count: int | None = None,
     last_error: str | None = None,
-) -> tuple[ServiceMessage, str | None]:
+) -> tuple[ServiceMessage, str | None, OrderQueryAudit | None]:
     """转人工统一入口：先落订单上下文，再改状态、建单、写排队提示。
 
     `orders is None` 表示还没算过上下文：复用会话内快照，客户主动要人
     （`allow_order_lookup=True`）才补查一次最近订单；显式传 `orders` 的
     路径（如订单连续失败）直接使用给定快照，不再打 OMS。
     """
+    audit: OrderQueryAudit | None = None
     if orders is None:
-        orders, status = await _handoff_order_context(
+        orders, status, audit = await _handoff_order_context(
             db,
             conversation,
             customer=customer,
@@ -549,7 +562,7 @@ async def _queue_for_handoff(
         trace_id=trace_id,
         now=now,
     )
-    return notice, (handoff.id if created else None)
+    return notice, (handoff.id if created else None), audit
 
 
 def _queued_result(
@@ -557,6 +570,8 @@ def _queued_result(
     customer_message: ServiceMessage,
     notice: ServiceMessage,
     handoff_id: str | None,
+    *,
+    order_query: OrderQueryAudit | None = None,
 ) -> ChatResult:
     """所有转人工路径共用的返回结构：客户消息 + 排队系统提示。"""
     return ChatResult(
@@ -566,6 +581,7 @@ def _queued_result(
         after_id=notice.id,
         handoff_id=handoff_id,
         customer_message_id=customer_message.id,
+        order_query=order_query,
     )
 
 
@@ -660,7 +676,7 @@ async def _model_failed(
         )
 
     error_code = MODEL_ERROR_CODES[event_status]
-    notice, handoff_id = await _queue_for_handoff(
+    notice, handoff_id, _ = await _queue_for_handoff(
         db,
         conversation,
         reason="MODEL_UNAVAILABLE",
@@ -734,7 +750,7 @@ async def send_customer_message(
             event_type="intent",
             name="handoff_keyword",
         )
-        notice, handoff_id = await _queue_for_handoff(
+        notice, handoff_id, order_query = await _queue_for_handoff(
             db,
             conversation,
             reason="CUSTOMER_REQUEST",
@@ -748,7 +764,13 @@ async def send_customer_message(
             # 客户主动要人：无快照时补查一次最近订单（plan 3.1）。
             allow_order_lookup=True,
         )
-        return _queued_result(conversation, customer_message, notice, handoff_id)
+        return _queued_result(
+            conversation,
+            customer_message,
+            notice,
+            handoff_id,
+            order_query=order_query,
+        )
 
     # plan 3.3.4：关键词优先；订单分支先做确定性护栏，再决定是否调模型。
     # 取消/退款等操作词由 `order_query_kind` 排除；物流/快递/退款等确定性
@@ -870,7 +892,7 @@ async def send_customer_message(
         reply=reply.reply,
     )
     if decision is not None:
-        notice, handoff_id = await _queue_for_handoff(
+        notice, handoff_id, _ = await _queue_for_handoff(
             db,
             conversation,
             reason=decision.reason,

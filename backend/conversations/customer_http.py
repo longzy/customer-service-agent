@@ -16,6 +16,7 @@ from backend.audit import (
     CUSTOMER_LOGOUT,
     HANDOFF_CREATED,
     MESSAGE_SENT,
+    ORDER_QUERIED,
     AuditRecord,
 )
 from backend.conversations.customer_chat import (
@@ -40,6 +41,7 @@ from backend.conversations.schemas import (
     CustomerPublic,
     CustomerSessionResponse,
     MessagePageResponse,
+    MessagePayload,
     MessagePublic,
 )
 from backend.domain.errors import ErrorCode
@@ -95,7 +97,7 @@ def _message_json(message: MessageView) -> MessagePublic:
         author_type=message.author_type,  # type: ignore[arg-type]
         content=message.content,
         created_at=utc_text(message.created_at),
-        payload=message.payload,
+        payload=MessagePayload.from_stored(message.payload),
     )
 
 
@@ -296,6 +298,31 @@ async def send_message(
                 metadata={
                     "conversation_id": conversation.id,
                     "message_id": result.customer_message_id,
+                },
+            ),
+        )
+    if result.order_query is not None:
+        # AC-57：每次真实订单查询一条审计；重放不带 query，不重复写。
+        order_query = result.order_query
+        await audit_or_503(
+            request,
+            db,
+            AuditRecord(
+                tenant_id=session.customer.tenant_id,
+                actor_type="customer",
+                actor_id=session.customer.id,
+                event_type=ORDER_QUERIED,
+                entity_type="order",
+                entity_id=(order_query.order_id or conversation.id)[:64],
+                trace_id=trace_id,
+                journey_id=conversation.journey_id,
+                metadata={
+                    "conversation_id": conversation.id,
+                    "order_id": order_query.order_id,
+                    "order_count": order_query.order_count,
+                    "result": order_query.result,
+                    "tool": order_query.tool,
+                    "error_code": order_query.error_code,
                 },
             ),
         )

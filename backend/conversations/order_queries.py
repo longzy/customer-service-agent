@@ -8,9 +8,11 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime
+from time import perf_counter
 from typing import Any
 from zoneinfo import ZoneInfo
 
@@ -18,7 +20,11 @@ from backend.agent_runtime.types import Intent
 from backend.conversations.handoffs import ORDER_ID_PATTERN, normalize_text
 from backend.identity import Identity
 from backend.identity.customer_sessions import Customer
+from backend.platform import metrics
+from backend.platform.observability import log_event
 from backend.tools.gateway import GatewayError, ToolGateway
+
+logger = logging.getLogger(__name__)
 
 LOCAL_ZONE = ZoneInfo("Asia/Shanghai")
 
@@ -210,6 +216,59 @@ class OrderQueryOutcome:
     reply: str = NOT_FOUND_REPLY
     error_code: str | None = None
     tool: str = "get_order"
+    # 单笔查询的订单号；列表查询为空。供 `order.queried` 审计使用。
+    order_id: str | None = None
+    # 未绑定 OMS 身份：对客户与“查无”不可区分，但运维指标要能分开。
+    unbound: bool = False
+
+
+@dataclass(frozen=True)
+class OrderQueryAudit:
+    """一次真实订单查询的审计事实；由 HTTP 层写 `order.queried`。
+
+    幂等重放不产生真实查询，因此 `ChatResult.order_query` 为空。
+    """
+
+    tool: str
+    order_id: str | None
+    order_count: int
+    result: str
+    error_code: str | None
+
+
+def order_query_audit(outcome: OrderQueryOutcome) -> OrderQueryAudit:
+    return OrderQueryAudit(
+        tool=outcome.tool,
+        order_id=outcome.order_id,
+        order_count=len(outcome.orders),
+        result=outcome.status,
+        error_code=outcome.error_code,
+    )
+
+
+def _observe(outcome: OrderQueryOutcome, started: float) -> None:
+    """记录一次查询的指标与结构化日志；不写订单内容。"""
+    latency_ms = int((perf_counter() - started) * 1000)
+    metrics.increment_labeled("order_query_total", {"tool": outcome.tool, "status": outcome.status})
+    metrics.increment("order_query_latency_ms_total", latency_ms)
+    log_event(
+        logger,
+        "order.query",
+        tool=outcome.tool,
+        result_status=outcome.status,
+        order_id=outcome.order_id,
+        latency_ms=latency_ms,
+        error_code=outcome.error_code,
+    )
+    if outcome.unbound:
+        metrics.increment_labeled("order_query_unbound_total", {"tool": outcome.tool})
+        log_event(
+            logger,
+            "order.query_unbound",
+            tool=outcome.tool,
+            result_status=outcome.status,
+            latency_ms=latency_ms,
+        )
 
 
 def _identity(customer: Customer) -> Identity:
@@ -252,6 +311,24 @@ async def query_order(
     order_id: str,
     trace_id: str,
 ) -> OrderQueryOutcome:
+    """查询客户本人的一笔订单，并记录指标/日志；失败不向客户泄露差异。"""
+    started = perf_counter()
+    outcome = await _query_order_once(gateway, customer, order_id, trace_id)
+    outcome = replace(
+        outcome,
+        order_id=order_id,
+        unbound=not bool(customer.oms_customer_id),
+    )
+    _observe(outcome, started)
+    return outcome
+
+
+async def _query_order_once(
+    gateway: ToolGateway | None,
+    customer: Customer,
+    order_id: str,
+    trace_id: str,
+) -> OrderQueryOutcome:
     """查询客户本人的一笔订单；任何失败都不向客户泄露差异。"""
     if not customer.oms_customer_id:
         # 未绑定与"不存在/他人"对客户不可区分；运维区分交给 F-29 的指标与日志。
@@ -289,6 +366,20 @@ async def query_recent_orders(
     customer: Customer,
     trace_id: str,
     limit: int = RECENT_ORDERS_LIMIT,
+) -> OrderQueryOutcome:
+    """查询客户本人最近的订单（≤limit 条），并记录指标/日志。"""
+    started = perf_counter()
+    outcome = await _query_recent_orders_once(gateway, customer, trace_id, limit)
+    outcome = replace(outcome, unbound=not bool(customer.oms_customer_id))
+    _observe(outcome, started)
+    return outcome
+
+
+async def _query_recent_orders_once(
+    gateway: ToolGateway | None,
+    customer: Customer,
+    trace_id: str,
+    limit: int,
 ) -> OrderQueryOutcome:
     """查询客户本人最近的订单（≤limit 条）；空结果与未绑定都不可区分。"""
     if not customer.oms_customer_id:

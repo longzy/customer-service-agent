@@ -299,6 +299,22 @@
         "title": "MessagePageResponse",
         "type": "object"
       },
+      "MessagePayload": {
+        "additionalProperties": false,
+        "description": "AI 订单消息的结构化快照；空列表表示查无/失败，前端不渲染卡片。",
+        "properties": {
+          "orders": {
+            "items": {
+              "$ref": "#/components/schemas/OrderSummaryPublic"
+            },
+            "maxItems": 5,
+            "title": "Orders",
+            "type": "array"
+          }
+        },
+        "title": "MessagePayload",
+        "type": "object"
+      },
       "MessagePublic": {
         "additionalProperties": false,
         "properties": {
@@ -327,14 +343,12 @@
           "payload": {
             "anyOf": [
               {
-                "additionalProperties": true,
-                "type": "object"
+                "$ref": "#/components/schemas/MessagePayload"
               },
               {
                 "type": "null"
               }
-            ],
-            "title": "Payload"
+            ]
           }
         },
         "required": [
@@ -344,6 +358,57 @@
           "created_at"
         ],
         "title": "MessagePublic",
+        "type": "object"
+      },
+      "OrderSummaryPublic": {
+        "additionalProperties": false,
+        "description": "订单摘要快照（消息载荷与交接单共用）；只含白名单字段。",
+        "properties": {
+          "amount_cents": {
+            "minimum": 0.0,
+            "title": "Amount Cents",
+            "type": "integer"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_at_local": {
+            "title": "Created At Local",
+            "type": "string"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "item_summary": {
+            "title": "Item Summary",
+            "type": "string"
+          },
+          "order_id": {
+            "title": "Order Id",
+            "type": "string"
+          },
+          "order_status": {
+            "title": "Order Status",
+            "type": "string"
+          },
+          "status_label": {
+            "title": "Status Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "order_id",
+          "item_summary",
+          "order_status",
+          "status_label",
+          "amount_cents",
+          "currency",
+          "created_at",
+          "created_at_local"
+        ],
+        "title": "OrderSummaryPublic",
         "type": "object"
       },
       "ValidationError": {
@@ -620,7 +685,7 @@
           },
           "orders": {
             "items": {
-              "$ref": "#/components/schemas/WorkspaceHandoffOrder"
+              "$ref": "#/components/schemas/OrderSummaryPublic"
             },
             "maxItems": 5,
             "title": "Orders",
@@ -662,57 +727,6 @@
           "ai_trace"
         ],
         "title": "WorkspaceHandoffDetail",
-        "type": "object"
-      },
-      "WorkspaceHandoffOrder": {
-        "additionalProperties": false,
-        "description": "交接单里的订单摘要快照；只含白名单字段，不含 items/支付/联系方式。",
-        "properties": {
-          "amount_cents": {
-            "minimum": 0.0,
-            "title": "Amount Cents",
-            "type": "integer"
-          },
-          "created_at": {
-            "title": "Created At",
-            "type": "string"
-          },
-          "created_at_local": {
-            "title": "Created At Local",
-            "type": "string"
-          },
-          "currency": {
-            "title": "Currency",
-            "type": "string"
-          },
-          "item_summary": {
-            "title": "Item Summary",
-            "type": "string"
-          },
-          "order_id": {
-            "title": "Order Id",
-            "type": "string"
-          },
-          "order_status": {
-            "title": "Order Status",
-            "type": "string"
-          },
-          "status_label": {
-            "title": "Status Label",
-            "type": "string"
-          }
-        },
-        "required": [
-          "order_id",
-          "item_summary",
-          "order_status",
-          "status_label",
-          "amount_cents",
-          "currency",
-          "created_at",
-          "created_at_local"
-        ],
-        "title": "WorkspaceHandoffOrder",
         "type": "object"
       },
       "WorkspaceQueueItem": {

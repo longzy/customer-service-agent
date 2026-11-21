@@ -39,7 +39,7 @@ def _sink(rate: float) -> tuple[SampledTraceSink, InnerSink]:
     return SampledTraceSink(inner, rate), inner
 
 
-def _start(sink: SampledTraceSink, tool: str = "get_order") -> str:
+def _start(sink: SampledTraceSink, tool: str = "lookup") -> str:
     return sink.start(
         tool=tool,
         identity=object(),
@@ -89,6 +89,16 @@ def test_关键工具即使低采样率也保留() -> None:
     sink.finish(token, result_status="ok")
 
     assert len(inner.started) == 1
+
+
+def test_订单查询工具即使低采样率也保留_AC_57() -> None:
+    """订单查询是隐私敏感读：AC-57 要求每次查询都能在 tool_executions 追溯。"""
+    sink, inner = _sink(0.0)
+    for tool in ("get_order", "list_recent_orders"):
+        token = _start(sink, tool=tool)
+        sink.finish(token, result_status="ok")
+
+    assert [item["tool"] for item in inner.started] == ["get_order", "list_recent_orders"]
 
 
 def test_拒绝始终保留() -> None:
