@@ -45,7 +45,7 @@ def test_backend_change_runs_backend_only(tmp_path: Path) -> None:
 
 
 def test_docs_change_skips_code_checks(tmp_path: Path) -> None:
-    out = _plan(tmp_path, ["docs/CURRENT.md"])
+    out = _plan(tmp_path, ["docs/STATUS.md"])
 
     assert "运行：文档引用" in out
     assert "运行：状态一致性" in out

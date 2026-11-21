@@ -25,6 +25,7 @@ SKIP_DIRS = {
     ".next",
     ".uv-cache",
     ".pnpm-store",
+    ".workbuddy",
     "coverage",
     "mutants",
     ".mutmut-cache",
@@ -51,7 +52,7 @@ STATUS_WORDS = {
 # 上下文预算：超过即失败，防止规则与状态重新膨胀
 CONTEXT_BUDGETS = {
     "AGENTS.md": 60,
-    "docs/CURRENT.md": 80,
+    "docs/STATUS.md": 80,
     "docs/process/WORKFLOW.md": 200,
     "docs/process/standards.md": 60,
 }
@@ -69,10 +70,7 @@ CURRENT_REQUIRED_FIELDS = [
     "待确认决策",
 ]
 
-SPEC_LAYOUTS = (
-    {"brief": "brief.md", "plan": "plan.md", "features": "features.md"},
-    {"brief": "requirements.md", "plan": "design.md", "features": "tasks.md"},
-)
+SPEC_LAYOUTS = ({"brief": "requirements.md", "plan": "design.md", "features": "tasks.md"},)
 
 GATE_OPEN_STATUSES = ("待开工许可", "已确认")
 REVIEW_REQUIRED = ("## 0. 门禁复核", "## 逐 AC", "## 阻断项", "## 结论")
@@ -116,8 +114,25 @@ def read(path):
         return handle.read()
 
 
+FRONTMATTER_STATUS = {
+    "done": "已完成",
+    "doing": "进行中",
+    "review": "待评审",
+    "todo": "未开始",
+    "blocked": "阻塞",
+}
+
+
 def doc_status(path):
-    header = "\n".join(read(path).splitlines()[:15])
+    text = read(path)
+    front = re.match(r"^---\n(.*?)\n---\n", text, re.S)
+    if front:
+        for line in front.group(1).splitlines():
+            key, sep, value = line.partition(":")
+            if sep and key.strip() == "status":
+                value = value.strip()
+                return FRONTMATTER_STATUS.get(value, value)
+    header = "\n".join(text.splitlines()[:15])
     match = re.search(r"^- 状态：(.+)$", header, re.M)
     return match.group(1).strip() if match else ""
 
@@ -146,10 +161,10 @@ def check_status_words(files):
 
 
 def check_current_fields():
-    text = read(os.path.join(ROOT, "docs", "CURRENT.md"))
+    text = read(os.path.join(ROOT, "docs", "STATUS.md"))
     for field in CURRENT_REQUIRED_FIELDS:
         if field not in text:
-            errors.append(f"docs/CURRENT.md：缺少规范第 5 节要求的字段 {field}")
+            errors.append(f"docs/STATUS.md：缺少规范第 5 节要求的字段 {field}")
 
 
 def spec_dirs():
@@ -191,10 +206,7 @@ def check_spec_structure(specs):
         checked["specs"] += 1
         layout, missing = spec_layout(path)
         if layout is None:
-            errors.append(
-                f"docs/specs/{name}：缺少完整布局（brief.md/plan.md/features.md，"
-                "历史 spec 可用 requirements.md/design.md/tasks.md）"
-            )
+            errors.append(f"docs/specs/{name}：缺少完整布局（requirements.md/design.md/tasks.md）")
         elif missing:
             errors.append(f"docs/specs/{name}：缺少 {', '.join(missing)}")
 
@@ -471,20 +483,20 @@ def check_context_budget():
 
 
 def check_verification_block():
-    """CURRENT.md 的最近验证必须由 verify.sh 生成，防止手写漂移。"""
-    path = os.path.join(ROOT, "docs", "CURRENT.md")
+    """STATUS.md 的最近验证必须由 verify.sh 生成，防止手写漂移。"""
+    path = os.path.join(ROOT, "docs", "STATUS.md")
     content = read(path)
     if "<!-- verify:start -->" not in content or "<!-- verify:end -->" not in content:
-        errors.append("docs/CURRENT.md：缺少 verify 标记块（由 scripts/verify.sh 生成）")
+        errors.append("docs/STATUS.md：缺少 verify 标记块（由 scripts/verify.sh 生成）")
         return
     block = content.split("<!-- verify:start -->", 1)[1].split("<!-- verify:end -->", 1)[0]
     if "passed" not in block and "待运行" not in block:
-        errors.append("docs/CURRENT.md：verify 标记块未包含验证结果")
+        errors.append("docs/STATUS.md：verify 标记块未包含验证结果")
 
 
 def check_current_handwritten_counts():
     """CURRENT 的验证计数只能来自 verify.sh；其他位置手写会与验证块漂移。"""
-    path = os.path.join(ROOT, "docs", "CURRENT.md")
+    path = os.path.join(ROOT, "docs", "STATUS.md")
     if not os.path.exists(path):
         return
     content = read(path)
@@ -497,7 +509,7 @@ def check_current_handwritten_counts():
     match = PASS_COUNT_PATTERN.search(outside)
     if match is not None:
         errors.append(
-            "docs/CURRENT.md：验证计数只能写在 verify 标记块（由 verify.sh 生成），"
+            "docs/STATUS.md：验证计数只能写在 verify 标记块（由 verify.sh 生成），"
             f"发现手写「{match.group(0)}」；请改为“见验证块”"
         )
 

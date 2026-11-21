@@ -20,7 +20,7 @@ for arg in "$@"; do
     --dry-run) DRY_RUN=1 ;;
     -h|--help)
       echo "用法：./scripts/verify-changed.sh [F-08] [--base=<ref>] [--paths-file=<file>] [--dry-run]"
-      echo "  默认 feature 取 CURRENT.md「当前工作」的第一个 F-xx；默认 base=HEAD（未提交变更）。"
+      echo "  默认 feature 取 STATUS.md「当前工作」的第一个 F-xx；默认 base=HEAD（未提交变更）。"
       echo "  --paths-file 用文件中的路径清单代替 git diff（路径相对仓库根）；--dry-run 只打印计划。"
       exit 0
       ;;
@@ -32,7 +32,7 @@ for arg in "$@"; do
 done
 
 if [ -z "$FEATURE" ]; then
-  FEATURE=$(grep '^- 当前工作：' docs/CURRENT.md | grep -o 'F-[0-9][0-9]' | head -1 || true)
+  FEATURE=$(grep '^- 当前工作：' docs/STATUS.md | grep -o 'F-[0-9][0-9]' | head -1 || true)
 fi
 
 ACS=""
@@ -43,7 +43,7 @@ import sys
 from pathlib import Path
 
 feature = sys.argv[1]
-for path in sorted(Path("docs/specs").glob("*/features.md")):
+for path in sorted(Path("docs/specs").glob("*/tasks.md")):
     for line in path.read_text(encoding="utf-8").splitlines():
         if line.startswith(f"| {feature} |"):
             cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
@@ -92,16 +92,16 @@ if changed_matches '^apps/workspace/'; then WORKSPACE_CHANGED=1; fi
 # 文档：文档正文、根目录说明文件。
 DOCS_CHANGED=0
 if changed_matches '^(docs/|README\.md$|AGENTS\.md$|CLAUDE\.md$|CONTRIBUTING\.md$|GEMINI\.md$|SECURITY\.md$)'; then DOCS_CHANGED=1; fi
-# 状态与评审一致性：CURRENT、specs、reviews。
+# 状态与评审一致性：STATUS、specs、reviews。
 STATUS_CHANGED=0
-if changed_matches '^(docs/CURRENT\.md$|docs/specs/|docs/reviews/)'; then STATUS_CHANGED=1; fi
+if changed_matches '^(docs/STATUS\.md$|docs/specs/|docs/reviews/)'; then STATUS_CHANGED=1; fi
 # 追溯：AC 覆盖来自 specs/tests。
 TRACE_CHANGED=0
 if changed_matches '^(docs/|tests/)'; then TRACE_CHANGED=1; fi
 # 契约：契约源、生成物与生成脚本。
 CONTRACTS_CHANGED=0
 if changed_matches '^(packages/contracts/|apps/(chat|workspace)/lib/api-types\.ts$|tests/fixtures/|scripts/gen-contracts\.sh$|scripts/gen_test_fixtures\.py$|scripts/check-contracts\.sh$)'; then CONTRACTS_CHANGED=1; fi
-# 评审前置：前端结构基线 / trace 基线 / CURRENT 评审声称。
+# 评审前置：前端结构基线 / trace 基线 / STATUS 评审声称。
 REVIEW_CHANGED=0
 if changed_matches '^(apps/|docs/|scripts/frontend-structure-baseline\.txt$|scripts/trace-baseline\.txt$)'; then REVIEW_CHANGED=1; fi
 

@@ -32,18 +32,16 @@ def test_coverage_state区分缺口部分覆盖与完全覆盖_基座豁免() ->
     ) == ("covered", [])
 
 
-def test_ac_from_features读取Passes_基座豁免(tmp_path: Path, monkeypatch: Any) -> None:
+def test_ac_from_features读取frontmatter_基座豁免(tmp_path: Path, monkeypatch: Any) -> None:
     module = load_module()
-    spec_dir = tmp_path / "001-demo"
-    spec_dir.mkdir()
-    (spec_dir / "features.md").write_text(
-        "| ID | Category | Description | Steps | AC | Passes | Evidence |\n"
-        "|---|---|---|---|---|---|---|\n"
-        "| F-06 | functional | demo | pytest | AC-35 | true | evidence |\n"
-        "| F-07 | security | demo | pytest | AC-35 | false | — |\n",
-        encoding="utf-8",
-    )
-    monkeypatch.setattr(module, "SPECS", tmp_path)
+    card_dir = tmp_path / "001-demo"
+    card_dir.mkdir()
+    for fid, status in (("F-06", "done"), ("F-07", "doing")):
+        (card_dir / f"{fid}.md").write_text(
+            f"---\nid: {fid}\ntitle: demo\nspec: 001-demo\nstatus: {status}\nac: [AC-35]\n---\n",
+            encoding="utf-8",
+        )
+    monkeypatch.setattr(module, "CARDS", tmp_path)
 
     assert module.ac_from_features() == {
         "AC-35": [("F-06", True), ("F-07", False)],

@@ -42,16 +42,16 @@ docs/architecture/invariants.md、docs/architecture/overview.md、docs/process/r
 
 ```text
 你是独立上下文的 Spec 轴评审者，未参与实现。仓库：<repo>。
-输入：评审包 <pack-path>，其中含 AC 原文、features 行、执行卡 §1/§2 与 plan 全文。
+输入：评审包 <pack-path>，其中含 AC 原文、任务卡摘要、执行卡 §1/§2 与 design 全文。
 
 检查：
-1. AC 要求但缺失/部分实现的点（引 brief.md 原文行）。
+1. AC 要求但缺失/部分实现的点（引 requirements.md 原文行）。
 2. 规格未要求但 diff 做了的事（新接口/字段/行为/配置）；区分 scope creep 与已批准到后续 feature。
 3. 看起来实现但方式不符的点：状态机、错误码、权限/租户、事务、用户文案、
    读模型字段来源/缺省/截断。
 4. 逐 AC 判定点给可复查证据：测试名 / 命令 / 文件行号；区分「F-XX 缺失」与
    「已批准到 F-YY 的后续承接」。
-5. 证据一致性：执行卡 §4、features 的 Passes/Evidence、CURRENT 三处是否自洽。
+5. 证据一致性：执行卡 §4、frontmatter.status、STATUS 三处是否自洽。
 
 输出（中文，≤700 字）：findings（引 spec 文件:行号 + 实现位置 + 标签）；
 逐 AC 表格；一条结论：通过 / 有条件通过 / 不通过。

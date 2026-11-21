@@ -13,12 +13,12 @@
 - 设计强：一个变更一个目录、EARS 需求、AC 编号贯穿、执行卡、独立评审、不变量清单——这些结构与 GitHub Spec Kit、AWS Kiro 同构，部分做法（执行卡、评审留痕门禁、垂直切片规则）比两者更严谨。
 - 执行弱：全部机器规则都在本地 git hook 里，`git push --no-verify` 一条命令即可绕过；没有服务端 CI，也没有分支保护；证据是“粘贴的命令输出”，不是可复现的构建产物。
 - 覆盖窄：API 契约、安全基线、数据隔离、前端架构、发布与版本、可观测与评测七类基础规范缺失；不变量 INV-13/INV-16 宣称有强制点，实际没有实现。
-- 状态腐烂：`CURRENT.md` 与 `tasks.md` 已经互相矛盾（本次评审已修复，见第 6 节），说明“手工维护多份状态副本”在设计上不可持续。
+- 状态腐烂：`STATUS.md` 与 `tasks.md` 已经互相矛盾（本次评审已修复，见第 6 节），说明“手工维护多份状态副本”在设计上不可持续。
 
 三个最优先动作：
 
 1. 建服务端 CI 与 required checks，把本地 hook 降级为快速反馈（P0-1）。
-2. 把状态改为派生视图，用脚本校验 `CURRENT.md ↔ tasks.md ↔ 执行卡`（P0-2，本次已落地 `scripts/check-status.py`）。
+2. 把状态改为派生视图，用脚本校验 `STATUS.md ↔ tasks.md ↔ 执行卡`（P0-2，本次已落地 `scripts/check-status.py`）。
 3. 集成测试改用独立测试库并禁止静默 skip，同时补 API/安全两类规范（P0-3、P1-1、P1-2）。
 
 ## 1. 评分卡
@@ -58,7 +58,7 @@
 | API 契约 | OpenAPI 作为唯一源，前端类型生成；统一错误封套；版本前缀；`Idempotency-Key` | 5 个 Tool 有 JSON Schema；HTTP 层无 `response_model`、错误双轨、无版本 | 落后 |
 | 安全 | OWASP ASVS/LLM Top 10；secret scanning + push protection；SAST；依赖审计 | 身份不取自正文、资格确定性这两条硬约束有实现；其余安全基线缺失 | 落后 |
 | 治理文件 | README/CONTRIBUTING/SECURITY/CODE_OF_CONDUCT/LICENSE/CODEOWNERS + .editorconfig/.gitattributes + PR/issue 模板 | 只有 README；缺 8 项 | 缺失 |
-| 状态文档 | docs-as-code + 单一事实源；STATUS.md 类文件必须自动生成 | 手写 `CURRENT.md`，与 `tasks.md` 已矛盾 | 落后 |
+| 状态文档 | docs-as-code + 单一事实源；STATUS.md 类文件必须自动生成 | 手写 `STATUS.md`，与 `tasks.md` 已矛盾 | 落后 |
 | AI 代码治理 | 幻觉依赖检查（USENIX 2025：商用模型 5.2%、开源 21.7% 的包名不存在）、许可证、测试自证、人工评审 | 有“实现者不得自审”“证据留痕”；无依赖存在性、许可证、eval 门禁 | 部分 |
 
 ## 3. 关键差距
@@ -73,11 +73,11 @@
 
 ### P0-2 状态事实源已经腐烂，且检查器只验“写了没有”
 
-- 现状（评审时）：`docs/CURRENT.md` 写“尚无订单查询与取消逻辑”，但查询、取消、转人工均已实现；`进行中` 的 14 条里 9 条以“已完成”开头；`下一步` 让从 T-10/T-05/T-02 开始，三者早已完成；有序列表编号为 `1,2,2,3,3,4`；T-11、T-12、T-13 三个未完成任务从未出现在状态页。
+- 现状（评审时）：`docs/STATUS.md` 写“尚无订单查询与取消逻辑”，但查询、取消、转人工均已实现；`进行中` 的 14 条里 9 条以“已完成”开头；`下一步` 让从 T-10/T-05/T-02 开始，三者早已完成；有序列表编号为 `1,2,2,3,3,4`；T-11、T-12、T-13 三个未完成任务从未出现在状态页。
 - 证据：`scripts/check-docs.py:118-122` 只检查字段名是否存在；`check_verification_block()` 只要求块里出现 `passed`。
 - 影响：交接与恢复流程的前提（“仓库是事实源”）不成立；Agent 读到的状态是错的，比没有状态更危险。
 - 主流：状态类文档要么自动生成，要么交给 Issue/Project 单一事实源；`STATUS.md` 手写多副本是公认的失效模式。
-- 已落地修复（本次）：`scripts/check-status.py` 校验 `CURRENT.md ↔ tasks.md ↔ 执行卡` 三方一致、未完成任务不得消失、列表编号连续；`CURRENT.md` 已按事实重写；`verify.sh` 已接入该检查。
+- 已落地修复（本次）：`scripts/check-status.py` 校验 `STATUS.md ↔ tasks.md ↔ 执行卡` 三方一致、未完成任务不得消失、列表编号连续；`STATUS.md` 已按事实重写；`verify.sh` 已接入该检查。
 
 ### P0-3 验证脚本不闭合：非 hermetic、重复执行、集成测试可能假绿
 
@@ -156,7 +156,7 @@
 
 | 可以机器保证 | 通道 |
 |---|---|
-| 19 条内部链接可解析、状态词在白名单、`CURRENT.md` 字段齐全 | `check-docs.py` |
+| 19 条内部链接可解析、状态词在白名单、`STATUS.md` 字段齐全 | `check-docs.py` |
 | 规格目录命名、必需文件、AC 在 `tasks.md` 被引用 | `check-docs.py` |
 | 已完成卡有评审文件且文件含“结论”二字 | `check-docs.py` |
 | 已完成卡引用的仓库路径存在 | `check-docs.py` |
@@ -165,7 +165,7 @@
 
 | 不能机器保证（靠自觉） | 后果 |
 |---|---|
-| `CURRENT.md` 的叙述为真 | 状态早已腐烂（现已加 `check-status.py`） |
+| `STATUS.md` 的叙述为真 | 状态早已腐烂（现已加 `check-status.py`） |
 | 评审由独立上下文完成 | 可自审自签 |
 | 评审结论为“通过” | 写“不通过”也能过 |
 | 证据是真实运行输出 | 粘贴任意 `passed` 文本即可 |
@@ -183,8 +183,8 @@
 | 文档总行数 | 6185 行（评审时） |
 | 代码行数 | Python 6129 + Web 1795 = 7924 行 |
 | 文档/代码比 | 0.78 : 1 |
-| 每个完成任务的平均产出 | 执行卡 116 行 + 评审 38 行 + `CURRENT.md`/`tasks.md` 若干条 |
-| 状态副本 | 每个任务 4 处（`tasks.md` 勾选、卡状态、评审结论、`CURRENT.md` 叙述） |
+| 每个完成任务的平均产出 | 执行卡 116 行 + 评审 38 行 + `STATUS.md`/`tasks.md` 若干条 |
+| 状态副本 | 每个任务 4 处（`tasks.md` 勾选、卡状态、评审结论、`STATUS.md` 叙述） |
 | `verify.sh` 重复执行 | pytest/mypy/docs 各 2 次（已修） |
 
 成本本身不是问题——**问题在于成本换来的证据不可信**。规范越重，越需要机器保证，否则“写了很多文档”会掩盖“没有验证”。
@@ -193,10 +193,10 @@
 
 | 位置 | 声称 | 实际 |
 |---|---|---|
-| `docs/CURRENT.md:6`（原） | 尚无订单查询与取消逻辑 | 查询、取消、转人工、登录均已实现 |
-| `docs/CURRENT.md:62-77`（原） | “进行中”14 条 | 9 条以“已完成”开头；T-09/T-10 一处写“尚未开始”一处写“已完成” |
-| `docs/CURRENT.md:85-90`（原） | 下一步从 T-10/T-05/T-02 开始 | 三者均已完成；列表编号 1,2,2,3,3,4 |
-| `docs/CURRENT.md`（原） | 未提及剩余任务 | T-11、T-12、T-13 在 `tasks.md` 仍未勾选，状态页不可见 |
+| `docs/STATUS.md:6`（原） | 尚无订单查询与取消逻辑 | 查询、取消、转人工、登录均已实现 |
+| `docs/STATUS.md:62-77`（原） | “进行中”14 条 | 9 条以“已完成”开头；T-09/T-10 一处写“尚未开始”一处写“已完成” |
+| `docs/STATUS.md:85-90`（原） | 下一步从 T-10/T-05/T-02 开始 | 三者均已完成；列表编号 1,2,2,3,3,4 |
+| `docs/STATUS.md`（原） | 未提及剩余任务 | T-11、T-12、T-13 在 `tasks.md` 仍未勾选，状态页不可见 |
 | `docs/specs/001-order-cancel/tasks.md:30` | T04 产出 `backend/api/middleware.py` | 文件不存在，实际为 `auth.py`（已修） |
 | `docs/tasks/001-order-cancel/T-02.md:110` | 76 passed | 评审记录写 82 passed；卡内证据未回填（历史证据不改写，作为“记录漂移”案例保留） |
 | `docs/tasks/001-order-cancel/T-19.md:120` | 两轮评审 | 评审记录为三轮；卡内结论已改为三轮（已修） |
@@ -212,7 +212,7 @@
 |---|---|---|
 | 第 1 周 | 让门禁可信 | CI + required checks；`verify.sh` 闭合；测试库隔离；`check-status.py`、`trace.py` 进 CI |
 | 第 2 周 | 让规范完整 | `docs/process/WORKFLOW.md` 分级流程；`docs/process/standards.md` 的 API/安全/数据/前端规范 |
-| 第 3 周 | 让状态自动 | 由 `tasks.md` + 卡 front-matter 生成 `CURRENT.md`；文档链接与路径全量校验 |
+| 第 3 周 | 让状态自动 | 由 `tasks.md` + 卡 front-matter 生成 `STATUS.md`；文档链接与路径全量校验 |
 | 第 4 周 | 让质量可度量 | 覆盖率（新代码 diff）、突变（夜间）、flaky 检测、DORA 四项指标 |
 | 持续 | 防膨胀 | 每条规则有 owner 与强制点；每季度删一条无效规则 |
 

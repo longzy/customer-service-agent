@@ -24,6 +24,7 @@ TASKS = ROOT / "docs" / "tasks"
 REVIEWS = ROOT / "docs" / "reviews"
 
 AC_ID = re.compile(r"AC-\d{2}")
+FRONTMATTER = re.compile(r"^---\n(.*?)\n---\n", re.S)
 
 STANDARDS = (
     "AGENTS.md",
@@ -51,16 +52,26 @@ def git(*args: str) -> str:
     return result.stdout
 
 
-def find_feature(feature: str) -> tuple[str, list[str]]:
-    for path in sorted(SPECS.glob("*/features.md")):
-        for line in path.read_text(encoding="utf-8").splitlines():
-            if not line.startswith(f"| {feature} |"):
-                continue
-            cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
-            if len(cells) != 7:
-                raise SystemExit(f"{path}：{feature} 行不是 7 列")
-            return path.parent.name, cells
-    raise SystemExit(f"{feature}：在 docs/specs/*/features.md 中找不到对应行")
+def parse_frontmatter(text: str) -> dict[str, str]:
+    match = FRONTMATTER.match(text)
+    if not match:
+        return {}
+    meta: dict[str, str] = {}
+    for line in match.group(1).splitlines():
+        key, sep, value = line.partition(":")
+        if sep:
+            meta[key.strip()] = value.strip()
+    return meta
+
+
+def find_feature(feature: str) -> tuple[str, dict[str, str]]:
+    for path in sorted(TASKS.glob("*/F-*.md")):
+        if path.stem != feature:
+            continue
+        meta = parse_frontmatter(path.read_text(encoding="utf-8"))
+        if meta.get("id") == feature:
+            return path.parent.name, meta
+    raise SystemExit(f"{feature}：在 docs/tasks/*/F-{feature[2:]}.md 中找不到执行卡")
 
 
 def detect_base(feature: str) -> str:
@@ -88,7 +99,7 @@ def section(text: str, title: str) -> str:
 
 
 def brief_ac_rows(spec: str, acs: list[str]) -> str:
-    lines = (SPECS / spec / "brief.md").read_text(encoding="utf-8").splitlines()
+    lines = (SPECS / spec / "requirements.md").read_text(encoding="utf-8").splitlines()
     header: list[str] = []
     rows: list[str] = []
     for line in lines:
@@ -103,13 +114,13 @@ def brief_ac_rows(spec: str, acs: list[str]) -> str:
 
 
 def build(feature: str, base: str) -> str:
-    spec, cells = find_feature(feature)
-    acs = list(dict.fromkeys(AC_ID.findall(cells[4])))
+    spec, meta = find_feature(feature)
+    acs = list(dict.fromkeys(AC_ID.findall(meta.get("ac", ""))))
     ac_filter = " or ".join(ac.replace("-", "_") for ac in acs) if acs else "F_08"
     card_path = TASKS / spec / f"{feature}.md"
     review_path = REVIEWS / spec / f"{feature}.md"
     card = card_path.read_text(encoding="utf-8") if card_path.exists() else ""
-    plan = (SPECS / spec / "plan.md").read_text(encoding="utf-8")
+    plan = (SPECS / spec / "design.md").read_text(encoding="utf-8")
     commits = git("log", "--oneline", f"{base}..HEAD").strip() or "（无提交差异）"
     diff_stat = git("diff", "--stat", f"{base}...HEAD").strip() or "（无差异）"
     changed = git("diff", "--name-only", f"{base}...HEAD").strip() or "（无）"
@@ -154,9 +165,12 @@ def build(feature: str, base: str) -> str:
         "",
         brief_ac_rows(spec, acs),
         "",
-        "## 3. features 行",
+        "## 3. 任务卡摘要",
         "",
-        "| " + " | ".join(cells) + " |",
+        f"- 标题：{meta.get('title', '')}",
+        f"- 状态：{meta.get('status', '')}",
+        f"- 类别：{meta.get('category', '')}",
+        f"- 绑定验收：{'、'.join(acs) or '—'}",
         "",
         "## 4. 执行卡：改变范围与任务决策",
         "",
@@ -164,7 +178,7 @@ def build(feature: str, base: str) -> str:
         "",
         section(card, "2. 任务级决策") or "（执行卡 §2 不存在）",
         "",
-        "## 5. 规格 plan 全文",
+        "## 5. 设计全文（design.md）",
         "",
         plan.strip(),
         "",

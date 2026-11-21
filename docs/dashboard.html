@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>项目驾驶舱</title>
+<style>
+:root{--ink:#111827;--canvas:#F4F8F7;--line:#E3E8E6;--muted:#6B7280;--ok:#16794F;--doing:#B45309;--review:#6D28D9;--card:#fff;--radius:16px}
+*{box-sizing:border-box}
+body{margin:0;background:var(--canvas);color:var(--ink);font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif}
+header{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;padding:28px 32px 18px}
+h1{margin:0;font-size:24px;letter-spacing:-.02em}
+.sub{color:var(--muted);font-size:13px;margin-top:4px}
+.tabs{display:flex;gap:6px;padding:0 32px}
+.tab{border:1px solid var(--line);background:#fff;border-radius:999px;padding:7px 16px;cursor:pointer;font-size:13px;color:var(--muted)}
+.tab.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+main{padding:18px 32px 40px}
+.panel{display:none}
+.panel.on{display:block}
+.roadmap{display:grid;grid-template-columns:repeat(8,minmax(120px,1fr));gap:0;margin:8px 0 24px}
+.stage{position:relative;padding:18px 12px 0;border-top:2px solid var(--line)}
+.stage.done{border-top-color:var(--ok)}
+.stage.doing{border-top-color:var(--ink)}
+.stage .dot{position:absolute;top:-7px;left:12px;width:12px;height:12px;border-radius:50%;background:#94A3B8;border:2px solid var(--canvas)}
+.stage.done .dot{background:var(--ok)}
+.stage.doing .dot{background:var(--ink)}
+.stage .id{font-weight:650;font-size:13px}
+.stage .name{color:var(--muted);font-size:12px}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px}
+.card h3{margin:0 0 6px;font-size:14px}
+.meta{color:var(--muted);font-size:12px}
+.bar{height:6px;background:#EEF2F0;border-radius:99px;overflow:hidden;margin-top:10px}
+.bar>i{display:block;height:100%;background:var(--ink)}
+.board{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+.col{background:#EDF2F0;border-radius:var(--radius);padding:12px;min-height:220px}
+.col h3{margin:2px 4px 10px;font-size:13px;display:flex;justify-content:space-between}
+.col h3 span{color:var(--muted);font-weight:400}
+.task{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px;cursor:pointer}
+.task:hover{border-color:#B9C4C0}
+.task .id{font-size:11px;color:var(--muted);font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.task .t{font-size:13px;margin-top:2px}
+.pill{display:inline-block;font-size:11px;border-radius:99px;padding:2px 8px;border:1px solid var(--line);color:var(--muted)}
+.pill.done{color:var(--ok);border-color:#BFE3D0;background:#F0FAF4}
+.pill.doing{color:var(--doing);border-color:#F3D9B8;background:#FEF7EC}
+.pill.review{color:var(--review);border-color:#DDD3F7;background:#F6F2FF}
+.pill.todo{color:#64748B;background:#F8FAFC}
+table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--line);font-size:13px}
+th{font-size:12px;color:var(--muted);font-weight:600;background:#FAFCFB}
+tr:last-child td{border-bottom:none}
+tbody tr{cursor:pointer}
+tbody tr:hover{background:#FAFCFB}
+.filters{display:flex;gap:8px;margin-bottom:12px}
+select{border:1px solid var(--line);border-radius:10px;padding:6px 10px;background:#fff;color:var(--ink)}
+.check{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);border:1px solid var(--line);background:#fff;border-radius:10px;padding:6px 10px}
+.drawer{position:fixed;right:0;top:0;height:100%;width:380px;background:#fff;border-left:1px solid var(--line);box-shadow:-12px 0 32px rgba(17,24,39,.08);transform:translateX(100%);transition:.2s;padding:24px;overflow:auto;z-index:9}
+.drawer.on{transform:none}
+.drawer h2{margin:6px 0 4px;font-size:18px}
+.drawer .close{float:right;border:0;background:none;font-size:20px;cursor:pointer;color:var(--muted)}
+.kv{display:grid;grid-template-columns:88px 1fr;gap:8px 10px;margin-top:16px;font-size:13px}
+.kv b{color:var(--muted);font-weight:500}
+.empty{color:var(--muted);padding:40px;text-align:center}
+.more{color:var(--muted);font-size:12px;padding:8px 4px 2px}
+@media(max-width:900px){.board{grid-template-columns:1fr 1fr}.roadmap{grid-template-columns:repeat(4,1fr);row-gap:18px}}
+</style>
+</head>
+<body>
+<header>
+  <div><h1>项目驾驶舱</h1><div class="sub" id="sub"></div></div>
+  <div class="pill" id="now"></div>
+</header>
+<div class="tabs">
+  <button class="tab on" data-p="roadmap">Roadmap</button>
+  <button class="tab" data-p="board">Board</button>
+  <button class="tab" data-p="table">Table</button>
+</div>
+<main>
+  <section class="panel on" id="roadmap">
+    <div class="roadmap" id="stages"></div>
+    <div class="cards" id="speccards"></div>
+    <div class="cards" id="statuscards" style="margin-top:18px"></div>
+  </section>
+  <section class="panel" id="board">
+    <div class="filters"><select id="specFilter"></select>
+      <label class="check"><input type="checkbox" id="showDone"> 显示全部已完成</label></div>
+    <div class="board" id="board-list"></div>
+  </section>
+  <section class="panel" id="table">
+    <table><thead><tr><th>ID</th><th>任务</th><th>AC</th><th>状态</th><th>spec</th></tr></thead><tbody id="tbody"></tbody></table>
+  </section>
+</main>
+<aside class="drawer" id="drawer"></aside>
+<script>
+const DATA = {"updated": "2026-11-21", "current_milestone": "M1", "milestones": [{"id": "M0", "name": "项目基线", "status": "done"}, {"id": "M1-P", "name": "消费者原型", "status": "done"}, {"id": "R0", "name": "企业化重基线", "status": "done"}, {"id": "M1", "name": "企业核心客服闭环", "status": "doing"}, {"id": "M2", "name": "退款与审批", "status": "todo"}, {"id": "M3", "name": "知识与坐席效率", "status": "todo"}, {"id": "M4", "name": "主管、运营与多渠道", "status": "todo"}, {"id": "M5", "name": "生产加固与真实集成", "status": "todo"}], "specs": [{"id": "001", "folder": "001-customer-handoff", "name": "客户转人工闭环", "status": "done", "done": 15, "total": 15}, {"id": "002", "folder": "002-ui-redesign", "name": "UI 改版", "status": "done", "done": 9, "total": 9}, {"id": "003", "folder": "003-order-query", "name": "订单查询", "status": "done", "done": 5, "total": 5}, {"id": "004", "folder": "", "name": "取消", "status": "todo", "done": 0, "total": 0}, {"id": "005", "folder": "", "name": "安全硬化", "status": "todo", "done": 0, "total": 0}], "features": [{"id": "F-01", "title": "客户登录、会话恢复与登出", "spec": "001", "spec_dir": "001-customer-handoff", "milestone": "M1", "status": "done", "category": "functional", "ac": ["AC-30"], "card": "docs/tasks/001-customer-handoff/F-01.md"}, {"id": "F-02", "title": "客户消息与 AI 回复", "spec": "001", "spec_dir": "001-customer-handoff", "milestone": "M1", "status": "done", "category": "functional", "ac": ["AC-31"], "card": "docs/tasks/001-customer-handoff/F-02.md"}, {"id": "F-03", "title": "关键词转人工与完整交接单", "spec": "001", "spec_dir": "001-customer-handoff", "milestone": "M1", "status": "done", "category": "functional", "ac": ["AC-32"], "card": "docs/tasks/001-customer-handoff/F-03.md"}, {"id": "F-04", "title": "低置信/问订单/超范围转人工", "spec": "001", "spec_dir": "001-customer-handoff", "milestone": "M1", "status": "done", "category": "functional", "ac": ["AC-32"], "card": "docs/tasks/001-customer-handoff/F-04.md"}, {"id": "F-05", "title": "坐席登录与 RBAC", "spec": "001", "spec_dir": "001-customer-handoff", "milestone": "M1", "status": "done", "category": "functional", "ac": ["AC-34"], "card": "docs/tasks/001-customer-handoff/F-05.md"}, {"id": "F-06", "title": "工作台队列 FIFO 与摘要", "spec": "001", "spec_dir": "001-customer-handoff", "milestone": "M1", "status": "done", "category": "functional", "ac": ["AC-35"], "card": "docs/tasks/001-customer-handoff/F-06.md"}, {"id": "F-07", "title": "队列条件领取（并发只成功一人）", "spec": "001", "spec_dir": "001-customer-handoff", "milestone": "M1", "status": "done", "category": "security", "ac": ["AC-35"], "card": "docs/tasks/001-customer-handoff/F-07.md"}, {"id": "F-08", "title": "领取后接管与完整上下文", "spec": "001", "spec_dir": "001-customer-handoff", "milestone": "M1", "status": "done", "category": "functional", "ac": ["AC-36"], "card": "docs/tasks/001-customer-handoff/F-08.md"}, {"id": "F-09", "title": "第二坐席查看/接管越权矩阵", "spec": "001", "spec_dir": "001-customer-handoff", "milestone": "M1", "status": "done", "category": "security", "ac": ["AC-36"], "card": "docs/tasks/001-customer-handoff/F-09.md"}, {"id": "F-10", "title": "坐席回复与实时消息轮询", "spec": "001", "spec_dir": "001-customer-handoff", "milestone": "M1", "status": "done", "category": "functional", "ac": ["AC-37"], "card": "docs/tasks/001-customer-handoff/F-10.md"}, {"id": "F-11", "title": "客户关闭会话", "spec": "001", "spec_dir": "001-customer-handoff", "milestone": "M1", "status": "done", "category": "functional", "ac": ["AC-38"], "card": "docs/tasks/001-customer-handoff/F-11.md"}, {"id": "F-12", "title": "坐席关闭会话与转回 AI", "spec": "001", "spec_dir": "001-customer-handoff", "milestone": "M1", "status": "done", "category": "functional", "ac": ["AC-38"], "card": "docs/tasks/001-customer-handoff/F-12.md"}, {"id": "F-13", "title": "审计、限速与审计失败回滚", "spec": "001", "spec_dir": "001-customer-handoff", "milestone": "M1", "status": "done", "category": "security", "ac": ["AC-39"], "card": "docs/tasks/001-customer-handoff/F-13.md"}, {"id": "F-14", "title": "客户甲/乙端到端闭环与跨客户隔离", "spec": "001", "spec_dir": "001-customer-handoff", "milestone": "M1", "status": "done", "category": "security", "ac": ["AC-33"], "card": "docs/tasks/001-customer-handoff/F-14.md"}, {"id": "F-24", "title": "模型失败分级降级", "spec": "001", "spec_dir": "001-customer-handoff", "milestone": "M1", "status": "done", "category": "functional", "ac": ["AC-31", "AC-32"], "card": "docs/tasks/001-customer-handoff/F-24.md"}, {"id": "F-15", "title": "S1 令牌接入", "spec": "002", "spec_dir": "002-ui-redesign", "milestone": "M1", "status": "done", "category": "functional", "ac": ["AC-40"], "card": "docs/tasks/002-ui-redesign/F-15.md"}, {"id": "F-16", "title": "客户登录页", "spec": "002", "spec_dir": "002-ui-redesign", "milestone": "M1", "status": "done", "category": "ui", "ac": ["AC-41"], "card": "docs/tasks/002-ui-redesign/F-16.md"}, {"id": "F-17", "title": "客户聊天页", "spec": "002", "spec_dir": "002-ui-redesign", "milestone": "M1", "status": "done", "category": "ui", "ac": ["AC-42"], "card": "docs/tasks/002-ui-redesign/F-17.md"}, {"id": "F-18", "title": "坐席登录页", "spec": "002", "spec_dir": "002-ui-redesign", "milestone": "M1", "status": "done", "category": "ui", "ac": ["AC-43"], "card": "docs/tasks/002-ui-redesign/F-18.md"}, {"id": "F-19", "title": "坐席队列", "spec": "002", "spec_dir": "002-ui-redesign", "milestone": "M1", "status": "done", "category": "ui", "ac": ["AC-44"], "card": "docs/tasks/002-ui-redesign/F-19.md"}, {"id": "F-20", "title": "右栏摘要详情", "spec": "002", "spec_dir": "002-ui-redesign", "milestone": "M1", "status": "done", "category": "ui", "ac": ["AC-45"], "card": "docs/tasks/002-ui-redesign/F-20.md"}, {"id": "F-21", "title": "队列四态", "spec": "002", "spec_dir": "002-ui-redesign", "milestone": "M1", "status": "done", "category": "ui", "ac": ["AC-46"], "card": "docs/tasks/002-ui-redesign/F-21.md"}, {"id": "F-22", "title": "可访问性与响应式收口", "spec": "002", "spec_dir": "002-ui-redesign", "milestone": "M1", "status": "done", "category": "ui", "ac": ["AC-47", "AC-48"], "card": "docs/tasks/002-ui-redesign/F-22.md"}, {"id": "F-23", "title": "视觉回归与规范收口", "spec": "002", "spec_dir": "002-ui-redesign", "milestone": "M1", "status": "done", "category": "ui", "ac": ["AC-49"], "card": "docs/tasks/002-ui-redesign/F-23.md"}, {"id": "F-25", "title": "订单访问基座与指定订单查询", "spec": "003", "spec_dir": "003-order-query", "milestone": "M1", "status": "done", "category": "functional", "ac": ["AC-51"], "card": "docs/tasks/003-order-query/F-25.md"}, {"id": "F-26", "title": "最近订单、订单意图与澄清", "spec": "003", "spec_dir": "003-order-query", "milestone": "M1", "status": "done", "category": "functional", "ac": ["AC-50", "AC-51", "AC-52", "AC-54"], "card": "docs/tasks/003-order-query/F-26.md"}, {"id": "F-27", "title": "订单查询失败分级", "spec": "003", "spec_dir": "003-order-query", "milestone": "M1", "status": "done", "category": "functional", "ac": ["AC-53"], "card": "docs/tasks/003-order-query/F-27.md"}, {"id": "F-28", "title": "交接单订单上下文与工作台订单区", "spec": "003", "spec_dir": "003-order-query", "milestone": "M1", "status": "done", "category": "functional", "ac": ["AC-55", "AC-56"], "card": "docs/tasks/003-order-query/F-28.md"}, {"id": "F-29", "title": "订单卡片、可观测与评测收口", "spec": "003", "spec_dir": "003-order-query", "milestone": "M1", "status": "done", "category": "ui", "ac": ["AC-55", "AC-56", "AC-57", "AC-58"], "card": "docs/tasks/003-order-query/F-29.md"}], "status": {"doing": "无。M1 三个切片（001/002/003）已收口，004 取消尚未启动。", "blocked": "分支保护受 GitHub 私有仓库套餐限制；不影响核心开发。", "next": "1. 004 取消：订单取消工作流、状态语义与越权矩阵。 2. 005 安全硬化：PII 覆盖扩展、清理任务频率与审计归档。 3. 补充 003 的收口提交说明（代码与证据已齐）。"}, "done_count": 29, "open_count": 0};
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const LABEL = {done:"已完成",doing:"进行中",review:"待评审",todo:"未开始",blocked:"阻塞"};
+
+$("#sub").textContent = `更新 ${DATA.updated} · 当前 ${DATA.current_milestone} · ${DATA.features.length} 个任务`;
+$("#now").textContent = `${DATA.current_milestone} ${LABEL[DATA.milestones.find(m => m.id === DATA.current_milestone)?.status] || ""}`;
+
+$("#stages").innerHTML = DATA.milestones.map(m =>
+  `<div class="stage ${m.status}"><span class="dot"></span><div class="id">${m.id}</div><div class="name">${esc(m.name)}</div></div>`).join("");
+
+$("#speccards").innerHTML = DATA.specs.map(s => {
+  const pct = s.total ? Math.round(s.done / s.total * 100) : 0;
+  const progress = s.total ? `${s.done}/${s.total}` : "待规划";
+  return `<div class="card"><h3>${s.id} ${esc(s.name)}</h3>
+    <div class="meta">${progress} · ${LABEL[s.status] || s.status}</div>
+    <div class="bar"><i style="width:${pct}%"></i></div></div>`;
+}).join("");
+
+$("#statuscards").innerHTML = [
+  ["进行中", DATA.status.doing || "无"],
+  ["阻塞", DATA.status.blocked || "无"],
+  ["下一步", DATA.status.next || "无"],
+  ["已完成", `${DATA.done_count} 个任务`]
+].map(([h, b]) => `<div class="card"><h3>${h}</h3><div class="meta">${esc(b)}</div></div>`).join("");
+
+const specSel = $("#specFilter");
+specSel.innerHTML = `<option value="">全部 spec</option>` + DATA.specs.map(s => `<option value="${s.id}">${s.id} ${esc(s.name)}</option>`).join("");
+
+function renderBoard() {
+  const pick = specSel.value;
+  const allDone = $("#showDone").checked;
+  const cols = ["todo","doing","review","done"];
+  $("#board-list").innerHTML = cols.map(c => {
+    const all = DATA.features.filter(f => f.status === c && (!pick || f.spec === pick));
+    const items = (c === "done" && !allDone) ? all.slice(0, 5) : all;
+    const more = all.length - items.length;
+    return `<div class="col"><h3>${LABEL[c]} <span>${all.length}</span></h3>` +
+      (items.length ? items.map(f => `<div class="task" data-id="${f.id}">
+        <div class="id">${f.id} · ${f.spec}</div><div class="t">${esc(f.title)}</div></div>`).join("")
+        : `<div class="empty">—</div>`) +
+      (more > 0 ? `<div class="more">还有 ${more} 个已完成 · 勾选上方查看</div>` : "") + `</div>`;
+  }).join("");
+}
+specSel.onchange = renderBoard;
+$("#showDone").onchange = renderBoard;
+
+$("#tbody").innerHTML = DATA.features.map(f =>
+  `<tr data-id="${f.id}"><td>${f.id}</td><td>${esc(f.title)}</td><td>${f.ac.join("、")}</td>
+   <td><span class="pill ${f.status}">${LABEL[f.status]}</span></td><td>${f.spec}</td></tr>`).join("");
+
+document.querySelectorAll(".tab").forEach(t => t.onclick = () => {
+  document.querySelectorAll(".tab").forEach(x => x.classList.toggle("on", x === t));
+  document.querySelectorAll(".panel").forEach(p => p.classList.toggle("on", p.id === t.dataset.p));
+});
+
+function showDetail(id) {
+  const f = DATA.features.find(x => x.id === id);
+  if (!f) return;
+  $("#drawer").innerHTML = `<button class="close" onclick="document.getElementById('drawer').classList.remove('on')">×</button>
+    <div class="meta">${f.id} · ${f.spec} · ${f.milestone}</div><h2>${esc(f.title)}</h2>
+    <span class="pill ${f.status}">${LABEL[f.status]}</span>
+    <div class="kv"><b>AC</b><span>${f.ac.join("、") || "—"}</span>
+    <b>卡片</b><span>${esc(f.card)}</span></div>`;
+  $("#drawer").classList.add("on");
+}
+document.addEventListener("click", e => {
+  const el = e.target.closest("[data-id]");
+  if (el) showDetail(el.dataset.id);
+});
+
+renderBoard();
+const initView = new URLSearchParams(location.search).get("view");
+if (initView) document.querySelector(`.tab[data-p="${initView}"]`)?.click();
+</script>
+</body>
+</html>

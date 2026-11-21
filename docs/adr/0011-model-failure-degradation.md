@@ -3,7 +3,7 @@
 - 状态：已批准
 - 日期：2026-11-19
 - 批准：2026-11-19（用户认可方向，先改文档）
-- 关联：[001 plan](../specs/001-customer-handoff/plan.md)、[001 brief](../specs/001-customer-handoff/brief.md)、[ADR-0005](0005-enterprise-boundary.md)
+- 关联：[001 plan](../specs/001-customer-handoff/design.md)、[001 brief](../specs/001-customer-handoff/requirements.md)、[ADR-0005](0005-enterprise-boundary.md)
 
 ## 背景
 
@@ -57,7 +57,7 @@
 - `customer_chat._model_failed` 需要拆成「单次提示」与「连续失败建单」两条路径；需要新增失败计数查询与测试。
 - 前端客户聊天需要展示新的系统提示文案；不新增按钮，仍可用自然语言转人工。
 - 队列污染减少，但连续失败仍有兜底，保留「无死路」目标。
-- 当前实现仍是旧行为；在 F-24 完成前，文档与实现存在已知差异，`CURRENT.md` 已登记。
+- 当前实现仍是旧行为；在 F-24 完成前，文档与实现存在已知差异，`STATUS.md` 已登记。
 
 ## 拒绝的方案
 

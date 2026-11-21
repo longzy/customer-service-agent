@@ -6,7 +6,7 @@
 ## 覆盖
 
 - **AC 聚合报告**：`evals/run.py` 解析 pytest JUnit，按测试名里的 `_AC_XX` 聚合。
-  AC 集合从当前 `docs/specs/*/brief.md` 的 AC 表动态读取，不再硬编码。
+  AC 集合从当前 `docs/specs/*/requirements.md` 的 AC 表动态读取，不再硬编码。
   `AC-01~29` 是 M1-P 原型的历史标签，不参与当前门禁。
 - **待开工 AC**：`scripts/trace-baseline.txt` 中登记的 AC 没有测试时记 `待开工`，
   不算缺失、不使门禁失败；实现后从基线删除即可转为门禁项。

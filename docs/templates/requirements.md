@@ -1,14 +1,14 @@
 # <feature>：<客户价值一句话>
 
 > 结构依据：Amazon Working Backwards PR/FAQ。客户新闻稿 ≤1 页，FAQ ≤5 页；AC 附录是仓库追溯门禁，不计入页数。
-> 本仓库流程字段：状态、风险级别、关联 plan/features；T1 可只写新闻稿摘要 + 核心 FAQ，T2/T3 写全。
+> 本仓库流程字段：状态、风险级别、关联 design/tasks；T1 可只写新闻稿摘要 + 核心 FAQ，T2/T3 写全。
 
 - 状态：草案
 - 日期：YYYY-MM-DD
 - 风险级别：T2
 - 客户：<谁>
-- 关联 plan：`plan.md`
-- 关联 features：`features.md`
+- 关联 design：`design.md`
+- 关联 tasks：`tasks.md`
 
 ## 1. 客户新闻稿（Press Release）
 
@@ -62,7 +62,7 @@
 
 ## 附录 A. 验收标准（AC）
 
-> 仓库门禁：`scripts/trace.py` 从本表的 `| AC-` 行读取验收编号；`scripts/check-docs.py` 要求每个 AC 在 `features.md` 出现。
+> 仓库门禁：`scripts/trace.py` 从本表的 `| AC-` 行读取验收编号；`scripts/check-docs.py` 要求每个 AC 在 `tasks.md` 出现。
 > AC 是 PR/FAQ 之外的追溯附录，不是需求大全；一行一个可观察结果。
 
 | AC | 角色 | 场景 | 期望（可观察） |
@@ -72,7 +72,7 @@
 
 ## 附录 B. 垂直切片（可选）
 
-> 仓库范围/顺序字段，不属于 PR/FAQ；切片不是可执行 feature。可执行 feature 在 plan 批准后生成。
+> 仓库范围/顺序字段，不属于 PR/FAQ；切片不是可执行 feature。可执行任务在 design 批准后生成。
 
 | 切片 | 内容 | AC | 演示路径 | Blocked by |
 |---|---|---|---|---|

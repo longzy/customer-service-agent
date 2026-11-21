@@ -5,7 +5,7 @@
 - 当前状态：等待评审
 - 应用代码：尚未开始
 - 版本控制：尚未初始化 Git
-- 更正（同日后补）：写本文时 Git 已初始化但文档尚未被跟踪；此字段已过时，实时状态以 `docs/CURRENT.md` 为准。本文其余内容保留为当时快照。
+- 更正（同日后补）：写本文时 Git 已初始化但文档尚未被跟踪；此字段已过时，实时状态以 `docs/STATUS.md` 为准。本文其余内容保留为当时快照。
 
 ## 本次目标
 
@@ -18,7 +18,7 @@
 - 建立 M1 订单取消需求、设计、任务和验收草案。
 - 将 ADR 统一到 `docs/adr/`。
 - 建立 `AGENTS.md`、`docs/process/README.md`、`CLAUDE.md` 和 `GEMINI.md` 的可移植入口。
-- 将实时项目状态集中在 `docs/CURRENT.md`。
+- 将实时项目状态集中在 `docs/STATUS.md`。
 
 ## 未完成
 
@@ -45,8 +45,8 @@
 
 ## 下一位 Agent 的下一步
 
-1. 阅读 `AGENTS.md`、`docs/process/README.md` 和 `docs/CURRENT.md`。
-2. 核对本 handoff 与 `CURRENT.md` 是否一致。
+1. 阅读 `AGENTS.md`、`docs/process/README.md` 和 `docs/STATUS.md`。
+2. 核对本 handoff 与 `STATUS.md` 是否一致。
 3. 按用户指令审阅 AI Coding 规范；不要自行恢复 M1 开发。
 
 ## 涉及文件
@@ -55,7 +55,7 @@
 - `CLAUDE.md`
 - `GEMINI.md`
 - `docs/process/README.md`
-- `docs/CURRENT.md`
+- `docs/STATUS.md`
 - `docs/adr/`
 - `docs/specs/M1/001-order-cancel/`
 

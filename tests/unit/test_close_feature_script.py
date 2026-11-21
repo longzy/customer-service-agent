@@ -1,29 +1,39 @@
 """收口脚本自测：检查前置条件并只做确定性更新（基座豁免）。"""
 
+import shutil
 import subprocess
 import sys
 from pathlib import Path
 
-SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "close_feature.py"
+ROOT = Path(__file__).resolve().parents[2]
+SCRIPT = ROOT / "scripts" / "close_feature.py"
+GEN_TASKS = ROOT / "scripts" / "gen_tasks.py"
 
 
-def make_repo(root: Path, *, with_review: bool = True) -> None:
+def make_repo(root: Path, *, with_review: bool = True, status: str = "review") -> None:
     spec = root / "docs" / "specs" / "001-demo"
     task = root / "docs" / "tasks" / "001-demo"
     review = root / "docs" / "reviews" / "001-demo"
     for path in (spec, task, review):
         path.mkdir(parents=True)
-    (spec / "features.md").write_text(
-        "| ID | Category | Description | Steps | AC | Passes | Evidence |\n"
-        "|---|---|---|---|---|---|---|\n"
-        "| F-01 | functional | demo | pytest | AC-30 | false | — |\n",
+    (spec / "tasks.md").write_text(
+        "# demo 任务\n\n- 状态：已批准\n- 依据：`requirements.md`、`design.md`\n",
         encoding="utf-8",
     )
     (task / "F-01.md").write_text(
+        "---\n"
+        "id: F-01\n"
+        "title: demo\n"
+        "spec: 001-demo\n"
+        "milestone: M1\n"
+        f"status: {status}\n"
+        "category: functional\n"
+        "ac: [AC-30]\n"
+        "updated: 2026-11-21\n"
+        "---\n\n"
         "# 任务执行卡：F-01 demo\n\n"
-        "- 状态：待评审\n\n"
         "## 4. 证据\n\n```text\npytest 1 passed\n```\n\n"
-        "## 6. 完成的定义\n\n- [ ] 证据已填写\n- [ ] CURRENT 已更新\n",
+        "## 6. 完成的定义\n\n- [ ] 证据已填写\n- [ ] STATUS 已更新\n",
         encoding="utf-8",
     )
     if with_review:
@@ -32,13 +42,14 @@ def make_repo(root: Path, *, with_review: bool = True) -> None:
             "## 阻断项\n\n无\n\n## 结论\n\n通过\n",
             encoding="utf-8",
         )
-    (root / "docs" / "CURRENT.md").write_text(
+    (root / "docs" / "STATUS.md").write_text(
         "# 当前项目状态\n\n## 进行中\n\n- F-01：待评审\n\n## 下一步\n\n1. F-01 收口\n\n"
         "## 已完成\n\n- F-00：demo\n\n## 阻塞\n\n无\n\n## 待确认决策\n\n无\n",
         encoding="utf-8",
     )
-    # 收口会先跑仓库内的 trace.py；临时仓库放一个成功桩。
     (root / "scripts").mkdir()
+    shutil.copy(GEN_TASKS, root / "scripts" / "gen_tasks.py")
+    # 收口会先跑仓库内的 trace.py；临时仓库放一个成功桩。
     (root / "scripts" / "trace.py").write_text("import sys\n\nsys.exit(0)\n", encoding="utf-8")
 
 
@@ -65,47 +76,38 @@ def test_缺少评审记录时阻断_基座豁免(tmp_path: Path) -> None:
     assert "评审记录不存在" in result.stderr
 
 
-def test_apply只更新features与执行卡_基座豁免(tmp_path: Path) -> None:
+def test_状态不是review时阻断_基座豁免(tmp_path: Path) -> None:
+    make_repo(tmp_path, status="doing")
+    result = run(tmp_path)
+    assert result.returncode == 1
+    assert "status 不是 review" in result.stderr
+
+
+def test_apply更新frontmatter并生成tasks_基座豁免(tmp_path: Path) -> None:
     make_repo(tmp_path)
-    current_before = (tmp_path / "docs" / "CURRENT.md").read_text(encoding="utf-8")
-    result = run(tmp_path, "--apply", "--evidence", "2026-11-18：pytest 1 passed")
+    status_before = (tmp_path / "docs" / "STATUS.md").read_text(encoding="utf-8")
+    result = run(tmp_path, "--apply")
     assert result.returncode == 0, result.stdout + result.stderr
 
-    features = (tmp_path / "docs" / "specs" / "001-demo" / "features.md").read_text(
-        encoding="utf-8"
-    )
-    assert (
-        "| F-01 | functional | demo | pytest | AC-30 | true | 2026-11-18：pytest 1 passed |"
-        in features
-    )
     card = (tmp_path / "docs" / "tasks" / "001-demo" / "F-01.md").read_text(encoding="utf-8")
-    assert "- 状态：已完成" in card
+    assert "status: done" in card
     assert "- [x] 证据已填写" in card
-    assert "- [x] CURRENT 已更新" in card
-    # CURRENT 的人工摘要不由脚本猜测
-    assert (tmp_path / "docs" / "CURRENT.md").read_text(encoding="utf-8") == current_before
+    assert "- [x] STATUS 已更新" in card
+
+    tasks = (tmp_path / "docs" / "specs" / "001-demo" / "tasks.md").read_text(encoding="utf-8")
+    assert "| F-01 | demo | AC-30 | 已完成 |" in tasks
+
+    # STATUS 的人工摘要不由脚本猜测
+    assert (tmp_path / "docs" / "STATUS.md").read_text(encoding="utf-8") == status_before
 
 
-def test_证据含竖线时拒绝_基座豁免(tmp_path: Path) -> None:
+def test_已收口时apply不重复_基座豁免(tmp_path: Path) -> None:
     make_repo(tmp_path)
-    result = run(tmp_path, "--apply", "--evidence", "a | b")
-    assert result.returncode == 1
-    assert "不含 `|`" in result.stderr
-
-
-def test_已收口时apply不覆盖证据_基座豁免(tmp_path: Path) -> None:
-    make_repo(tmp_path)
-    first = run(tmp_path, "--apply", "--evidence", "2026-11-18：pytest 1 passed")
+    first = run(tmp_path, "--apply")
     assert first.returncode == 0, first.stdout + first.stderr
-    evidence = "2026-11-18：pytest 1 passed"
-    second = run(tmp_path, "--apply", "--evidence", "不应覆盖")
+    second = run(tmp_path, "--apply")
     assert second.returncode == 0
     assert "已收口" in second.stdout
-    features = (tmp_path / "docs" / "specs" / "001-demo" / "features.md").read_text(
-        encoding="utf-8"
-    )
-    assert evidence in features
-    assert "不应覆盖" not in features
 
 
 def test_trace失败时阻断收口_基座豁免(tmp_path: Path) -> None:
@@ -125,19 +127,6 @@ def test_结论首句通过时历史轮次的不通过不阻断收口_基座豁�
     review = tmp_path / "docs" / "reviews" / "001-demo" / "F-01.md"
     review.write_text(
         "# 评审记录\n\n## 结论\n\n通过。2 轮：首轮安全轴不通过（1 个阻塞，已关闭）。\n",
-        encoding="utf-8",
-    )
-    result = run(tmp_path)
-    assert result.returncode == 0, result.stdout + result.stderr
-    assert "收口检查通过" in result.stdout
-
-
-def test_features已有证据但Passes仍为false可收口_基座豁免(tmp_path: Path) -> None:
-    make_repo(tmp_path)
-    features_path = tmp_path / "docs" / "specs" / "001-demo" / "features.md"
-    features = features_path.read_text(encoding="utf-8")
-    features_path.write_text(
-        features.replace("| false | — |", "| false | 2026-11-21：pytest 1 passed |"),
         encoding="utf-8",
     )
     result = run(tmp_path)

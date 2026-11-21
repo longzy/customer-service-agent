@@ -43,7 +43,7 @@ def test_执行卡路径校验覆盖进行中卡片与待创建标记_基座豁�
     module = load_module()
     tasks = tmp_path / "docs" / "tasks" / "001-demo"
     tasks.mkdir(parents=True)
-    (tmp_path / "docs" / "CURRENT.md").write_text("# 当前项目状态\n", encoding="utf-8")
+    (tmp_path / "docs" / "STATUS.md").write_text("# 当前项目状态\n", encoding="utf-8")
     (tmp_path / "apps" / "workspace" / "lib").mkdir(parents=True)
     (tmp_path / "apps" / "workspace" / "lib" / "queue.ts").write_text(
         "export {};\n", encoding="utf-8"
@@ -54,7 +54,7 @@ def test_执行卡路径校验覆盖进行中卡片与待创建标记_基座豁�
     monkeypatch.setattr(module, "errors", [])
 
     card.write_text(
-        "- 状态：进行中\n\n引用 `docs/CURRENT.md` 与 `apps/workspace/lib/queue.ts#getQueue`。\n",
+        "- 状态：进行中\n\n引用 `docs/STATUS.md` 与 `apps/workspace/lib/queue.ts#getQueue`。\n",
         encoding="utf-8",
     )
     module.check_card_paths()
@@ -110,13 +110,13 @@ def test_AC覆盖只认表格行_基座豁免(tmp_path: Path, monkeypatch: Any) 
     module = load_module()
     spec = tmp_path / "docs" / "specs" / "001-demo"
     spec.mkdir(parents=True)
-    (spec / "brief.md").write_text(
+    (spec / "requirements.md").write_text(
         "# brief\n\n| AC | 场景 | 期望 |\n|---|---|---|\n| AC-01 | 场景 | 通过 |\n\n"
         "引用 003 的 AC-50~AC-58，不属于本 spec。\n",
         encoding="utf-8",
     )
-    (spec / "features.md").write_text("| F-01 | AC-01 |\n", encoding="utf-8")
-    (spec / "plan.md").write_text("# plan\n", encoding="utf-8")
+    (spec / "tasks.md").write_text("| F-01 | AC-01 |\n", encoding="utf-8")
+    (spec / "design.md").write_text("# plan\n", encoding="utf-8")
     monkeypatch.setattr(module, "errors", [])
     monkeypatch.setattr(module, "checked", {"acs": 0})
 
@@ -130,7 +130,7 @@ def test_CURRENT验证块外手写计数报错_基座豁免(tmp_path: Path, monk
     module = load_module()
     docs = tmp_path / "docs"
     docs.mkdir(parents=True)
-    current = docs / "CURRENT.md"
+    current = docs / "STATUS.md"
     current.write_text(
         "# 当前项目状态\n\n"
         "<!-- verify:start -->\n- 最近验证：pytest 10 passed\n<!-- verify:end -->\n\n"
@@ -162,14 +162,14 @@ def test_执行卡评审节引用未创建的评审记录不算死链_基座豁�
     module = load_module()
     tasks = tmp_path / "docs" / "tasks" / "001-demo"
     tasks.mkdir(parents=True)
-    (tmp_path / "docs" / "CURRENT.md").write_text("# 当前项目状态\n", encoding="utf-8")
+    (tmp_path / "docs" / "STATUS.md").write_text("# 当前项目状态\n", encoding="utf-8")
     card = tasks / "F-01.md"
     monkeypatch.setattr(module, "ROOT", str(tmp_path))
     monkeypatch.setattr(module, "TASKS_ROOT", str(tasks))
     monkeypatch.setattr(module, "errors", [])
 
     card.write_text(
-        "- 状态：待评审\n\n## 1. 改变范围\n\n引用 `docs/CURRENT.md`。\n\n"
+        "- 状态：待评审\n\n## 1. 改变范围\n\n引用 `docs/STATUS.md`。\n\n"
         "## 5. 评审\n\n- 评审记录：`docs/reviews/001-demo/F-01.md`\n\n"
         "## 6. 完成的定义\n\n- [ ] 评审\n",
         encoding="utf-8",

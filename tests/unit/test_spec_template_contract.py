@@ -42,7 +42,7 @@ def _feature_rows(text: str) -> list[list[str]]:
 
 
 def test_brief_template_has_pr_faq_and_ac_gate() -> None:
-    brief = _read("brief.md")
+    brief = _read("requirements.md")
     assert re.search(r"^- 状态：", brief, re.M)
     assert "客户新闻稿（Press Release）" in brief
     assert "外部 FAQ" in brief
@@ -51,7 +51,7 @@ def test_brief_template_has_pr_faq_and_ac_gate() -> None:
 
 
 def test_plan_template_follows_google_design_doc_sections() -> None:
-    plan = _read("plan.md")
+    plan = _read("design.md")
     for heading in (
         "Context and Scope",
         "Goals and Non-Goals",
@@ -62,23 +62,23 @@ def test_plan_template_follows_google_design_doc_sections() -> None:
         assert heading in plan
 
 
-def test_features_template_follows_anthropic_feature_list_fields() -> None:
-    features = _read("features.md")
-    header = next(line for line in features.splitlines() if line.startswith("| ID |"))
-    for column in ("Category", "Description", "Steps", "AC", "Passes", "Evidence"):
+def test_tasks_template_is_generated_index() -> None:
+    tasks = _read("tasks.md")
+    assert "<!-- gen:start -->" in tasks and "<!-- gen:end -->" in tasks
+    header = next(line for line in tasks.splitlines() if line.startswith("| ID |"))
+    for column in ("任务", "AC", "状态", "卡片"):
         assert column in header
-    rows = _feature_rows(features)
+    rows = _feature_rows(tasks)
     assert len(rows) >= 2
     for row in rows:
-        assert len(row) == 7
-        assert row[5] == "false"
-        assert row[6] == "—"
+        assert len(row) == 5
+        assert row[3] == "未开始"
 
 
 def test_filled_templates_satisfy_ac_traceability(tmp_path: Path) -> None:
-    brief = _fill(_read("brief.md"))
-    features = _fill(_read("features.md"))
-    brief_path = tmp_path / "brief.md"
+    brief = _fill(_read("requirements.md"))
+    features = _fill(_read("tasks.md"))
+    brief_path = tmp_path / "requirements.md"
     brief_path.write_text(brief, encoding="utf-8")
     acs = _load_trace().ac_from_requirements(brief_path)
     assert acs == ["AC-01", "AC-02"]

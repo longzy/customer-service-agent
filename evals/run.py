@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """场景评测报告生成器：把 pytest JUnit 的 `_AC_XX` 聚合为 AC 覆盖报告。
 
-AC 集合从当前 `docs/specs/*/brief.md` 动态发现；`AC-01~29` 是 M1-P 历史标签，
+AC 集合从当前 `docs/specs/*/requirements.md` 动态发现；`AC-01~29` 是 M1-P 历史标签，
 不参与门禁；`scripts/trace-baseline.txt` 中登记的待开工 AC 记 `pending`，
 不算缺失。只读 JUnit，不重新执行测试。缺未登记的 AC、空测试集、XML 解析失败、
 任一测试失败都按失败处理；失败也写 `latest.json`/`latest.md` 与带时间戳的历史报告。
@@ -45,9 +45,9 @@ STATUS_TEXT = {
 
 
 def discover_ac_ids(specs_dir: Path = SPECS_DIR) -> list[str]:
-    """当前 spec 的 AC 集合；与 `scripts/trace.py` 同源（brief.md 的 AC 表）。"""
+    """当前 spec 的 AC 集合；与 `scripts/trace.py` 同源（requirements.md 的 AC 表）。"""
     found: set[str] = set()
-    for path in sorted(specs_dir.glob("*/brief.md")):
+    for path in sorted(specs_dir.glob("*/requirements.md")):
         found.update(AC_ROW.findall(path.read_text(encoding="utf-8")))
     return sorted(ac for ac in found if ac not in LEGACY_AC and ac not in FRONTEND_ONLY_AC)
 

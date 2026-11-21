@@ -1,16 +1,16 @@
 # 开发流程
 
 - 状态：已批准
-- 批准：2026-11-17（用户确认替换 S0–S8；规范先行，样板后做）；2026-11-21（用户确认门禁频率：全量只在收口跑一次，评审前用定向测试）
+- 批准：2026-11-17（用户确认替换 S0–S8；规范先行，样板后做）；2026-11-21（用户确认门禁频率：全量只在收口跑一次，评审前用定向测试）；2026-11-21（文档模型改为 requirements/design/tasks，任务状态源改为执行卡 frontmatter）
 - 适用：本仓库全部变更；人类与 AI Agent 同权
-- 关系：[工程标准](standards.md) 定义“什么算合格”；[架构不变量](../architecture/invariants.md) 定义“什么不能破”；[当前状态](../CURRENT.md) 是唯一状态视图
+- 关系：[工程标准](standards.md) 定义“什么算合格”；[架构不变量](../architecture/invariants.md) 定义“什么不能破”；[当前状态](../STATUS.md) 是唯一状态视图
 
 ## 0. 一页速览
 
 ```text
 Frame（目标/非目标/完成标准）
   -> Plan（Context/Goals/Design/Alternatives/Cross-cutting）
-  -> Build & Verify（一次一个垂直 feature）
+  -> Build & Verify（一次一个任务）
   -> Review & Ship（代码评审 + 人工走查）
 ```
 
@@ -28,33 +28,33 @@ Frame（目标/非目标/完成标准）
 
 ## 2. 风险分级
 
-按**单个变更/单个 feature**定级，不按整个里程碑继承最高级。
+按**单个变更/单个任务**定级，不按整个里程碑继承最高级。
 
 | 级别 | 判据（满足任一） | 产物 | 评审 |
 |---|---|---|---|
 | T0 | 注释、措辞、格式、补丁 | 无 | 自审 |
-| T1 | 单个可观察行为，不动契约/迁移/权限/依赖 | brief/plan 可合并为一段；不单出 features | 1 人代码评审 |
-| T2 | 跨层、契约、迁移、新依赖、新模块 | brief + plan + features | 代码评审 + 测试 |
+| T1 | 单个可观察行为，不动契约/迁移/权限/依赖 | requirements/design 可合并为一段；不单出 tasks | 1 人代码评审 |
+| T2 | 跨层、契约、迁移、新依赖、新模块 | requirements + design + tasks | 代码评审 + 测试 |
 | T3 | 权限、租户、资金、不可逆、模型/Prompt | 上述 + 威胁模型/回滚 | 独立安全评审 + 业务批准 |
 
 ## 3. 四个阶段
 
 ### 3.1 Frame
 
-产物：`brief.md`（PR ≤1 页 + FAQ ≤5 页，模板 [brief](../templates/brief.md)）。
+产物：`requirements.md`（PR ≤1 页 + FAQ ≤5 页，模板 [requirements](../templates/requirements.md)）。
 
 必须写：
 
 - PR/FAQ：客户、问题、方案、引语（无真实访谈写“待补”，不得编造）、成功度量、非目标、备选方案；
 - AC 附录：可判定、可追溯的验收编号（`scripts/trace.py` 的输入）；
 - 风险级别与理由；
-- 垂直切片表（可选）：切片/顺序/blocking edge；这是范围决策，不是可执行 feature。
+- 垂直切片表（可选）：切片/顺序/blocking edge；这是范围决策，不是可执行任务。
 
 完成标志：**用户能复述“为谁、做什么、不做什么、怎么算完成”**；AC 可判定、可追溯；有垂直切片时覆盖全部 AC。
 
 ### 3.2 Plan
 
-产物：`plan.md`（T2 1–3 页，T3 按需扩展，附录不计；模板 [plan](../templates/plan.md)）。
+产物：`design.md`（T2 1–3 页，T3 按需扩展，附录不计；模板 [design](../templates/design.md)）。
 
 必须写（Google Design Doc 五节，另列未决问题）：
 
@@ -64,67 +64,77 @@ Frame（目标/非目标/完成标准）
 - Cross-cutting Concerns：安全/权限/审计、可观测性/测试 seam、风险/回滚；T3 加威胁模型与越权矩阵；
 - 未决问题：评审前清零。
 
-设计文档只在有歧义/有取舍时写；没有取舍的机械改动直接在 feature 里做；评审一次，不按阶段重复评审。
+设计文档只在有歧义/有取舍时写；没有取舍的机械改动直接在执行卡里做；评审一次，不按阶段重复评审。
 
-完成标志：**未决项为空；每个关键决策有 why/替代方案；reviewer 能按 plan 实现。**
+完成标志：**未决项为空；每个关键决策有 why/替代方案；reviewer 能按 design 实现。**
 
-#### 3.2.1 生成 features（Plan 批准后）
+#### 3.2.1 生成任务（Plan 批准后）
 
-- 从 plan 的契约与 brief 的 AC/垂直切片（若有）派生 `features.md`（模板 [features](../templates/features.md)）：`F-xx` + `Steps` + `AC` + `Passes: false` + `Evidence: —`；
-- 生成后检查每个 AC 至少一行、每行有可执行 `Steps`；`check-docs.py` 强制 AC 覆盖；
-- 不单独设 features 评审会；覆盖或粒度不对，退回改 plan/切片，不靠评审会补。
+- 从 design 的契约与 requirements 的 AC/垂直切片派生执行卡：`docs/tasks/<spec>/F-XX.md`；
+- 执行卡 frontmatter 是唯一状态源：`id`、`title`、`spec`、`milestone`、`status`、`category`、`ac`、`updated`；
+- `make gen-tasks` 从所有执行卡生成 `docs/specs/<spec>/tasks.md`；`check-docs.py` 强制每个 AC 至少被一张执行卡引用；
+- `tasks.md` 是派生索引，不要手改；覆盖或粒度不对，退回改 design/切片。
 
 ### 3.3 Build & Verify
 
-- 一次只做一个 feature；先写失败测试，再实现；验证方式写在 features 的 `Steps` 列；
-- 每完成一个 feature，`Steps` 全绿、`Evidence` 非空后才把 `passes` 改为 `true`；
-- 不得改 `Description`/`Steps`/`AC` 来迁就实现；要改先改 brief/plan 并重新评审；
+- 一次只做一个任务；先写失败测试，再实现；验证命令与证据写执行卡第 3、4 节；
+- 执行卡状态只改 frontmatter：`todo`、`doing`、`review`、`done`；不再手写 `Passes`；
+- 不得改任务标题/AC 来迁就实现；要改先改 `requirements.md`/`design.md` 并重新评审；
 - 关键路径加端到端/浏览器验证（多身份配方见 [浏览器走查](e2e-walkthrough.md)）；API 契约变更必须跑 `./scripts/check-contracts.sh`（verify 已包含；`check-api-types.sh` 为兼容入口）；全量 `make verify-check` 只在收口跑一次；失败则整改后重跑并做增量复审；
 - 实现过程用 `make verify-changed ARGS=F-08`（按路径触发，只跑改动涉及的检查：后端 ruff/mypy/pytest、chat 或 workspace 前端、文档/状态/追溯、契约；互不牵连，`--dry-run` 可先看计划；不跑全量 pytest/评测/构建）；`make verify-check` 只留给收口；
 - 全量并行实测（2026-11-21，819 条）：2 片 2:29、4 片 2:31，串行约 3:10，收益 <25%；瓶颈是单机 DB/IO 而非 CPU，因此不接门禁。全量 >5 分钟或 CI 需要分片时再评估（优先 CI 矩阵与 JUnit 合并，不改本地默认）。
 - 演示数据重置统一用 `make dev-reset`，不手写 `DELETE`/`UPDATE` 修改开发库；
+- 每次状态变化后运行 `make gen-tasks` 与 `make dashboard`，让索引和看板追上执行卡；
 - 提交保持小步，main 始终可运行。
 
-完成标志：**feature 的验证命令通过；用户可演示该 feature；没有静默跳过。**
+完成标志：**任务的验证命令通过；用户可演示该任务；没有静默跳过。**
 
 ### 3.4 Review & Ship
 
-- 评审输入：`python3 scripts/review_pack.py F-XX` 生成评审包（固定点、diff、AC 原文、执行卡 §1/§2、plan、命令）；先跑 `make review-check`（机械前置），再跑绑定 AC 的定向测试；全量门禁由收口执行，评审结论以收口全量为准（全量失败则评审作废并增量复审）；
+- 评审输入：`python3 scripts/review_pack.py F-XX` 生成评审包（固定点、diff、AC 原文、执行卡 §1/§2、design、命令）；先跑 `make review-check`（机械前置），再跑绑定 AC 的定向测试；全量门禁由收口执行，评审结论以收口全量为准（全量失败则评审作废并增量复审）；
 - 两轴独立评审按 [评审模板](../templates/review.md) 与 [两轴提示词](review-prompts.md) 输出；Standards 与 Spec 报告分开写，先复核门禁，再逐 AC 给证据；
 - 独立上下文代码评审：看 diff、测试、越权/失败路径；
-- 人工走查：按 features 的 `Steps` 逐行演示；
-- lasting decisions 写 ADR；更新 plan/features，不让文档腐烂；
-- 发布后清理过期文档与 feature 状态。
+- 人工走查：按执行卡第 3、4 节逐条演示；
+- lasting decisions 写 ADR；更新 requirements/design/执行卡，不让文档腐烂；
+- 收口顺序：`close_feature.py --apply` → `make gen-tasks` → `make dashboard` → 更新 `STATUS.md` → `make verify` → 提交；
+- 发布后清理过期文档与任务状态。
 
 完成标志：**代码评审通过 + 人工走查通过 + `verify.sh` 全绿。**
 
 ## 4. 产物路径
 
 ```text
-docs/specs/<NNN>-<slug>/brief.md      # PR/FAQ + AC 附录
-docs/specs/<NNN>-<slug>/plan.md       # Context/Goals/Design/Alternatives/Cross-cutting
-docs/specs/<NNN>-<slug>/features.md   # plan 批准后生成：description/steps/AC/passes/evidence
-docs/tasks/<spec>/F-XX.md             # 当前 feature 的执行卡
-docs/reviews/<spec>/F-XX.md           # 代码评审记录
-docs/adr/                             # lasting decisions
+docs/ROADMAP.md                       # 全局：阶段与出口条件
+docs/STATUS.md                        # 全局：当前状态一屏（唯一状态视图）
+docs/specs/<NNN>-<slug>/requirements.md   # 需求：为什么/给谁/做什么/不做什么/成功度量/AC
+docs/specs/<NNN>-<slug>/design.md         # 设计：架构/数据/API/失败/备选/横切/未决
+docs/specs/<NNN>-<slug>/tasks.md          # 生成物：任务索引
+docs/tasks/<spec>/F-XX.md                 # 执行卡：状态源 + 步骤 + 证据 + 回滚
+docs/reviews/<spec>/F-XX.md               # 代码评审记录
+docs/dashboard.html                       # 生成物：Roadmap / Board / Table
+docs/status.json                          # 生成物：中立数据层
+docs/adr/                                 # lasting decisions
 ```
 
-- 旧 001/002 spec 已删除；新 spec 一律用 `brief/plan/features`。
+- 新 spec 一律用 `requirements/design/tasks` 三件套。
 - 不新增 `prd.md`、`spec.md`、`design-doc.md` 等平行文档。
+- `tasks.md`、`dashboard.html`、`status.json` 是生成物，不要手改。
 
 ## 5. 状态与门禁
 
-状态：文档 `草案` → `等待评审` → `已批准`；执行卡 `待确认` → `待开工许可` → `待评审` → `已完成`。
+文档状态：`草案` → `等待评审` → `已批准`。
 
-`CURRENT.md` 写法：`进行中`/`下一步` 只写未完成任务 ID；已完成 ID 只出现在 `已完成`，否则 `check-status.py` 会按状态矛盾报错。
+执行卡状态（frontmatter）：`todo`、`doing`、`review`、`done`；异常用 `blocked`。
+
+`STATUS.md` 写法：`进行中`/`下一步` 只写未完成任务 ID；已完成 ID 只出现在 `已完成`，否则 `check-status.py` 会按状态矛盾报错。未完成任务必须出现在 `进行中` 或 `下一步`。
 
 门禁：
 
 - G0：在 milestone 内，风险级别已定；
-- G1：brief 的成功度量与 AC 可验证，且每个 AC 在 features 有引用；
+- G1：requirements 的成功度量与 AC 可验证，且每个 AC 被执行卡 frontmatter 引用；
 - G2：收口时 `verify.sh` 全绿；
 - G3：T3 的安全评审/回滚通过；
-- G4：按 features 的 `Steps` 走查通过。
+- G4：按执行卡第 3、4 节走查通过。
 
 实现者不得为自己的改动签字；代码评审用独立上下文。
 
@@ -132,10 +142,10 @@ docs/adr/                             # lasting decisions
 
 | 你说 | 产出 |
 |---|---|
-| “开工” | 当前已批准 feature 的执行卡 + 实现 |
+| “开工” | 当前已批准任务的执行卡 + 实现 |
 | “先规划” | Frame/Plan，不写代码 |
-| “评审” | 评审包 + 机械前置 + 两轴独立评审 + 逐 feature 证据 |
-| “收口” | `close_feature.py --check` → 更新 features/CURRENT/ADR → `make verify` → 提交 |
+| “评审” | 评审包 + 机械前置 + 两轴独立评审 + 逐任务证据 |
+| “收口” | `close_feature.py --apply` → `make gen-tasks` → `make dashboard` → 更新 `STATUS.md` → `make verify` → 提交 |
 
 ## 7. 停止并请求决策
 

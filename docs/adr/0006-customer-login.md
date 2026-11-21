@@ -3,7 +3,7 @@
 - 状态：已批准
 - 日期：2026-11-16
 - 批准：2026-11-16（用户确认：预置客户账号 + 密码登录；订单按账号归属）
-- 关联：[产品宪章](../product/charter.md)、[ADR-0005](0005-enterprise-boundary.md)、[客户转人工闭环 brief](../specs/001-customer-handoff/brief.md)
+- 关联：[产品宪章](../product/charter.md)、[ADR-0005](0005-enterprise-boundary.md)、[客户转人工闭环 brief](../specs/001-customer-handoff/requirements.md)
 - 取代：ADR-0005 中“客户匿名”与“订单号 + 手机尾号校验”相关决策
 - 注（2026-11-18）：M1 切片编号顺延，UI 改版占 002；订单查询/取消/安全硬化改为 003/004/005。下文旧编号按此理解。
 

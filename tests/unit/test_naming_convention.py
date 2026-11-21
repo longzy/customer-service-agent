@@ -15,7 +15,7 @@ def _test_files() -> list[Path]:
 
 
 def _acceptance_files() -> list[Path]:
-    return sorted(SPECS.glob("*/requirements.md")) + sorted(SPECS.glob("*/brief.md"))
+    return sorted(SPECS.glob("*/requirements.md"))
 
 
 def known_acs() -> set[str]:

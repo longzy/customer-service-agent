@@ -1,4 +1,4 @@
-"""状态检查器的自测：F-xx / Passes / CURRENT 三处一致（基座豁免）。"""
+"""状态检查器的自测：执行卡 frontmatter 与 STATUS.md 一致（基座豁免）。"""
 
 import subprocess
 import sys
@@ -10,23 +10,30 @@ SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "check-status.py"
 def make_repo(
     root: Path,
     *,
-    passes: str,
-    card_status: str,
+    status: str,
     completed: str = "",
     in_progress: str = "",
 ) -> None:
     (root / "docs" / "specs" / "001-demo").mkdir(parents=True)
     (root / "docs" / "tasks" / "001-demo").mkdir(parents=True)
-    (root / "docs" / "specs" / "001-demo" / "features.md").write_text(
-        "| ID | Category | Description | Steps | AC | Passes | Evidence |\n"
-        "|---|---|---|---|---|---|---|\n"
-        f"| F-01 | functional | demo | pytest | AC-30 | {passes} | evidence |\n",
+    (root / "docs" / "specs" / "001-demo" / "tasks.md").write_text(
+        "# demo 任务\n\n"
+        "| ID | 任务 | AC | 状态 | 卡片 |\n"
+        "|---|---|---|---|---|\n"
+        "| F-01 | demo | AC-30 | 未开始 | [打开](../../tasks/001-demo/F-01.md) |\n",
         encoding="utf-8",
     )
     (root / "docs" / "tasks" / "001-demo" / "F-01.md").write_text(
-        f"# F-01\n\n- 状态：{card_status}\n", encoding="utf-8"
+        "---\n"
+        "id: F-01\n"
+        "title: demo\n"
+        "spec: 001-demo\n"
+        f"status: {status}\n"
+        "ac: [AC-30]\n"
+        "---\n\n# F-01\n",
+        encoding="utf-8",
     )
-    (root / "docs" / "CURRENT.md").write_text(
+    (root / "docs" / "STATUS.md").write_text(
         "# 当前项目状态\n\n"
         f"## 已完成\n\n{completed}\n\n"
         f"## 进行中\n\n{in_progress}\n\n"
@@ -45,29 +52,23 @@ def run(root: Path) -> subprocess.CompletedProcess[str]:
     )
 
 
-def test_已完成feature与卡片一致时通过_基座豁免(tmp_path: Path) -> None:
-    make_repo(
-        tmp_path,
-        passes="true",
-        card_status="已完成",
-        completed="- F-01：demo",
-    )
+def test_已完成任务与卡片一致时通过_基座豁免(tmp_path: Path) -> None:
+    make_repo(tmp_path, status="done", completed="- F-01：demo")
     result = run(tmp_path)
     assert result.returncode == 0, result.stdout + result.stderr
 
 
-def test_卡片已完成但Passes为false时报错_基座豁免(tmp_path: Path) -> None:
-    make_repo(tmp_path, passes="false", card_status="已完成", completed="- F-01：demo")
+def test_卡片未完成但写在已完成时报错_基座豁免(tmp_path: Path) -> None:
+    make_repo(tmp_path, status="doing", completed="- F-01：demo")
     result = run(tmp_path)
     assert result.returncode == 1
-    assert "features Passes 未置 true" in result.stdout
+    assert "列在「已完成」，但执行卡不存在或状态不是 done" in result.stdout
 
 
-def test_已完成ID出现在进行中时报错_基座豁免(tmp_path: Path) -> None:
+def test_已完成任务出现在进行中时报错_基座豁免(tmp_path: Path) -> None:
     make_repo(
         tmp_path,
-        passes="true",
-        card_status="已完成",
+        status="done",
         completed="- F-01：demo",
         in_progress="- F-01：不应该出现",
     )
@@ -76,12 +77,14 @@ def test_已完成ID出现在进行中时报错_基座豁免(tmp_path: Path) -> 
     assert "不应再列在「进行中」" in result.stdout
 
 
-def test_待评审卡片可以留在进行中_基座豁免(tmp_path: Path) -> None:
-    make_repo(
-        tmp_path,
-        passes="true",
-        card_status="待评审",
-        in_progress="- F-01：待评审",
-    )
+def test_待评审任务可以留在进行中_基座豁免(tmp_path: Path) -> None:
+    make_repo(tmp_path, status="review", in_progress="- F-01：待评审")
     result = run(tmp_path)
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_未完成任务必须出现在进行中或下一步_基座豁免(tmp_path: Path) -> None:
+    make_repo(tmp_path, status="doing")
+    result = run(tmp_path)
+    assert result.returncode == 1
+    assert "没有出现在进行中/阻塞/下一步" in result.stdout

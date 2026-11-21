@@ -1,4 +1,4 @@
-# <feature> plan
+# <feature> design
 
 > 结构依据：Google Design Doc（Context and Scope / Goals and Non-Goals / The Design / Alternatives Considered / Cross-cutting Concerns）。
 > 页数：T2 1–3 页；T3 允许更长，但只写关键签名/约束，不抄完整 API/schema。
@@ -6,7 +6,7 @@
 - 状态：草案
 - 日期：YYYY-MM-DD
 - 作者 / 评审者：<...>
-- 依据：`brief.md`
+- 依据：`requirements.md`
 - 规模：T2 / T3（理由：<...>）
 
 ## 1. 背景与范围（Context and Scope）
@@ -19,7 +19,7 @@
 
 ## 2. 目标与非目标（Goals and Non-Goals）
 
-> 只写本设计的目标，不重复 brief 的产品目标。
+> 只写本设计的目标，不重复 requirements 的产品目标。
 
 ### Goals
 

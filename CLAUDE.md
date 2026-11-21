@@ -4,7 +4,7 @@
 
 1. `AGENTS.md`
 2. `docs/process/WORKFLOW.md`
-3. `docs/CURRENT.md`
+3. `docs/STATUS.md`
 
 然后按 `AGENTS.md` 的文档权威顺序加载当前任务所需材料。
 

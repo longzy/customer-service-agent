@@ -9,8 +9,8 @@
 - 风险级别：T2（两个前端应用、视觉重构、可访问性与响应式；不涉及领域与权限）
 - 客户：终端消费者（客户甲/乙）；客服坐席（坐席 1/2）
 - 依据：[UI 规范](../../design-system/ui-spec.md)、[设计稿](../../design-system/proposals/README.md)、[视觉基线](../../design-system/baseline/README.md)、[前端规范](../../process/frontend.md)
-- 关联 plan：`plan.md`
-- 关联 features：`features.md`
+- 关联 plan：`design.md`
+- 关联 features：`tasks.md`
 
 ## 1. 客户新闻稿（Press Release）
 
@@ -62,7 +62,7 @@
 
 ## 附录 A. 验收标准（AC）
 
-> 仓库门禁：`scripts/trace.py` 从本表读取验收编号；`scripts/check-docs.py` 要求每个 AC 在 `features.md` 出现。
+> 仓库门禁：`scripts/trace.py` 从本表读取验收编号；`scripts/check-docs.py` 要求每个 AC 在 `tasks.md` 出现。
 > 本切片编号从 AC-40 起，不复用 001 的 AC。
 
 | AC | 角色 | 场景 | 期望（可观察） |

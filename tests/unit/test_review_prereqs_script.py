@@ -6,31 +6,46 @@ from pathlib import Path
 
 SCRIPT = Path(__file__).resolve().parents[2] / "scripts" / "check-review-prereqs.py"
 
-FEATURES = (
-    "| ID | Category | Description | Steps | AC | Passes | Evidence |\n"
-    "|---|---|---|---|---|---|---|\n"
-    "| F-01 | functional | demo | pytest | AC-30 | false | — |\n"
-    "| F-02 | functional | demo2 | pytest | AC-31 | false | — |\n"
-)
+
+def card_text(fid: str, ac: str) -> str:
+    return (
+        "---\n"
+        f"id: {fid}\n"
+        "title: demo\n"
+        "spec: 001-demo\n"
+        "status: doing\n"
+        f"ac: [{ac}]\n"
+        "---\n\n"
+        f"# 任务执行卡：{fid} demo\n"
+    )
 
 
 def make_repo(root: Path, *, with_review: bool = True, conclusion: str = "通过") -> None:
     for path in (
         root / "docs" / "specs" / "001-demo",
+        root / "docs" / "tasks" / "001-demo",
         root / "docs" / "reviews" / "001-demo",
         root / "scripts",
         root / "apps" / "chat" / "features" / "demo" / "components",
         root / "apps" / "chat" / "features" / "demo" / "hooks",
     ):
         path.mkdir(parents=True, exist_ok=True)
-    (root / "docs" / "specs" / "001-demo" / "features.md").write_text(FEATURES, encoding="utf-8")
+    (root / "docs" / "specs" / "001-demo" / "tasks.md").write_text(
+        "# demo 任务\n\n- 状态：已批准\n", encoding="utf-8"
+    )
+    (root / "docs" / "tasks" / "001-demo" / "F-01.md").write_text(
+        card_text("F-01", "AC-30"), encoding="utf-8"
+    )
+    (root / "docs" / "tasks" / "001-demo" / "F-02.md").write_text(
+        card_text("F-02", "AC-31"), encoding="utf-8"
+    )
     component = root / "apps" / "chat" / "features" / "demo" / "components" / "Foo.tsx"
     component.write_text("export function Foo() {\n  return null;\n}\n", encoding="utf-8")
     hook = root / "apps" / "chat" / "features" / "demo" / "hooks" / "useDemo.ts"
     hook.write_text("export function useDemo() {\n  return null;\n}\n", encoding="utf-8")
     (root / "scripts" / "frontend-structure-baseline.txt").write_text("", encoding="utf-8")
     (root / "scripts" / "trace-baseline.txt").write_text("", encoding="utf-8")
-    (root / "docs" / "CURRENT.md").write_text(
+    (root / "docs" / "STATUS.md").write_text(
         "# 当前项目状态\n\n## 进行中\n\n- F-01：评审通过（待收口）\n\n"
         "## 已完成\n\n## 下一步\n\n## 阻塞\n\n无\n",
         encoding="utf-8",
