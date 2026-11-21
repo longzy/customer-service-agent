@@ -249,4 +249,25 @@ def test_排队中再问订单不重复建单_AC_32() -> None:
         assert second.json()["status"] == "QUEUED"
         assert [item["author_type"] for item in second.json()["messages"]] == ["customer"]
     assert model.calls == []
+    assert app.state.oms.calls["list_recent_orders"] == 0
     assert len(rows_of(ServiceHandoff)) == 1
+
+
+def test_订单抱怨正文加模型编造仍转人工_AC_32() -> None:
+    """F-26 的确定性入口不覆盖“订单到哪了”等抱怨式表达，模型编造仍被拦截。"""
+    content = "订单到哪了"
+    fabricated = "您的订单 ORD-10001 明天送到。"
+    app, model = app_with(ChatReply(intent="UNKNOWN", confidence=0.96, reply=fabricated))
+    with TestClient(app) as api:
+        login_customer(api)
+        response = send(api, content)
+        assert response.status_code == 200, response.text
+        assert response.json()["status"] == "QUEUED"
+        assert "ORD-10001" not in response.text
+        assert fabricated not in response.text
+    assert model.calls == [content]
+
+    handoff = only_handoff()
+    assert handoff.reason == "OUT_OF_SCOPE"
+    assert handoff.context["trigger"] == "model_out_of_scope"
+    assert handoff.context["order_count"] == 0

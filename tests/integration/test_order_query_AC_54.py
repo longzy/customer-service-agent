@@ -53,13 +53,16 @@ def test_单笔与列表回复只含摘要字段_AC_54() -> None:
         login(api, "customer_a")
         single = send(api, "查 ORD-10001")
         recent = send(api, "我的订单")
+        candidates = send(api, "查 ORD-10001 和 ORD-10002")
         assert single.status_code == 200, single.text
         assert recent.status_code == 200, recent.text
+        assert candidates.status_code == 200, candidates.text
 
         single_ai = ai_messages(single.json())[0]
         recent_ai = ai_messages(recent.json())[0]
+        candidates_ai = ai_messages(candidates.json())[0]
 
-    for message in (single_ai, recent_ai):
+    for message in (single_ai, recent_ai, candidates_ai):
         content = message["content"]
         assert "ORD-" in content
         assert "SKU" not in content
@@ -78,6 +81,12 @@ def test_单笔与列表回复只含摘要字段_AC_54() -> None:
     recent_orders = recent_ai["payload"]["orders"]
     assert len(recent_orders) == 4
     for order in recent_orders:
+        assert set(order) == SUMMARY_KEYS
+
+    # 多单候选走同一摘要模板，也必须只含白名单字段。
+    candidate_orders = candidates_ai["payload"]["orders"]
+    assert len(candidate_orders) == 4
+    for order in candidate_orders:
         assert set(order) == SUMMARY_KEYS
         assert order["order_status"] in {
             "PAID_UNFULFILLED",

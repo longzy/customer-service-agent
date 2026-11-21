@@ -204,7 +204,12 @@ async def _order_result(
         event_type="order_query",
         name=outcome.tool,
     )
-    content = outcome.reply if preface is None else f"{preface}\n{outcome.reply}"
+    # 候选只在查询成功时拼接引导；失败/空结果用独立文案，避免“先列出…：不可用”。
+    content = (
+        f"{preface}\n{outcome.reply}"
+        if preface is not None and outcome.status == "ok"
+        else outcome.reply
+    )
     ai_message = ServiceMessage(
         conversation_id=conversation.id,
         author_type="ai",
@@ -226,6 +231,30 @@ async def _order_result(
         after_id=ai_message.id,
         customer_message_id=customer_message.id,
         ai_message_id=ai_message.id,
+    )
+
+
+async def _recent_orders_result(
+    db: AsyncSession,
+    conversation: ServiceConversation,
+    *,
+    customer_message: ServiceMessage,
+    customer: Customer,
+    trace_id: str,
+    now: datetime,
+    gateway: ToolGateway | None,
+    preface: str | None = None,
+) -> ChatResult:
+    """查一次最近订单并落地；多单/半截/确定性入口/模型意图共用。"""
+    outcome = await query_recent_orders(gateway, customer, trace_id)
+    return await _order_result(
+        db,
+        conversation,
+        customer_message=customer_message,
+        outcome=outcome,
+        trace_id=trace_id,
+        now=now,
+        preface=preface,
     )
 
 
@@ -543,25 +572,25 @@ async def send_customer_message(
     overscope = match_out_of_scope_term(content)
     order_kind = ORDER_QUERY_NONE if overscope is not None else order_query_kind(content)
     if order_kind == ORDER_QUERY_MULTIPLE:
-        outcome = await query_recent_orders(order_gateway, customer, trace_id)
-        return await _order_result(
+        return await _recent_orders_result(
             db,
             conversation,
             customer_message=customer_message,
-            outcome=outcome,
+            customer=customer,
             trace_id=trace_id,
             now=now,
+            gateway=order_gateway,
             preface=MULTIPLE_ORDERS_REPLY,
         )
     if order_kind == ORDER_QUERY_PARTIAL:
-        outcome = await query_recent_orders(order_gateway, customer, trace_id)
-        return await _order_result(
+        return await _recent_orders_result(
             db,
             conversation,
             customer_message=customer_message,
-            outcome=outcome,
+            customer=customer,
             trace_id=trace_id,
             now=now,
+            gateway=order_gateway,
             preface=PARTIAL_ORDER_ID_REPLY,
         )
     if order_kind == ORDER_QUERY_SINGLE:
@@ -577,14 +606,14 @@ async def send_customer_message(
         )
     # 确定性列表入口：快捷按钮/“我的订单”等不依赖模型意图，少一次模型调用。
     if overscope is None and wants_recent_orders(content):
-        outcome = await query_recent_orders(order_gateway, customer, trace_id)
-        return await _order_result(
+        return await _recent_orders_result(
             db,
             conversation,
             customer_message=customer_message,
-            outcome=outcome,
+            customer=customer,
             trace_id=trace_id,
             now=now,
+            gateway=order_gateway,
         )
 
     try:
@@ -634,14 +663,14 @@ async def send_customer_message(
         and overscope is None
         and not has_non_query_order_intent(content)
     ):
-        outcome = await query_recent_orders(order_gateway, customer, trace_id)
-        return await _order_result(
+        return await _recent_orders_result(
             db,
             conversation,
             customer_message=customer_message,
-            outcome=outcome,
+            customer=customer,
             trace_id=trace_id,
             now=now,
+            gateway=order_gateway,
         )
 
     # plan 3.3.4：低置信/转人工意图/超范围不展示模型回复，直接入队

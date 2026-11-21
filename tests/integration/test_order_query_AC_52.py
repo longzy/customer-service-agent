@@ -97,8 +97,7 @@ def test_候选查询失败只提示重试_AC_52() -> None:
         response = send(api, "帮我查 ORD-10001 和 ORD-10002")
         assert response.status_code == 200, response.text
         [message] = ai_messages(response.json())
-        assert message["content"].startswith(MULTIPLE_ORDERS_REPLY)
-        assert UNAVAILABLE_REPLY in message["content"]
+        assert message["content"] == UNAVAILABLE_REPLY
         assert message["payload"]["orders"] == []
 
     assert app.state.oms.calls["get_order"] == 0
@@ -114,8 +113,7 @@ def test_候选查询为空时告知无订单_AC_52() -> None:
         response = send(api, "帮我查 ORD-10001 和 ORD-10002")
         assert response.status_code == 200, response.text
         [message] = ai_messages(response.json())
-        assert MULTIPLE_ORDERS_REPLY in message["content"]
-        assert RECENT_EMPTY_REPLY in message["content"]
+        assert message["content"] == RECENT_EMPTY_REPLY
         assert message["payload"]["orders"] == []
 
     assert app.state.oms.calls["list_recent_orders"] == 0
