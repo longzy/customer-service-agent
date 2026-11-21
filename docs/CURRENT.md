@@ -8,7 +8,7 @@
 - 当前工作：002 UI 改版 F-15~F-23 已收口；F-24 已完成并收口；F-14、F-13、F-12、F-11、F-10、F-09、F-08 已收口；2026-11-20 两应用接入 HeroUI v3（3.2.7）与图标库 lucide-react（^1.76.0），frontend.md FE-CSS-05/06、ui-spec 2.5 按用户决策修订；同日 workspace 队列页按用户决策改为 HeroUI Drawer 详情（表格全宽）+ Tabs/Select/Button/Input/Chip/Avatar/Skeleton/Kbd 组件化，抽屉与选中解耦使 ⌘K 全局可用，ui-spec 2.8/3.9 同步修订；同日按用户反馈清理队列页假功能与重复入口（侧栏未开放项、批量领取/勾选、顶部重复搜索与通知/在线胶囊、表格订单列与调试脚注、禁用“查看完整交接单”），页面收敛为“标题 → 筛选/搜索 → 表格 → Drawer”单层动线，ui-spec 3.2/3.7/3.8/3.9 同步修订；queue 工具栏与表格曾一度由 HeroUI `Card` 统一承载，按用户反馈“偏离原设计稿”回退为设计稿结构：工具栏回到页面层（一条底线）、表格为唯一圆角描边框与内置页脚，`Tabs` 补 `Tabs.Indicator` 恢复下划线、状态回退圆点 + 文字、分页并入表格页脚，ui-spec 3.7/3.8/3.15 同步；002 规格正文不改、追加变更记录；2026-11-20 按用户决策重做全站主题（v5）：主色改近黑 `#111827`、画布 `#F4F8F7`、全站去衬线、卡片统一 16px 圆角与极轻阴影，客户侧深色品牌栏改为顶栏、工作台侧栏改浅色；ui-spec 2.1–2.9、3.1–3.13 与对比度表同步；同日按用户决策采用「回声」并做两侧分叉（ui-spec v7）：客户侧——登录品牌区右下角 6 条同心弧（`--wave-o-1..6`、2400ms 呼吸、`prefers-reduced-motion` 静止）、欢迎卡回声只出现一次；坐席侧——登录品牌区改 64/16 制图网格（`--grid-line*`）与 `CN-SH / BUILD` 编号，队列等待列增加 56px 刻度轨道（`waiting_seconds / 300`，超时转 `--danger`）；抽 `components/ui/EchoWaves.tsx`（chat 两处使用，workspace 不引用）；2026-11-20 启动 003 订单查询：brief/plan/features 已批准（AC-50~58、F-25~F-29），F-25 订单访问基座与指定订单查询已收口（客户 `oms_customer_id` 绑定、迁移 0013、`ToolGateway` 接线、订单摘要 `payload`）；2026-11-21 F-26 最近订单/澄清已完成并收口（快捷表达确定性查 `list_recent_orders`（模型意图兜底），多单/半截列候选，正文含物流/快递等确定性超范围词时让路 001 转人工，闲聊带“订单”不查不建单；001 AC-31/32 文本与旧断言同步修订；两轴评审 2 个阻断已整改关闭）
 
 <!-- verify:start -->
-- 最近验证：`./scripts/verify.sh` 全部检查通过——pytest 794 passed（独立测试库）、mypy 70 个文件、追溯矩阵通过（31 条 AC）、文档与前端检查通过
+- 最近验证：`./scripts/verify.sh` 全部检查通过——pytest 797 passed（独立测试库）、mypy 70 个文件、追溯矩阵通过（29 条 AC）、文档与前端检查通过
 <!-- verify:end -->
 
 ## 进行中
@@ -25,17 +25,17 @@
 
 ## 已完成
 
-- F-26（003 最近订单与澄清）：客户问“我的订单/查订单/最近买了什么”（快捷表达确定性查询，不依赖模型）经 `ToolGateway` 查本人最近 ≤5 单；多单/半截查一次最近订单列候选、不替客户选单；正文含物流/快递/退款等确定性超范围词时整条订单分支让路（001 AC-32）；闲聊带“订单”正常回复、不查不建单；模型回复出现订单号或订单价格/时间/状态事实时仍转人工；订单回复只含 OMS 摘要字段，消息带 `payload.orders`。AC_50/52/54 定向 27 passed（含 F-25 AC_51 回归）、单测 94；全量 794 passed、mypy 70；反向验证 8 组；两轴评审首轮各 1 阻断（超范围优先、回复护栏）已整改关闭（`docs/reviews/003-order-query/F-26.md`）；001 AC-31/32 文本与旧断言同步修订。
-- F-25（003 订单查询基座）：客户账号绑定 `oms_customer_id`（迁移 0013，种子回填 `customer_a→user-a1`、`customer_b→user-b1`）；正文恰好一个订单号且不含取消/退款等操作词时经 `ToolGateway` 查本人订单，回复只含 OMS 摘要字段，消息带 `payload` 快照；他人/不存在/未绑定统一「查无此单」。AC_51 集成 7 条 + 迁移 1 条、单测 24 条；全量 737 passed、mypy 70；反向验证 2 组；两轴评审通过（`docs/reviews/003-order-query/F-25.md`）。
+- F-26（003 最近订单与澄清）：客户问“我的订单/查订单/最近买了什么”（快捷表达确定性查询，不依赖模型）经 `ToolGateway` 查本人最近 ≤5 单；多单/半截查一次最近订单列候选、不替客户选单；正文含物流/快递/退款等确定性超范围词时整条订单分支让路（001 AC-32）；闲聊带“订单”正常回复、不查不建单；模型回复出现订单号或订单价格/时间/状态事实时仍转人工；订单回复只含 OMS 摘要字段，消息带 `payload.orders`。AC_50/52/54 定向与 F-25 AC_51 回归通过、单测通过；全量验证通过（见验证块）、mypy 70；反向验证 8 组；两轴评审首轮各 1 阻断（超范围优先、回复护栏）已整改关闭（`docs/reviews/003-order-query/F-26.md`）；001 AC-31/32 文本与旧断言同步修订。
+- F-25（003 订单查询基座）：客户账号绑定 `oms_customer_id`（迁移 0013，种子回填 `customer_a→user-a1`、`customer_b→user-b1`）；正文恰好一个订单号且不含取消/退款等操作词时经 `ToolGateway` 查本人订单，回复只含 OMS 摘要字段，消息带 `payload` 快照；他人/不存在/未绑定统一「查无此单」。AC_51 集成 7 条 + 迁移 1 条、单测 24 条；全量验证通过（见验证块）、mypy 70；反向验证 2 组；两轴评审通过（`docs/reviews/003-order-query/F-25.md`）。
 - 修复（2026-11-19，UoW commit 失败语义）：`get_session` 改为 `scope="function"`，commit 失败在响应发送前返回 500 并回滚；commit 移入 `try`，失败也走 rollback；新增 commit 失败集成用例与注入 scope 静态检查；FastAPI 下限提升到 0.121.1，ADR-0009 已修订。
-- 002 UI 改版：F-15~F-23 完成并收口——S1 令牌接入、客户登录/聊天、坐席登录/队列/详情/四态、可访问性/响应式与视觉回归；AC-40~49 全部 covered；pytest 687 passed、mypy 67 files；两轮评审 0 阻断（`docs/reviews/002-ui-redesign/`）；四页/空态/1200/900/375 截图在 `evals/reports/002-ui-redesign/s4/`；提交本次收口。 2026-11-20 v5 主题重设计：主色近黑 `#111827`、画布 `#F4F8F7`、去衬线、浅色工作台侧栏，ui-spec 与 AC-40/48 契约测试同步。 二次优化：画布改中性 `#F7F8FA`，登录品牌区加品牌声波与三项服务说明；工作台侧栏改为“导航 + 一句话说明 + 坐席卡”三段式，空态/加载态收进内容区面板且加载不再渲染表格骨架，队列概览从侧栏移除；队列页改为白色页头 + 灰色内容区分区，页头压缩为标题/摘要同行 + 36px Tabs + 32px 筛选控件。
-- F-24：模型失败分级降级——单次超时/异常只提示重试且不建单，同一会话连续 2 次失败自动转人工；交接单带 `failure_count`/`last_error` 且工作台详情可见；AC-31/32 定向 107 passed、全量 681 passed；反向验证 4 组；评审通过（`docs/reviews/001-customer-handoff/F-24.md`，2 轮 0 阻断）；提交 3ab1080、5221781、860e2d7。
+- 002 UI 改版：F-15~F-23 完成并收口——S1 令牌接入、客户登录/聊天、坐席登录/队列/详情/四态、可访问性/响应式与视觉回归；AC-40~49 全部 covered；全量验证通过（见验证块）、mypy 67 files；两轮评审 0 阻断（`docs/reviews/002-ui-redesign/`）；四页/空态/1200/900/375 截图在 `evals/reports/002-ui-redesign/s4/`；提交本次收口。 2026-11-20 v5 主题重设计：主色近黑 `#111827`、画布 `#F4F8F7`、去衬线、浅色工作台侧栏，ui-spec 与 AC-40/48 契约测试同步。 二次优化：画布改中性 `#F7F8FA`，登录品牌区加品牌声波与三项服务说明；工作台侧栏改为“导航 + 一句话说明 + 坐席卡”三段式，空态/加载态收进内容区面板且加载不再渲染表格骨架，队列概览从侧栏移除；队列页改为白色页头 + 灰色内容区分区，页头压缩为标题/摘要同行 + 36px Tabs + 32px 筛选控件。
+- F-24：模型失败分级降级——单次超时/异常只提示重试且不建单，同一会话连续 2 次失败自动转人工；交接单带 `failure_count`/`last_error` 且工作台详情可见；AC-31/32 定向与全量验证通过（见验证块）；反向验证 4 组；评审通过（`docs/reviews/001-customer-handoff/F-24.md`，2 轮 0 阻断）；提交 3ab1080、5221781、860e2d7。
 - 重构（2026-11-19，连接池收口）：业务池参数进 `Settings`（size/overflow/timeout/recycle）；Trace 改用独立小池（2+2、2s 超时），不再与业务请求抢连接；容量公式 `workers × 19 ≤ max_connections`；决策见 ADR-0010。
-- 重构（2026-11-19，请求级 Unit of Work）：`get_session` 成功提交、异常回滚；路由与业务模块移除手动 `commit()`；限速改为独立 session；决策见 ADR-0009，pytest 678 passed。
+- 重构（2026-11-19，请求级 Unit of Work）：`get_session` 成功提交、异常回滚；路由与业务模块移除手动 `commit()`；限速改为独立 session；决策见 ADR-0009，全量验证通过（见验证块）。
 - 重构（2026-11-19，只读 session 分离）：GET 改用 `get_read_session`（不提交），认证与读路由复用同一只读 session；客户 `last_seen_at` 改为 5 分钟节流独立事务；新增只读会话单元测试与节流集成测试；决策见 ADR-0009 修订；2026-11-19 ADR-0012 步骤 1–6：Trace 失败不再 500；尾采样、`/metrics`、有界缓冲、字段迁移、读访问审计、保留清理与 `traceparent` 兼容上线。
-- 重构（2026-11-19，后端按业务域组织）：HTTP 入口归位到 `identity/http.py`、`conversations/customer_http.py`、`conversations/workspace_http.py`，DTO 随域；`api/` 只保留装配、中间件与共享 HTTP 工具；OpenAPI 15 条路径不变，pytest 678 passed；决策见 ADR-0008。
+- 重构（2026-11-19，后端按业务域组织）：HTTP 入口归位到 `identity/http.py`、`conversations/customer_http.py`、`conversations/workspace_http.py`，DTO 随域；`api/` 只保留装配、中间件与共享 HTTP 工具；OpenAPI 15 条路径不变，全量验证通过（见验证块）；决策见 ADR-0008。
 - 清理（2026-11-19，M1-P 旧 Web 接口退役）：删除 `/session`、`/message`、`/handoff`、`/cancellation-requests`、`/accounts` 与旧内存身份/会话中间件及 8 个强绑定旧测试文件；保留 `agent_runtime`、`tools`、`workflows`（含订单取消工作流与启动恢复）、旧表与 OMS 适配器；重新生成 OpenAPI、前端类型与测试快照（15 条路由）；并删除无生产入口的 `agent_runtime/chat.py` 与 `test_chat.py`（旧对话编排，内部自行 `commit`），`agent_runtime` 只保留 `model`/`types`。
-- 流程改进（2026-11-19）：`evals/run.py` 的 AC 集合改为从 `docs/specs/*/brief.md` 动态发现，`AC-01~29` 不再参与门禁，`trace-baseline.txt` 登记的待开工 AC 记 `待开工`；测试库默认一次性隔离、`make gen-contracts` 一键刷新契约与快照、评审结论按首句解析；2026-11-20 `verify-changed` 改为按路径触发；累计 16 条脚本自测。
+- 流程改进（2026-11-19）：`evals/run.py` 的 AC 集合改为从 `docs/specs/*/brief.md` 动态发现，`AC-01~29` 不再参与门禁，`trace-baseline.txt` 登记的待开工 AC 记 `待开工`；测试库默认一次性隔离、`make gen-contracts` 一键刷新契约与快照、评审结论按首句解析；2026-11-20 `verify-changed` 改为按路径触发；2026-11-21 验证快检查前置（文档/状态/追溯秒级失败）、CURRENT 验证计数单一事实源、`review_pack` 支持任务号固定点、pre-commit 失败可诊断；累计 16 条脚本自测。
 - F-14：客户甲/乙端到端闭环与跨客户隔离——两客户各自登录/聊天/转人工/被接管/回复/转回/关闭，甲读乙会话/消息 404 且与不存在不可区分，交接单按客户独立；4 条 AC-33 集成用例（双坐席、4 类消息负向探针）+ 三组反向验证；同一浏览器双 host UI 走查截图 `evals/reports/001-customer-handoff/F-14/`；双轴评审通过（`docs/reviews/001-customer-handoff/F-14.md`，2 轮、0 阻断）；提交 fda805b、97325c2、6d13306。
 - F-13：审计与限速收口——`service_audit_events` 只追加（触发器拒绝行级改删）、401/403/429 安全事件、登录/消息限速、审计失败 503 回滚、客户消息/AI 回复/Origin 403 审计；20 条 AC-39 集成用例 + 反向验证 4 组 + 迁移回滚演练；三轴独立评审通过（2 轮、0 阻断，`docs/reviews/001-customer-handoff/F-13.md`）；提交 46783aa、39924aa、555847b。
 - F-12：坐席在已领取/人工中关闭会话，或人工中转回 AI；转回后同一会话 AI 恢复历史，再次转人工生成新交接单且同会话仅一张 open 单；17 条 AC-38 集成用例 + 6 条工作台前端用例 + 三遍双身份走查；双轴评审通过（整改后增量复核 0 阻断，`docs/reviews/001-customer-handoff/F-12.md`）；提交 7aeb960、9266b3a、1147a0e、f7611e2、d76b796。
@@ -43,7 +43,7 @@
 - M0：宪章、架构、不变量、ADR-0001~0004、AI Coding 入口。
 - M1-P（原型）：21 个任务完成（已归档，执行卡已删除），含查询、取消、转人工、登录、结果文案与校验、Trace/审计、场景评测、G3 校准、会话安全基线；不作为企业 M1 出口。
 - R0-1（产品重基线）：企业宪章、路线图、ADR-0005、总体架构与不变量已批准。
-- R0-2（后端边界）：依赖检查器、platform/identity/domain 迁移、OmsPort/Mock/Http、factory 与配置注入、行为快照、收口与回滚演练；迁移基线 0，回滚树 413 passed。
+- R0-2（后端边界）：依赖检查器、platform/identity/domain 迁移、OmsPort/Mock/Http、factory 与配置注入、行为快照、收口与回滚演练；迁移基线 0，回滚树验证通过。
 - ADR-0006：M1 客户从匿名改为预置账号 + 密码登录；订单按客户账号归属，删除订单号+手机尾号校验。
 - 客户转人工闭环 brief：10 条验收与 3 个垂直切片已批准；plan 已按 Google 模板重排并批准；features 已批准（14 条）。
 - 流程与目录：S0–S8 替换为 Frame → Plan → Build & Verify → Review & Ship，新 spec 使用 `brief/plan/features`；`services/` → `backend/`，import、pyproject、mypy、mutmut、检查器、脚本、测试与文档同步，全量 verify 通过。

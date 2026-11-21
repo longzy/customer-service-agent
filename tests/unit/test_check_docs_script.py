@@ -103,3 +103,54 @@ def test_执行卡引用测试名必须真实存在_基座豁免(tmp_path: Path,
 
     assert len(module.errors) == 1
     assert "test_不存在_AC_35" in module.errors[0]
+
+
+def test_AC覆盖只认表格行_基座豁免(tmp_path: Path, monkeypatch: Any) -> None:
+    """brief 正文引用其他 spec 的 AC 时，不要求本 features 覆盖。"""
+    module = load_module()
+    spec = tmp_path / "docs" / "specs" / "001-demo"
+    spec.mkdir(parents=True)
+    (spec / "brief.md").write_text(
+        "# brief\n\n| AC | 场景 | 期望 |\n|---|---|---|\n| AC-01 | 场景 | 通过 |\n\n"
+        "引用 003 的 AC-50~AC-58，不属于本 spec。\n",
+        encoding="utf-8",
+    )
+    (spec / "features.md").write_text("| F-01 | AC-01 |\n", encoding="utf-8")
+    (spec / "plan.md").write_text("# plan\n", encoding="utf-8")
+    monkeypatch.setattr(module, "errors", [])
+    monkeypatch.setattr(module, "checked", {"acs": 0})
+
+    module.check_ac_coverage([("001-demo", str(spec))])
+
+    assert module.errors == []
+    assert module.checked["acs"] == 1
+
+
+def test_CURRENT验证块外手写计数报错_基座豁免(tmp_path: Path, monkeypatch: Any) -> None:
+    module = load_module()
+    docs = tmp_path / "docs"
+    docs.mkdir(parents=True)
+    current = docs / "CURRENT.md"
+    current.write_text(
+        "# 当前项目状态\n\n"
+        "<!-- verify:start -->\n- 最近验证：pytest 10 passed\n<!-- verify:end -->\n\n"
+        "## 已完成\n\n- F-01：全量 10 passed。\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(module, "ROOT", str(tmp_path))
+    monkeypatch.setattr(module, "errors", [])
+
+    module.check_current_handwritten_counts()
+
+    assert len(module.errors) == 1
+    assert "验证计数只能写在 verify 标记块" in module.errors[0]
+
+    current.write_text(
+        "# 当前项目状态\n\n"
+        "<!-- verify:start -->\n- 最近验证：pytest 10 passed\n<!-- verify:end -->\n\n"
+        "## 已完成\n\n- F-01：全量验证通过（见验证块）。\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(module, "errors", [])
+    module.check_current_handwritten_counts()
+    assert module.errors == []
