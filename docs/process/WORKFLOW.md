@@ -1,7 +1,7 @@
 # 开发流程
 
 - 状态：已批准
-- 批准：2026-11-17（用户确认替换 S0–S8；规范先行，样板后做）
+- 批准：2026-11-17（用户确认替换 S0–S8；规范先行，样板后做）；2026-11-21（用户确认门禁频率：全量只在收口跑一次，评审前用定向测试）
 - 适用：本仓库全部变更；人类与 AI Agent 同权
 - 关系：[工程标准](standards.md) 定义“什么算合格”；[架构不变量](../architecture/invariants.md) 定义“什么不能破”；[当前状态](../CURRENT.md) 是唯一状态视图
 
@@ -79,8 +79,8 @@ Frame（目标/非目标/完成标准）
 - 一次只做一个 feature；先写失败测试，再实现；验证方式写在 features 的 `Steps` 列；
 - 每完成一个 feature，`Steps` 全绿、`Evidence` 非空后才把 `passes` 改为 `true`；
 - 不得改 `Description`/`Steps`/`AC` 来迁就实现；要改先改 brief/plan 并重新评审；
-- 跑 `make verify-check`；关键路径加端到端/浏览器验证（多身份配方见 [浏览器走查](e2e-walkthrough.md)）；API 契约变更必须跑 `./scripts/check-contracts.sh`（verify 已包含；`check-api-types.sh` 为兼容入口）；
-- 实现过程用 `make verify-changed ARGS=F-08`（按路径触发，只跑改动涉及的检查：后端 ruff/mypy/pytest、chat 或 workspace 前端、文档/状态/追溯、契约；互不牵连，`--dry-run` 可先看计划；不跑全量 pytest/评测/构建）；`make verify-check` 只留给评审门禁与收口；
+- 关键路径加端到端/浏览器验证（多身份配方见 [浏览器走查](e2e-walkthrough.md)）；API 契约变更必须跑 `./scripts/check-contracts.sh`（verify 已包含；`check-api-types.sh` 为兼容入口）；全量 `make verify-check` 只在收口跑一次；失败则整改后重跑并做增量复审；
+- 实现过程用 `make verify-changed ARGS=F-08`（按路径触发，只跑改动涉及的检查：后端 ruff/mypy/pytest、chat 或 workspace 前端、文档/状态/追溯、契约；互不牵连，`--dry-run` 可先看计划；不跑全量 pytest/评测/构建）；`make verify-check` 只留给收口；
 - 演示数据重置统一用 `make dev-reset`，不手写 `DELETE`/`UPDATE` 修改开发库；
 - 提交保持小步，main 始终可运行。
 
@@ -88,7 +88,7 @@ Frame（目标/非目标/完成标准）
 
 ### 3.4 Review & Ship
 
-- 评审输入：`python3 scripts/review_pack.py F-XX` 生成评审包（固定点、diff、AC 原文、执行卡 §1/§2、plan、命令）；先跑 `make review-check`（机械前置），再跑 `make verify-check`（全量门禁）；
+- 评审输入：`python3 scripts/review_pack.py F-XX` 生成评审包（固定点、diff、AC 原文、执行卡 §1/§2、plan、命令）；先跑 `make review-check`（机械前置），再跑绑定 AC 的定向测试；全量门禁由收口执行，评审结论以收口全量为准（全量失败则评审作废并增量复审）；
 - 两轴独立评审按 [评审模板](../templates/review.md) 与 [两轴提示词](review-prompts.md) 输出；Standards 与 Spec 报告分开写，先复核门禁，再逐 AC 给证据；
 - 独立上下文代码评审：看 diff、测试、越权/失败路径；
 - 人工走查：按 features 的 `Steps` 逐行演示；
@@ -121,7 +121,7 @@ docs/adr/                             # lasting decisions
 
 - G0：在 milestone 内，风险级别已定；
 - G1：brief 的成功度量与 AC 可验证，且每个 AC 在 features 有引用；
-- G2：`verify.sh` 全绿；
+- G2：收口时 `verify.sh` 全绿；
 - G3：T3 的安全评审/回滚通过；
 - G4：按 features 的 `Steps` 走查通过。
 

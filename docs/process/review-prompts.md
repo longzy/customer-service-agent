@@ -9,7 +9,7 @@
 
 - 两轴独立运行、互不共享结论：Standards 轴查规范，Spec 轴查规格符合度；不要合并或重新排序两轴发现。
 - 评审者未参与实现；不要修改仓库文件。
-- 门禁已由主评审跑过 `make verify-check`。评审者只跑分配给你的 `TEST_DB_NAME` 定向测试与独立探针；不运行 `make verify-check`/`make verify`，避免与主评审并行时争用测试库与 CPU。
+- 全量门禁在收口执行；评审前主评审已跑 `verify-changed` 与绑定 AC 的定向测试。评审者只跑分配给你的 `TEST_DB_NAME` 绑定 AC 定向测试与独立探针（关键回归 ≤10 条），不重跑执行卡 §4 的全量回归，不运行 `make verify-check`/`make verify`。
 - `test-db.sh` 默认每次运行使用一次性库（退出即删）；显式 `TEST_DB_NAME` 用于评审隔离，`TEST_DB_KEEP=1` 可保留现场。
 - 先跑 `make review-check`（机械前置）；它失败时先修机械问题，不进入两轴深度评审。
 - 每条发现标 **阻塞 / 建议 / 接受为后续**；判断性坏味道永远不是硬违规。
