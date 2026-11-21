@@ -154,3 +154,35 @@ def test_CURRENT验证块外手写计数报错_基座豁免(tmp_path: Path, monk
     monkeypatch.setattr(module, "errors", [])
     module.check_current_handwritten_counts()
     assert module.errors == []
+
+
+def test_执行卡评审节引用未创建的评审记录不算死链_基座豁免(
+    tmp_path: Path, monkeypatch: Any
+) -> None:
+    module = load_module()
+    tasks = tmp_path / "docs" / "tasks" / "001-demo"
+    tasks.mkdir(parents=True)
+    (tmp_path / "docs" / "CURRENT.md").write_text("# 当前项目状态\n", encoding="utf-8")
+    card = tasks / "F-01.md"
+    monkeypatch.setattr(module, "ROOT", str(tmp_path))
+    monkeypatch.setattr(module, "TASKS_ROOT", str(tasks))
+    monkeypatch.setattr(module, "errors", [])
+
+    card.write_text(
+        "- 状态：待评审\n\n## 1. 改变范围\n\n引用 `docs/CURRENT.md`。\n\n"
+        "## 5. 评审\n\n- 评审记录：`docs/reviews/001-demo/F-01.md`\n\n"
+        "## 6. 完成的定义\n\n- [ ] 评审\n",
+        encoding="utf-8",
+    )
+    module.check_card_paths()
+    assert module.errors == []
+
+    monkeypatch.setattr(module, "errors", [])
+    card.write_text(
+        "- 状态：待评审\n\n## 1. 改变范围\n\n引用 `docs/missing.md`。\n\n"
+        "## 5. 评审\n\n- 评审记录：`docs/reviews/001-demo/F-01.md`\n",
+        encoding="utf-8",
+    )
+    module.check_card_paths()
+    assert len(module.errors) == 1
+    assert "docs/missing.md" in module.errors[0]
