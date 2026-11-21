@@ -78,6 +78,10 @@ GATE_OPEN_STATUSES = ("待开工许可", "已确认")
 REVIEW_REQUIRED = ("## 0. 门禁复核", "## 逐 AC", "## 阻断项", "## 结论")
 SPEC_DIR_PATTERN = re.compile(r"^\d{3}-[a-z0-9-]+$")
 CARD_PATTERN = re.compile(r"^[TF]-\d{2}\.md$")
+# AC 只认 brief 的验收表格行；正文里引用其他 spec 的 AC 不参与覆盖检查。
+AC_ROW_PATTERN = re.compile(r"^\|\s*(AC-\d{2})\s*\|", re.M)
+# CURRENT 验证块之外不得手写验证计数：唯一事实源是 verify.sh 生成的块。
+PASS_COUNT_PATTERN = re.compile(r"\b\d+ passed\b")
 
 TEST_DEF_PATTERN = re.compile(r"^\s*(?:async\s+)?def\s+(test_[^\s(]+)", re.M)
 TEST_REF_PATTERN = re.compile(r"`(test_[^`\s]+)`")
@@ -202,7 +206,7 @@ def check_ac_coverage(specs):
             continue
         brief = os.path.join(path, layout["brief"])
         features = os.path.join(path, layout["features"])
-        acs = sorted(set(re.findall(r"\bAC-\d{2}\b", read(brief))))
+        acs = sorted(set(AC_ROW_PATTERN.findall(read(brief))))
         features_text = read(features)
         checked["acs"] += len(acs)
         for ac in acs:
@@ -467,6 +471,26 @@ def check_verification_block():
         errors.append("docs/CURRENT.md：verify 标记块未包含验证结果")
 
 
+def check_current_handwritten_counts():
+    """CURRENT 的验证计数只能来自 verify.sh；其他位置手写会与验证块漂移。"""
+    path = os.path.join(ROOT, "docs", "CURRENT.md")
+    if not os.path.exists(path):
+        return
+    content = read(path)
+    if "<!-- verify:start -->" in content and "<!-- verify:end -->" in content:
+        before, rest = content.split("<!-- verify:start -->", 1)
+        _block, after = rest.split("<!-- verify:end -->", 1)
+        outside = before + after
+    else:
+        outside = content
+    match = PASS_COUNT_PATTERN.search(outside)
+    if match is not None:
+        errors.append(
+            "docs/CURRENT.md：验证计数只能写在 verify 标记块（由 verify.sh 生成），"
+            f"发现手写「{match.group(0)}」；请改为“见验证块”"
+        )
+
+
 def main():
     files = sorted(md_files())
     checked["files"] = len(files)
@@ -486,6 +510,7 @@ def main():
     check_review_conclusions()
     check_context_budget()
     check_verification_block()
+    check_current_handwritten_counts()
 
     if errors:
         print(f"文档检查失败，{len(errors)} 个问题：")
