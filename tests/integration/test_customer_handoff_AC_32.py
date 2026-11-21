@@ -5,83 +5,39 @@
 - 模型失败路径复用同一构造，避免出现两套交接单上下文。
 """
 
-import asyncio
 import json
 import uuid
 from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import delete, select
-from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from backend.agent_runtime.model import DEFAULT_FAKE_REPLY, ChatReply, FakeModelClient, ModelError
 from backend.api.main import create_app
-from backend.identity.passwords import hash_password
 from backend.platform.models import (
     ServiceAiEvent,
     ServiceConversation,
-    ServiceCustomer,
-    ServiceCustomerSession,
     ServiceHandoff,
     ServiceMessage,
-    ServiceRateLimitBucket,
 )
-from backend.platform.settings import settings
+from tests.integration.customer_support import (
+    DEMO_CREDENTIAL,
+    cleanup_customer_db,
+    prepare_customer_db,
+)
+from tests.integration.customer_support import (
+    rows_of as rows,
+)
 from tests.integration.db_utils import db_available
 
 pytestmark = pytest.mark.skipif(not db_available(), reason="Postgres 不可用")
 
-DEMO_CREDENTIAL = "demo-login-value"
-
-
-async def _with_db(action: Any) -> Any:
-    engine = create_async_engine(settings.database_url)
-    try:
-        maker = async_sessionmaker(engine, expire_on_commit=False)
-        async with maker() as db:
-            return await action(db)
-    finally:
-        await engine.dispose()
-
-
-async def _reset(db: Any) -> None:
-    await db.execute(delete(ServiceMessage))
-    await db.execute(delete(ServiceAiEvent))
-    await db.execute(delete(ServiceHandoff))
-    await db.execute(delete(ServiceCustomerSession))
-    await db.execute(delete(ServiceConversation))
-    await db.execute(delete(ServiceCustomer))
-    await db.execute(delete(ServiceRateLimitBucket))
-    await db.commit()
-
-
-async def _seed(db: Any) -> None:
-    # F-25 起种子客户与 OMS 身份绑定，转人工时才能带真实订单上下文（F-28）。
-    for username, display_name, oms_customer_id in (
-        ("customer_a", "客户甲", "user-a1"),
-        ("customer_b", "客户乙", "user-b1"),
-    ):
-        db.add(
-            ServiceCustomer(
-                id=f"cust-{username}",
-                tenant_id=settings.m1_tenant_id,
-                username=username,
-                password_hash=hash_password(DEMO_CREDENTIAL),
-                display_name=display_name,
-                oms_customer_id=oms_customer_id,
-                active=True,
-            )
-        )
-    await db.commit()
-
 
 @pytest.fixture(autouse=True)
 def demo_customers() -> Any:
-    asyncio.run(_with_db(_reset))
-    asyncio.run(_with_db(_seed))
+    prepare_customer_db()
     yield
-    asyncio.run(_with_db(_reset))
+    cleanup_customer_db()
 
 
 class CountingModel:
@@ -119,14 +75,6 @@ def send(api: TestClient, content: str, key: str | None = None) -> Any:
         json={"content": content},
         headers={"Idempotency-Key": key or f"test-{uuid.uuid4()}"},
     )
-
-
-def rows(model: Any) -> list[Any]:
-    async def read(db: Any) -> list[Any]:
-        # 按主键排序：DELETE/INSERT 后 seq scan 顺序不稳定，消息顺序断言会抖动
-        return list((await db.execute(select(model).order_by(model.id))).scalars())
-
-    return asyncio.run(_with_db(read))
 
 
 def only_handoff() -> Any:
