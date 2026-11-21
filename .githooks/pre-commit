@@ -1,17 +1,31 @@
 #!/bin/sh
-# 提交前执行快检查：格式、静态检查、文档与状态一致性。失败即阻断。
+# 提交前执行快检查：格式、静态检查、文档与状态一致性。失败即阻断，
+# 并打印失败检查名与输出尾部，避免“退出码 1 但没有任何提示”。
 set -e
 cd "$(git rev-parse --show-toplevel)"
 
 export UV_CACHE_DIR="${UV_CACHE_DIR:-./.uv-cache}"
-uv run ruff check . --quiet
-uv run ruff format --check . --quiet
-python3 scripts/check-secrets.py --staged >/dev/null
-python3 scripts/check-docs.py >/dev/null
-python3 scripts/check-status.py >/dev/null
-python3 scripts/trace.py --strict >/dev/null
-python3 scripts/check-review-prereqs.py >/dev/null
-./scripts/check-commands.sh >/dev/null
-./scripts/check-contracts.sh
-./scripts/check-tokens.sh >/dev/null
+work=$(mktemp -d)
+trap 'rm -rf "$work"' EXIT
+
+run_check() {
+  label=$1
+  shift
+  if ! "$@" >"$work/out" 2>&1; then
+    echo "pre-commit 失败：$label" >&2
+    tail -20 "$work/out" >&2
+    exit 1
+  fi
+}
+
+run_check "ruff check" uv run ruff check . --quiet
+run_check "ruff format" uv run ruff format --check . --quiet
+run_check "密钥扫描" python3 scripts/check-secrets.py --staged
+run_check "文档引用" python3 scripts/check-docs.py
+run_check "当前状态" python3 scripts/check-status.py
+run_check "追溯矩阵" python3 scripts/trace.py --strict
+run_check "评审前置" python3 scripts/check-review-prereqs.py
+run_check "命令冒烟" ./scripts/check-commands.sh
+run_check "契约生成物" ./scripts/check-contracts.sh
+run_check "设计令牌" ./scripts/check-tokens.sh
 echo "pre-commit：格式、静态检查、密钥、文档、状态、追溯与契约检查通过"
