@@ -83,11 +83,25 @@ def test_问我的订单列出最近订单_AC_50() -> None:
     assert order_query_events() == [("order_query", "list_recent_orders", "ok")]
 
 
-def test_模型订单意图但未提订单号也查最近订单_AC_50() -> None:
-    app = order_app({"最近买了什么": RECENT_PURCHASE})
+def test_我的订单不依赖模型意图_AC_50() -> None:
+    """快捷入口/“我的订单”直接查列表：不调模型，少一次延迟。"""
+    app = order_app()
     with api_client(app) as api:
         login(api, "customer_a")
-        response = send(api, "最近买了什么")
+        response = send(api, "我的订单")
+        assert response.status_code == 200, response.text
+        [message] = ai_messages(response.json())
+        assert len(message["payload"]["orders"]) == 4
+
+    assert app.state.oms.calls["list_recent_orders"] == 1
+    assert [event.event_type for event in rows_of(ServiceAiEvent)] == ["order_query"]
+
+
+def test_模型订单意图但未提订单号也查最近订单_AC_50() -> None:
+    app = order_app({"帮我看看之前买的东西": RECENT_PURCHASE})
+    with api_client(app) as api:
+        login(api, "customer_a")
+        response = send(api, "帮我看看之前买的东西")
         assert response.status_code == 200, response.text
         body = response.json()
         assert body["status"] == "AI_ACTIVE"
@@ -118,10 +132,12 @@ def test_未绑定时按无订单告知且不建单_AC_50() -> None:
 
 def test_低置信订单意图不触发查询_AC_50() -> None:
     """低置信仍是 001 的转人工路径；订单意图不能绕过置信度门禁。"""
-    app = order_app({"我的订单": {"intent": "QUERY_RECENT", "confidence": 0.59, "reply": "好的。"}})
+    app = order_app(
+        {"帮我看看之前买的东西": {"intent": "QUERY_RECENT", "confidence": 0.59, "reply": "好的。"}}
+    )
     with api_client(app) as api:
         login(api, "customer_a")
-        response = send(api, "我的订单")
+        response = send(api, "帮我看看之前买的东西")
         assert response.status_code == 200, response.text
         assert response.json()["status"] == "QUEUED"
 

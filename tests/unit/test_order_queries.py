@@ -18,6 +18,7 @@ from backend.conversations.order_queries import (
     order_summary,
     query_order,
     query_recent_orders,
+    wants_recent_orders,
 )
 from backend.identity.customer_sessions import Customer
 from backend.tools.gateway import GatewayError
@@ -251,9 +252,27 @@ def test_build_recent_orders_reply_只陈述摘要字段() -> None:
 
 
 def test_最近订单与澄清固定文案() -> None:
-    assert MULTIPLE_ORDERS_REPLY == "你提到了多个订单号，请一次查一笔，例如 ORD-10001。"
-    assert PARTIAL_ORDER_ID_REPLY == "订单号看起来不完整，请发完整的订单号，例如 ORD-10001。"
+    assert MULTIPLE_ORDERS_REPLY == "你提到了多个订单号，我不能替你选。先列出你最近的订单："
+    assert PARTIAL_ORDER_ID_REPLY == "订单号看起来不完整。先列出你最近的订单："
     assert RECENT_EMPTY_REPLY == "你名下暂时没有订单。需要的话可以说「转人工」。"
+
+
+@pytest.mark.parametrize(
+    ("content", "expected"),
+    [
+        ("我的订单", True),
+        ("帮我查订单", True),
+        ("最近买了什么", True),
+        ("最近订单", True),
+        ("订单", False),
+        ("订单到哪了", False),
+        ("取消我的订单", False),
+        ("查 ORD-10001", False),
+        ("你好", False),
+    ],
+)
+def test_wants_recent_orders(content: str, expected: bool) -> None:
+    assert wants_recent_orders(content) is expected
 
 
 async def test_query_recent_orders_成功投影摘要且limit为5() -> None:

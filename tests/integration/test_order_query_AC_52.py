@@ -4,9 +4,12 @@ from typing import Any
 
 import pytest
 
+from backend.adapters.oms.faults import FaultRule
 from backend.conversations.order_queries import (
     MULTIPLE_ORDERS_REPLY,
     PARTIAL_ORDER_ID_REPLY,
+    RECENT_EMPTY_REPLY,
+    UNAVAILABLE_REPLY,
 )
 from backend.platform.models import ServiceAiEvent, ServiceHandoff
 from tests.integration.customer_support import (
@@ -21,6 +24,7 @@ from tests.integration.order_query_support import (
     login,
     order_app,
     send,
+    unbind_customer,
 )
 
 pytestmark = pytest.mark.skipif(not db_available(), reason="Postgres 不可用")
@@ -33,15 +37,15 @@ def demo_customers() -> Any:
     cleanup_customer_db()
 
 
-def order_events() -> list[tuple[str, str]]:
+def order_events() -> list[tuple[str, str, str]]:
     return [
-        (event.event_type, event.status)
+        (event.event_type, event.name, event.status)
         for event in rows_of(ServiceAiEvent)
         if event.event_type == "order_query"
     ]
 
 
-def test_多个订单号先澄清不查oms_AC_52() -> None:
+def test_多个订单号列候选不替客户选_AC_52() -> None:
     app = order_app()
     with api_client(app) as api:
         login(api, "customer_a")
@@ -51,17 +55,24 @@ def test_多个订单号先澄清不查oms_AC_52() -> None:
 
         assert body["status"] == "AI_ACTIVE"
         [message] = ai_messages(body)
-        assert message["content"] == MULTIPLE_ORDERS_REPLY
-        assert message["payload"] is None
+        assert message["content"].startswith(MULTIPLE_ORDERS_REPLY)
+        assert "最近 4 笔订单" in message["content"]
+        orders = message["payload"]["orders"]
+        assert [order["order_id"] for order in orders] == [
+            "ORD-10002",
+            "ORD-10001",
+            "ORD-10003",
+            "ORD-10004",
+        ]
 
     assert app.state.oms.calls["get_order"] == 0
-    assert app.state.oms.calls["list_recent_orders"] == 0
+    assert app.state.oms.calls["list_recent_orders"] == 1
     assert rows_of(ServiceHandoff) == []
-    assert order_events() == []
+    assert order_events() == [("order_query", "list_recent_orders", "ok")]
 
 
 @pytest.mark.parametrize("content", ["查 ORD-10", "订单号 ORD-", "查 ORD-123456789012345"])
-def test_半截或格式错误订单号先澄清_AC_52(content: str) -> None:
+def test_半截或格式错误订单号列候选_AC_52(content: str) -> None:
     app = order_app()
     with api_client(app) as api:
         login(api, "customer_a")
@@ -70,12 +81,46 @@ def test_半截或格式错误订单号先澄清_AC_52(content: str) -> None:
         body = response.json()
         assert body["status"] == "AI_ACTIVE"
         [message] = ai_messages(body)
-        assert message["content"] == PARTIAL_ORDER_ID_REPLY
-        assert message["payload"] is None
+        assert message["content"].startswith(PARTIAL_ORDER_ID_REPLY)
+        assert len(message["payload"]["orders"]) == 4
 
     assert app.state.oms.calls["get_order"] == 0
+    assert app.state.oms.calls["list_recent_orders"] == 1
+    assert rows_of(ServiceHandoff) == []
+
+
+def test_候选查询失败只提示重试_AC_52() -> None:
+    app = order_app()
+    app.state.oms.faults.add(FaultRule(kind="timeout", tool="list_recent_orders", times=1))
+    with api_client(app) as api:
+        login(api, "customer_a")
+        response = send(api, "帮我查 ORD-10001 和 ORD-10002")
+        assert response.status_code == 200, response.text
+        [message] = ai_messages(response.json())
+        assert message["content"].startswith(MULTIPLE_ORDERS_REPLY)
+        assert UNAVAILABLE_REPLY in message["content"]
+        assert message["payload"]["orders"] == []
+
+    assert app.state.oms.calls["get_order"] == 0
+    assert rows_of(ServiceHandoff) == []
+    assert order_events() == [("order_query", "list_recent_orders", "timeout")]
+
+
+def test_候选查询为空时告知无订单_AC_52() -> None:
+    unbind_customer("customer_a")
+    app = order_app()
+    with api_client(app) as api:
+        login(api, "customer_a")
+        response = send(api, "帮我查 ORD-10001 和 ORD-10002")
+        assert response.status_code == 200, response.text
+        [message] = ai_messages(response.json())
+        assert MULTIPLE_ORDERS_REPLY in message["content"]
+        assert RECENT_EMPTY_REPLY in message["content"]
+        assert message["payload"]["orders"] == []
+
     assert app.state.oms.calls["list_recent_orders"] == 0
     assert rows_of(ServiceHandoff) == []
+    assert order_events() == [("order_query", "list_recent_orders", "not_found")]
 
 
 def test_闲聊带订单不查询也不转人工_AC_52() -> None:

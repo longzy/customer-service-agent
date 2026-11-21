@@ -25,9 +25,24 @@ LOCAL_ZONE = ZoneInfo("Asia/Shanghai")
 NOT_FOUND_REPLY = "没有查到你名下的这笔订单，请核对订单号，或说「转人工」。"
 UNAVAILABLE_REPLY = "订单查询暂时不可用，可以重试，或说「转人工」。"
 RECENT_EMPTY_REPLY = "你名下暂时没有订单。需要的话可以说「转人工」。"
-MULTIPLE_ORDERS_REPLY = "你提到了多个订单号，请一次查一笔，例如 ORD-10001。"
-PARTIAL_ORDER_ID_REPLY = "订单号看起来不完整，请发完整的订单号，例如 ORD-10001。"
+MULTIPLE_ORDERS_REPLY = "你提到了多个订单号，我不能替你选。先列出你最近的订单："
+PARTIAL_ORDER_ID_REPLY = "订单号看起来不完整。先列出你最近的订单："
 RECENT_ORDERS_LIMIT = 5
+
+# 快捷入口与常见自然表达：直接查最近订单，不依赖模型意图分类。
+# 只收录“明确在问列表”的短语；“订单”单独出现仍交给模型判定（闲聊不查）。
+RECENT_ORDER_TERMS = (
+    "我的订单",
+    "我的单",
+    "查订单",
+    "查询订单",
+    "看订单",
+    "看看订单",
+    "最近订单",
+    "最近买",
+    "买了什么",
+    "我的购买",
+)
 
 # 与 `ORDER_ID_PATTERN`（ORD- + 4~12 位数字）互补：1~3 位、13 位以上或没有数字，
 # 都视为"半截/格式错误"，先澄清而不是猜一个订单号去查。
@@ -87,6 +102,14 @@ def has_non_query_order_intent(text: str) -> bool:
     """
     normalized = normalize_text(text)
     return any(normalize_text(term) in normalized for term in NON_QUERY_TERMS)
+
+
+def wants_recent_orders(text: str) -> bool:
+    """是否在明确问“我的订单列表”；取消/退款等操作词优先排除。"""
+    if has_non_query_order_intent(text):
+        return False
+    normalized = normalize_text(text)
+    return any(normalize_text(term) in normalized for term in RECENT_ORDER_TERMS)
 
 
 def order_query_kind(text: str) -> str:
