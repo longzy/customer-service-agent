@@ -64,13 +64,17 @@ def find_feature(feature: str) -> tuple[str, list[str]]:
 
 
 def detect_base(feature: str) -> str:
-    """取第一条 subject 带 (F-XX) 的提交的父提交，不限定 feat/test/docs 类型。"""
+    """取第一条 subject 提到 F-XX 的提交的父提交，不限定 feat/test/docs 类型。
+
+    兼容 `feat(F-26)` 与 `feat(003): F-26 ...` 两种 scope 惯例。
+    """
+    pattern = re.compile(rf"(?<![A-Za-z0-9]){re.escape(feature)}(?![0-9])")
     for line in git("log", "--reverse", "--format=%H%x09%s").splitlines():
         sha, _, subject = line.partition("\t")
-        if f"({feature})" in subject:
+        if f"({feature})" in subject or pattern.search(subject):
             return f"{sha}^"
     raise SystemExit(
-        f"无法自动识别 {feature} 的固定点：找不到 subject 含 ({feature}) 的提交；请用 --base 指定。"
+        f"无法自动识别 {feature} 的固定点：找不到 subject 提到 {feature} 的提交；请用 --base 指定。"
     )
 
 
