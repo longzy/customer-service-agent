@@ -4,3 +4,4 @@ import type { components } from "@/lib/api-types";
 export type Message = components["schemas"]["MessagePublic"];
 export type MessagePage = components["schemas"]["MessagePageResponse"];
 export type MessageAuthor = Message["author_type"];
+export type OrderSummary = components["schemas"]["OrderSummaryPublic"];

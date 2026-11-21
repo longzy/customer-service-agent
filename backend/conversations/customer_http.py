@@ -34,10 +34,16 @@ from backend.conversations.customer_conversations import (
     get_or_create_open_conversation,
     get_sendable_conversation,
 )
+from backend.conversations.order_queries import (
+    customer_order_summary,
+    query_recent_orders,
+)
 from backend.conversations.schemas import (
     ConversationPublic,
     CustomerLoginRequest,
     CustomerMessageRequest,
+    CustomerOrdersResponse,
+    CustomerOrderSummary,
     CustomerPublic,
     CustomerSessionResponse,
     MessagePageResponse,
@@ -220,6 +226,58 @@ async def read_conversation(
         source="customer",
     )
     return _payload(session.customer, conversation, session.expires_at)
+
+
+@router.get(
+    "/orders",
+    responses={
+        401: ERROR_RESPONSES[401],
+        422: ERROR_RESPONSES[422],
+        503: {"model": ErrorEnvelope},
+        504: {"model": ErrorEnvelope},
+    },
+)
+async def list_orders(
+    request: Request,
+    session: CurrentCustomer,
+    db: ReadDb,
+    limit: int = Query(default=5, ge=1, le=5),
+) -> CustomerOrdersResponse:
+    """客户最近订单：本人同租户、白名单摘要；空列表不是错误。
+
+    OMS 失败按依赖错误返回可重试状态，不影响聊天；访问审计复用 `audit_view`
+    的 5 分钟去重，每次请求仍带 Trace。
+    """
+    trace_id = trace_of(request)
+    outcome = await query_recent_orders(
+        request.app.state.query_gateway,
+        session.customer,
+        trace_id,
+        limit,
+    )
+    if outcome.status == "timeout":
+        raise ApiError(504, ErrorCode.DEPENDENCY_TIMEOUT)
+    if outcome.status == "error":
+        raise ApiError(503, ErrorCode.DEPENDENCY_UNAVAILABLE)
+    conversation = await get_current_conversation(
+        db, session.customer.tenant_id, session.customer.id
+    )
+    await audit_view(
+        request,
+        tenant_id=session.customer.tenant_id,
+        actor_type="customer",
+        actor_id=session.customer.id,
+        # 列表没有单一订单实体；以客户作为列表访问的实体，避免把订单号写进审计。
+        entity_type="order_list",
+        entity_id=session.customer.id,
+        journey_id=conversation.journey_id if conversation else None,
+        source="customer",
+    )
+    orders = [
+        CustomerOrderSummary.model_validate(customer_order_summary(order))
+        for order in outcome.orders
+    ]
+    return CustomerOrdersResponse(orders=orders)
 
 
 @router.post(

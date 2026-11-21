@@ -1,5 +1,7 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+
 import type { Conversation, Customer } from "@/lib/session";
 
 import { useChatMessages } from "../hooks/useChatMessages";
@@ -67,6 +69,7 @@ export function ChatShell({
   onRetry,
   onBack,
 }: ChatShellProps) {
+  const router = useRouter();
   const {
     messages,
     status,
@@ -101,6 +104,7 @@ export function ChatShell({
         closed={status === "CLOSED"}
         closing={closing}
         busy={busy}
+        onOpenOrders={() => router.push("/orders")}
         onClose={() => void closeCurrentSession()}
         onLogout={onLogout}
       />

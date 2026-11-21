@@ -88,6 +88,23 @@ class OrderSummaryPublic(BaseModel):
     created_at_local: str
 
 
+class CustomerOrderSummary(OrderSummaryPublic):
+    """客户订单列表项：003 摘要 + 由订单状态派生的 `cancelable`。
+
+    003 的消息 `payload` 不增加字段，列表页单独复用本 DTO。
+    """
+
+    cancelable: bool
+
+
+class CustomerOrdersResponse(BaseModel):
+    """客户最近订单列表；空列表表示本人暂无可展示订单。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    orders: list[CustomerOrderSummary] = Field(max_length=5)
+
+
 class MessagePayload(BaseModel):
     """AI 订单消息的结构化快照；空列表表示查无/失败，前端不渲染卡片。"""
 

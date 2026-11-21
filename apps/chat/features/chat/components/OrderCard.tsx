@@ -3,9 +3,9 @@
 import { useId } from "react";
 
 import { formatAmount } from "@/lib/format";
+import { orderStatusTone } from "@/lib/orderStatus";
 
-import type { OrderSummary } from "../lib/orderStatus";
-import { orderStatusTone } from "../lib/orderStatus";
+import type { OrderSummary } from "../types";
 
 type OrderCardProps = {
   order: OrderSummary;

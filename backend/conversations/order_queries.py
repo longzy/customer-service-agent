@@ -18,6 +18,7 @@ from zoneinfo import ZoneInfo
 
 from backend.agent_runtime.types import Intent
 from backend.conversations.handoffs import ORDER_ID_PATTERN, normalize_text
+from backend.domain.orders import OrderStatus, is_cancelable
 from backend.identity import Identity
 from backend.identity.customer_sessions import Customer
 from backend.platform import metrics
@@ -179,6 +180,21 @@ def order_summary(order: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _is_cancelable_status(status: str) -> bool:
+    """未知状态按不可取消处理；资格仍以服务端 Policy 为唯一判定。"""
+    try:
+        return is_cancelable(OrderStatus(status))
+    except ValueError:
+        return False
+
+
+def customer_order_summary(order: dict[str, Any]) -> dict[str, Any]:
+    """列表页摘要：在白名单上派生 `cancelable`，不改变 003 的消息 payload。"""
+    summary = order_summary(order)
+    summary["cancelable"] = _is_cancelable_status(str(summary["order_status"]))
+    return summary
+
+
 def build_order_reply(summary: dict[str, Any]) -> str:
     """单笔订单的确定性回复；只使用摘要字段。"""
     amount = format_amount(int(summary["amount_cents"]), str(summary["currency"]))
@@ -246,7 +262,7 @@ def order_query_audit(outcome: OrderQueryOutcome) -> OrderQueryAudit:
     )
 
 
-def _observe(outcome: OrderQueryOutcome, started: float) -> None:
+def _observe(outcome: OrderQueryOutcome, started: float, trace_id: str) -> None:
     """记录一次查询的指标与结构化日志；不写订单内容。"""
     latency_ms = int((perf_counter() - started) * 1000)
     metrics.increment_labeled("order_query_total", {"tool": outcome.tool, "status": outcome.status})
@@ -254,6 +270,7 @@ def _observe(outcome: OrderQueryOutcome, started: float) -> None:
     log_event(
         logger,
         "order.query",
+        trace_id=trace_id,
         tool=outcome.tool,
         result_status=outcome.status,
         order_id=outcome.order_id,
@@ -265,6 +282,7 @@ def _observe(outcome: OrderQueryOutcome, started: float) -> None:
         log_event(
             logger,
             "order.query_unbound",
+            trace_id=trace_id,
             tool=outcome.tool,
             result_status=outcome.status,
             latency_ms=latency_ms,
@@ -319,7 +337,7 @@ async def query_order(
         order_id=order_id,
         unbound=not bool(customer.oms_customer_id),
     )
-    _observe(outcome, started)
+    _observe(outcome, started, trace_id)
     return outcome
 
 
@@ -371,7 +389,7 @@ async def query_recent_orders(
     started = perf_counter()
     outcome = await _query_recent_orders_once(gateway, customer, trace_id, limit)
     outcome = replace(outcome, unbound=not bool(customer.oms_customer_id))
-    _observe(outcome, started)
+    _observe(outcome, started, trace_id)
     return outcome
 
 

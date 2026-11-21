@@ -1,5 +1,7 @@
 "use client";
 
+import { ShoppingBag } from "lucide-react";
+
 import { Button } from "@/components/ui/Button";
 
 const ECHO_MARK = (
@@ -28,6 +30,7 @@ type ChatHeaderProps = {
   closed: boolean;
   closing: boolean;
   busy?: boolean;
+  onOpenOrders: () => void;
   onClose: () => void;
   onLogout: () => void;
 };
@@ -40,6 +43,7 @@ export function ChatHeader({
   closed,
   closing,
   busy = false,
+  onOpenOrders,
   onClose,
   onLogout,
 }: ChatHeaderProps) {
@@ -65,6 +69,10 @@ export function ChatHeader({
         <span className="mr-1 max-w-[160px] truncate text-sm text-text-2 max-[767px]:hidden">
           {customerName}
         </span>
+        <Button variant="ghost" size="sm" aria-label="我的订单" onClick={onOpenOrders}>
+          <ShoppingBag size={16} strokeWidth={1.6} aria-hidden="true" />
+          <span className="max-[767px]:hidden">我的订单</span>
+        </Button>
         {!closed ? (
           <Button variant="ghost" size="sm" onClick={onClose} disabled={closing}>
             {closing ? "结束中…" : "结束会话"}
