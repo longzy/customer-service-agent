@@ -107,12 +107,14 @@ def check(root: Path, feature: str) -> list[str]:
     if len(cells) != 7:
         problems.append(f"{features_path}：{feature} 行不是 7 列")
         return problems
-    if cells[5] != "false" or cells[6] != "—":
+    # 实现阶段允许先把证据写进 features（Passes 仍为 false）；收口时
+    # `--apply --evidence` 会覆盖。已收口（true + 卡已完成）直接放行。
+    if cells[5] != "false":
         card_text = read(card_path) if card_path.exists() else ""
         status_match = STATUS_LINE.search(card_text)
         if cells[5] == "true" and status_match and status_match.group(1).strip() == "已完成":
             return []
-        problems.append(f"{features_path}：{feature} 的 Passes/Evidence 不是待收口状态")
+        problems.append(f"{features_path}：{feature} 的 Passes 不是待收口状态")
 
     if not card_path.exists():
         problems.append(f"{card_path}：执行卡不存在")

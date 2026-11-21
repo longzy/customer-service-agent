@@ -263,6 +263,10 @@ def check_card_paths():
                 continue
             card_path = os.path.join(base, card)
             content = read(card_path)
+            # 评审记录是评审后产物：执行卡 §5 里指向 docs/reviews/ 的路径
+            # 在创建前必然不存在，不能算死链。
+            review_start = content.find("## 5. 评审")
+            review_end = content.find("## 6.", review_start) if review_start != -1 else -1
             for match in PATH_TOKEN.finditer(content):
                 token = match.group(1)
                 if not token.startswith(PATH_PREFIXES):
@@ -270,6 +274,13 @@ def check_card_paths():
                 if "<" in token or "*" in token or " " in token:
                     continue
                 if is_planned_path(content, match):
+                    continue
+                if (
+                    token.startswith("docs/reviews/")
+                    and review_start != -1
+                    and match.start() > review_start
+                    and (review_end == -1 or match.start() < review_end)
+                ):
                     continue
                 path = normalize_path_token(token).rstrip("/")
                 if not path:

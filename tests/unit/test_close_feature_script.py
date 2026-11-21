@@ -130,3 +130,16 @@ def test_结论首句通过时历史轮次的不通过不阻断收口_基座豁�
     result = run(tmp_path)
     assert result.returncode == 0, result.stdout + result.stderr
     assert "收口检查通过" in result.stdout
+
+
+def test_features已有证据但Passes仍为false可收口_基座豁免(tmp_path: Path) -> None:
+    make_repo(tmp_path)
+    features_path = tmp_path / "docs" / "specs" / "001-demo" / "features.md"
+    features = features_path.read_text(encoding="utf-8")
+    features_path.write_text(
+        features.replace("| false | — |", "| false | 2026-11-21：pytest 1 passed |"),
+        encoding="utf-8",
+    )
+    result = run(tmp_path)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "收口检查通过" in result.stdout
