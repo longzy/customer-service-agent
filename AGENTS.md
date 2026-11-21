@@ -37,9 +37,13 @@
 
 ## 提交
 
-- Conventional Commits：`type(scope): 中文描述`，scope 用任务号或模块名。
+- Conventional Commits：`type(scope): 中文描述`，scope 用任务号（如 `feat(F-26)`）或模块名；spec 编号不作 scope。
 - 一个提交只做一件事；依赖升级单独提交。
 - 禁止 `--no-verify` 直推；绕过须在 PR 写明并在 24 小时内补跑。
+
+## 文档编辑
+
+- 小改用 `edit` 精确替换；整段重写才用脚本，避免批量替换误伤。
 
 ## 停止并请求决策
 

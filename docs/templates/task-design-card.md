@@ -56,14 +56,14 @@
 - [ ] `make verify-check` exit 0，贴最后 summary
 - [ ] 迁移面：旧路径 grep 为 0；pyproject/mutation/verify/docs 已同步
 - [ ] 配置注入：ambient 与 override 各跑一次
-- [ ] 证据数字来自命令输出，不手抄
+- [ ] 证据只写命令、测试名与结论；具体计数引用 CURRENT 验证块
 
 ## 4. 证据
 
 - 红-绿证据（失败输出与通过输出）：
 - 反向验证（故意改坏一条实现/断言，确认测试会红）：
 - 验证命令结果：
-- 证据数字必须从命令输出粘贴；diff 用 `git diff --shortstat START END`。
+- 计数只引用 `docs/CURRENT.md` 验证块（`verify.sh` 生成）；Evidence 不手抄 `passed` 数；diff 用 `git diff --shortstat START END`。
 - 关键模块突变分数：
 
 ## 5. 评审
