@@ -28,6 +28,7 @@ from backend.conversations.handoffs import (
     ORDER_CONTEXT_EMPTY,
     ORDER_CONTEXT_FAILED,
     ORDER_CONTEXT_OK,
+    ORDER_CONTEXT_UNKNOWN,
     OrderContextStatus,
     redact_text,
 )
@@ -168,8 +169,12 @@ def _handoff_detail(handoff: ServiceHandoff) -> HandoffDetail:
         status = ORDER_CONTEXT_EMPTY
     elif raw_status == ORDER_CONTEXT_FAILED:
         status = ORDER_CONTEXT_FAILED
+    elif raw_status == ORDER_CONTEXT_UNKNOWN:
+        status = ORDER_CONTEXT_UNKNOWN
     else:
-        status = ORDER_CONTEXT_OK if orders else ORDER_CONTEXT_EMPTY
+        # 旧交接单没有状态字段：没有订单明细只说明“没查/没查到”，
+        # 不能断言客户名下无订单。
+        status = ORDER_CONTEXT_OK if orders else ORDER_CONTEXT_UNKNOWN
     return HandoffDetail(
         id=handoff.id,
         status=handoff.status,

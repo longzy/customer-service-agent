@@ -529,7 +529,7 @@ export interface components {
              * Order Context Status
              * @enum {string}
              */
-            order_context_status: "ok" | "empty" | "failed";
+            order_context_status: "ok" | "empty" | "failed" | "unknown";
             /** Order Count */
             order_count: number;
             /** Orders */

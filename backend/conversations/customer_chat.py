@@ -26,6 +26,7 @@ from backend.conversations.handoffs import (
     ORDER_CONTEXT_EMPTY,
     ORDER_CONTEXT_FAILED,
     ORDER_CONTEXT_OK,
+    ORDER_CONTEXT_UNKNOWN,
     OrderContextStatus,
     create_handoff,
     decide_model_handoff,
@@ -395,13 +396,15 @@ async def _handoff_order_context(
     """转人工时的订单上下文：优先复用快照，客户主动要人时才补查一次。
 
     返回 `(orders, order_context_status)`：有订单 `ok`、查无/未绑定 `empty`、
-    补查失败 `failed`（AC-55/AC-56）。补查失败不抛、不阻塞转人工（plan 3.1）。
+    补查失败 `failed`、未发起查询 `unknown`（AC-55/AC-56）。补查失败不抛、
+    不阻塞转人工（plan 3.1）。
     """
     snapshot = await _latest_order_snapshot(db, conversation)
     if snapshot is not None:
         return snapshot, ORDER_CONTEXT_OK
     if not allow_lookup:
-        return [], ORDER_CONTEXT_EMPTY
+        # AI 主动转人工且会话内没有已查快照：没有发起查询，不能断言“无订单”。
+        return [], ORDER_CONTEXT_UNKNOWN
     outcome = await query_recent_orders(order_gateway, customer, trace_id)
     await _record_ai_event(
         db,

@@ -37,10 +37,11 @@ PENDING_STEP = "等待坐席接入"
 
 # 交接单订单上下文状态（F-28）：区分“有订单 / 查无 / 查询不可用”，
 # 让坐席看到“暂无订单”与“订单信息暂不可用”是两件事（AC-56）。
-OrderContextStatus = Literal["ok", "empty", "failed"]
+OrderContextStatus = Literal["ok", "empty", "failed", "unknown"]
 ORDER_CONTEXT_OK: OrderContextStatus = "ok"
 ORDER_CONTEXT_EMPTY: OrderContextStatus = "empty"
 ORDER_CONTEXT_FAILED: OrderContextStatus = "failed"
+ORDER_CONTEXT_UNKNOWN: OrderContextStatus = "unknown"
 
 # plan 3.3.4：关键词未命中时，由模型 intent/confidence 与确定性规则共同判定转人工
 HANDOFF_CONFIDENCE_THRESHOLD = 0.6

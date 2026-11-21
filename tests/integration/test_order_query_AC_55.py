@@ -205,3 +205,23 @@ def test_模型失败转人工复用快照不补查_AC_55() -> None:
     assert handoff.context["order_count"] == 1
     assert handoff.context["orders"][0]["order_id"] == "ORD-10002"
     assert app.state.oms.calls["list_recent_orders"] == 0
+
+
+def test_模型判定转人工无快照标记未查询_AC_55() -> None:
+    """AI 主动转人工且会话内没有已查快照：不额外查 OMS，状态 unknown。"""
+    app = order_app(
+        {"这个问题我不太确定": {"intent": "UNKNOWN", "confidence": 0.42, "reply": "稍后再试。"}}
+    )
+    with api_client(app) as api:
+        login(api)
+        response = send(api, "这个问题我不太确定")
+        assert response.status_code == 200, response.text
+        assert response.json()["status"] == "QUEUED"
+
+    handoff = only_handoff()
+    assert handoff.reason == "LOW_CONFIDENCE"
+    assert handoff.context["order_count"] == 0
+    assert handoff.context["order_context_status"] == "unknown"
+    assert "orders" not in handoff.context
+    assert app.state.oms.calls["list_recent_orders"] == 0
+    assert order_events() == []
