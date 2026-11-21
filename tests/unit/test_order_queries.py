@@ -11,6 +11,7 @@ from backend.conversations.order_queries import (
     OrderQueryOutcome,
     build_order_reply,
     build_recent_orders_reply,
+    customer_order_summary,
     extract_order_ids,
     format_amount,
     format_created_at,
@@ -106,6 +107,19 @@ def test_order_summary_只保留白名单字段() -> None:
         "created_at": "2026-11-10T02:00:00Z",
         "created_at_local": "2026-11-10 10:00",
     }
+    # 003 的消息 payload 不含 cancelable；列表 DTO 才派生。
+    assert "cancelable" not in summary
+
+
+def test_customer_order_summary_派生cancelable() -> None:
+    summary = customer_order_summary(ORDER)
+    assert summary["cancelable"] is True
+    assert set(summary) == set(order_summary(ORDER)) | {"cancelable"}
+
+
+def test_customer_order_summary_未知状态不可取消() -> None:
+    summary = customer_order_summary({**ORDER, "order_status": "RETURNING"})
+    assert summary["cancelable"] is False
 
 
 def test_format_amount() -> None:

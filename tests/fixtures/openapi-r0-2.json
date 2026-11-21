@@ -120,6 +120,81 @@
         "title": "CustomerMessageRequest",
         "type": "object"
       },
+      "CustomerOrderSummary": {
+        "additionalProperties": false,
+        "description": "客户订单列表项：003 摘要 + 由订单状态派生的 `cancelable`。\n\n003 的消息 `payload` 不增加字段，列表页单独复用本 DTO。",
+        "properties": {
+          "amount_cents": {
+            "minimum": 0.0,
+            "title": "Amount Cents",
+            "type": "integer"
+          },
+          "cancelable": {
+            "title": "Cancelable",
+            "type": "boolean"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "string"
+          },
+          "created_at_local": {
+            "title": "Created At Local",
+            "type": "string"
+          },
+          "currency": {
+            "title": "Currency",
+            "type": "string"
+          },
+          "item_summary": {
+            "title": "Item Summary",
+            "type": "string"
+          },
+          "order_id": {
+            "title": "Order Id",
+            "type": "string"
+          },
+          "order_status": {
+            "title": "Order Status",
+            "type": "string"
+          },
+          "status_label": {
+            "title": "Status Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "order_id",
+          "item_summary",
+          "order_status",
+          "status_label",
+          "amount_cents",
+          "currency",
+          "created_at",
+          "created_at_local",
+          "cancelable"
+        ],
+        "title": "CustomerOrderSummary",
+        "type": "object"
+      },
+      "CustomerOrdersResponse": {
+        "additionalProperties": false,
+        "description": "客户最近订单列表；空列表表示本人暂无可展示订单。",
+        "properties": {
+          "orders": {
+            "items": {
+              "$ref": "#/components/schemas/CustomerOrderSummary"
+            },
+            "maxItems": 5,
+            "title": "Orders",
+            "type": "array"
+          }
+        },
+        "required": [
+          "orders"
+        ],
+        "title": "CustomerOrdersResponse",
+        "type": "object"
+      },
       "CustomerPublic": {
         "additionalProperties": false,
         "properties": {
@@ -1200,6 +1275,82 @@
           }
         },
         "summary": "Send Message",
+        "tags": [
+          "customer"
+        ]
+      }
+    },
+    "/customer/orders": {
+      "get": {
+        "description": "客户最近订单：本人同租户、白名单摘要；空列表不是错误。\n\nOMS 失败按依赖错误返回可重试状态，不影响聊天；访问审计复用 `audit_view`\n的 5 分钟去重，每次请求仍带 Trace。",
+        "operationId": "list_orders_customer_orders_get",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 5,
+              "maximum": 5,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomerOrdersResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "504": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Gateway Timeout"
+          }
+        },
+        "summary": "List Orders",
         "tags": [
           "customer"
         ]

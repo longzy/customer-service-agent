@@ -39,6 +39,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/customer/orders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Orders
+         * @description 客户最近订单：本人同租户、白名单摘要；空列表不是错误。
+         *
+         *     OMS 失败按依赖错误返回可重试状态，不影响聊天；访问审计复用 `audit_view`
+         *     的 5 分钟去重，每次请求仍带 Trace。
+         */
+        get: operations["list_orders_customer_orders_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/customer/session": {
         parameters: {
             query?: never;
@@ -325,6 +348,40 @@ export interface components {
         CustomerMessageRequest: {
             /** Content */
             content: string;
+        };
+        /**
+         * CustomerOrderSummary
+         * @description 客户订单列表项：003 摘要 + 由订单状态派生的 `cancelable`。
+         *
+         *     003 的消息 `payload` 不增加字段，列表页单独复用本 DTO。
+         */
+        CustomerOrderSummary: {
+            /** Amount Cents */
+            amount_cents: number;
+            /** Cancelable */
+            cancelable: boolean;
+            /** Created At */
+            created_at: string;
+            /** Created At Local */
+            created_at_local: string;
+            /** Currency */
+            currency: string;
+            /** Item Summary */
+            item_summary: string;
+            /** Order Id */
+            order_id: string;
+            /** Order Status */
+            order_status: string;
+            /** Status Label */
+            status_label: string;
+        };
+        /**
+         * CustomerOrdersResponse
+         * @description 客户最近订单列表；空列表表示本人暂无可展示订单。
+         */
+        CustomerOrdersResponse: {
+            /** Orders */
+            orders: components["schemas"]["CustomerOrderSummary"][];
         };
         /** CustomerPublic */
         CustomerPublic: {
@@ -770,6 +827,64 @@ export interface operations {
             };
             /** @description Too Many Requests */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    list_orders_customer_orders_get: {
+        parameters: {
+            query?: {
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CustomerOrdersResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Gateway Timeout */
+            504: {
                 headers: {
                     [name: string]: unknown;
                 };

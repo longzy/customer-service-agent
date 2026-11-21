@@ -54,11 +54,22 @@ function renderShell() {
 describe("ChatShell", () => {
   beforeEach(() => {
     replace.mockReset();
+    router.push.mockReset();
   });
 
   afterEach(() => {
     vi.useRealTimers();
     vi.restoreAllMocks();
+  });
+
+  it("AC-59 聊天顶部入口进入我的订单", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValueOnce(json(emptyPage()));
+
+    renderShell();
+    expect(await screen.findByText("你好，我是小回。")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "我的订单" }));
+    expect(router.push).toHaveBeenCalledWith("/orders");
   });
 
   it("AC-42 StrictMode 双调用下不丢已加载消息", async () => {
