@@ -38,7 +38,7 @@ export function OrdersPage() {
 
       <div className="mx-auto w-full max-w-[860px] flex-1 overflow-y-auto px-6 py-6 max-[1023px]:px-4">
         {state.kind === "loading" ? (
-          <div className="flex flex-col items-center gap-3 py-16" role="status">
+          <div className="flex flex-col items-center gap-3 py-8" role="status">
             <span
               aria-hidden="true"
               className="h-6 w-6 animate-spin rounded-full border-2 border-border border-t-accent motion-reduce:animate-none"
@@ -47,7 +47,7 @@ export function OrdersPage() {
           </div>
         ) : state.kind === "error" ? (
           <div
-            className="rounded-2xl border border-border bg-surface px-5 py-10 text-center"
+            className="rounded-2xl border border-border bg-surface px-6 py-8 text-center"
             role="alert"
           >
             <span
@@ -58,12 +58,12 @@ export function OrdersPage() {
             </span>
             <h2 className="mb-0 mt-3 text-lg font-semibold">{ERROR_TITLE}</h2>
             <p className="mb-0 mt-1.5 text-sm text-text-2">{ERROR_HINT}</p>
-            <Button variant="primary" size="sm" className="mt-5" onClick={() => void retry()}>
+            <Button variant="primary" size="sm" className="mt-6" onClick={() => void retry()}>
               重试
             </Button>
           </div>
         ) : state.orders.length === 0 ? (
-          <div className="rounded-2xl border border-border bg-surface px-5 py-10 text-center">
+          <div className="rounded-2xl border border-border bg-surface px-6 py-8 text-center">
             <span
               aria-hidden="true"
               className="mx-auto grid h-11 w-11 place-items-center rounded-full bg-surface-2 text-text-3"
