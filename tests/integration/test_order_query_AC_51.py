@@ -1,4 +1,4 @@
-"""F-25：订单访问基座与指定订单查询（AC-50/AC-51）。
+"""F-25：订单访问基座与指定订单查询（AC-51）。
 
 只覆盖"正文恰好含一个订单号"的确定性路径；最近订单、多单澄清与失败分级
 由 F-26/F-27 承接。
@@ -12,9 +12,10 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import update
 
+from backend.adapters.oms.faults import FaultRule
 from backend.agent_runtime.model import FakeModelClient
 from backend.api.main import create_app
-from backend.conversations.order_queries import NOT_FOUND_REPLY
+from backend.conversations.order_queries import NOT_FOUND_REPLY, UNAVAILABLE_REPLY
 from backend.platform.models import ServiceAiEvent, ServiceCustomer, ServiceHandoff
 from tests.integration.customer_support import (
     cleanup_customer_db,
@@ -137,7 +138,7 @@ def test_未绑定oms身份查无此单且不调用oms_AC_51() -> None:
 
     assert app.state.oms.calls["get_order"] == 0
     events = rows_of(ServiceAiEvent)
-    assert [(event.event_type, event.status) for event in events] == [("order_query", "unbound")]
+    assert [(event.event_type, event.status) for event in events] == [("order_query", "not_found")]
 
 
 def test_普通消息不触发订单查询_AC_51() -> None:
@@ -174,3 +175,47 @@ def test_同幂等键重放不重复查询_AC_51() -> None:
 
     assert app.state.oms.calls["get_order"] == 1
     assert len(rows_of(ServiceAiEvent)) == 1
+
+
+def test_带订单号的取消诉求仍转人工_AC_32() -> None:
+    """守护 001 的 out-of-scope 路径：取消/退款不能被查询分支截走。"""
+    app = order_app(
+        {
+            "取消 ORD-10001": {
+                "intent": "UNKNOWN",
+                "confidence": 0.95,
+                "reply": "好的，我帮你处理。",
+            }
+        }
+    )
+    with api_client(app) as api:
+        login(api, "customer_a")
+        response = send(api, "取消 ORD-10001")
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert body["status"] == "QUEUED"
+        assert [item["author_type"] for item in body["messages"]] == ["customer", "system"]
+        assert ai_messages(body) == []
+
+    assert app.state.oms.calls["get_order"] == 0
+    assert len(rows_of(ServiceHandoff)) == 1
+
+
+def test_oms超时返回暂时不可用且不建单_AC_51() -> None:
+    app = order_app()
+    app.state.oms.faults.add(
+        FaultRule(kind="timeout", tool="get_order", order_id="ORD-10001", times=1)
+    )
+    with api_client(app) as api:
+        login(api, "customer_a")
+        response = send(api, "查 ORD-10001")
+        assert response.status_code == 200, response.text
+        body = response.json()
+        assert body["status"] == "AI_ACTIVE"
+        [message] = ai_messages(body)
+        assert message["content"] == UNAVAILABLE_REPLY
+        assert message["payload"]["orders"] == []
+
+    assert rows_of(ServiceHandoff) == []
+    events = rows_of(ServiceAiEvent)
+    assert [(event.event_type, event.status) for event in events] == [("order_query", "timeout")]

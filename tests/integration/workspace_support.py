@@ -30,7 +30,10 @@ EMPLOYEES = (
     ("agent_2", "坐席 2"),
 )
 NON_AGENT = ("supervisor_x", "主管甲", "supervisor")
-CUSTOMERS = (("customer_a", "客户甲"), ("customer_b", "客户乙"))
+CUSTOMERS = (
+    ("customer_a", "客户甲", "user-a1"),
+    ("customer_b", "客户乙", "user-b1"),
+)
 
 
 async def reset_workspace_state(db: Any) -> None:
@@ -49,7 +52,7 @@ async def reset_workspace_state(db: Any) -> None:
 
 
 async def seed_workspace(db: Any) -> None:
-    for username, display_name in CUSTOMERS:
+    for username, display_name, oms_customer_id in CUSTOMERS:
         db.add(
             ServiceCustomer(
                 id=f"cust-{username}",
@@ -57,6 +60,7 @@ async def seed_workspace(db: Any) -> None:
                 username=username,
                 password_hash=hash_password(DEMO_CREDENTIAL),
                 display_name=display_name,
+                oms_customer_id=oms_customer_id,
                 active=True,
             )
         )

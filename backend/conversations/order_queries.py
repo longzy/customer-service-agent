@@ -13,7 +13,7 @@ from datetime import UTC, datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from backend.conversations.handoffs import ORDER_ID_PATTERN
+from backend.conversations.handoffs import ORDER_ID_PATTERN, normalize_text
 from backend.identity import Identity
 from backend.identity.customer_sessions import Customer
 from backend.tools.gateway import GatewayError, ToolGateway
@@ -23,6 +23,24 @@ LOCAL_ZONE = ZoneInfo("Asia/Shanghai")
 NOT_FOUND_REPLY = "没有查到你名下的这笔订单，请核对订单号，或说「转人工」。"
 UNAVAILABLE_REPLY = "订单查询暂时不可用，可以重试，或说「转人工」。"
 
+# 这些是"对订单做别的操作"，不是查询：命中后不进入订单查询分支，保持 001 的转人工路径。
+NON_QUERY_TERMS = (
+    "取消",
+    "退款",
+    "退货",
+    "换货",
+    "修改",
+    "改地址",
+    "投诉",
+    "售后",
+    "发票",
+    "支付",
+    "付款",
+    "扣款",
+    "转账",
+    "银行卡",
+)
+
 STATUS_LABELS = {
     "PAID_UNFULFILLED": "已支付未发货",
     "FULFILLING": "备货中",
@@ -30,16 +48,6 @@ STATUS_LABELS = {
     "DELIVERED": "已送达",
     "CANCELLED": "已取消",
 }
-
-# 订单摘要白名单：items/paid_at/shipped_at 等不进消息、快照、审计或日志。
-SUMMARY_FIELDS = (
-    "order_id",
-    "item_summary",
-    "order_status",
-    "amount_cents",
-    "currency",
-    "created_at",
-)
 
 
 def extract_order_ids(text: str) -> list[str]:
@@ -50,9 +58,19 @@ def extract_order_ids(text: str) -> list[str]:
     return list(seen)
 
 
+def has_non_query_order_intent(text: str) -> bool:
+    """正文是否在表达取消/退款等操作；命中时不得走订单查询分支。
+
+    与 001 的 `match_out_of_scope_term` 共用 `normalize_text`，容忍空格、全角
+    标点与插入符号（例如「取 消 ORD-10001」）。
+    """
+    normalized = normalize_text(text)
+    return any(normalize_text(term) in normalized for term in NON_QUERY_TERMS)
+
+
 def format_amount(amount_cents: int, currency: str) -> str:
-    """金额格式：CNY 用 `¥`，其他币种保留代码前缀。"""
-    value = f"{amount_cents / 100:.2f}"
+    """金额按整数分拼接，避免浮点误差；CNY 用 `¥`，其他币种保留代码前缀。"""
+    value = f"{amount_cents // 100}.{amount_cents % 100:02d}"
     if currency.upper() == "CNY":
         return f"¥{value}"
     return f"{currency.upper()} {value}"
@@ -70,7 +88,11 @@ def format_created_at(value: str) -> str:
 
 
 def order_summary(order: dict[str, Any]) -> dict[str, Any]:
-    """把 OMS 订单详情投影为可展示摘要；缺字段时按空值兜底，不抛给调用方。"""
+    """把 OMS 订单详情投影为可展示摘要；缺字段时按空值兜底，不抛给调用方。
+
+    白名单：`order_id`/`item_summary`/`order_status`/`amount_cents`/`currency`/
+    `created_at`，另派生 `status_label` 与 `created_at_local` 供展示。
+    """
     status = str(order.get("order_status", ""))
     return {
         "order_id": str(order.get("order_id", "")),
@@ -96,9 +118,14 @@ def build_order_reply(summary: dict[str, Any]) -> str:
 
 @dataclass(frozen=True)
 class OrderQueryOutcome:
-    """一次订单查询的结果；`status` 直接写入 `service_ai_events.status`。"""
+    """一次订单查询的结果；`status` 直接写入 `service_ai_events.status`。
 
-    status: str  # ok | not_found | unavailable | unbound
+    - `ok`：查到本人订单
+    - `not_found`：不存在/他人/未绑定，客户可见文案一致
+    - `timeout` / `error`：OMS 超时/不可用/非法响应
+    """
+
+    status: str
     orders: list[dict[str, Any]] = field(default_factory=list)
     reply: str = NOT_FOUND_REPLY
     error_code: str | None = None
@@ -120,6 +147,17 @@ def _error_code(error: GatewayError) -> str | None:
     return str(code) if code is not None else None
 
 
+def _failure(error: GatewayError) -> OrderQueryOutcome:
+    """按网关状态码区分超时与其他失败，供 F-27 的连续失败分级使用。"""
+    if error.status_code == 504:
+        return OrderQueryOutcome(
+            status="timeout", orders=[], reply=UNAVAILABLE_REPLY, error_code=_error_code(error)
+        )
+    return OrderQueryOutcome(
+        status="error", orders=[], reply=UNAVAILABLE_REPLY, error_code=_error_code(error)
+    )
+
+
 async def query_order(
     gateway: ToolGateway | None,
     customer: Customer,
@@ -128,10 +166,11 @@ async def query_order(
 ) -> OrderQueryOutcome:
     """查询客户本人的一笔订单；任何失败都不向客户泄露差异。"""
     if not customer.oms_customer_id:
-        return OrderQueryOutcome(status="unbound", orders=[], reply=NOT_FOUND_REPLY)
+        # 未绑定与"不存在/他人"对客户不可区分；运维区分交给 F-29 的指标与日志。
+        return OrderQueryOutcome(status="not_found", orders=[], reply=NOT_FOUND_REPLY)
     if gateway is None:
         return OrderQueryOutcome(
-            status="unavailable", orders=[], reply=UNAVAILABLE_REPLY, error_code="GATEWAY_MISSING"
+            status="error", orders=[], reply=UNAVAILABLE_REPLY, error_code="GATEWAY_MISSING"
         )
     try:
         order = await asyncio.to_thread(
@@ -144,19 +183,14 @@ async def query_order(
     except GatewayError as error:
         if error.status_code == 404:
             return OrderQueryOutcome(status="not_found", orders=[], reply=NOT_FOUND_REPLY)
-        return OrderQueryOutcome(
-            status="unavailable",
-            orders=[],
-            reply=UNAVAILABLE_REPLY,
-            error_code=_error_code(error),
-        )
+        return _failure(error)
     except Exception:  # noqa: BLE001 - 订单查询失败不能拖垮消息路径
         return OrderQueryOutcome(
-            status="unavailable", orders=[], reply=UNAVAILABLE_REPLY, error_code="INTERNAL_ERROR"
+            status="error", orders=[], reply=UNAVAILABLE_REPLY, error_code="INTERNAL_ERROR"
         )
     if not isinstance(order, dict):
         return OrderQueryOutcome(
-            status="unavailable", orders=[], reply=UNAVAILABLE_REPLY, error_code="INVALID_RESPONSE"
+            status="error", orders=[], reply=UNAVAILABLE_REPLY, error_code="INVALID_RESPONSE"
         )
     summary = order_summary(order)
     return OrderQueryOutcome(status="ok", orders=[summary], reply=build_order_reply(summary))

@@ -24,7 +24,11 @@ from backend.conversations.handoffs import (
     decide_model_handoff,
     match_handoff_keyword,
 )
-from backend.conversations.order_queries import extract_order_ids, query_order
+from backend.conversations.order_queries import (
+    extract_order_ids,
+    has_non_query_order_intent,
+    query_order,
+)
 from backend.conversations.statuses import (
     AI_ACTIVE,
     CLOSED,
@@ -460,8 +464,8 @@ async def send_customer_message(
     timeout_seconds: float,
     trace_id: str,
     now: datetime,
-    customer: Customer | None = None,
-    order_gateway: ToolGateway | None = None,
+    customer: Customer,
+    order_gateway: ToolGateway | None,
 ) -> ChatResult:
     replay = await _replay(db, conversation, idempotency_key)
     if replay is not None:
@@ -518,8 +522,9 @@ async def send_customer_message(
         )
         return _queued_result(conversation, customer_message, notice, handoff_id)
 
+    # 取消/退款等"对订单做别的操作"保持 001 的转人工路径，不能被查询分支截走。
     order_ids = extract_order_ids(content)
-    if len(order_ids) == 1 and customer is not None:
+    if len(order_ids) == 1 and not has_non_query_order_intent(content):
         return await _order_query_result(
             db,
             conversation,

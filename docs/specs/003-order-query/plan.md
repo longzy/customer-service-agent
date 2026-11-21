@@ -62,7 +62,7 @@
 1. **模型不直接调工具**：模型只输出意图与订单号候选（现有 `emit_intent`），订单查询由服务端在 `AI_ACTIVE` 分支确定性执行。这样越权在服务端闸门被挡住，模型永远看不到未授权订单，提示注入无法扩大数据面。备选（function calling）见第 4 节。
 2. **回复用确定性模板**：订单摘要按固定句式拼装（订单号、商品、状态文案、金额、下单时间），不让模型改写。AC-54 的事实性因此可 100% 保证，测试也稳定。M3 若需要更自然措辞，再引入"带摘要的二次模型调用"。
 3. **Gateway 复用**：`ToolGateway` 是同步实现（ThreadPoolExecutor + 2s 超时），在 async 路由里用 `asyncio.to_thread` 调用；`Identity` 由客户会话构造（`account_id=customer.id`、`user_id=customer.oms_customer_id`、`tenant_id`、显示名）。
-4. **订单快照存消息**：`service_messages.payload` JSONB 存最多 5 条摘要，前端按消息渲染卡片；刷新/重放不重新查 OMS。卡片标注"查询时状态"，避免 OMS 状态变化后的误解。
+4. **订单快照存消息**：`service_messages.payload` JSON 存最多 5 条摘要（仓库既有 JSON 列一致），前端按消息渲染卡片；刷新/重放不重新查 OMS。卡片标注"查询时状态"，避免 OMS 状态变化后的误解。
 5. **交接单上下文**：`ServiceHandoff.context` 已有 JSON 字段，写入 `orders`（≤5 条摘要）与 `order_count`；不新增列。转人工发生在订单查询之后（AI 判断需要人）时带上本次查询结果；客户直接说"转人工"时，若本会话已有成功查询快照则复用，否则查一次最近订单（失败不阻塞转人工）。
 
 ### 3.2 数据模型与迁移
@@ -72,20 +72,20 @@
 | 表 | 变更 | 说明 |
 |---|---|---|
 | `service_customers` | `oms_customer_id VARCHAR(64) NULL`；部分唯一索引 `(tenant_id, oms_customer_id) WHERE oms_customer_id IS NOT NULL` | 客户账号 ↔ OMS 客户身份；生产由账号绑定流程填，M1 种子回填 `customer_a→user-a1`、`customer_b→user-b1` |
-| `service_messages` | `payload JSONB NULL` | AI 消息的订单摘要快照（≤5 条）；客户消息为 NULL |
+| `service_messages` | `payload JSON NULL` | AI 消息的订单摘要快照（≤5 条）；客户消息为 NULL |
 
 - 回填：`scripts/seed_demo.py` 写入 `oms_customer_id`；`scripts/reset_dev_db.py`/迁移不猜测生产数据。
-- 未绑定 `oms_customer_id` 的客户：所有订单查询返回"查无此单"（不报错、不泄露），并记 warning 指标 `order_query_unbound_total`；不阻塞聊天。
-- 订单摘要白名单字段：`order_id`、`item_summary`、`order_status`、`amount_cents`、`currency`、`created_at`。`items`、`paid_at`、`shipped_at` 不进快照。
+- 未绑定 `oms_customer_id` 的客户：所有订单查询返回"查无此单"（与不存在/他人不可区分，不报错、不泄露）；AI 事件按 `not_found` 记录，运维区分靠 `order_query_total{status}` 与日志（F-29 承接），不阻塞聊天。
+- 订单摘要白名单字段：`order_id`、`item_summary`、`order_status`、`amount_cents`、`currency`、`created_at`，另派生 `status_label`（中文状态）与 `created_at_local`（上海本地时间）。`items`、`paid_at`、`shipped_at` 不进快照。
 
 ### 3.3 API / 状态机 / 并发
 
 - **不新增客户 HTTP 路由**：查询发生在 `POST /conversations/{id}/messages` 的同一次调用内；响应消息带 `payload`，现有 3s 轮询自动带出。
 - **工作台 DTO**：`ConversationDetail`（或现有详情响应）增加 `orders: [{...}]` 与 `order_count`；值来自交接单 `context`，不实时查 OMS（避免坐席每次打开都打 OMS）。OMS 异常只在客户查询时暴露。
 - **状态机**：不变。订单查询成功/查无/失败都不改 `conversations.status`；只有连续失败转人工走现有 `_queue_for_handoff`。
-- **并发**：同一会话的消息处理已有串行语义（001）；订单查询在业务事务外（`asyncio.to_thread`），完成后在同一事务写消息与事件；Gateway 超时 2s，总响应时间受 `MODEL_TIMEOUT` 与 2s 上限约束。
+- **并发**：同一会话的消息处理已有串行语义（001）；订单查询不新开连接/事务，在请求事务内通过 `asyncio.to_thread` 调用 Gateway（查询期间仍持有请求事务连接），完成后在同一事务写消息与事件；Gateway 超时 2s，总响应时间受 `MODEL_TIMEOUT` 与 2s 上限约束。
 - **幂等**：消息幂等键重放直接返回已存消息与 `payload`，不重新查 OMS；订单查询失败的重试是客户的新消息，按新请求处理。
-- **顺序**：先在 AI_ACTIVE 分支完成意图分类，再查询，再落库；关键词转人工优先（现有逻辑不变）。
+- **顺序**：先做关键词转人工与订单号护栏；正文恰好一个订单号且不含取消/退款等操作词时直接查询（不调模型），其余走模型意图分类；查询后再落库。
 
 ### 3.4 失败路径与用户可见文案
 
@@ -94,6 +94,7 @@
 | 订单不存在 / 他人订单 / 未绑定 OMS 身份 | 不建单、不泄露差异；AI 事件 `order_query`/`not_found` | "没有查到你名下的这笔订单，请核对订单号，或说「转人工」。" |
 | 无任何订单 | 不建单 | "你名下暂时没有订单。需要的话可以说「转人工」。" |
 | 多个订单号 | 不调用 OMS；澄清 | "你提到了多个订单号，请一次查一笔，例如 ORD-10001。" |
+| 正文含取消/退款/退货/换货/改地址/投诉/售后/发票/支付等操作词 | 不进入订单查询分支，交回 001 的模型/转人工判定（取消/退款等命中 `OUT_OF_SCOPE_TERMS` 时转人工） | 沿用 001 AC-32 的判定与文案 |
 | 半截/格式错误 | 不调用 OMS；澄清 | "订单号看起来不完整，请发完整的订单号，例如 ORD-10001。" |
 | OMS 超时/异常/非法响应 | 不建单；`order_failure_count += 1`；AI 事件 `timeout/error` | "订单查询暂时不可用，可以重试，或说「转人工」。" |
 | 同会话连续 2 次订单失败 | 转人工，`trigger=order_query_failure`，交接单带 `failure_count` | "订单查询连续失败，已为你转接人工。" |
@@ -124,11 +125,11 @@
 - **审计**：新增事件 `order.queried`（actor=customer，entity=order，metadata：`conversation_id`、`order_id`（可空）、`order_count`、`result`、`error_code`）；`AUDIT_METADATA_KEYS` 增加 `order_id`、`order_count`、`result`、`tool`。审计与消息同事务，失败按既有 503 回滚。
 - **AI 事件**：`service_ai_events` 写 `event_type=order_query`、`name=get_order|list_recent_orders`、`status=ok|not_found|timeout|error`、`order_id`（如有）。
 - **评测**：`evals/` 新增订单查询场景（最近订单、指定订单、他人订单、不存在、多单澄清、OMS 超时）；断言回复中的订单号/金额/状态与夹具一致、无夹具外订单号。
-- **指标**：`order_query_total{tool,status}`、`order_query_latency_ms`、`order_query_unbound_total`。
+- **指标**：`order_query_total{tool,status}`、`order_query_latency_ms`（数值由 F-29 接入）。未绑定与不存在/他人同为 `status=not_found`，无法仅凭 status 区分；F-29 需单独记录 unbound 日志/指标。
 
 ### 3.7 测试 seam
 
-- 集成：`tests/integration/test_order_query_AC_50.py` ~ `test_order_query_AC_57.py`，用种子客户 + Mock OMS 夹具；跨客户用 customer_a/customer_b。
+- 集成：F-25 用 `tests/integration/test_order_query_AC_51.py`；AC-50/AC-52~AC-58 的用例文件由 F-26~F-29 创建。统一用种子客户 + Mock OMS 夹具；跨客户用 customer_a/customer_b。
 - 前端：`apps/chat/tests/OrderCard.test.tsx`、`apps/workspace/tests/ConversationOrders.test.tsx`。
 - 契约：`packages/contracts/tools/get_order.json` / `list_recent_orders.json` 不变；若需新增字段，先改契约再生成前端类型。
 - 迁移：`tests/integration/test_migrations.py` 加 0013 升级/回滚。
@@ -169,7 +170,7 @@
 
 - 订单查询单次 OMS 调用（≤2s 超时），不叠加模型调用（模型分类已在消息路径中）。
 - 最近订单最多 5 条，摘要字段小；消息 payload ≤ 数 KB。
-- 不因订单查询新增数据库连接占用：Gateway 调用在业务连接之外，完成后统一写消息/事件/审计。
+- 不因订单查询新增数据库连接占用：Gateway 调用不新开连接池，查询完成后统一写消息/事件/审计。
 
 ## 6. 未决问题（Open Questions）
 
