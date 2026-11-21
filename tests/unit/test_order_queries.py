@@ -3,15 +3,21 @@
 import pytest
 
 from backend.conversations.order_queries import (
+    MULTIPLE_ORDERS_REPLY,
     NOT_FOUND_REPLY,
+    PARTIAL_ORDER_ID_REPLY,
+    RECENT_EMPTY_REPLY,
     UNAVAILABLE_REPLY,
     build_order_reply,
+    build_recent_orders_reply,
     extract_order_ids,
     format_amount,
     format_created_at,
     has_non_query_order_intent,
+    order_query_kind,
     order_summary,
     query_order,
+    query_recent_orders,
 )
 from backend.identity.customer_sessions import Customer
 from backend.tools.gateway import GatewayError
@@ -199,5 +205,101 @@ async def test_query_order_未知异常不抛出() -> None:
     outcome = await query_order(
         FakeGateway(error=RuntimeError("boom")), customer(), "ORD-10001", "t"
     )
+    assert outcome.status == "error"
+    assert outcome.reply == UNAVAILABLE_REPLY
+
+
+# --- F-26：最近订单、澄清判定与列表文案 -------------------------------------
+
+ORDER2 = {
+    "order_id": "ORD-10002",
+    "item_summary": "机械键盘 × 1",
+    "order_status": "FULFILLING",
+    "amount_cents": 69900,
+    "currency": "CNY",
+    "created_at": "2026-11-11T03:00:00Z",
+}
+
+
+@pytest.mark.parametrize(
+    ("content", "kind"),
+    [
+        ("查 ORD-10001", "single"),
+        ("ord-10001", "single"),
+        ("ORD-10001 和 ORD-10002", "multiple"),
+        ("查 ORD-10", "partial"),
+        ("订单号 ORD-", "partial"),
+        ("我的订单", "none"),
+        ("最近买了什么", "none"),
+        ("取消 ORD-10001", "none"),
+        ("取消我的订单", "none"),
+    ],
+)
+def test_order_query_kind(content: str, kind: str) -> None:
+    assert order_query_kind(content) == kind
+
+
+def test_build_recent_orders_reply_只陈述摘要字段() -> None:
+    reply = build_recent_orders_reply([order_summary(ORDER), order_summary(ORDER2)])
+    assert "最近 2 笔订单" in reply
+    assert "ORD-10001" in reply
+    assert "机械键盘 × 1" in reply
+    assert "备货中" in reply
+    assert "¥699.00" in reply
+    assert "2026-11-11 11:00" in reply
+    assert "SKU" not in reply
+
+
+def test_最近订单与澄清固定文案() -> None:
+    assert MULTIPLE_ORDERS_REPLY == "你提到了多个订单号，请一次查一笔，例如 ORD-10001。"
+    assert PARTIAL_ORDER_ID_REPLY == "订单号看起来不完整，请发完整的订单号，例如 ORD-10001。"
+    assert RECENT_EMPTY_REPLY == "你名下暂时没有订单。需要的话可以说「转人工」。"
+
+
+async def test_query_recent_orders_成功投影摘要且limit为5() -> None:
+    gateway = FakeGateway(result=[dict(ORDER), dict(ORDER2)])
+    outcome = await query_recent_orders(gateway, customer(), "trace-1")
+    assert outcome.status == "ok"
+    assert outcome.tool == "list_recent_orders"
+    assert [order["order_id"] for order in outcome.orders] == ["ORD-10001", "ORD-10002"]
+    assert "最近 2 笔订单" in outcome.reply
+    assert gateway.calls == [("list_recent_orders", {"limit": 5}, "user-a1")]
+
+
+async def test_query_recent_orders_空列表明确告知() -> None:
+    outcome = await query_recent_orders(FakeGateway(result=[]), customer(), "t")
+    assert outcome.status == "not_found"
+    assert outcome.orders == []
+    assert outcome.reply == RECENT_EMPTY_REPLY
+
+
+async def test_query_recent_orders_未绑定不调用网关() -> None:
+    gateway = FakeGateway(result=[])
+    outcome = await query_recent_orders(gateway, customer(oms_customer_id=None), "t")
+    assert outcome.status == "not_found"
+    assert outcome.reply == RECENT_EMPTY_REPLY
+    assert gateway.calls == []
+
+
+async def test_query_recent_orders_非列表响应归一error() -> None:
+    outcome = await query_recent_orders(FakeGateway(result={"not": "a list"}), customer(), "t")
+    assert outcome.status == "error"
+    assert outcome.error_code == "INVALID_RESPONSE"
+
+
+@pytest.mark.parametrize(
+    ("status_code", "expected"),
+    [(504, "timeout"), (503, "error"), (500, "error")],
+)
+async def test_query_recent_orders_失败按状态码分级(status_code: int, expected: str) -> None:
+    gateway = FakeGateway(error=GatewayError(status_code, {"code": "DOWNSTREAM"}))
+    outcome = await query_recent_orders(gateway, customer(), "t")
+    assert outcome.status == expected
+    assert outcome.reply == UNAVAILABLE_REPLY
+    assert outcome.tool == "list_recent_orders"
+
+
+async def test_query_recent_orders_未知异常不抛出() -> None:
+    outcome = await query_recent_orders(FakeGateway(error=RuntimeError("boom")), customer(), "t")
     assert outcome.status == "error"
     assert outcome.reply == UNAVAILABLE_REPLY
