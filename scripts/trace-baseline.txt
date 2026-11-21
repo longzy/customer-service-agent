@@ -1,9 +1,5 @@
 # 客户转人工闭环（001）的 AC；测试落地后逐条删除，切片出口清零。
-AC-50: 003-order-query 待开工（F-26，S-02）
-AC-51: 003-order-query 待 F-26 通过（S-02）
-AC-52: 003-order-query 待开工（F-26，S-02）
 AC-53: 003-order-query 待开工（F-27，S-02）
-AC-54: 003-order-query 待开工（F-26，S-02）
 AC-55: 003-order-query 待开工（F-28，S-03）
 AC-56: 003-order-query 待开工（F-28，S-03）
 AC-57: 003-order-query 待开工（F-29，S-04）

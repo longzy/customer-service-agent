@@ -38,20 +38,17 @@ PENDING_STEP = "等待坐席接入"
 HANDOFF_CONFIDENCE_THRESHOLD = 0.6
 # 模型自述“要人工”：HUMAN_HANDOFF 是 Prompt 约定值，TRANSFER 兼容同义输出
 TRANSFER_INTENTS = frozenset({Intent.HUMAN_HANDOFF.value, "TRANSFER"})
-# 本切片没有订单 Tool：这些意图一律转人工，不把模型回复交给客户
+# 取消/退款与真正的超范围意图仍转人工；订单查询意图已由 F-26 的订单分支承接。
 OUT_OF_SCOPE_INTENTS = frozenset(
     {
-        Intent.QUERY_ORDER.value,
-        Intent.QUERY_RECENT.value,
         Intent.CANCEL_ORDER.value,
         Intent.CONFIRM_CANCEL.value,
         "OUT_OF_SCOPE",
     }
 )
-# 常见订单/交易/售后诉求：即使模型误判为 UNKNOWN 也由确定性规则转人工
+# 常见订单/交易/售后诉求：即使模型误判为 UNKNOWN 也由确定性规则转人工。
+# “订单/单号”不在此列：F-26 起由订单查询分支处理，闲聊带“订单”不建单（AC-52）。
 OUT_OF_SCOPE_TERMS = (
-    "订单",
-    "单号",
     "物流",
     "快递",
     "包裹",
@@ -76,6 +73,8 @@ OUT_OF_SCOPE_TERMS = (
     "投诉",
     "售后",
 )
+# 模型回复仍按完整词表拦截：AI 不应在回复里自行发散订单话题或编造订单信息。
+REPLY_OUT_OF_SCOPE_TERMS = OUT_OF_SCOPE_TERMS + ("订单", "单号")
 ORDER_ID_PATTERN = re.compile(r"(?<![A-Za-z0-9-])ORD-\d{4,12}(?![\d-])", re.IGNORECASE)
 
 
@@ -119,11 +118,11 @@ def match_handoff_keyword(text: str) -> str | None:
     return next((keyword for keyword in HANDOFF_KEYWORDS if keyword in normalized), None)
 
 
-def match_out_of_scope_term(text: str) -> str | None:
+def match_out_of_scope_term(text: str, terms: tuple[str, ...] = OUT_OF_SCOPE_TERMS) -> str | None:
     """返回命中的订单/超范围词；归一化后匹配，容忍空格与中文标点。"""
     normalized = normalize_text(text)
     return next(
-        (term for term in OUT_OF_SCOPE_TERMS if normalize_text(term) in normalized),
+        (term for term in terms if normalize_text(term) in normalized),
         None,
     )
 
@@ -134,8 +133,9 @@ def decide_model_handoff(
     """判定关键词未命中的模型输出是否转人工（plan 3.3.4）。
 
     优先级：订单/超范围文本 > 模型转人工意图 > 模型超范围意图 > 低置信 >
-    模型回复含订单/超范围内容。文本与回复规则是确定性护栏：本切片没有订单 Tool，
-    模型回复里的订单信息不可信，直接丢弃并转人工。
+    模型回复含订单/超范围内容。文本与回复规则是确定性护栏：订单查询由
+    F-26 的订单分支（服务端确定性执行）承接，模型回复里的订单信息不可信，
+    出现订单号或订单话题直接丢弃并转人工。
     """
     matched_term = match_out_of_scope_term(content)
     if matched_term is not None:
@@ -165,7 +165,7 @@ def decide_model_handoff(
             summary_hint=f"AI 置信度不足（{confidence:.2f}），已自动转人工",
         )
 
-    reply_term = match_out_of_scope_term(reply)
+    reply_term = match_out_of_scope_term(reply, REPLY_OUT_OF_SCOPE_TERMS)
     if reply_term is not None or ORDER_ID_PATTERN.search(reply):
         detail = f"命中“{reply_term}”" if reply_term is not None else "包含订单号"
         return HandoffDecision(

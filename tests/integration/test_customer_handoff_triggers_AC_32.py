@@ -135,7 +135,8 @@ def test_自然表达要求人工自动转人工_AC_32() -> None:
     assert [row.author_type for row in rows_of(ServiceMessage)] == ["customer", "system"]
 
 
-def test_询问订单自动转人工且不返回模型编造的订单信息_AC_32() -> None:
+def test_模型回复编造订单信息仍转人工且不返回_AC_32() -> None:
+    """F-26 起正文里的“订单”由查询分支承接；模型回复仍受编造护栏拦截。"""
     content = "我的订单到哪了"
     fabricated = "您的订单 ORD-10001 已发货，预计明天送达。"
     app, model = app_with(ChatReply(intent="UNKNOWN", confidence=0.96, reply=fabricated))
@@ -152,15 +153,15 @@ def test_询问订单自动转人工且不返回模型编造的订单信息_AC_3
 
     handoff = only_handoff()
     assert handoff.reason == "OUT_OF_SCOPE"
-    assert handoff.context["trigger"] == "out_of_scope"
+    assert handoff.context["trigger"] == "model_out_of_scope"
     assert handoff.context["order_count"] == 0
     assert "订单" in handoff.summary
     assert all("ORD-10001" not in row.content for row in rows_of(ServiceMessage))
 
 
-def test_模型判定订单意图自动转人工_AC_32() -> None:
+def test_模型判定取消意图自动转人工_AC_32() -> None:
     content = "帮我看看那个东西"
-    app, model = app_with(ChatReply(intent="QUERY_ORDER", confidence=0.97, reply="好的。"))
+    app, model = app_with(ChatReply(intent="CANCEL_ORDER", confidence=0.97, reply="好的。"))
     with TestClient(app) as api:
         login_customer(api)
         response = send(api, content)

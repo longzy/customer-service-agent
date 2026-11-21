@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
@@ -22,6 +23,24 @@ LOCAL_ZONE = ZoneInfo("Asia/Shanghai")
 
 NOT_FOUND_REPLY = "没有查到你名下的这笔订单，请核对订单号，或说「转人工」。"
 UNAVAILABLE_REPLY = "订单查询暂时不可用，可以重试，或说「转人工」。"
+RECENT_EMPTY_REPLY = "你名下暂时没有订单。需要的话可以说「转人工」。"
+MULTIPLE_ORDERS_REPLY = "你提到了多个订单号，请一次查一笔，例如 ORD-10001。"
+PARTIAL_ORDER_ID_REPLY = "订单号看起来不完整，请发完整的订单号，例如 ORD-10001。"
+RECENT_ORDERS_LIMIT = 5
+
+# 与 `ORDER_ID_PATTERN`（ORD- + 4~12 位数字）互补：1~3 位、13 位以上或没有数字，
+# 都视为"半截/格式错误"，先澄清而不是猜一个订单号去查。
+PARTIAL_ORDER_ID_PATTERN = re.compile(
+    r"(?<![A-Za-z0-9-])ORD-(?:\d{1,3}|\d{13,})?(?![\d-])", re.IGNORECASE
+)
+
+# 订单查询意图：模型判断客户在问订单，但正文没给订单号时，查最近订单。
+ORDER_QUERY_INTENTS = frozenset({"QUERY_ORDER", "QUERY_RECENT"})
+
+ORDER_QUERY_NONE = "none"
+ORDER_QUERY_SINGLE = "single"
+ORDER_QUERY_MULTIPLE = "multiple"
+ORDER_QUERY_PARTIAL = "partial"
 
 # 这些是"对订单做别的操作"，不是查询：命中后不进入订单查询分支，保持 001 的转人工路径。
 NON_QUERY_TERMS = (
@@ -66,6 +85,26 @@ def has_non_query_order_intent(text: str) -> bool:
     """
     normalized = normalize_text(text)
     return any(normalize_text(term) in normalized for term in NON_QUERY_TERMS)
+
+
+def order_query_kind(text: str) -> str:
+    """判定一条客户消息进入哪条订单分支，供消息处理与单测共用。
+
+    - `multiple`：≥2 个订单号，先澄清；
+    - `single`：恰好 1 个完整订单号，查单笔；
+    - `partial`：只有半截/格式错误的订单号，先澄清；
+    - `none`：不进入订单分支（含取消/退款等操作词，或没有任何订单号）。
+    """
+    if has_non_query_order_intent(text):
+        return ORDER_QUERY_NONE
+    order_ids = extract_order_ids(text)
+    if len(order_ids) > 1:
+        return ORDER_QUERY_MULTIPLE
+    if len(order_ids) == 1:
+        return ORDER_QUERY_SINGLE
+    if PARTIAL_ORDER_ID_PATTERN.search(text):
+        return ORDER_QUERY_PARTIAL
+    return ORDER_QUERY_NONE
 
 
 def format_amount(amount_cents: int, currency: str) -> str:
@@ -116,6 +155,19 @@ def build_order_reply(summary: dict[str, Any]) -> str:
     )
 
 
+def build_recent_orders_reply(orders: list[dict[str, Any]]) -> str:
+    """最近订单列表的确定性回复；每行只使用摘要字段（plan 3.5）。"""
+    lines = [f"你名下最近 {len(orders)} 笔订单："]
+    for index, summary in enumerate(orders, start=1):
+        amount = format_amount(int(summary["amount_cents"]), str(summary["currency"]))
+        lines.append(
+            f"{index}. {summary['order_id']}：{summary['item_summary']}，"
+            f"{summary['status_label']}，金额 {amount}，"
+            f"下单时间 {summary['created_at_local']}"
+        )
+    return "\n".join(lines)
+
+
 @dataclass(frozen=True)
 class OrderQueryOutcome:
     """一次订单查询的结果；`status` 直接写入 `service_ai_events.status`。
@@ -147,14 +199,22 @@ def _error_code(error: GatewayError) -> str | None:
     return str(code) if code is not None else None
 
 
-def _failure(error: GatewayError) -> OrderQueryOutcome:
+def _failure(error: GatewayError, tool: str = "get_order") -> OrderQueryOutcome:
     """按网关状态码区分超时与其他失败，供 F-27 的连续失败分级使用。"""
     if error.status_code == 504:
         return OrderQueryOutcome(
-            status="timeout", orders=[], reply=UNAVAILABLE_REPLY, error_code=_error_code(error)
+            status="timeout",
+            orders=[],
+            reply=UNAVAILABLE_REPLY,
+            error_code=_error_code(error),
+            tool=tool,
         )
     return OrderQueryOutcome(
-        status="error", orders=[], reply=UNAVAILABLE_REPLY, error_code=_error_code(error)
+        status="error",
+        orders=[],
+        reply=UNAVAILABLE_REPLY,
+        error_code=_error_code(error),
+        tool=tool,
     )
 
 
@@ -194,3 +254,68 @@ async def query_order(
         )
     summary = order_summary(order)
     return OrderQueryOutcome(status="ok", orders=[summary], reply=build_order_reply(summary))
+
+
+async def query_recent_orders(
+    gateway: ToolGateway | None,
+    customer: Customer,
+    trace_id: str,
+    limit: int = RECENT_ORDERS_LIMIT,
+) -> OrderQueryOutcome:
+    """查询客户本人最近的订单（≤limit 条）；空结果与未绑定都不可区分。"""
+    if not customer.oms_customer_id:
+        # 没有归属就没有数据面；与"真的没有订单"使用同一文案。
+        return OrderQueryOutcome(
+            status="not_found",
+            orders=[],
+            reply=RECENT_EMPTY_REPLY,
+            tool="list_recent_orders",
+        )
+    if gateway is None:
+        return OrderQueryOutcome(
+            status="error",
+            orders=[],
+            reply=UNAVAILABLE_REPLY,
+            error_code="GATEWAY_MISSING",
+            tool="list_recent_orders",
+        )
+    try:
+        orders = await asyncio.to_thread(
+            gateway.invoke,
+            "list_recent_orders",
+            {"limit": limit},
+            _identity(customer),
+            trace_id,
+        )
+    except GatewayError as error:
+        return _failure(error, tool="list_recent_orders")
+    except Exception:  # noqa: BLE001 - 订单查询失败不能拖垮消息路径
+        return OrderQueryOutcome(
+            status="error",
+            orders=[],
+            reply=UNAVAILABLE_REPLY,
+            error_code="INTERNAL_ERROR",
+            tool="list_recent_orders",
+        )
+    if not isinstance(orders, list) or any(not isinstance(order, dict) for order in orders):
+        return OrderQueryOutcome(
+            status="error",
+            orders=[],
+            reply=UNAVAILABLE_REPLY,
+            error_code="INVALID_RESPONSE",
+            tool="list_recent_orders",
+        )
+    summaries = [order_summary(order) for order in orders[:limit]]
+    if not summaries:
+        return OrderQueryOutcome(
+            status="not_found",
+            orders=[],
+            reply=RECENT_EMPTY_REPLY,
+            tool="list_recent_orders",
+        )
+    return OrderQueryOutcome(
+        status="ok",
+        orders=summaries,
+        reply=build_recent_orders_reply(summaries),
+        tool="list_recent_orders",
+    )

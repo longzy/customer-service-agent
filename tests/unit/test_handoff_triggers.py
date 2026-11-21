@@ -16,8 +16,6 @@ def test_低置信阈值固定为0_6_AC_32() -> None:
 @pytest.mark.parametrize(
     ("content", "term"),
     [
-        ("我的订单到哪了", "订单"),
-        ("订 单怎么还没到", "订单"),
         ("快递到哪了", "快递"),
         ("我要退款", "退款"),
         ("取消一下", "取消"),
@@ -35,6 +33,16 @@ def test_订单与超范围文本命中_AC_32(content: str, term: str) -> None:
     assert decision is not None
     assert (decision.reason, decision.trigger) == ("OUT_OF_SCOPE", "out_of_scope")
     assert term in decision.summary_hint
+
+
+@pytest.mark.parametrize("content", ["我的订单到哪了", "订 单怎么还没到", "订单"])
+def test_订单词不再单独触发超范围_AC_32(content: str) -> None:
+    """F-26 起订单话题由订单查询分支承接；闲聊带“订单”不建单（AC-52）。"""
+    assert match_out_of_scope_term(content) is None
+    assert (
+        decide_model_handoff(content=content, intent="UNKNOWN", confidence=0.95, reply="您好。")
+        is None
+    )
 
 
 @pytest.mark.parametrize("content", ["你好", "今天天气不错", "谢谢"])
@@ -72,16 +80,24 @@ def test_置信度达到阈值不触发_AC_32(confidence: float) -> None:
     )
 
 
-@pytest.mark.parametrize(
-    "intent",
-    ["QUERY_ORDER", "QUERY_RECENT", "CANCEL_ORDER", "CONFIRM_CANCEL", "OUT_OF_SCOPE"],
-)
+@pytest.mark.parametrize("intent", ["CANCEL_ORDER", "CONFIRM_CANCEL", "OUT_OF_SCOPE"])
 def test_模型超范围意图触发超范围交接_AC_32(intent: str) -> None:
     decision = decide_model_handoff(
         content="帮我看看那个东西", intent=intent, confidence=0.97, reply="好的。"
     )
     assert decision is not None
     assert (decision.reason, decision.trigger) == ("OUT_OF_SCOPE", "out_of_scope_intent")
+
+
+@pytest.mark.parametrize("intent", ["QUERY_ORDER", "QUERY_RECENT"])
+def test_订单查询意图不再直接转人工_AC_32(intent: str) -> None:
+    """F-26：订单意图由 customer_chat 的订单分支执行服务端查询。"""
+    assert (
+        decide_model_handoff(
+            content="帮我看看那个东西", intent=intent, confidence=0.97, reply="好的。"
+        )
+        is None
+    )
 
 
 @pytest.mark.parametrize(
@@ -125,7 +141,7 @@ def test_普通高置信回复不触发交接_AC_32() -> None:
 
 def test_文本超范围优先于低置信与转人工意图_AC_32() -> None:
     decision = decide_model_handoff(
-        content="我的订单到哪了", intent="HUMAN_HANDOFF", confidence=0.1, reply="好的。"
+        content="我要退款", intent="HUMAN_HANDOFF", confidence=0.1, reply="好的。"
     )
     assert decision is not None
     assert (decision.reason, decision.trigger) == ("OUT_OF_SCOPE", "out_of_scope")

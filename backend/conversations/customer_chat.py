@@ -20,14 +20,24 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.agent_runtime.model import ChatModel, ModelError
 from backend.conversations.customer_conversations import latest_message_id
 from backend.conversations.handoffs import (
+    HANDOFF_CONFIDENCE_THRESHOLD,
     create_handoff,
     decide_model_handoff,
     match_handoff_keyword,
 )
 from backend.conversations.order_queries import (
+    MULTIPLE_ORDERS_REPLY,
+    ORDER_QUERY_INTENTS,
+    ORDER_QUERY_MULTIPLE,
+    ORDER_QUERY_PARTIAL,
+    ORDER_QUERY_SINGLE,
+    PARTIAL_ORDER_ID_REPLY,
+    OrderQueryOutcome,
     extract_order_ids,
     has_non_query_order_intent,
+    order_query_kind,
     query_order,
+    query_recent_orders,
 )
 from backend.conversations.statuses import (
     AI_ACTIVE,
@@ -167,19 +177,16 @@ async def _replay(
     )
 
 
-async def _order_query_result(
+async def _order_result(
     db: AsyncSession,
     conversation: ServiceConversation,
     *,
-    customer: Customer,
-    order_id: str,
+    customer_message: ServiceMessage,
+    outcome: OrderQueryOutcome,
     trace_id: str,
     now: datetime,
-    customer_message: ServiceMessage,
-    gateway: ToolGateway | None,
 ) -> ChatResult:
-    """指定的单笔订单查询；成功/查无/失败都只回消息，不建单、不改状态。"""
-    outcome = await query_order(gateway, customer, order_id, trace_id)
+    """订单查询结果落地：成功/查无/失败都只回消息，不建单、不改状态。"""
     await _record_ai_event(
         db,
         conversation,
@@ -196,6 +203,40 @@ async def _order_query_result(
         author_id=None,
         content=outcome.reply,
         payload={"orders": outcome.orders},
+        idempotency_key=None,
+        trace_id=trace_id,
+        created_at=now,
+    )
+    db.add(ai_message)
+    conversation.updated_at = now
+    conversation.last_activity_at = now
+    await db.flush()
+    return ChatResult(
+        conversation_id=conversation.id,
+        status=conversation.status,
+        messages=[view_message(customer_message), view_message(ai_message)],
+        after_id=ai_message.id,
+        customer_message_id=customer_message.id,
+        ai_message_id=ai_message.id,
+    )
+
+
+async def _order_clarification(
+    db: AsyncSession,
+    conversation: ServiceConversation,
+    *,
+    customer_message: ServiceMessage,
+    content: str,
+    trace_id: str,
+    now: datetime,
+) -> ChatResult:
+    """多单/半截澄清：不查 OMS、不写订单事件、不带订单快照（AC-52）。"""
+    ai_message = ServiceMessage(
+        conversation_id=conversation.id,
+        author_type="ai",
+        author_id=None,
+        content=content,
+        payload=None,
         idempotency_key=None,
         trace_id=trace_id,
         created_at=now,
@@ -522,18 +563,37 @@ async def send_customer_message(
         )
         return _queued_result(conversation, customer_message, notice, handoff_id)
 
+    # plan 3.3.4：关键词优先；订单分支先做确定性护栏，再决定是否调模型。
     # 取消/退款等"对订单做别的操作"保持 001 的转人工路径，不能被查询分支截走。
-    order_ids = extract_order_ids(content)
-    if len(order_ids) == 1 and not has_non_query_order_intent(content):
-        return await _order_query_result(
+    order_kind = order_query_kind(content)
+    if order_kind == ORDER_QUERY_MULTIPLE:
+        return await _order_clarification(
             db,
             conversation,
-            customer=customer,
-            order_id=order_ids[0],
+            customer_message=customer_message,
+            content=MULTIPLE_ORDERS_REPLY,
             trace_id=trace_id,
             now=now,
+        )
+    if order_kind == ORDER_QUERY_PARTIAL:
+        return await _order_clarification(
+            db,
+            conversation,
             customer_message=customer_message,
-            gateway=order_gateway,
+            content=PARTIAL_ORDER_ID_REPLY,
+            trace_id=trace_id,
+            now=now,
+        )
+    if order_kind == ORDER_QUERY_SINGLE:
+        [order_id] = extract_order_ids(content)
+        outcome = await query_order(order_gateway, customer, order_id, trace_id)
+        return await _order_result(
+            db,
+            conversation,
+            customer_message=customer_message,
+            outcome=outcome,
+            trace_id=trace_id,
+            now=now,
         )
 
     try:
@@ -574,7 +634,25 @@ async def send_customer_message(
         first_token_latency_ms=reply.first_token_latency_ms,
         retry_count=reply.retry_count,
     )
-    # plan 3.3.4：低置信/转人工意图/订单/超范围不展示模型回复，直接入队
+    # 无订单号的订单意图（plan 3.1）：模型只输出意图，查询仍由服务端确定性执行。
+    # 低置信保持 001 的转人工护栏；取消/退款等操作词不允许被订单意图截走。
+    normalized_intent = reply.intent.strip().upper()
+    if (
+        normalized_intent in ORDER_QUERY_INTENTS
+        and reply.confidence >= HANDOFF_CONFIDENCE_THRESHOLD
+        and not has_non_query_order_intent(content)
+    ):
+        outcome = await query_recent_orders(order_gateway, customer, trace_id)
+        return await _order_result(
+            db,
+            conversation,
+            customer_message=customer_message,
+            outcome=outcome,
+            trace_id=trace_id,
+            now=now,
+        )
+
+    # plan 3.3.4：低置信/转人工意图/超范围不展示模型回复，直接入队
     decision = decide_model_handoff(
         content=content,
         intent=reply.intent,
