@@ -38,3 +38,10 @@ def test_未知feature返回非零_基座豁免() -> None:
     result = run("F-99", "--base", "HEAD")
     assert result.returncode != 0
     assert "找不到对应行" in result.stderr
+
+
+def test_固定点可从任务号自动识别_基座豁免() -> None:
+    """提交 scope 用 003 时，subject 里的 F-26 仍能推出固定点。"""
+    result = run("F-26")
+    assert result.returncode == 0, result.stderr
+    assert "固定点：" in result.stdout
