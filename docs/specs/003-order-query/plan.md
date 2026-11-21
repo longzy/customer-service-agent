@@ -81,7 +81,7 @@
 ### 3.3 API / 状态机 / 并发
 
 - **不新增客户 HTTP 路由**：查询发生在 `POST /conversations/{id}/messages` 的同一次调用内；响应消息带 `payload`，现有 3s 轮询自动带出。
-- **工作台 DTO**：`ConversationDetail`（或现有详情响应）增加 `orders: [{...}]` 与 `order_count`；值来自交接单 `context`，不实时查 OMS（避免坐席每次打开都打 OMS）。OMS 异常只在客户查询时暴露。
+- **工作台 DTO**：`ConversationDetail`（或现有详情响应）增加 `orders: [{...}]`、`order_count` 与 `order_context_status`（`ok`/`empty`/`failed`）；`order_count` 为交接单所带快照条数（复用单笔快照时可小于最近订单总数），值来自交接单 `context`，不实时查 OMS（避免坐席每次打开都打 OMS）。OMS 异常只在客户查询时暴露，并以 `failed` 状态供前端显示"订单信息暂不可用"（F-29 渲染）。
 - **状态机**：不变。订单查询成功/查无/失败都不改 `conversations.status`；只有连续失败转人工走现有 `_queue_for_handoff`。
 - **并发**：同一会话的消息处理已有串行语义（001）；订单查询不新开连接/事务，在请求事务内通过 `asyncio.to_thread` 调用 Gateway（查询期间仍持有请求事务连接），完成后在同一事务写消息与事件；Gateway 超时 2s，总响应时间受 `MODEL_TIMEOUT` 与 2s 上限约束。
 - **幂等**：消息幂等键重放直接返回已存消息与 `payload`，不重新查 OMS；订单查询失败的重试是客户的新消息，按新请求处理。
@@ -175,7 +175,7 @@
 
 ## 6. 未决问题（Open Questions）
 
-1. `order_count` 口径：**已定（2026-11-20 用户确认）**取"最近订单条数（≤5）"，不改 `OmsPort` 契约；DTO 注释与文案写清"最近订单"。
+1. `order_count` 口径：**已定（2026-11-20 用户确认）**取"交接单所带最近订单快照条数（≤5）"，不改 `OmsPort` 契约；DTO 注释与文案写清"最近订单"。2026-11-21 F-28 澄清：先查单后转人工时快照可为 1 条，`order_count` 与快照条数一致，不额外统计名下全部订单。
 2. 订单卡片是否需要"状态可能已更新"的显式提示？当前建议卡片页脚标注"查询时状态"。
 3. 生产环境 `oms_customer_id` 的绑定流程（谁在何时写入）不在 M1 范围；M1 只保证种子回填与空值安全降级。
 4. 是否需要在 `ConversationDetail` 中实时刷新订单（打开详情时重新查 OMS）？当前建议不查，避免坐席侧放大 OMS 调用；004 取消时再评估。

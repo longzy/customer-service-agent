@@ -26,6 +26,7 @@ from backend.conversations.handoffs import (
     ORDER_CONTEXT_EMPTY,
     ORDER_CONTEXT_FAILED,
     ORDER_CONTEXT_OK,
+    OrderContextStatus,
     create_handoff,
     decide_model_handoff,
     match_handoff_keyword,
@@ -198,6 +199,7 @@ async def _order_result(
     conversation: ServiceConversation,
     *,
     customer_message: ServiceMessage,
+    customer: Customer,
     outcome: OrderQueryOutcome,
     trace_id: str,
     now: datetime,
@@ -230,6 +232,7 @@ async def _order_result(
                 summary_hint=(
                     f"订单查询连续 {failures} 次失败（最后一次：{last_error}），已自动转人工"
                 ),
+                customer=customer,
                 trace_id=trace_id,
                 now=now,
                 notice_text=ORDER_FAILURE_HANDOFF_NOTICE,
@@ -342,6 +345,7 @@ async def _recent_orders_result(
         db,
         conversation,
         customer_message=customer_message,
+        customer=customer,
         outcome=outcome,
         trace_id=trace_id,
         now=now,
@@ -387,7 +391,7 @@ async def _handoff_order_context(
     trace_id: str,
     now: datetime,
     allow_lookup: bool,
-) -> tuple[list[dict[str, Any]], str]:
+) -> tuple[list[dict[str, Any]], OrderContextStatus]:
     """转人工时的订单上下文：优先复用快照，客户主动要人时才补查一次。
 
     返回 `(orders, order_context_status)`：有订单 `ok`、查无/未绑定 `empty`、
@@ -491,11 +495,11 @@ async def _queue_for_handoff(
     summary_hint: str,
     trace_id: str,
     now: datetime,
-    customer: Customer | None = None,
+    customer: Customer,
     order_gateway: ToolGateway | None = None,
     allow_order_lookup: bool = False,
     orders: list[dict[str, Any]] | None = None,
-    order_context_status: str | None = None,
+    order_context_status: OrderContextStatus | None = None,
     matched_keyword: str | None = None,
     notice_text: str = QUEUE_NOTICE,
     failure_count: int | None = None,
@@ -503,24 +507,22 @@ async def _queue_for_handoff(
 ) -> tuple[ServiceMessage, str | None]:
     """转人工统一入口：先落订单上下文，再改状态、建单、写排队提示。
 
-    `orders is None` 表示还没算过上下文：有 `customer` 时复用快照，客户主动
-    要人（`allow_order_lookup=True`）才补查一次最近订单；显式传 `orders` 的
+    `orders is None` 表示还没算过上下文：复用会话内快照，客户主动要人
+    （`allow_order_lookup=True`）才补查一次最近订单；显式传 `orders` 的
     路径（如订单连续失败）直接使用给定快照，不再打 OMS。
     """
     if orders is None:
-        if customer is None:
-            orders, order_context_status = [], ORDER_CONTEXT_EMPTY
-        else:
-            orders, order_context_status = await _handoff_order_context(
-                db,
-                conversation,
-                customer=customer,
-                order_gateway=order_gateway,
-                trace_id=trace_id,
-                now=now,
-                allow_lookup=allow_order_lookup,
-            )
-    status = order_context_status or (ORDER_CONTEXT_OK if orders else ORDER_CONTEXT_EMPTY)
+        orders, status = await _handoff_order_context(
+            db,
+            conversation,
+            customer=customer,
+            order_gateway=order_gateway,
+            trace_id=trace_id,
+            now=now,
+            allow_lookup=allow_order_lookup,
+        )
+    else:
+        status = order_context_status or (ORDER_CONTEXT_OK if orders else ORDER_CONTEXT_EMPTY)
     conversation.status = QUEUED
     conversation.updated_at = now
     conversation.last_activity_at = now
@@ -779,6 +781,7 @@ async def send_customer_message(
             db,
             conversation,
             customer_message=customer_message,
+            customer=customer,
             outcome=outcome,
             trace_id=trace_id,
             now=now,
