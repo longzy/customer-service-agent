@@ -41,6 +41,7 @@ const REASON_LABEL: Record<string, string> = {
   LOW_CONFIDENCE: "AI 置信度不足",
   OUT_OF_SCOPE: "超出 AI 处理范围",
   MODEL_UNAVAILABLE: "模型不可用",
+  ORDER_QUERY_FAILURE: "订单查询失败",
 };
 
 export type ConversationFeedback = {
@@ -167,7 +168,11 @@ export function ConversationDetailPanel({
                     </div>
                     {handoff.failure_count != null ? (
                       <div className="col-span-2 rounded-xl border border-border bg-surface px-3 py-2.5">
-                        <dt className="text-xs text-text-3">连续模型失败</dt>
+                        <dt className="text-xs text-text-3">
+                          {handoff.reason === "ORDER_QUERY_FAILURE"
+                            ? "连续订单失败"
+                            : "连续模型失败"}
+                        </dt>
                         <dd className="mt-1 text-sm font-medium text-text">
                           {handoff.failure_count} 次 · {handoff.last_error ?? "—"}
                         </dd>

@@ -14,6 +14,7 @@ const REASON_LABEL: Record<string, string> = {
   LOW_CONFIDENCE: "AI 置信度不足",
   OUT_OF_SCOPE: "超出 AI 处理范围",
   MODEL_UNAVAILABLE: "模型不可用",
+  ORDER_QUERY_FAILURE: "订单查询失败",
 };
 
 type DetailPanelProps = {

@@ -1,9 +1,11 @@
-"""客户消息、AI 回复与模型失败分级降级。
+"""客户消息、AI 回复与失败分级降级。
 
 - 客户消息先落库再调用模型，超时/异常也保留输入。
 - 只有 AI_ACTIVE 会话调用模型；排队/人工中只落库，不重复触发 AI。
 - 模型 10s 超时或异常（ADR-0011）：单次只写 AI 事件与重试提示，不建单、不改状态；
   同一会话连续 2 次失败才建一张 open 交接单、会话转 QUEUED、写转接提示。
+- 订单查询失败（F-27）：单次只提示重试且不建单；同一会话连续 2 次失败才转人工。
+  订单失败与模型失败按事件类型各自计数，互不并入。
 - 同一会话内同一幂等键只产生一条客户消息；重放返回原消息及其后非客户消息。
 - 本模块只 flush，由 API 层统一 commit。
 """
@@ -28,6 +30,8 @@ from backend.conversations.handoffs import (
 )
 from backend.conversations.order_queries import (
     MULTIPLE_ORDERS_REPLY,
+    ORDER_FAILURE_HANDOFF_NOTICE,
+    ORDER_FAILURE_STATUSES,
     ORDER_QUERY_INTENTS,
     ORDER_QUERY_MULTIPLE,
     ORDER_QUERY_NONE,
@@ -63,6 +67,10 @@ MODEL_FAILURE_HANDOFF_NOTICE = "AI 暂时不可用，已为你转接人工（排
 MODEL_FAILURE_STATUSES = frozenset({"timeout", "error"})
 MODEL_ERROR_CODES = {"timeout": "MODEL_TIMEOUT", "error": "MODEL_ERROR"}
 CONSECUTIVE_FAILURE_LIMIT = 2
+# F-27：订单失败与模型失败是两套独立计数，交接单用同一组字段表达。
+ORDER_QUERY_FAILURE_REASON = "ORDER_QUERY_FAILURE"
+ORDER_QUERY_FAILURE_TRIGGER = "order_query_failure"
+ORDER_QUERY_ERROR_FALLBACK = "ORDER_QUERY_FAILED"
 
 
 class ConversationClosedError(Exception):
@@ -190,9 +198,10 @@ async def _order_result(
     now: datetime,
     preface: str | None = None,
 ) -> ChatResult:
-    """订单查询结果落地：成功/查无/失败都只回消息，不建单、不改状态。
+    """订单查询结果落地：成功/查无只回消息；失败按 F-27 分级。
 
-    `preface` 用于多单/半截：先说明不替客户选单，再附候选列表与快照。
+    - 单次超时/异常/非法响应：只写 AI 提示，不建单、不改状态；
+    - 同会话连续 2 次失败：走现有转人工路径，交接单带 `failure_count`/`last_error`。
     """
     await _record_ai_event(
         db,
@@ -204,6 +213,25 @@ async def _order_result(
         event_type="order_query",
         name=outcome.tool,
     )
+    if outcome.status in ORDER_FAILURE_STATUSES:
+        failures = await _consecutive_order_failures(db, conversation)
+        if failures >= CONSECUTIVE_FAILURE_LIMIT:
+            last_error = outcome.error_code or ORDER_QUERY_ERROR_FALLBACK
+            notice, handoff_id = await _queue_for_handoff(
+                db,
+                conversation,
+                reason=ORDER_QUERY_FAILURE_REASON,
+                trigger=ORDER_QUERY_FAILURE_TRIGGER,
+                summary_hint=(
+                    f"订单查询连续 {failures} 次失败（最后一次：{last_error}），已自动转人工"
+                ),
+                trace_id=trace_id,
+                now=now,
+                notice_text=ORDER_FAILURE_HANDOFF_NOTICE,
+                failure_count=failures,
+                last_error=last_error,
+            )
+            return _queued_result(conversation, customer_message, notice, handoff_id)
     # 候选只在查询成功时拼接引导；失败/空结果用独立文案，避免“先列出…：不可用”。
     content = (
         f"{preface}\n{outcome.reply}"
@@ -232,6 +260,61 @@ async def _order_result(
         customer_message_id=customer_message.id,
         ai_message_id=ai_message.id,
     )
+
+
+async def _recent_ai_events(
+    db: AsyncSession, conversation: ServiceConversation, event_type: str
+) -> list[ServiceAiEvent]:
+    """按时间倒序取最近 `CONSECUTIVE_FAILURE_LIMIT` 条指定类型事件。
+
+    模型失败与订单失败共用同一查询，只有失败状态集合与"连续"边界不同。
+    """
+    return list(
+        (
+            await db.execute(
+                select(ServiceAiEvent)
+                .where(
+                    ServiceAiEvent.conversation_id == conversation.id,
+                    ServiceAiEvent.event_type == event_type,
+                )
+                .order_by(ServiceAiEvent.created_at.desc(), ServiceAiEvent.id.desc())
+                .limit(CONSECUTIVE_FAILURE_LIMIT)
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+
+async def _consecutive_order_failures(db: AsyncSession, conversation: ServiceConversation) -> int:
+    """同会话最近两次订单查询都失败才算连续；有效结果与转回 AI 会清零。
+
+    与 `_consecutive_model_failures` 的差异：订单失败只按 `order_query` 事件
+    序列判定，中间的普通聊天不写订单事件、不打断；`ok`/`not_found` 是有效
+    查询结果，任何一个都让计数回到 1。"已转回 AI 客服"系统消息出现时重新
+    计数（与 F-24 一致，转回是新的起点）。
+    """
+    rows = await _recent_ai_events(db, conversation, "order_query")
+    if len(rows) < CONSECUTIVE_FAILURE_LIMIT:
+        return 1
+    if any(row.status not in ORDER_FAILURE_STATUSES for row in rows):
+        return 1
+    returned = (
+        await db.execute(
+            select(ServiceMessage.id)
+            .where(
+                ServiceMessage.conversation_id == conversation.id,
+                ServiceMessage.author_type == "system",
+                ServiceMessage.content == RETURNED_TO_AI_NOTICE,
+                ServiceMessage.created_at >= rows[1].created_at,
+                ServiceMessage.created_at <= rows[0].created_at,
+            )
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if returned is not None:
+        return 1
+    return CONSECUTIVE_FAILURE_LIMIT
 
 
 async def _recent_orders_result(
@@ -391,21 +474,7 @@ async def _consecutive_model_failures(
     当前消息之前那条客户消息，避免把人工转回 AI 前的失败算进来。
     当前失败事件已由 `_record_ai_event` flush，是最近一条 model 事件。
     """
-    rows = list(
-        (
-            await db.execute(
-                select(ServiceAiEvent)
-                .where(
-                    ServiceAiEvent.conversation_id == conversation.id,
-                    ServiceAiEvent.event_type == "model",
-                )
-                .order_by(ServiceAiEvent.created_at.desc(), ServiceAiEvent.id.desc())
-                .limit(CONSECUTIVE_FAILURE_LIMIT)
-            )
-        )
-        .scalars()
-        .all()
-    )
+    rows = await _recent_ai_events(db, conversation, "model")
     if len(rows) < CONSECUTIVE_FAILURE_LIMIT:
         return 1
     if any(row.status not in MODEL_FAILURE_STATUSES for row in rows):

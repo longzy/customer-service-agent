@@ -1,11 +1,13 @@
 """客户集成测试共享夹具：独立 engine、清理、种子与查询。"""
 
 import asyncio
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi.testclient import TestClient
-from sqlalchemy import delete, text
+from sqlalchemy import delete, text, update
 
+from backend.conversations.statuses import RETURNED_TO_AI_NOTICE
 from backend.identity.passwords import hash_password
 from backend.platform.models import (
     ServiceAiEvent,
@@ -72,3 +74,36 @@ def login_customer(api: TestClient, username: str = "customer_a") -> Any:
     )
     assert response.status_code == 200, response.text
     return response
+
+
+def simulate_return_to_ai(conversation_id: str) -> None:
+    """用数据库状态模拟 F-12 的转回：会话回 AI_ACTIVE、旧单关闭、写转回系统消息。
+
+    模型失败与订单失败都对"转回 AI"重新计数，两个 AC 用例共用这一现场构造。
+    """
+
+    async def write(db: Any) -> None:
+        await db.execute(
+            update(ServiceConversation)
+            .where(ServiceConversation.id == conversation_id)
+            .values(status="AI_ACTIVE", assigned_employee_id=None)
+        )
+        await db.execute(
+            update(ServiceHandoff)
+            .where(ServiceHandoff.conversation_id == conversation_id)
+            .values(status="CLOSED")
+        )
+        db.add(
+            ServiceMessage(
+                conversation_id=conversation_id,
+                author_type="system",
+                author_id=None,
+                content=RETURNED_TO_AI_NOTICE,
+                idempotency_key=None,
+                trace_id="trace-return",
+                created_at=datetime.now(UTC),
+            )
+        )
+        await db.commit()
+
+    asyncio.run(with_db(write))

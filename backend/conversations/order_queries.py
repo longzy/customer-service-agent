@@ -29,6 +29,11 @@ MULTIPLE_ORDERS_REPLY = "你提到了多个订单号，我不能替你选。先�
 PARTIAL_ORDER_ID_REPLY = "订单号看起来不完整。先列出你最近的订单："
 RECENT_ORDERS_LIMIT = 5
 
+# 订单查询失败：OMS 超时/异常/非法响应。F-27 的连续失败分级只统计这两种状态；
+# `ok`/`not_found` 是有效查询结果，会清零连续计数。
+ORDER_FAILURE_STATUSES = frozenset({"timeout", "error"})
+ORDER_FAILURE_HANDOFF_NOTICE = "订单查询连续失败，已为你转接人工。"
+
 # 快捷入口与常见自然表达：直接查最近订单，不依赖模型意图分类。
 # 只收录“明确在问列表”的短语；“订单”单独出现仍交给模型判定（闲聊不查）。
 RECENT_ORDER_TERMS = (
