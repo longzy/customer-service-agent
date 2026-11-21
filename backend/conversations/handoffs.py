@@ -11,7 +11,7 @@ import unicodedata
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Literal
 from uuid import uuid4
 
 from sqlalchemy import select
@@ -37,9 +37,10 @@ PENDING_STEP = "等待坐席接入"
 
 # 交接单订单上下文状态（F-28）：区分“有订单 / 查无 / 查询不可用”，
 # 让坐席看到“暂无订单”与“订单信息暂不可用”是两件事（AC-56）。
-ORDER_CONTEXT_OK = "ok"
-ORDER_CONTEXT_EMPTY = "empty"
-ORDER_CONTEXT_FAILED = "failed"
+OrderContextStatus = Literal["ok", "empty", "failed"]
+ORDER_CONTEXT_OK: OrderContextStatus = "ok"
+ORDER_CONTEXT_EMPTY: OrderContextStatus = "empty"
+ORDER_CONTEXT_FAILED: OrderContextStatus = "failed"
 
 # plan 3.3.4：关键词未命中时，由模型 intent/confidence 与确定性规则共同判定转人工
 HANDOFF_CONFIDENCE_THRESHOLD = 0.6
@@ -353,7 +354,7 @@ async def create_handoff(
     failure_count: int | None = None,
     last_error: str | None = None,
     orders: list[dict[str, Any]] | None = None,
-    order_context_status: str = ORDER_CONTEXT_EMPTY,
+    order_context_status: OrderContextStatus | None = None,
 ) -> tuple[ServiceHandoff, bool]:
     """创建一张 open 交接单；已有 open 单时复用，避免撞部分唯一索引。
 
@@ -387,9 +388,12 @@ async def create_handoff(
         reason_label = summary_hint
     summary = _summary(display_name, username, reason_label, str(last_customer))
 
+    status: OrderContextStatus = order_context_status or (
+        ORDER_CONTEXT_OK if orders else ORDER_CONTEXT_EMPTY
+    )
     context: dict[str, object] = {
         "order_count": len(orders) if orders else 0,
-        "order_context_status": order_context_status,
+        "order_context_status": status,
         "trigger": trigger,
         "customer_username": username,
         "customer_display_name": display_name,

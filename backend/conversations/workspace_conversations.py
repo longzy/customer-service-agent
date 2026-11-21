@@ -26,7 +26,9 @@ from backend.conversations.customer_chat import MessageView, list_messages, view
 from backend.conversations.customer_conversations import latest_message_id
 from backend.conversations.handoffs import (
     ORDER_CONTEXT_EMPTY,
+    ORDER_CONTEXT_FAILED,
     ORDER_CONTEXT_OK,
+    OrderContextStatus,
     redact_text,
 )
 from backend.conversations.statuses import (
@@ -70,7 +72,7 @@ class HandoffDetail:
     summary: str
     pending_step: str | None
     order_count: int
-    order_context_status: str
+    order_context_status: OrderContextStatus
     orders: list[dict[str, Any]]
     messages: list[dict[str, Any]]
     ai_trace: list[dict[str, Any]]
@@ -157,10 +159,16 @@ def _handoff_detail(handoff: ServiceHandoff) -> HandoffDetail:
     context = handoff.context or {}
     last_error = context.get("last_error")
     orders = _dict_list(context.get("orders"))
-    status = context.get("order_context_status")
-    if not isinstance(status, str):
-        # 旧交接单没有状态字段：按订单明细是否存在推断，避免把“暂无订单”
-        # 误显示为“不可用”。
+    raw_status = context.get("order_context_status")
+    # 旧交接单没有状态字段或状态异常：按订单明细是否存在推断，避免把
+    # “暂无订单”误显示为“不可用”，也避免未知状态击穿 DTO 校验。
+    if raw_status == ORDER_CONTEXT_OK:
+        status: OrderContextStatus = ORDER_CONTEXT_OK
+    elif raw_status == ORDER_CONTEXT_EMPTY:
+        status = ORDER_CONTEXT_EMPTY
+    elif raw_status == ORDER_CONTEXT_FAILED:
+        status = ORDER_CONTEXT_FAILED
+    else:
         status = ORDER_CONTEXT_OK if orders else ORDER_CONTEXT_EMPTY
     return HandoffDetail(
         id=handoff.id,
