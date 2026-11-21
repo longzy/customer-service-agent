@@ -118,15 +118,15 @@
 - 会话详情新增"订单"区：最近 ≤5 条，字段同客户侧；空态"该客户名下暂无订单"；OMS 异常时显示"订单信息暂不可用"（详情数据来自交接单快照，正常不会实时失败）。
 - 队列详情抽屉的"订单"指标改为真实 `order_count`（当前恒 0）。
 
-**设计系统**：`ui-spec` 增补订单卡片契约（3.x 新小节）与状态色规则；组件放 `apps/chat/components/ui/OrderCard.tsx`，workspace 复制一份（沿用 frontend.md 的"允许组件重复、不建共享包"决策）。
+**设计系统**：`ui-spec` 增补订单卡片契约（3.16 小节）与状态色规则；组件放 `apps/chat/features/chat/components/OrderCard.tsx`、`apps/workspace/features/conversation/components/OrderSummaryList.tsx`（按 FE-CMP-01 属带固定文案的业务组件，不按本段早期的 `components/ui` 建议），workspace 复制一份（沿用 frontend.md 的"允许组件重复、不建共享包"决策）。
 
 ### 3.6 可观测与评测
 
 - **Tool Trace**：沿用 `ToolGateway` 写入 `tool_executions`（started/result/rejected）；`tool_name` 为 `get_order` / `list_recent_orders`，`order_id`、`user_id`、`latency_ms`、`error_code` 已有。
-- **审计**：新增事件 `order.queried`（actor=customer，entity=order，metadata：`conversation_id`、`order_id`（可空）、`order_count`、`result`、`error_code`）；`AUDIT_METADATA_KEYS` 增加 `order_id`、`order_count`、`result`、`tool`。审计与消息同事务，失败按既有 503 回滚。
+- **审计**：新增事件 `order.queried`（actor=customer；单笔查询 `entity=order`、`entity_id=订单号`，列表查询 `entity=conversation`、`entity_id=会话 id`；metadata：`conversation_id`、`order_id`（可空）、`order_count`、`result`、`error_code`、`tool`）；`AUDIT_METADATA_KEYS` 增加 `order_id`、`order_count`、`result`、`tool`。审计与消息同事务，失败按既有 503 回滚。
 - **AI 事件**：`service_ai_events` 写 `event_type=order_query`、`name=get_order|list_recent_orders`、`status=ok|not_found|timeout|error`、`order_id`（如有）。
 - **评测**：`evals/` 新增订单查询场景（最近订单、指定订单、他人订单、不存在、多单澄清、OMS 超时）；断言回复中的订单号/金额/状态与夹具一致、无夹具外订单号。
-- **指标**：`order_query_total{tool,status}`、`order_query_latency_ms`（数值由 F-29 接入）。未绑定与不存在/他人同为 `status=not_found`，无法仅凭 status 区分；F-29 需单独记录 unbound 日志/指标。
+- **指标**：`order_query_total{tool,status}`、`order_query_latency_ms_total`（毫秒累加，counter 语义；F-29 接入）。未绑定与不存在/他人同为 `status=not_found`，无法仅凭 status 区分；F-29 单独记录 `order_query_unbound_total{tool}` 与结构化日志。
 
 ### 3.7 测试 seam
 
