@@ -40,7 +40,7 @@ export function OrderSummaryList({ orders, status }: OrderSummaryListProps) {
   const hasOrders = status === "ok" && orders.length > 0;
 
   return (
-    <section aria-labelledby={titleId} className="flex flex-col gap-2.5">
+    <section aria-labelledby={titleId} className="flex flex-col gap-3">
       <h3 className={SECTION_TITLE} id={titleId}>
         最近订单
       </h3>
@@ -54,7 +54,7 @@ export function OrderSummaryList({ orders, status }: OrderSummaryListProps) {
         </ul>
       ) : (
         <p
-          className="m-0 rounded-xl border border-border bg-surface-2 px-3.5 py-2.5 text-sm text-text-3"
+          className="m-0 rounded-xl border border-border bg-surface-2 px-4 py-3 text-sm text-text-3"
           role="status"
         >
           {statusText(status)}

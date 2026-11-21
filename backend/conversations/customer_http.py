@@ -312,7 +312,8 @@ async def send_message(
                 actor_type="customer",
                 actor_id=session.customer.id,
                 event_type=ORDER_QUERIED,
-                entity_type="order",
+                # 单笔查询的实体是订单；列表查询的实体是会话，避免把会话 id 挂到 order 上。
+                entity_type="order" if order_query.order_id else "conversation",
                 entity_id=(order_query.order_id or conversation.id)[:64],
                 trace_id=trace_id,
                 journey_id=conversation.journey_id,
