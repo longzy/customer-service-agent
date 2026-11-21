@@ -2,18 +2,18 @@
 
 - 更新日期：2026-11-20
 - 项目阶段：M1 客户转人工闭环
-- 当前状态：003 订单查询 F-25 已实现待评审（F-26~F-29 未开始）；002 UI 改版已完成并收口；F-24 模型失败分级降级已完成并收口；F-14、F-13、F-12、F-11、F-10、F-09、F-08 已完成并收口
+- 当前状态：003 订单查询 F-25 已完成并收口（F-26~F-29 未开始）；002 UI 改版已完成并收口；F-24 模型失败分级降级已完成并收口；F-14、F-13、F-12、F-11、F-10、F-09、F-08 已完成并收口
 - 当前 Milestone：M1 企业核心客服闭环（客户转人工闭环）
 - 方向重置：[2026-11-16 企业化方向重置](initiatives/2026-11-16-enterprise-reset.md)
 - 当前工作：002 UI 改版 F-15~F-23 已收口；F-24 已完成并收口；F-14、F-13、F-12、F-11、F-10、F-09、F-08 已收口；2026-11-20 两应用接入 HeroUI v3（3.2.7）与图标库 lucide-react（^1.76.0），frontend.md FE-CSS-05/06、ui-spec 2.5 按用户决策修订；同日 workspace 队列页按用户决策改为 HeroUI Drawer 详情（表格全宽）+ Tabs/Select/Button/Input/Chip/Avatar/Skeleton/Kbd 组件化，抽屉与选中解耦使 ⌘K 全局可用，ui-spec 2.8/3.9 同步修订；同日按用户反馈清理队列页假功能与重复入口（侧栏未开放项、批量领取/勾选、顶部重复搜索与通知/在线胶囊、表格订单列与调试脚注、禁用“查看完整交接单”），页面收敛为“标题 → 筛选/搜索 → 表格 → Drawer”单层动线，ui-spec 3.2/3.7/3.8/3.9 同步修订；queue 工具栏与表格曾一度由 HeroUI `Card` 统一承载，按用户反馈“偏离原设计稿”回退为设计稿结构：工具栏回到页面层（一条底线）、表格为唯一圆角描边框与内置页脚，`Tabs` 补 `Tabs.Indicator` 恢复下划线、状态回退圆点 + 文字、分页并入表格页脚，ui-spec 3.7/3.8/3.15 同步；002 规格正文不改、追加变更记录；2026-11-20 按用户决策重做全站主题（v5）：主色改近黑 `#111827`、画布 `#F4F8F7`、全站去衬线、卡片统一 16px 圆角与极轻阴影，客户侧深色品牌栏改为顶栏、工作台侧栏改浅色；ui-spec 2.1–2.9、3.1–3.13 与对比度表同步；同日按用户决策采用「回声」并做两侧分叉（ui-spec v7）：客户侧——登录品牌区右下角 6 条同心弧（`--wave-o-1..6`、2400ms 呼吸、`prefers-reduced-motion` 静止）、欢迎卡回声只出现一次；坐席侧——登录品牌区改 64/16 制图网格（`--grid-line*`）与 `CN-SH / BUILD` 编号，队列等待列增加 56px 刻度轨道（`waiting_seconds / 300`，超时转 `--danger`）；抽 `components/ui/EchoWaves.tsx`（chat 两处使用，workspace 不引用）；2026-11-20 启动 003 订单查询：brief/plan/features 已批准（AC-50~58、F-25~F-29），F-25 订单访问基座与指定订单查询已收口（客户 `oms_customer_id` 绑定、迁移 0013、`ToolGateway` 接线、订单摘要 `payload`）
 
 <!-- verify:start -->
-- 最近验证：`./scripts/verify.sh` 全部检查通过——pytest 725 passed（独立测试库）、mypy 70 个文件、追溯矩阵通过（31 条 AC）、文档与前端检查通过
+- 最近验证（分步，2026-11-21）：`make verify-fast` 通过（ruff/format/mypy 70 文件/shell/命令/import/unit pytest）；集成定向 AC_51 7 passed、迁移 1 passed、AC-31/32 24 passed；前端 chat 30、workspace 42 通过（vitest forks 池）；文档/状态/追溯（29 条 AC、9 条基线）/评审前置/契约检查通过。整改前一次全量 `make verify-check` 为 737 passed；整改后全量 `make verify` 在当前沙箱因 pytest 推进异常缓慢（50 分钟约 9%）未跑完，待环境恢复后补跑并替换本行。
 <!-- verify:end -->
 
 ## 进行中
 
-- 003 订单查询：F-25 已实现并跑通验证，等待独立评审；F-26（最近订单/澄清）、F-27（失败分级）、F-28（交接单/工作台）、F-29（前端/审计/评测）未开始。
+- 003 订单查询：F-26（最近订单/澄清）、F-27（失败分级）、F-28（交接单/工作台）、F-29（前端/审计/评测）未开始。
 - 后续切片：取消（004）、安全硬化（005）未启动。
 - 分支保护：GitHub 私有仓库套餐限制，待决定是否升级/公开；不阻塞核心业务。
 
@@ -25,6 +25,7 @@
 
 ## 已完成
 
+- F-25（003 订单查询基座）：客户账号绑定 `oms_customer_id`（迁移 0013，种子回填 `customer_a→user-a1`、`customer_b→user-b1`）；正文恰好一个订单号且不含取消/退款等操作词时经 `ToolGateway` 查本人订单，回复只含 OMS 摘要字段，消息带 `payload` 快照；他人/不存在/未绑定统一「查无此单」。AC_51 集成 7 条 + 迁移 1 条、单测 24 条；全量 737 passed、mypy 70；反向验证 2 组；两轴评审通过（`docs/reviews/003-order-query/F-25.md`）。
 - 修复（2026-11-19，UoW commit 失败语义）：`get_session` 改为 `scope="function"`，commit 失败在响应发送前返回 500 并回滚；commit 移入 `try`，失败也走 rollback；新增 commit 失败集成用例与注入 scope 静态检查；FastAPI 下限提升到 0.121.1，ADR-0009 已修订。
 - 002 UI 改版：F-15~F-23 完成并收口——S1 令牌接入、客户登录/聊天、坐席登录/队列/详情/四态、可访问性/响应式与视觉回归；AC-40~49 全部 covered；pytest 687 passed、mypy 67 files；两轮评审 0 阻断（`docs/reviews/002-ui-redesign/`）；四页/空态/1200/900/375 截图在 `evals/reports/002-ui-redesign/s4/`；提交本次收口。 2026-11-20 v5 主题重设计：主色近黑 `#111827`、画布 `#F4F8F7`、去衬线、浅色工作台侧栏，ui-spec 与 AC-40/48 契约测试同步。 二次优化：画布改中性 `#F7F8FA`，登录品牌区加品牌声波与三项服务说明；工作台侧栏改为“导航 + 一句话说明 + 坐席卡”三段式，空态/加载态收进内容区面板且加载不再渲染表格骨架，队列概览从侧栏移除；队列页改为白色页头 + 灰色内容区分区，页头压缩为标题/摘要同行 + 36px Tabs + 32px 筛选控件。
 - F-24：模型失败分级降级——单次超时/异常只提示重试且不建单，同一会话连续 2 次失败自动转人工；交接单带 `failure_count`/`last_error` 且工作台详情可见；AC-31/32 定向 107 passed、全量 681 passed；反向验证 4 组；评审通过（`docs/reviews/001-customer-handoff/F-24.md`，2 轮 0 阻断）；提交 3ab1080、5221781、860e2d7。
@@ -44,8 +45,7 @@
 - R0-2（后端边界）：依赖检查器、platform/identity/domain 迁移、OmsPort/Mock/Http、factory 与配置注入、行为快照、收口与回滚演练；迁移基线 0，回滚树 413 passed。
 - ADR-0006：M1 客户从匿名改为预置账号 + 密码登录；订单按客户账号归属，删除订单号+手机尾号校验。
 - 客户转人工闭环 brief：10 条验收与 3 个垂直切片已批准；plan 已按 Google 模板重排并批准；features 已批准（14 条）。
-- 流程：S0–S8 替换为 Frame → Plan → Build & Verify → Review & Ship；新 spec 使用 `brief/plan/features`。
-- 目录：`services/` → `backend/`；import、pyproject、mypy、mutmut、检查器、脚本、测试与文档同步，全量 verify 通过。
+- 流程与目录：S0–S8 替换为 Frame → Plan → Build & Verify → Review & Ship，新 spec 使用 `brief/plan/features`；`services/` → `backend/`，import、pyproject、mypy、mutmut、检查器、脚本、测试与文档同步，全量 verify 通过。
 - 模板：`brief`（PR/FAQ）、`plan`（Google Design Doc）、`features`（Anthropic feature list）按主流结构重写；新增模板契约测试；features 改为 plan 批准后生成。001 的 brief/plan 已按新模板重排并批准。
 - F-01：客户 scrypt 登录、24h session 轮换/撤销、会话恢复、跨客户 404、登录限速、请求关联标识；`apps/chat` 登录/会话门禁；13 条 AC-30 测试与双轴评审通过。
 - F-02：客户消息、AI 回复、模型超时/异常自动转人工、`after_id` 真实游标、消息幂等键与客户聊天界面；12 条 AC-31 测试与双轴评审通过。
