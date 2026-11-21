@@ -28,6 +28,7 @@ from tests.integration.customer_support import (
     rows_of,
 )
 from tests.integration.db_utils import db_available
+from tests.integration.rate_limit_support import freeze_rate_limit_window
 
 pytestmark = pytest.mark.skipif(not db_available(), reason="Postgres 不可用")
 
@@ -188,7 +189,8 @@ def test_未登录访问客户资源返回401_登出幂等_AC_30() -> None:
         assert api.delete("/customer/sessions").status_code == 204
 
 
-def test_登录连续失败超限返回429_AC_30() -> None:
+def test_登录连续失败超限返回429_AC_30(monkeypatch: pytest.MonkeyPatch) -> None:
+    freeze_rate_limit_window(monkeypatch)
     with api_client() as api:
         statuses = [
             api.post(

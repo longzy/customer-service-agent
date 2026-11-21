@@ -22,6 +22,7 @@ from backend.identity.employee_sessions import (
 from backend.platform.models import ServiceCustomer, ServiceEmployee, ServiceEmployeeSession
 from backend.platform.settings import Settings, settings
 from tests.integration.db_utils import db_available
+from tests.integration.rate_limit_support import freeze_rate_limit_window
 from tests.integration.workspace_support import (
     DEMO_CREDENTIAL,
     cleanup_workspace_db,
@@ -192,7 +193,8 @@ def test_错误密码与未知账号统一401_空字段和越权字段422_AC_34(
     assert extra.json()["code"] == "VALIDATION_ERROR"
 
 
-def test_员工登录连续失败超限返回429_AC_34() -> None:
+def test_员工登录连续失败超限返回429_AC_34(monkeypatch: pytest.MonkeyPatch) -> None:
+    freeze_rate_limit_window(monkeypatch)
     with api_client() as api:
         statuses = [
             api.post(
