@@ -151,7 +151,8 @@ class WorkspaceHandoffDetail(BaseModel):
     pending_step: str | None
     order_count: int = Field(ge=0)
     # F-28：区分“有订单 / 暂无订单 / 订单信息不可用”，空列表不写空摘要。
-    order_context_status: Literal["ok", "empty", "failed"]
+    # 契约层保持独立字面量；取值与 `handoffs.OrderContextStatus` 一致。
+    order_context_status: Literal["ok", "empty", "failed", "unknown"]
     orders: list[WorkspaceHandoffOrder] = Field(default_factory=list, max_length=5)
     messages: list[WorkspaceContextMessage]
     ai_trace: list[WorkspaceAiTraceEvent]

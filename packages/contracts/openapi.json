@@ -607,7 +607,8 @@
             "enum": [
               "ok",
               "empty",
-              "failed"
+              "failed",
+              "unknown"
             ],
             "title": "Order Context Status",
             "type": "string"
