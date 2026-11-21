@@ -20,7 +20,12 @@ from tests.integration.customer_support import (
     rows_of,
 )
 from tests.integration.db_utils import db_available
-from tests.integration.order_query_support import api_client, login, order_app
+from tests.integration.order_query_support import (
+    api_client,
+    login,
+    order_app,
+    unbind_customer,
+)
 
 pytestmark = pytest.mark.skipif(not db_available(), reason="Postgres 不可用")
 
@@ -104,13 +109,26 @@ def test_列表只返回白名单摘要_AC_59() -> None:
 
 
 def test_无可见订单客户返回空列表_AC_59() -> None:
-    """客户乙在 M1 租户下没有可见订单：200 + 空列表，与未绑定同为空态。"""
+    """客户乙在 M1 租户下没有可见订单（跨租户）：200 + 空列表。"""
     with api_client(order_app()) as api:
         login(api, "customer_b")
         response = api.get(ORDERS)
 
     assert response.status_code == 200, response.text
     assert response.json() == {"orders": []}
+
+
+def test_未绑定oms客户返回空列表_AC_59() -> None:
+    """未绑定 OMS 身份不调用网关，按空列表返回（design 3.3）。"""
+    unbind_customer("customer_a")
+    app = order_app()
+    with api_client(app) as api:
+        login(api)
+        response = api.get(ORDERS)
+
+    assert response.status_code == 200, response.text
+    assert response.json() == {"orders": []}
+    assert app.state.oms.calls["list_recent_orders"] == 0
 
 
 def test_未登录访问订单列表返回401_AC_59() -> None:

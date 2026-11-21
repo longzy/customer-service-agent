@@ -1,7 +1,7 @@
 """取消资格判定：Policy Engine 是唯一权威，不查询 OMS。"""
 
 from backend.domain.cancellation import CancelEligibility, CancelReason
-from backend.domain.orders import OrderDetail, OrderStatus, OrderSummary
+from backend.domain.orders import OrderDetail, OrderStatus, OrderSummary, is_cancelable
 from backend.errors import DownstreamInvalidResponse
 
 REASON_BY_STATUS: dict[OrderStatus, CancelReason] = {
@@ -15,7 +15,9 @@ REASON_BY_STATUS: dict[OrderStatus, CancelReason] = {
 def evaluate_eligibility(order: OrderSummary | OrderDetail) -> CancelEligibility:
     """根据领域订单判定资格；归属由网关负责，不在本函数内。"""
     status = order.order_status
-    if status == OrderStatus.PAID_UNFULFILLED:
+    # 资格白名单只由 `is_cancelable` 维护；列表按钮的 cancelable 与提交资格同源，
+    # 避免新增状态时两处漂移（design 5.2 S-3）。
+    if is_cancelable(status):
         return CancelEligibility(
             eligible=True,
             reason_code=CancelReason.UNFULFILLED,
