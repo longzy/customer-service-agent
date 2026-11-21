@@ -24,7 +24,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.conversations.customer_chat import MessageView, list_messages, view_message
 from backend.conversations.customer_conversations import latest_message_id
-from backend.conversations.handoffs import redact_text
+from backend.conversations.handoffs import (
+    ORDER_CONTEXT_EMPTY,
+    ORDER_CONTEXT_OK,
+    redact_text,
+)
 from backend.conversations.statuses import (
     CLAIMED,
     CLOSED,
@@ -66,6 +70,8 @@ class HandoffDetail:
     summary: str
     pending_step: str | None
     order_count: int
+    order_context_status: str
+    orders: list[dict[str, Any]]
     messages: list[dict[str, Any]]
     ai_trace: list[dict[str, Any]]
     failure_count: int | None = None
@@ -150,6 +156,12 @@ def _handoff_detail(handoff: ServiceHandoff) -> HandoffDetail:
     """把交接单里的 JSON 快照投影成读模型；缺字段按空值处理，不猜业务含义。"""
     context = handoff.context or {}
     last_error = context.get("last_error")
+    orders = _dict_list(context.get("orders"))
+    status = context.get("order_context_status")
+    if not isinstance(status, str):
+        # 旧交接单没有状态字段：按订单明细是否存在推断，避免把“暂无订单”
+        # 误显示为“不可用”。
+        status = ORDER_CONTEXT_OK if orders else ORDER_CONTEXT_EMPTY
     return HandoffDetail(
         id=handoff.id,
         status=handoff.status,
@@ -157,6 +169,8 @@ def _handoff_detail(handoff: ServiceHandoff) -> HandoffDetail:
         summary=handoff.summary or "",
         pending_step=handoff.pending_step,
         order_count=_int_value(context.get("order_count")),
+        order_context_status=status,
+        orders=orders,
         messages=_dict_list(context.get("messages")),
         ai_trace=_dict_list(context.get("ai_trace")),
         failure_count=_optional_int(context.get("failure_count")),
@@ -253,8 +267,8 @@ async def list_queued_handoffs(db: AsyncSession, tenant_id: str) -> list[QueueIt
             customer_display_name=customer.display_name,
             waiting_seconds=_waiting_seconds(handoff.created_at, now),
             reason=handoff.reason,
-            # plan 3.3.5：本切片无订单 Tool，队列摘要的 order_count 恒为 0。
-            order_count=0,
+            # F-28：队列订单数取交接单快照的真实值（plan 3.5）。
+            order_count=_int_value((handoff.context or {}).get("order_count")),
             last_message=redact_text(last_message or "")[:QUEUE_LAST_MESSAGE_CHAR_LIMIT],
         )
         for handoff, customer, last_message in rows

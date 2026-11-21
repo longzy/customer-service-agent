@@ -124,6 +124,21 @@ class WorkspaceAiTraceEvent(BaseModel):
     created_at: str
 
 
+class WorkspaceHandoffOrder(BaseModel):
+    """交接单里的订单摘要快照；只含白名单字段，不含 items/支付/联系方式。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    order_id: str
+    item_summary: str
+    order_status: str
+    status_label: str
+    amount_cents: int = Field(ge=0)
+    currency: str
+    created_at: str
+    created_at_local: str
+
+
 class WorkspaceHandoffDetail(BaseModel):
     """完整交接单：摘要、原因、待办与创建时的上下文快照。"""
 
@@ -135,6 +150,9 @@ class WorkspaceHandoffDetail(BaseModel):
     summary: str
     pending_step: str | None
     order_count: int = Field(ge=0)
+    # F-28：区分“有订单 / 暂无订单 / 订单信息不可用”，空列表不写空摘要。
+    order_context_status: Literal["ok", "empty", "failed"]
+    orders: list[WorkspaceHandoffOrder] = Field(default_factory=list, max_length=5)
     messages: list[WorkspaceContextMessage]
     ai_trace: list[WorkspaceAiTraceEvent]
     failure_count: int | None = Field(default=None, ge=2)

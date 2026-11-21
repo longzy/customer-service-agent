@@ -257,7 +257,7 @@ def test_空队列返回空列表_AC_35() -> None:
     assert response.json() == {"items": []}
 
 
-def test_队列订单数固定为0即使交接单上下文非0_AC_35(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_队列订单数取交接单快照值_AC_35(monkeypatch: pytest.MonkeyPatch) -> None:
     seed_queued_handoff(
         "ho-order-count",
         conversation_id="conv-order-count",
@@ -271,7 +271,8 @@ def test_队列订单数固定为0即使交接单上下文非0_AC_35(monkeypatch
         login_employee(api)
         items = queue_items(api)
 
-    assert items[0]["order_count"] == 0
+    # F-28：队列订单数来自交接单快照，不再恒 0（003 AC-55）。
+    assert items[0]["order_count"] == 7
 
 
 def test_未登录401且角色降级后403_AC_35() -> None:
@@ -333,6 +334,7 @@ def test_客户转人工后队列出现该交接单_AC_35() -> None:
     assert item["customer_display_name"] == "客户甲"
     assert item["conversation_id"] == sent.json()["conversation_id"]
     assert item["reason"] == "CUSTOMER_REQUEST"
-    assert item["order_count"] == 0
+    # F-28：客户转人工时补查最近订单，队列摘要显示真实订单数（003 AC-55）。
+    assert item["order_count"] == 4
     assert item["last_message"] == "转人工"
     assert item["waiting_seconds"] >= 0

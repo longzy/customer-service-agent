@@ -57,7 +57,11 @@ async def _reset(db: Any) -> None:
 
 
 async def _seed(db: Any) -> None:
-    for username, display_name in (("customer_a", "客户甲"), ("customer_b", "客户乙")):
+    # F-25 起种子客户与 OMS 身份绑定，转人工时才能带真实订单上下文（F-28）。
+    for username, display_name, oms_customer_id in (
+        ("customer_a", "客户甲", "user-a1"),
+        ("customer_b", "客户乙", "user-b1"),
+    ):
         db.add(
             ServiceCustomer(
                 id=f"cust-{username}",
@@ -65,6 +69,7 @@ async def _seed(db: Any) -> None:
                 username=username,
                 password_hash=hash_password(DEMO_CREDENTIAL),
                 display_name=display_name,
+                oms_customer_id=oms_customer_id,
                 active=True,
             )
         )
@@ -166,7 +171,10 @@ def test_关键词命中直接入队且不调用模型_AC_32(content: str) -> No
     assert handoff.summary
     assert len(handoff.summary) <= 500
     assert "customer_a" in handoff.summary
-    assert handoff.context["order_count"] == 0
+    # F-28：关键词转人工时补查一次最近订单，交接单带真实订单上下文（003 AC-55）。
+    assert handoff.context["order_count"] == 4
+    assert handoff.context["order_context_status"] == "ok"
+    assert len(handoff.context["orders"]) == 4
     assert handoff.context["trigger"] == "keyword"
     assert handoff.context["customer_username"] == "customer_a"
     assert handoff.context["customer_display_name"] == "客户甲"
@@ -179,15 +187,22 @@ def test_关键词命中直接入队且不调用模型_AC_32(content: str) -> No
     assert messages[-1]["content"] == content
 
     trace = handoff.context["ai_trace"]
-    assert trace
-    assert trace[-1]["event_type"] == "intent"
-    assert trace[-1]["status"] == "matched"
-    assert "reply" not in trace[-1]
+    trace_types = [item["event_type"] for item in trace]
+    # 同一请求内写两条事件，库表没有序列列，轨迹顺序不承诺（既有行为）：
+    # 只断言两类事件各一条，且都只有元数据。
+    assert trace_types.count("intent") == 1
+    assert trace_types.count("order_query") == 1
+    intent_event = next(item for item in trace if item["event_type"] == "intent")
+    order_event = next(item for item in trace if item["event_type"] == "order_query")
+    assert intent_event["status"] == "matched"
+    assert order_event["status"] == "ok"
+    assert "reply" not in order_event
 
     events = rows(ServiceAiEvent)
-    assert len(events) == 1
-    assert events[0].event_type == "intent"
-    assert events[0].status == "matched"
+    assert sorted((event.event_type, event.status) for event in events) == [
+        ("intent", "matched"),
+        ("order_query", "ok"),
+    ]
     assert [row.author_type for row in rows(ServiceMessage)] == ["customer", "system"]
     assert rows(ServiceConversation)[0].status == "QUEUED"
 
@@ -226,8 +241,10 @@ def test_交接单只保留最近20条消息_AC_32() -> None:
     assert sum(len(item["content"]) for item in messages) <= 4000
 
     trace = handoff.context["ai_trace"]
-    assert trace[-1]["event_type"] == "intent"
-    assert any(item["event_type"] == "model" for item in trace)
+    trace_types = [item["event_type"] for item in trace]
+    assert trace_types.count("intent") == 1
+    assert trace_types.count("order_query") == 1
+    assert "model" in trace_types
     assert all("reply" not in item for item in trace)
 
 
