@@ -33,7 +33,8 @@ export function OrderListItem({ order }: OrderListItemProps) {
           {order.order_id}
         </h3>
         <span className="inline-flex h-6 items-center gap-1.5 rounded-full border border-border px-2 text-xs">
-          <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${tone.dot}`} />
+          {/* 7px 与聊天订单卡片、ui-spec 3.16 的订单卡片契约一致，不按通用间距基数改写。 */}
+          <span aria-hidden="true" className={`h-[7px] w-[7px] rounded-full ${tone.dot}`} />
           <span className={tone.text}>{order.status_label}</span>
         </span>
       </div>
