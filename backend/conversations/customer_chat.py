@@ -40,6 +40,7 @@ from backend.conversations.order_queries import (
     order_query_kind,
     query_order,
     query_recent_orders,
+    wants_recent_orders,
 )
 from backend.conversations.statuses import (
     AI_ACTIVE,
@@ -187,8 +188,12 @@ async def _order_result(
     outcome: OrderQueryOutcome,
     trace_id: str,
     now: datetime,
+    preface: str | None = None,
 ) -> ChatResult:
-    """订单查询结果落地：成功/查无/失败都只回消息，不建单、不改状态。"""
+    """订单查询结果落地：成功/查无/失败都只回消息，不建单、不改状态。
+
+    `preface` 用于多单/半截：先说明不替客户选单，再附候选列表与快照。
+    """
     await _record_ai_event(
         db,
         conversation,
@@ -199,46 +204,13 @@ async def _order_result(
         event_type="order_query",
         name=outcome.tool,
     )
-    ai_message = ServiceMessage(
-        conversation_id=conversation.id,
-        author_type="ai",
-        author_id=None,
-        content=outcome.reply,
-        payload={"orders": outcome.orders},
-        idempotency_key=None,
-        trace_id=trace_id,
-        created_at=now,
-    )
-    db.add(ai_message)
-    conversation.updated_at = now
-    conversation.last_activity_at = now
-    await db.flush()
-    return ChatResult(
-        conversation_id=conversation.id,
-        status=conversation.status,
-        messages=[view_message(customer_message), view_message(ai_message)],
-        after_id=ai_message.id,
-        customer_message_id=customer_message.id,
-        ai_message_id=ai_message.id,
-    )
-
-
-async def _order_clarification(
-    db: AsyncSession,
-    conversation: ServiceConversation,
-    *,
-    customer_message: ServiceMessage,
-    content: str,
-    trace_id: str,
-    now: datetime,
-) -> ChatResult:
-    """多单/半截澄清：不查 OMS、不写订单事件、不带订单快照（AC-52）。"""
+    content = outcome.reply if preface is None else f"{preface}\n{outcome.reply}"
     ai_message = ServiceMessage(
         conversation_id=conversation.id,
         author_type="ai",
         author_id=None,
         content=content,
-        payload=None,
+        payload={"orders": outcome.orders},
         idempotency_key=None,
         trace_id=trace_id,
         created_at=now,
@@ -571,26 +543,41 @@ async def send_customer_message(
     overscope = match_out_of_scope_term(content)
     order_kind = ORDER_QUERY_NONE if overscope is not None else order_query_kind(content)
     if order_kind == ORDER_QUERY_MULTIPLE:
-        return await _order_clarification(
+        outcome = await query_recent_orders(order_gateway, customer, trace_id)
+        return await _order_result(
             db,
             conversation,
             customer_message=customer_message,
-            content=MULTIPLE_ORDERS_REPLY,
+            outcome=outcome,
             trace_id=trace_id,
             now=now,
+            preface=MULTIPLE_ORDERS_REPLY,
         )
     if order_kind == ORDER_QUERY_PARTIAL:
-        return await _order_clarification(
+        outcome = await query_recent_orders(order_gateway, customer, trace_id)
+        return await _order_result(
             db,
             conversation,
             customer_message=customer_message,
-            content=PARTIAL_ORDER_ID_REPLY,
+            outcome=outcome,
             trace_id=trace_id,
             now=now,
+            preface=PARTIAL_ORDER_ID_REPLY,
         )
     if order_kind == ORDER_QUERY_SINGLE:
         [order_id] = extract_order_ids(content)
         outcome = await query_order(order_gateway, customer, order_id, trace_id)
+        return await _order_result(
+            db,
+            conversation,
+            customer_message=customer_message,
+            outcome=outcome,
+            trace_id=trace_id,
+            now=now,
+        )
+    # 确定性列表入口：快捷按钮/“我的订单”等不依赖模型意图，少一次模型调用。
+    if overscope is None and wants_recent_orders(content):
+        outcome = await query_recent_orders(order_gateway, customer, trace_id)
         return await _order_result(
             db,
             conversation,

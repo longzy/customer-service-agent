@@ -136,8 +136,11 @@ def test_自然表达要求人工自动转人工_AC_32() -> None:
 
 
 def test_模型回复编造订单信息仍转人工且不返回_AC_32() -> None:
-    """F-26 起正文里的“订单”由查询分支承接；模型回复仍受编造护栏拦截。"""
-    content = "我的订单到哪了"
+    """F-26 起正文里的“订单”由查询分支承接；模型回复仍受编造护栏拦截。
+
+    正文用不含列表入口短语的普通消息，确保确实经过模型回复护栏。
+    """
+    content = "帮我看看那个东西"
     fabricated = "您的订单 ORD-10001 已发货，预计明天送达。"
     app, model = app_with(ChatReply(intent="UNKNOWN", confidence=0.96, reply=fabricated))
     with TestClient(app) as api:
@@ -155,7 +158,7 @@ def test_模型回复编造订单信息仍转人工且不返回_AC_32() -> None:
     assert handoff.reason == "OUT_OF_SCOPE"
     assert handoff.context["trigger"] == "model_out_of_scope"
     assert handoff.context["order_count"] == 0
-    assert "订单" in handoff.summary
+    assert "发货" in handoff.summary
     assert all("ORD-10001" not in row.content for row in rows_of(ServiceMessage))
 
 
@@ -238,12 +241,12 @@ def test_排队中再问订单不重复建单_AC_32() -> None:
     app, model = app_with(ChatReply(intent="UNKNOWN", confidence=0.9, reply="您的订单已发货。"))
     with TestClient(app) as api:
         login_customer(api)
-        first = send(api, "我的订单到哪了")
-        second = send(api, "我的订单呢")
+        first = send(api, "转人工")
+        second = send(api, "我的订单")
         assert first.status_code == 200
         assert second.status_code == 200
         assert first.json()["status"] == "QUEUED"
         assert second.json()["status"] == "QUEUED"
         assert [item["author_type"] for item in second.json()["messages"]] == ["customer"]
-    assert model.calls == ["我的订单到哪了"]
+    assert model.calls == []
     assert len(rows_of(ServiceHandoff)) == 1
