@@ -406,6 +406,14 @@ export interface components {
              */
             status: "AI_ACTIVE" | "QUEUED" | "CLAIMED" | "HUMAN_ACTIVE" | "CLOSED";
         };
+        /**
+         * MessagePayload
+         * @description AI 订单消息的结构化快照；空列表表示查无/失败，前端不渲染卡片。
+         */
+        MessagePayload: {
+            /** Orders */
+            orders?: components["schemas"]["OrderSummaryPublic"][];
+        };
         /** MessagePublic */
         MessagePublic: {
             /**
@@ -419,10 +427,29 @@ export interface components {
             created_at: string;
             /** Id */
             id: number;
-            /** Payload */
-            payload?: {
-                [key: string]: unknown;
-            } | null;
+            payload?: components["schemas"]["MessagePayload"] | null;
+        };
+        /**
+         * OrderSummaryPublic
+         * @description 订单摘要快照（消息载荷与交接单共用）；只含白名单字段。
+         */
+        OrderSummaryPublic: {
+            /** Amount Cents */
+            amount_cents: number;
+            /** Created At */
+            created_at: string;
+            /** Created At Local */
+            created_at_local: string;
+            /** Currency */
+            currency: string;
+            /** Item Summary */
+            item_summary: string;
+            /** Order Id */
+            order_id: string;
+            /** Order Status */
+            order_status: string;
+            /** Status Label */
+            status_label: string;
         };
         /** ValidationError */
         ValidationError: {
@@ -533,7 +560,7 @@ export interface components {
             /** Order Count */
             order_count: number;
             /** Orders */
-            orders?: components["schemas"]["WorkspaceHandoffOrder"][];
+            orders?: components["schemas"]["OrderSummaryPublic"][];
             /** Pending Step */
             pending_step: string | null;
             /** Reason */
@@ -542,28 +569,6 @@ export interface components {
             status: string;
             /** Summary */
             summary: string;
-        };
-        /**
-         * WorkspaceHandoffOrder
-         * @description 交接单里的订单摘要快照；只含白名单字段，不含 items/支付/联系方式。
-         */
-        WorkspaceHandoffOrder: {
-            /** Amount Cents */
-            amount_cents: number;
-            /** Created At */
-            created_at: string;
-            /** Created At Local */
-            created_at_local: string;
-            /** Currency */
-            currency: string;
-            /** Item Summary */
-            item_summary: string;
-            /** Order Id */
-            order_id: string;
-            /** Order Status */
-            order_status: string;
-            /** Status Label */
-            status_label: string;
         };
         /**
          * WorkspaceQueueItem

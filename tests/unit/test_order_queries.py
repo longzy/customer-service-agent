@@ -8,12 +8,14 @@ from backend.conversations.order_queries import (
     PARTIAL_ORDER_ID_REPLY,
     RECENT_EMPTY_REPLY,
     UNAVAILABLE_REPLY,
+    OrderQueryOutcome,
     build_order_reply,
     build_recent_orders_reply,
     extract_order_ids,
     format_amount,
     format_created_at,
     has_non_query_order_intent,
+    order_query_audit,
     order_query_kind,
     order_summary,
     query_order,
@@ -340,3 +342,32 @@ async def test_query_recent_orders_超过5条截断() -> None:
         "ORD-10004",
         "ORD-10005",
     ]
+
+
+async def test_订单查询带订单号与未绑定事实供审计() -> None:
+    """outcome 携带单笔订单号；审计事实不依赖下游响应内容。"""
+    outcome = await query_order(FakeGateway(result=ORDER), customer(), "ORD-10001", "t")
+    assert outcome.order_id == "ORD-10001"
+    assert outcome.unbound is False
+    audit = order_query_audit(outcome)
+    assert audit.tool == "get_order"
+    assert audit.order_id == "ORD-10001"
+    assert audit.order_count == 1
+    assert audit.result == "ok"
+    assert audit.error_code is None
+
+
+async def test_未绑定客户查询标记unbound() -> None:
+    outcome = await query_order(FakeGateway(result=ORDER), customer(None), "ORD-10001", "t")
+    assert outcome.status == "not_found"
+    assert outcome.unbound is True
+    assert order_query_audit(outcome).result == "not_found"
+
+
+async def test_列表查询审计订单数与空订单号() -> None:
+    outcome = await query_recent_orders(FakeGateway(result=[ORDER]), customer(), "t")
+    audit = order_query_audit(outcome)
+    assert audit.tool == "list_recent_orders"
+    assert audit.order_id is None
+    assert audit.order_count == 1
+    assert OrderQueryOutcome(status="ok").orders == []

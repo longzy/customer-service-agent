@@ -14,7 +14,12 @@
   与 `scripts/trace.py` 覆盖；后端场景评测不执行浏览器，不要求这些 AC 有 pytest
   场景用例（见 `evals/run.py` 的 `FRONTEND_ONLY_AC`）。
 - **多轮场景**：只列覆盖当前 AC 的场景。M1-P 的旧多轮场景测试已随旧 Web 接口删除；
-  新链路的多轮场景待 003 订单切片重建。
+  003 订单查询的多轮场景已重建在 `tests/integration/test_eval_scenarios.py`：
+  最近订单 → 单笔 → 转人工 → 坐席接管的订单上下文、跨客户查无不可区分、
+  闲聊带“订单”不查询、OMS 连续失败转人工、卡片载荷与审计同链路。
+- **前端订单卡片**：AC-58 的字段/白名单由 `tests/integration/test_order_query_AC_58.py`
+  断言服务端载荷，渲染与三态由 `apps/chat/tests/OrderCard.test.tsx`、
+  `apps/workspace/tests/ConversationOrders.test.tsx` 覆盖。
 - 不重复 confirm/故障/响应头/日志测试；这些由既有 pytest 覆盖。
 
 ## 运行

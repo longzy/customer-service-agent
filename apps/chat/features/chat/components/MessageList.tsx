@@ -7,6 +7,8 @@ import { EchoWaves } from "@/components/ui/EchoWaves";
 
 import type { Message, MessageAuthor } from "../types";
 
+import { OrderCard } from "./OrderCard";
+
 const AUTHOR_LABELS: Record<MessageAuthor, string> = {
   customer: "客户",
   ai: "客服 AI",
@@ -132,7 +134,7 @@ export function MessageList({ messages, loading, status, onQuick }: MessageListP
         return (
           <article
             key={message.id}
-            className={`flex max-w-[640px] gap-2.5 ${isCustomer ? "justify-end self-end" : "items-start"}`}
+            className={`flex w-full max-w-[640px] gap-2.5 ${isCustomer ? "justify-end self-end" : "items-start"}`}
             data-author={author}
           >
             {!isCustomer ? (
@@ -148,10 +150,19 @@ export function MessageList({ messages, loading, status, onQuick }: MessageListP
               </span>
             ) : null}
             <div
-              className={`flex min-w-0 flex-col gap-1 ${isCustomer ? "items-end" : "items-start"}`}
+              className={`flex min-w-0 flex-1 flex-col gap-1 ${isCustomer ? "items-end" : "items-start"}`}
             >
               <span className="sr-only">{authorLabel(author)}</span>
               <div className={`${BUBBLE_BASE} ${tone}`}>{message.content}</div>
+              {message.payload?.orders?.length ? (
+                <ul className="m-0 flex w-full max-w-[560px] list-none flex-col gap-2 p-0">
+                  {message.payload.orders.map((order) => (
+                    <li key={order.order_id} className="w-full">
+                      <OrderCard order={order} />
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
               <time
                 className="px-0.5 text-[11px] tabular-nums text-text-3"
                 dateTime={message.created_at}
