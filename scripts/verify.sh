@@ -72,6 +72,17 @@ run_step "mypy" uv run mypy backend
 cp "$STEP_LOG" "$MYPY_LOG"
 run_step "契约生成物" ./scripts/check-contracts.sh
 
+# 快检查前置：文档/状态/追溯失败在秒级暴露，不浪费 pytest 与前端时间。
+run_step "route coverage" python3 scripts/check-route-coverage.py
+run_step "追溯矩阵" python3 scripts/trace.py --strict
+cp "$STEP_LOG" "$TRACE_LOG"
+run_step "评审前置" python3 scripts/check-review-prereqs.py
+run_step "当前状态一致性" python3 scripts/check-status.py
+run_step "docs" python3 scripts/check-docs.py
+cp "$STEP_LOG" "$DOCS_LOG"
+run_step "设计令牌" ./scripts/check-tokens.sh
+run_step "样式检查" ./scripts/lint-styles.sh
+
 # pytest 失败也要继续生成 eval 报告，因此这里暂时关闭 set -e 并分别记退出码。
 if [ "$VERBOSE" = "1" ]; then
   echo "== pytest（独立测试库）=="
@@ -104,15 +115,6 @@ if [ "$PYTEST_STATUS" -ne 0 ] || [ "$EVAL_STATUS" -ne 0 ]; then
   exit 1
 fi
 
-run_step "route coverage" python3 scripts/check-route-coverage.py
-run_step "追溯矩阵" python3 scripts/trace.py --strict
-cp "$STEP_LOG" "$TRACE_LOG"
-run_step "评审前置" python3 scripts/check-review-prereqs.py
-run_step "当前状态一致性" python3 scripts/check-status.py
-run_step "docs" python3 scripts/check-docs.py
-cp "$STEP_LOG" "$DOCS_LOG"
-run_step "设计令牌" ./scripts/check-tokens.sh
-run_step "样式检查" ./scripts/lint-styles.sh
 run_step "chat lint" pnpm -C apps/chat lint
 run_step "chat format" pnpm -C apps/chat exec prettier --check .
 run_step "chat typecheck" pnpm -C apps/chat typecheck
