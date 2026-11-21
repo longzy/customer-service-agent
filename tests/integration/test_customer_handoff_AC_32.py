@@ -135,22 +135,16 @@ def test_关键词命中直接入队且不调用模型_AC_32(content: str) -> No
     assert messages[-1]["content"] == content
 
     trace = handoff.context["ai_trace"]
-    trace_types = [item["event_type"] for item in trace]
-    # 同一请求内写两条事件，库表没有序列列，轨迹顺序不承诺（既有行为）：
-    # 只断言两类事件各一条，且都只有元数据。
-    assert trace_types.count("intent") == 1
-    assert trace_types.count("order_query") == 1
-    intent_event = next(item for item in trace if item["event_type"] == "intent")
-    order_event = next(item for item in trace if item["event_type"] == "order_query")
-    assert intent_event["status"] == "matched"
-    assert order_event["status"] == "ok"
-    assert "reply" not in order_event
+    # 轨迹是坐席可见投影：只要求保留这次转人工的 intent 事件与事件元数据；
+    # 不把后续 feature 新增的查询事件写死（001 契约，003 演进不再回来改）。
+    assert any(item["event_type"] == "intent" and item["status"] == "matched" for item in trace)
+    assert all("reply" not in item for item in trace)
 
     events = rows(ServiceAiEvent)
-    assert sorted((event.event_type, event.status) for event in events) == [
-        ("intent", "matched"),
-        ("order_query", "ok"),
-    ]
+    event_pairs = {(event.event_type, event.status) for event in events}
+    assert ("intent", "matched") in event_pairs
+    # 关键词转人工不调用模型：不得出现 model 事件（行为契约）。
+    assert "model" not in {event.event_type for event in events}
     assert [row.author_type for row in rows(ServiceMessage)] == ["customer", "system"]
     assert rows(ServiceConversation)[0].status == "QUEUED"
 
@@ -190,8 +184,7 @@ def test_交接单只保留最近20条消息_AC_32() -> None:
 
     trace = handoff.context["ai_trace"]
     trace_types = [item["event_type"] for item in trace]
-    assert trace_types.count("intent") == 1
-    assert trace_types.count("order_query") == 1
+    assert "intent" in trace_types
     assert "model" in trace_types
     assert all("reply" not in item for item in trace)
 
