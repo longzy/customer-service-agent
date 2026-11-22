@@ -23,6 +23,8 @@ run_quiet() {
 }
 
 run_quiet "文档引用" python3 scripts/check-docs.py
+run_quiet "任务索引同步" python3 scripts/gen_tasks.py --check
+run_quiet "看板同步" python3 scripts/gen_board.py --check
 run_quiet "状态一致性" python3 scripts/check-status.py
 run_quiet "追溯矩阵" python3 scripts/trace.py --strict
 run_quiet "设计令牌" ./scripts/check-tokens.sh

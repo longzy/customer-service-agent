@@ -34,10 +34,10 @@ status: ## 查看端口/数据库/迁移/模型/契约状态
 dev-reset: ## 重建本地开发库；非交互用 ARGS=--yes
 	UV_CACHE_DIR=$${UV_CACHE_DIR:-./.uv-cache} uv run python scripts/reset_dev_db.py $(ARGS)
 
-verify: ## 全量验证并写回 CURRENT
+verify: gen-tasks dashboard ## 全量验证并写回 CURRENT（先生成派生物）
 	./scripts/verify.sh
 
-verify-check: ## 全量验证，不写回 CURRENT；保留退出码
+verify-check: gen-tasks dashboard ## 全量验证，不写回 CURRENT；保留退出码
 	@log=$$(mktemp); \
 	trap 'rm -f "$$log"' EXIT; \
 	if ./scripts/verify.sh --no-record >"$$log" 2>&1; then \
