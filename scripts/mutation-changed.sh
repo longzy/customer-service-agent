@@ -18,6 +18,9 @@ if [ -z "$CHANGED_FILES" ]; then
   exit 0
 fi
 
+echo "== 突变副本前置检查 =="
+uv run pytest tests/unit/test_mutation_copy_contract.py -q
+
 BACKUP=$(mktemp)
 cp pyproject.toml "$BACKUP"
 restore() {

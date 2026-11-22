@@ -84,7 +84,7 @@ Frame（目标/非目标/完成标准）
 - 一次只做一个任务；先写失败测试，再实现；验证命令与证据写执行卡第 3、4 节；
 - 执行卡状态只改 frontmatter：`todo`、`doing`、`review`、`done`；不再手写 `Passes`；
 - 不得改任务标题/AC 来迁就实现；要改先改 `requirements.md`/`design.md` 并重新评审；
-- 关键路径加端到端/浏览器验证（多身份配方见 [浏览器走查](e2e-walkthrough.md)）；API 契约变更必须跑 `./scripts/check-contracts.sh`（verify 已包含；`check-api-types.sh` 为兼容入口）；全量 `make verify-check` 只在收口跑一次；失败则整改后重跑并做增量复审；
+- 关键路径加端到端/浏览器验证（多身份配方见 [浏览器走查](e2e-walkthrough.md)）；API 契约变更必须跑 `./scripts/check-contracts.sh`（verify 已包含；`check-api-types.sh` 为兼容入口）；全量 `make verify-check` 在送审前跑一次；收口 `make verify` 复用同一代码指纹（只重跑快检查），代码变化才重跑全量；失败则整改后重跑并做增量复审；
 - 实现过程用 `make verify-changed ARGS=F-08`（按路径触发，只跑改动涉及的检查：后端 ruff/mypy/pytest、chat 或 workspace 前端、文档/状态/追溯、契约；互不牵连，`--dry-run` 可先看计划；不跑全量 pytest/评测/构建）；`make verify-check` 只留给收口；
 - 全量并行实测（2026-11-21，819 条）：2 片 2:29、4 片 2:31，串行约 3:10，收益 <25%；瓶颈是单机 DB/IO 而非 CPU，因此不接门禁。全量 >5 分钟或 CI 需要分片时再评估（优先 CI 矩阵与 JUnit 合并，不改本地默认）。
 - 演示数据重置统一用 `make dev-reset`，不手写 `DELETE`/`UPDATE` 修改开发库；
@@ -136,8 +136,8 @@ docs/adr/                                 # lasting decisions
 
 - G0：在 milestone 内，风险级别已定；模板基线已定（requirements/design/tasks）；
 - G1：requirements 的成功度量与 AC 可验证，且每个 AC 被执行卡 frontmatter 引用；
-- G2：收口时 `verify.sh` 全绿；
-- G3：T3 的安全评审/回滚通过；
+- G2：收口时 `verify.sh` 全绿（`make verify` 复用需代码指纹一致）；
+- G3：T3 的安全评审/回滚通过；突变由 CI `mutation` job（观察期）持续覆盖；
 - G4：按执行卡第 3、4 节走查通过。
 
 实现者不得为自己的改动签字；代码评审用独立上下文。

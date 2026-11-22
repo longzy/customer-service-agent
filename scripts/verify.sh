@@ -4,20 +4,24 @@
 #   ./scripts/verify.sh              # 全量验证并回写 docs/STATUS.md 的验证块
 #   ./scripts/verify.sh --verbose    # 逐步输出完整日志
 #   ./scripts/verify.sh --no-record  # 只验证，不修改仓库（CI 使用）
+#   ./scripts/verify.sh --reuse      # 代码输入未变时复用慢检查，只重跑快检查（收口用）
 #   ./scripts/verify.sh --fast       # 后端快速反馈：ruff/format/mypy/unit，不写状态
 # 前端步骤包含 lint/format/typecheck/test/build（build 与 CI frontend-build job 对齐）。
 set -e
 cd "$(git rev-parse --show-toplevel)"
 
 export UV_CACHE_DIR="${UV_CACHE_DIR:-./.uv-cache}"
+STATE="$PWD/.verify/last-full.json"
 RECORD=1
 FAST=0
 VERBOSE=0
+REUSE=0
 for arg in "$@"; do
   case "$arg" in
     --no-record) RECORD=0 ;;
     --fast) FAST=1 ;;
     --verbose) VERBOSE=1 ;;
+    --reuse) REUSE=1 ;;
     *) echo "未知参数：$arg" >&2; exit 2 ;;
   esac
 done
@@ -56,6 +60,14 @@ if [ "$FAST" = "1" ]; then
   exit 0
 fi
 
+if [ "$REUSE" = "1" ]; then
+  if uv run python scripts/verify_state.py check --state "$STATE" >/dev/null 2>&1; then
+    echo "== 代码输入未变：复用上次全量结果，只重跑快检查 =="
+  else
+    REUSE=0
+  fi
+fi
+
 REPORTS_DIR="evals/reports"
 JUNIT="$REPORTS_DIR/latest-junit.xml"
 mkdir -p "$REPORTS_DIR"
@@ -86,6 +98,12 @@ run_step "设计令牌" ./scripts/check-tokens.sh
 run_step "样式检查" ./scripts/lint-styles.sh
 
 # pytest 失败也要继续生成 eval 报告，因此这里暂时关闭 set -e 并分别记退出码。
+if [ "$REUSE" = "1" ]; then
+  # 慢检查复用：pytest/评测/前端在代码指纹一致时无需重跑；快检查已在本轮执行。
+  PYTEST_LINE=$(uv run python scripts/verify_state.py get --state "$STATE" --field pytest_line)
+  PYTEST_STATUS=0
+  EVAL_STATUS=0
+else
 if [ "$VERBOSE" = "1" ]; then
   echo "== pytest（独立测试库）=="
 fi
@@ -127,8 +145,10 @@ run_step "workspace typecheck" pnpm -C apps/workspace typecheck
 run_step "workspace test" pnpm -C apps/workspace test
 run_step "chat build" pnpm -C apps/chat build
 run_step "workspace build" pnpm -C apps/workspace build
-
 PYTEST_LINE=$(grep -E "[0-9]+ passed" "$PYTEST_LOG" | tail -1)
+fi
+
+uv run python scripts/verify_state.py save --state "$STATE" --pytest-line "$PYTEST_LINE" --eval-status "$EVAL_STATUS"
 MYPY_LINE=$(tail -1 "$MYPY_LOG")
 DOCS_LINE=$(tail -1 "$DOCS_LOG")
 TRACE_LINE=$(tail -1 "$TRACE_LOG")

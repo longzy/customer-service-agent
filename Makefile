@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help dev dev-stop dev-reset status verify verify-check verify-changed verify-fast review-check review-pack eval lint typecheck test gen-contracts gen-tasks dashboard
+.PHONY: help dev dev-stop dev-reset status verify verify-check verify-changed verify-fast review-check review-pack eval lint typecheck test test-reuse gen-contracts gen-tasks dashboard
 
 help: ## 显示可用命令
 	@echo "make dev          启动 API + Chat + Workspace（自动准备 .env、数据库、依赖）"
@@ -8,7 +8,7 @@ help: ## 显示可用命令
 	@echo "make dev-stop     停止本地 3000/3001/8000 监听进程"
 	@echo "make dev-reset    重建本地开发库（停服务、迁移、重播种；需确认）"
 	@echo "make status       查看端口/数据库/迁移/模型/契约状态"
-	@echo "make verify       全量验证并写回 CURRENT"
+	@echo "make verify       全量验证并写回 CURRENT（代码未变时复用慢检查）"
 	@echo "make verify-check 全量验证，不写 CURRENT（保留退出码）"
 	@echo "make verify-changed 按变更范围验证（实现内环，ARGS=F-08）"
 	@echo "make verify-fast  后端快速检查"
@@ -18,6 +18,7 @@ help: ## 显示可用命令
 	@echo "make lint         ruff check + format check"
 	@echo "make typecheck    mypy backend"
 	@echo "make test         pytest（独立测试库）"
+	@echo "make test-reuse   复用固定测试库跑 pytest（迭代用；ARGS 透传）"
 	@echo "make gen-contracts 重新生成契约、前端类型与测试快照"
 	@echo "make gen-tasks    从执行卡 frontmatter 生成 tasks.md"
 	@echo "make dashboard    生成 docs/dashboard.html 与 status.json"
@@ -35,7 +36,7 @@ dev-reset: ## 重建本地开发库；非交互用 ARGS=--yes
 	UV_CACHE_DIR=$${UV_CACHE_DIR:-./.uv-cache} uv run python scripts/reset_dev_db.py $(ARGS)
 
 verify: gen-tasks dashboard ## 全量验证并写回 CURRENT（先生成派生物）
-	./scripts/verify.sh
+	./scripts/verify.sh --reuse
 
 verify-check: gen-tasks dashboard ## 全量验证，不写回 CURRENT；保留退出码
 	@log=$$(mktemp); \
@@ -70,6 +71,9 @@ typecheck: ## mypy backend
 
 test: ## pytest（独立测试库）
 	./scripts/test-db.sh -q
+
+test-reuse: ## 复用固定测试库跑 pytest（迭代用）
+	TEST_DB_NAME=customer_service_test_dev ./scripts/test-db.sh $(ARGS)
 
 gen-contracts: ## 重新生成契约、前端类型与测试快照
 	./scripts/gen-contracts.sh

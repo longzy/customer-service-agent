@@ -98,8 +98,8 @@ M1 演示账号：客户 `customer_a`/`customer_b`，坐席 `agent_1`/`agent_2`�
 ```bash
 # 一键验证：ruff、mypy、pytest（独立测试库）、路由覆盖、追溯、状态、文档、前端检查与构建
 make verify-changed ARGS=F-08     # 实现内环：按路径触发，只跑改动涉及的检查（后端/chat/workspace/文档/契约）
-make verify-check                 # 评审门禁：全量验证，不写回 STATUS（保留退出码，默认一行摘要）
-make verify                       # 收口：全量验证并写回 STATUS
+make verify-check                 # 送审门禁：全量验证，不写回 STATUS（保留退出码，默认一行摘要）
+make verify                       # 收口：代码未变时复用慢检查，写回 STATUS
 ./scripts/verify.sh --no-record   # CI 使用：只验证，不写回状态快照
 ./scripts/verify.sh --verbose     # 排障：逐步输出完整日志
 make verify-fast                  # 后端快速反馈
@@ -117,6 +117,7 @@ make eval                         # 场景评测：pytest JUnit + AC 报告
 UV_CACHE_DIR=./.uv-cache uv run ruff check .
 UV_CACHE_DIR=./.uv-cache uv run mypy backend
 ./scripts/test-db.sh -q            # 建一次性测试库、跑迁移、再跑 pytest（退出即删）
+make test-reuse ARGS=...           # 复用固定测试库跑 pytest（迭代用）
 python3 scripts/check-docs.py
 python3 scripts/check-status.py    # STATUS.md ↔ tasks.md ↔ 执行卡
 python3 scripts/check-review-prereqs.py  # 组件命名/trace 基线/STATUS 评审声称
