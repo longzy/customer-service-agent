@@ -104,6 +104,7 @@ CANCEL_CONFIRM_NOTICE = (
 CANCEL_CANDIDATES_REPLY = (
     "你名下有多个最近订单，我不能替你选。请点要取消的订单卡片上的「取消订单」，或回复订单号。"
 )
+CANCEL_SINGLE_CANDIDATE_REPLY = "找到你最近的一笔订单，请点卡片上的「取消订单」确认，或回复订单号。"
 CANCEL_NO_PENDING_REPLY = "当前没有待确认的取消。可以说「取消订单」，或到「我的订单」发起。"
 CANCEL_CONFLICT_REPLY = "取消状态刚刚变化，请稍后在「我的订单」查看。"
 
@@ -617,7 +618,11 @@ async def _cancel_result(
                 conversation,
                 customer_message,
                 orders=outcome.orders,
-                preface=CANCEL_CANDIDATES_REPLY,
+                preface=(
+                    CANCEL_CANDIDATES_REPLY
+                    if len(outcome.orders) > 1
+                    else CANCEL_SINGLE_CANDIDATE_REPLY
+                ),
                 trace_id=trace_id,
                 now=now,
                 order_query=audit,
