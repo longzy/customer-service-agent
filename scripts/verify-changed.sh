@@ -35,6 +35,8 @@ if [ -z "$FEATURE" ]; then
   FEATURE=$(grep '^- 当前工作：' docs/STATUS.md | grep -o 'F-[0-9][0-9]' | head -1 || true)
 fi
 
+# AC 定向来自执行卡 frontmatter（唯一状态源），不从生成物 tasks.md 反解析。
+# 解析失败必须显式报错：静默回退到单元测试会让“定向 AC”看起来跑过。
 ACS=""
 if [ -n "$FEATURE" ]; then
   ACS=$(python3 - "$FEATURE" <<'PY'
@@ -43,17 +45,29 @@ import sys
 from pathlib import Path
 
 feature = sys.argv[1]
-for path in sorted(Path("docs/specs").glob("*/tasks.md")):
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if line.startswith(f"| {feature} |"):
-            cells = [cell.strip() for cell in line.strip().strip("|").split("|")]
-            if len(cells) >= 6:
-                acs = list(dict.fromkeys(re.findall(r"AC-\d{2}", cells[4])))
-                print(" or ".join(acs))
-                raise SystemExit(0)
-raise SystemExit(1)
+for path in sorted(Path("docs/tasks").glob("*/F-*.md")):
+    if path.stem != feature:
+        continue
+    text = path.read_text(encoding="utf-8")
+    match = re.match(r"^---\n(.*?)\n---\n", text, re.S)
+    if match is None:
+        print(f"{feature}：执行卡缺少 frontmatter", file=sys.stderr)
+        raise SystemExit(2)
+    for line in match.group(1).splitlines():
+        key, sep, value = line.partition(":")
+        if sep and key.strip() == "ac":
+            acs = list(dict.fromkeys(re.findall(r"AC-\d{2}", value)))
+            if not acs:
+                print(f"{feature}：frontmatter 的 ac 为空", file=sys.stderr)
+                raise SystemExit(3)
+            print(" or ".join(acs))
+            raise SystemExit(0)
+    print(f"{feature}：frontmatter 缺少 ac", file=sys.stderr)
+    raise SystemExit(4)
+print(f"{feature}：找不到执行卡 docs/tasks/*/F-*.md", file=sys.stderr)
+raise SystemExit(5)
 PY
-) || ACS=""
+) || { echo "无法从执行卡解析 ${FEATURE} 的验收编号（ac）" >&2; exit 2; }
 fi
 
 if [ -n "$PATHS_FILE" ]; then
@@ -150,7 +164,15 @@ plan "$DOCS_CHANGED" "文档引用" || true
 plan "$STATUS_CHANGED" "状态一致性" || true
 plan "$TRACE_CHANGED" "追溯矩阵" || true
 plan "$CONTRACTS_CHANGED" "契约生成物" || true
-plan "$BACKEND_CHANGED" "后端测试" || true
+if [ "$BACKEND_CHANGED" -eq 1 ]; then
+  if [ -n "$ACS" ]; then
+    plan 1 "后端测试（AC 定向：${ACS}）" || true
+  else
+    plan 1 "后端测试（后端单元）" || true
+  fi
+else
+  plan 0 "后端测试" || true
+fi
 plan "$CHAT_CHANGED" "chat 前端" || true
 plan "$WORKSPACE_CHANGED" "workspace 前端" || true
 

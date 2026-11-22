@@ -155,7 +155,9 @@ MYPY_LINE=$(tail -1 "$MYPY_LOG")
 DOCS_LINE=$(tail -1 "$DOCS_LOG")
 TRACE_LINE=$(tail -1 "$TRACE_LOG")
 python3 - "$PYTEST_LINE" "$MYPY_LINE" "$DOCS_LINE" "$TRACE_LINE" "$RECORD" <<'PY'
+import os
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -182,4 +184,12 @@ path.write_text(
     f"{before}<!-- verify:start -->\n{summary}\n<!-- verify:end -->{after}",
     encoding="utf-8",
 )
+feature = os.environ.get("VERIFY_FEATURE", "").strip()
+if feature:
+    result = subprocess.run(
+        [sys.executable, "scripts/record_review_verify.py", feature, summary],
+        capture_output=True,
+        text=True,
+    )
+    print(result.stdout.strip() or result.stderr.strip())
 PY

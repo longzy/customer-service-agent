@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import argparse
 import re
+import shutil
 import subprocess
 import sys
 from datetime import date
@@ -23,6 +24,11 @@ from review_conclusion import conclusion_verdict
 FRONTMATTER = re.compile(r"^---\n(.*?)\n---\n", re.S)
 SECURITY_HEADING = "安全评审"
 SECURITY_CONCLUSION = re.compile(r"结论[:：]\s*(通过|有条件通过|不通过)")
+REVIEW_VERIFY_ROW = re.compile(r"^\|\s*收口全量（回填）\s*\|(.*)\|\s*$", re.M)
+DIFF_CMD = re.compile(r"git show --shortstat --oneline ([0-9a-f]{7,40})")
+DIFF_STAT = re.compile(
+    r"(\d+) files? changed(?:, (\d+) insertions?\(\+\))?(?:, (\d+) deletions?\(-\))?"
+)
 
 STATUS_LABEL = {
     "todo": "未开始",
@@ -92,6 +98,70 @@ def trace_gate(root: Path) -> str | None:
     return "trace.py --strict 未通过：" + " / ".join(output[-3:])
 
 
+def _git_shortstat(root: Path, sha: str) -> tuple[int, int, int] | None:
+    """返回提交的实际 shortstat；提交不存在或不是 git 仓库时返回 None。"""
+    git = shutil.which("git")
+    if git is None:
+        return None
+    result = subprocess.run(  # noqa: S603 - 绝对路径来自 shutil.which
+        [git, "-C", str(root), "show", "--shortstat", "--format=", sha],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return None
+    match = DIFF_STAT.search(result.stdout)
+    if match is None:
+        return (0, 0, 0)
+    return (int(match.group(1)), int(match.group(2) or 0), int(match.group(3) or 0))
+
+
+def _diff_evidence_issues(root: Path, evidence: str) -> list[str]:
+    """证据里的 `git show --shortstat --oneline <sha>` 必须与 git 实际一致。
+
+    没有写该命令的旧卡跳过；新卡由 check-spec 要求写（让数字可机械核对）。
+    """
+    issues: list[str] = []
+    lines = evidence.splitlines()
+    for index, line in enumerate(lines):
+        match = DIFF_CMD.search(line)
+        if match is None:
+            continue
+        sha = match.group(1)
+        expected = _git_shortstat(root, sha)
+        if expected is None:
+            issues.append(f"证据引用的提交 {sha} 不可读（检查是否已提交）")
+            continue
+        actual: tuple[int, int, int] | None = None
+        for follow in lines[index + 1 : index + 4]:
+            stat = DIFF_STAT.search(follow)
+            if stat is not None:
+                actual = (
+                    int(stat.group(1)),
+                    int(stat.group(2) or 0),
+                    int(stat.group(3) or 0),
+                )
+                break
+        if actual is None:
+            issues.append(f"证据缺少 {sha} 的 shortstat 输出")
+        elif actual != expected:
+            issues.append(f"证据的 diff 统计与 {sha} 实际不符：证据 {actual}，git {expected}")
+    return issues
+
+
+def _review_verify_issue(text: str) -> str | None:
+    """门禁表的「收口全量（回填）」必须已有可复核结果；旧模板没有该行则跳过。"""
+    match = REVIEW_VERIFY_ROW.search(text)
+    if match is None:
+        return None
+    value = match.group(1).strip()
+    if not value or "待收口" in value:
+        return "「收口全量（回填）」尚未回填；先跑 make verify（自动回填）"
+    if "pytest" not in value and "passed" not in value and "make verify" not in value:
+        return "「收口全量（回填）」缺少 pytest/passed 结果"
+    return None
+
+
 def check(root: Path, feature: str) -> list[str]:
     """返回阻断收口的问题；空列表表示可以收口。"""
     problems: list[str] = []
@@ -113,6 +183,7 @@ def check(root: Path, feature: str) -> list[str]:
     evidence = section(text, "4. 证据")
     if "```" not in evidence:
         problems.append(f"{card}：第 4 节证据缺少命令输出代码块")
+    problems.extend(f"{card}：{issue}" for issue in _diff_evidence_issues(root, evidence))
 
     review_path = root / "docs" / "reviews" / card.parent.name / f"{feature}.md"
     if not review_path.exists():
@@ -127,6 +198,9 @@ def check(root: Path, feature: str) -> list[str]:
         security_issue = _security_issue(review_text, meta)
         if security_issue is not None:
             problems.append(f"{review_path}：{security_issue}")
+        verify_issue = _review_verify_issue(review_text)
+        if verify_issue is not None:
+            problems.append(f"{review_path}：{verify_issue}")
 
     current = current_sections(root / "docs" / "STATUS.md")
     pattern = re.compile(rf"\b{re.escape(feature)}\b")
@@ -234,9 +308,9 @@ def main() -> int:
             return 1
         print(f"{args.feature}：frontmatter 已置 done，tasks.md 已重新生成。")
         print("剩余手工步骤：")
-        print("  1. 更新 docs/STATUS.md：从「进行中」「下一步」移除该 feature，")
+        print("  1. make gen-tasks && make dashboard；")
+        print("  2. 更新 docs/STATUS.md：从「进行中」「下一步」移除该 feature，")
         print("     并在「已完成」追加一行；")
-        print("  2. 运行 make verify；")
         print(f"  3. 提交 docs({args.feature}): 收口状态与证据；")
         print("  4. 提交后勾选执行卡完成定义中含“提交”的条目。")
         return 0
@@ -252,7 +326,8 @@ def main() -> int:
         return 1
     print(f"{args.feature} 收口检查通过。")
     print("下一步：")
-    print(f"  python3 scripts/close_feature.py {args.feature} --apply")
+    print(f"  1. VERIFY_FEATURE={args.feature} make verify（全量并自动回填评审记录）")
+    print(f"  2. python3 scripts/close_feature.py {args.feature} --apply")
     return 0
 
 

@@ -62,6 +62,8 @@ def review_stats(root: Path) -> dict[str, object]:
     verdicts: Counter[str] = Counter()
     followups = 0
     security = 0
+    mechanical = 0
+    judgement = 0
     for path in sorted((root / "docs" / "reviews").glob("*/F-*.md")):
         text = read(path)
         found = verdict(text)
@@ -70,6 +72,9 @@ def review_stats(root: Path) -> dict[str, object]:
         followups += text.count("接受为后续")
         if "## 安全评审" in text and "结论：通过" in text:
             security += 1
+        # 评审记录 `## 0.1 条件项分类` 的输入：机械项应转成检查，判断项留评审。
+        mechanical += sum(1 for line in text.splitlines() if line.strip().startswith("- 机械（"))
+        judgement += sum(1 for line in text.splitlines() if line.strip().startswith("- 判断（"))
     t3 = t3_cards(root)
     return {
         "reviews": sum(verdicts.values()),
@@ -77,6 +82,8 @@ def review_stats(root: Path) -> dict[str, object]:
         "t3_cards": len(t3),
         "t3_security_passed": security,
         "followups": followups,
+        "mechanical_findings": mechanical,
+        "judgement_findings": judgement,
     }
 
 
@@ -111,6 +118,9 @@ def render(data: dict[str, object]) -> str:
         f"- 评审记录：{reviews['reviews']}；结论分布：{reviews['verdicts']}",
         f"- T3 安全评审通过：{reviews['t3_security_passed']}/{reviews['t3_cards']}",
         f"- 「接受为后续」出现次数：{reviews['followups']}（需有承接 feature）",
+        "- 条件项分类：机械 "
+        f"{reviews['mechanical_findings']} / 判断 {reviews['judgement_findings']}"
+        "（机械项应转脚本或测试）",
     ]
     latest = data["latest_eval"]
     if latest is None:

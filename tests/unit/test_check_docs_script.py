@@ -226,3 +226,29 @@ def test_验证层级命令齐全时通过_基座豁免() -> None:
         "- 测试层级：integration、unit、frontend\n"
     )
     assert module.verify_level_gaps(text) == []
+
+
+def test_执行卡引用测试文件名短名也通过_基座豁免(tmp_path: Path, monkeypatch: Any) -> None:
+    module = load_module()
+    tasks = tmp_path / "docs" / "tasks" / "001-demo"
+    reviews = tmp_path / "docs" / "reviews" / "001-demo"
+    tests = tmp_path / "tests"
+    for path in (tasks, reviews, tests):
+        path.mkdir(parents=True)
+    (tests / "test_demo.py").write_text(
+        "def test_存在_AC_35():\n    pass\n",
+        encoding="utf-8",
+    )
+    (tasks / "F-01.md").write_text(
+        "- 状态：评审中\n\n验证见 `test_demo`。\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(module, "ROOT", str(tmp_path))
+    monkeypatch.setattr(module, "TASKS_ROOT", str(tasks))
+    monkeypatch.setattr(module, "REVIEWS_ROOT", str(reviews))
+    monkeypatch.setattr(module, "TESTS_ROOT", str(tests))
+    monkeypatch.setattr(module, "errors", [])
+
+    module.check_test_references()
+
+    assert module.errors == []

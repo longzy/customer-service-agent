@@ -22,6 +22,7 @@ def test_汇总评审与T3安全覆盖_基座豁免(tmp_path: Path) -> None:
     )
     write(
         tmp_path / "docs/reviews/001-demo/F-02.md",
+        "## 0.1 条件项分类\n\n- 机械（可检查）：1 处\n- 判断（需评审）：2 处\n\n"
         "## 结论\n\n有条件通过。\n\n接受为后续：2\n",
     )
     result = gate_metrics.collect(tmp_path)
@@ -31,6 +32,8 @@ def test_汇总评审与T3安全覆盖_基座豁免(tmp_path: Path) -> None:
     assert reviews["t3_cards"] == 1
     assert reviews["t3_security_passed"] == 1
     assert reviews["followups"] == 1
+    assert reviews["mechanical_findings"] == 1
+    assert reviews["judgement_findings"] == 1
 
 
 def test_最近评测摘要_基座豁免(tmp_path: Path) -> None:
@@ -62,3 +65,14 @@ def test_无评测报告时说明_基座豁免(tmp_path: Path) -> None:
     data = gate_metrics.collect(tmp_path)
     assert data["latest_eval"] is None
     assert "无报告" in gate_metrics.render(data)
+
+
+def test_条件项分类进入汇总_基座豁免(tmp_path: Path) -> None:
+    write(
+        tmp_path / "docs/reviews/001-demo/F-01.md",
+        "## 0.1 条件项分类\n\n- 机械（可检查）：3 处\n- 判断（需评审）：1 处\n\n## 结论\n\n通过\n",
+    )
+    data = gate_metrics.collect(tmp_path)
+    assert data["reviews"]["mechanical_findings"] == 1
+    assert data["reviews"]["judgement_findings"] == 1
+    assert "机械 1 / 判断 1" in gate_metrics.render(data)

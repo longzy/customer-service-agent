@@ -316,10 +316,24 @@ def test_names() -> set[str]:
     return names
 
 
+def test_file_stems() -> set[str]:
+    """收集 tests/ 下的测试文件名（去 .py），允许文档用文件名短名引用。"""
+    stems: set[str] = set()
+    if not os.path.isdir(TESTS_ROOT):
+        return stems
+    for _base, dirs, files in os.walk(TESTS_ROOT):
+        dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
+        for name in files:
+            if name.endswith(".py") and name.startswith("test_"):
+                stems.add(name[:-3])
+    return stems
+
+
 def check_test_references():
-    """执行卡与评审记录里反引号包裹的 test_* 必须真实存在。"""
+    """执行卡与评审记录里反引号包裹的 test_* 必须真实存在（函数名或测试文件名）。"""
     known = test_names()
-    if not known:
+    stems = test_file_stems()
+    if not known and not stems:
         return
     for root in (TASKS_ROOT, REVIEWS_ROOT):
         if not os.path.isdir(root):
@@ -334,7 +348,7 @@ def check_test_references():
                     if "/" in reference or "::" in reference or reference.endswith(".py"):
                         continue
                     checked["test_refs"] += 1
-                    if reference not in known:
+                    if reference not in known and reference not in stems:
                         errors.append(f"{rel(path)}：引用的测试不存在 {reference}")
 
 

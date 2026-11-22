@@ -11,7 +11,12 @@ GEN_TASKS = ROOT / "scripts" / "gen_tasks.py"
 
 
 def make_repo(
-    root: Path, *, with_review: bool = True, status: str = "review", risk: str = "T2"
+    root: Path,
+    *,
+    with_review: bool = True,
+    status: str = "review",
+    risk: str = "T2",
+    verify_row: str | None = None,
 ) -> None:
     spec = root / "docs" / "specs" / "001-demo"
     task = root / "docs" / "tasks" / "001-demo"
@@ -40,8 +45,9 @@ def make_repo(
         encoding="utf-8",
     )
     if with_review:
+        verify_line = f"| 收口全量（回填） | {verify_row} |\n" if verify_row is not None else ""
         (review / "F-01.md").write_text(
-            "# 评审记录\n\n## 0. 门禁复核\n\n通过\n\n## 逐 AC\n\n通过\n\n"
+            f"# 评审记录\n\n## 0. 门禁复核\n\n{verify_line}\n## 逐 AC\n\n通过\n\n"
             "## 阻断项\n\n无\n\n## 结论\n\n通过\n",
             encoding="utf-8",
         )
@@ -165,3 +171,82 @@ def test_T3安全评审不通过时阻断_基座豁免(tmp_path: Path) -> None:
     result = run(tmp_path)
     assert result.returncode == 1
     assert "T3 安全评审结论为「不通过」" in result.stderr
+
+
+def _git() -> str:
+    path = shutil.which("git")
+    assert path is not None
+    return path
+
+
+def _init_git(root: Path) -> str:
+    git = _git()
+    command = [git, "-c", "user.name=test", "-c", "user.email=test@example.com"]
+    subprocess.run([git, "init", "-q"], cwd=root, check=True)  # noqa: S603
+    subprocess.run([*command, "add", "-A"], cwd=root, check=True)  # noqa: S603
+    subprocess.run([*command, "commit", "-qm", "init"], cwd=root, check=True)  # noqa: S603
+    result = subprocess.run(  # noqa: S603
+        [git, "rev-parse", "--short", "HEAD"], cwd=root, capture_output=True, text=True
+    )
+    return result.stdout.strip()
+
+
+def _shortstat(root: Path, sha: str) -> str:
+    result = subprocess.run(  # noqa: S603
+        [_git(), "show", "--shortstat", "--format=", sha],
+        cwd=root,
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout.strip()
+
+
+def _write_evidence(root: Path, block: str) -> None:
+    card = root / "docs" / "tasks" / "001-demo" / "F-01.md"
+    text = card.read_text(encoding="utf-8")
+    assert "```text\npytest 1 passed\n```" in text
+    card.write_text(text.replace("```text\npytest 1 passed\n```", block), encoding="utf-8")
+
+
+def test_收口全量未回填时阻断_基座豁免(tmp_path: Path) -> None:
+    make_repo(tmp_path, verify_row="待收口 `make verify`")
+    result = run(tmp_path)
+
+    assert result.returncode == 1
+    assert "收口全量（回填）" in result.stderr
+
+
+def test_收口全量已回填时通过_基座豁免(tmp_path: Path) -> None:
+    make_repo(tmp_path, verify_row="通过：pytest 1 passed")
+    result = run(tmp_path)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_证据diff统计一致时通过_基座豁免(tmp_path: Path) -> None:
+    make_repo(tmp_path)
+    sha = _init_git(tmp_path)
+    stat = _shortstat(tmp_path, sha)
+    _write_evidence(
+        tmp_path,
+        f"```text\n$ git show --shortstat --oneline {sha}\n{sha} init\n{stat}\n```",
+    )
+
+    result = run(tmp_path)
+
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_证据diff统计不一致时阻断_基座豁免(tmp_path: Path) -> None:
+    make_repo(tmp_path)
+    sha = _init_git(tmp_path)
+    _write_evidence(
+        tmp_path,
+        f"```text\n$ git show --shortstat --oneline {sha}\n{sha} init\n"
+        " 99 files changed, 1 insertion(+) \n```",
+    )
+
+    result = run(tmp_path)
+
+    assert result.returncode == 1
+    assert "diff 统计" in result.stderr

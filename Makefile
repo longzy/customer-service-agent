@@ -37,8 +37,11 @@ status: ## 查看端口/数据库/迁移/模型/契约状态
 dev-reset: ## 重建本地开发库；非交互用 ARGS=--yes
 	UV_CACHE_DIR=$${UV_CACHE_DIR:-./.uv-cache} uv run python scripts/reset_dev_db.py $(ARGS)
 
+# 收口全量自动回填当前「进行中」feature 的评审记录；无进行中任务时为空。
+VERIFY_FEATURE ?= $(shell sed -n '/进行中/,+3p' docs/STATUS.md | grep -o 'F-[0-9][0-9]' | head -1)
+
 verify: gen-tasks dashboard ## 全量验证并写回 CURRENT（先生成派生物）
-	./scripts/verify.sh --reuse
+	VERIFY_FEATURE=$(VERIFY_FEATURE) ./scripts/verify.sh --reuse
 
 verify-check: gen-tasks dashboard ## 全量验证，不写回 CURRENT；保留退出码
 	@log=$$(mktemp); \
