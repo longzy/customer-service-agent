@@ -4,5 +4,10 @@
 set -e
 cd "$(git rev-parse --show-toplevel)"
 
+branch=$(git branch --show-current)
+if [ "$branch" = "main" ]; then
+  echo "警告：正在直接推送 main；仓库约定 feature 分支 + PR（见 docs/ops/branch-protection.md）。" >&2
+fi
+
 echo "== pre-push：全量验证（代码未变时复用）=="
 ./scripts/verify.sh --reuse

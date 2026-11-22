@@ -13,10 +13,15 @@
 | 门禁 | 结果 |
 |---|---|
 | `make verify-changed` + 定向 AC | |
-| 收口全量（回填） | |
+| 收口全量（回填） | 由 `make verify` 自动回填；`close_feature.py` 检查非空 |
 | `make review-check` | |
 | AC 定向测试（独立 `TEST_DB_NAME`） | |
 | `./scripts/check-contracts.sh` | |
+
+## 0.1 条件项分类（反馈环 A 输入）
+
+- 机械（可由脚本/检查拦下）：
+- 判断（需要评审者判断）：
 
 ## Standards 轴报告
 

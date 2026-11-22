@@ -89,7 +89,7 @@ Frame（目标/非目标/完成标准）
 - 全量并行实测（2026-11-21，819 条）：2 片 2:29、4 片 2:31，串行约 3:10，收益 <25%；瓶颈是单机 DB/IO 而非 CPU，因此不接门禁。全量 >5 分钟或 CI 需要分片时再评估（优先 CI 矩阵与 JUnit 合并，不改本地默认）。
 - 演示数据重置统一用 `make dev-reset`，不手写 `DELETE`/`UPDATE` 修改开发库；
 - 每次状态变化后运行 `make gen-tasks` 与 `make dashboard`，让索引和看板追上执行卡；
-- 提交保持小步，main 始终可运行。
+- 提交保持小步，main 始终可运行；在 feature 分支开发，推送后开 PR 合入，不直推 `main`。
 
 完成标志：**任务的验证命令通过；用户可演示该任务；没有静默跳过。**
 
@@ -100,7 +100,7 @@ Frame（目标/非目标/完成标准）
 - 独立上下文代码评审：看 diff、测试、越权/失败路径；
 - 人工走查：按执行卡第 3、4 节逐条演示；
 - lasting decisions 写 ADR；更新 requirements/design/执行卡，不让文档腐烂；
-- 收口顺序：`close_feature.py --apply` → `make gen-tasks` → `make dashboard` → 更新 `STATUS.md` → `make verify` → 提交；
+- 收口顺序：`make verify`（全量；自动回填评审记录「收口全量」）→ `close_feature.py --apply` → `make gen-tasks` → `make dashboard` → 更新 `STATUS.md` → 提交；
 - 反馈环：门禁→规则/测试、运行/评测→规格，指标与复盘节奏见 [feedback.md](feedback.md)；
 - 发布后清理过期文档与任务状态。
 
@@ -150,7 +150,7 @@ docs/adr/                                 # lasting decisions
 | “开工” | 当前已批准任务的执行卡 + 实现 |
 | “先规划” | Frame/Plan，不写代码 |
 | “评审” | 评审包 + 机械前置 + 两轴独立评审 + 逐任务证据 |
-| “收口” | `close_feature.py --apply` → `make gen-tasks` → `make dashboard` → 更新 `STATUS.md` → `make verify` → 提交 |
+| “收口” | `make verify`（回填）→ `close_feature.py --apply` → `make gen-tasks` → `make dashboard` → 更新 `STATUS.md` → 提交 |
 
 ## 7. 停止并请求决策
 
