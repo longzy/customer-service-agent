@@ -470,6 +470,71 @@ async def _cancel_candidates(
     )
 
 
+async def _cancel_query(
+    db: AsyncSession,
+    conversation: ServiceConversation,
+    customer_message: ServiceMessage,
+    *,
+    customer: Customer,
+    trace_id: str,
+    now: datetime,
+    gateway: ToolGateway | None,
+    order_id: str | None,
+) -> tuple[OrderQueryOutcome, OrderQueryAudit | None, ChatResult | None]:
+    """定位查询：返回 outcome 与审计事实；失败/空结果已落地，调用方直接返回第三项。
+
+    `order_id=None` 查最近订单列表，否则查单笔。失败复用 F-27 的订单失败分级，
+    空结果写“查无/暂无”提示，两条路径都不创建取消任务。
+    """
+    outcome = (
+        await query_order(gateway, customer, order_id, trace_id)
+        if order_id is not None
+        else await query_recent_orders(gateway, customer, trace_id)
+    )
+    if outcome.status in ORDER_FAILURE_STATUSES:
+        return (
+            outcome,
+            None,
+            await _order_result(
+                db,
+                conversation,
+                customer_message=customer_message,
+                customer=customer,
+                outcome=outcome,
+                trace_id=trace_id,
+                now=now,
+            ),
+        )
+    await _record_ai_event(
+        db,
+        conversation,
+        status=outcome.status,
+        confidence=None,
+        trace_id=trace_id,
+        now=now,
+        event_type="order_query",
+        name=outcome.tool,
+    )
+    audit = order_query_audit(outcome)
+    if not outcome.orders:
+        return (
+            outcome,
+            audit,
+            await _cancel_message(
+                db,
+                conversation,
+                customer_message,
+                content=outcome.reply,
+                orders=[],
+                cancellation=None,
+                trace_id=trace_id,
+                now=now,
+                order_query=audit,
+            ),
+        )
+    return outcome, audit, None
+
+
 async def _cancel_result(
     db: AsyncSession,
     conversation: ServiceConversation,
@@ -486,7 +551,7 @@ async def _cancel_result(
     """取消分支：确定性定位订单，再发起/复用任务并写确认卡片（AC-63）。
 
     定位顺序：显式订单号 > 会话内最近一次成功查询恰好一笔 > 最近订单列表。
-    多单只列候选，不替客户选；快照只用于定位，摘要统一以 OMS 最新结果为准。
+    除“快照恰好一笔”外都只列候选，不替客户选；快照只用于定位，摘要以 OMS 为准。
     """
     order_id: str | None = None
     summary: dict[str, Any] | None = None
@@ -494,40 +559,18 @@ async def _cancel_result(
 
     if len(order_ids) > 1:
         # 客户自己给了多个订单号：同样不替客户选。
-        outcome = await query_recent_orders(order_gateway, customer, trace_id)
-        if outcome.status in ORDER_FAILURE_STATUSES:
-            return await _order_result(
-                db,
-                conversation,
-                customer_message=customer_message,
-                customer=customer,
-                outcome=outcome,
-                trace_id=trace_id,
-                now=now,
-            )
-        await _record_ai_event(
+        outcome, audit, failed = await _cancel_query(
             db,
             conversation,
-            status=outcome.status,
-            confidence=None,
+            customer_message,
+            customer=customer,
             trace_id=trace_id,
             now=now,
-            event_type="order_query",
-            name=outcome.tool,
+            gateway=order_gateway,
+            order_id=None,
         )
-        audit = order_query_audit(outcome)
-        if not outcome.orders:
-            return await _cancel_message(
-                db,
-                conversation,
-                customer_message,
-                content=outcome.reply,
-                orders=[],
-                cancellation=None,
-                trace_id=trace_id,
-                now=now,
-                order_query=audit,
-            )
+        if failed is not None:
+            return failed
         return await _cancel_candidates(
             db,
             conversation,
@@ -556,89 +599,43 @@ async def _cancel_result(
                 now=now,
             )
         if order_id is None:
-            outcome = await query_recent_orders(order_gateway, customer, trace_id)
-            if outcome.status in ORDER_FAILURE_STATUSES:
-                return await _order_result(
-                    db,
-                    conversation,
-                    customer_message=customer_message,
-                    customer=customer,
-                    outcome=outcome,
-                    trace_id=trace_id,
-                    now=now,
-                )
-            await _record_ai_event(
-                db,
-                conversation,
-                status=outcome.status,
-                confidence=None,
-                trace_id=trace_id,
-                now=now,
-                event_type="order_query",
-                name=outcome.tool,
-            )
-            audit = order_query_audit(outcome)
-            if not outcome.orders:
-                return await _cancel_message(
-                    db,
-                    conversation,
-                    customer_message,
-                    content=outcome.reply,
-                    orders=[],
-                    cancellation=None,
-                    trace_id=trace_id,
-                    now=now,
-                    order_query=audit,
-                )
-            if len(outcome.orders) > 1:
-                return await _cancel_candidates(
-                    db,
-                    conversation,
-                    customer_message,
-                    orders=outcome.orders,
-                    preface=CANCEL_CANDIDATES_REPLY,
-                    trace_id=trace_id,
-                    now=now,
-                    order_query=audit,
-                )
-            summary = outcome.orders[0]
-            order_id = str(summary["order_id"])
-
-    if summary is None and order_id is not None:
-        outcome = await query_order(order_gateway, customer, order_id, trace_id)
-        if outcome.status in ORDER_FAILURE_STATUSES:
-            return await _order_result(
-                db,
-                conversation,
-                customer_message=customer_message,
-                customer=customer,
-                outcome=outcome,
-                trace_id=trace_id,
-                now=now,
-            )
-        await _record_ai_event(
-            db,
-            conversation,
-            status=outcome.status,
-            confidence=None,
-            trace_id=trace_id,
-            now=now,
-            event_type="order_query",
-            name=outcome.tool,
-        )
-        audit = order_query_audit(outcome)
-        if not outcome.orders:
-            return await _cancel_message(
+            # 没有任何定位依据：列最近订单候选，由客户选，不替客户选。
+            outcome, audit, failed = await _cancel_query(
                 db,
                 conversation,
                 customer_message,
-                content=outcome.reply,
-                orders=[],
-                cancellation=None,
+                customer=customer,
+                trace_id=trace_id,
+                now=now,
+                gateway=order_gateway,
+                order_id=None,
+            )
+            if failed is not None:
+                return failed
+            return await _cancel_candidates(
+                db,
+                conversation,
+                customer_message,
+                orders=outcome.orders,
+                preface=CANCEL_CANDIDATES_REPLY,
                 trace_id=trace_id,
                 now=now,
                 order_query=audit,
             )
+
+    if summary is None and order_id is not None:
+        outcome, audit, failed = await _cancel_query(
+            db,
+            conversation,
+            customer_message,
+            customer=customer,
+            trace_id=trace_id,
+            now=now,
+            gateway=order_gateway,
+            order_id=order_id,
+        )
+        if failed is not None:
+            return failed
         summary = outcome.orders[0]
 
     if summary is None or order_id is None:

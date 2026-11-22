@@ -120,8 +120,8 @@ def test_无快照多单列候选不建任务_AC_63() -> None:
     assert app.state.oms.calls["submit_cancel"] == 0
 
 
-def test_无快照恰好一笔时直接出卡片_AC_63() -> None:
-    """没带订单号但名下恰好一笔：直接出确认卡片，不要求客户再选。"""
+def test_无快照恰好一笔时列候选_AC_63() -> None:
+    """没带订单号且没有会话快照：即使名下恰好一笔也列候选，由客户自己点选。"""
     app = default_order_app()
     with api_client(app) as api:
         login(api)
@@ -131,10 +131,10 @@ def test_无快照恰好一笔时直接出卡片_AC_63() -> None:
 
     assert response.status_code == 200, response.text
     message = _last_ai(response.json())
-    assert message["payload"]["orders"][0]["order_id"] == "ORD-10005"
-    assert message["payload"]["cancellation"]["state"] == "AWAITING_CONFIRMATION"
-    [row] = task_rows()
-    assert row.order_id == "ORD-10005"
+    assert [order["order_id"] for order in message["payload"]["orders"]] == ["ORD-10005"]
+    assert not message["payload"].get("cancellation")
+    assert "不能替你选" in message["content"]
+    assert task_rows() == []
 
 
 def test_他人订单号统一查无_AC_63() -> None:

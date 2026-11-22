@@ -496,7 +496,7 @@ export interface components {
          * CustomerOrderSummary
          * @description 客户订单列表项：003 摘要 + 由订单状态派生的 `cancelable`。
          *
-         *     003 的消息 `payload` 不增加字段，列表页单独复用本 DTO；`cancellation`
+         *     003 的订单摘要字段不变；列表页复用本 DTO 并加 `cancelable`，`cancellation`
          *     只回显进行中的取消任务，页面据此把按钮停在“待确认/已受理”状态。
          */
         CustomerOrderSummary: {

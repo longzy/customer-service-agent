@@ -71,12 +71,14 @@ describe("聊天取消入口", () => {
     expect(onCancelOrder).toHaveBeenCalledWith("ORD-10001");
   });
 
-  it("AC-63 结果消息不再出现确认按钮，只展示订单卡片", () => {
-    renderMessages([aiMessage([ORDER], ACCEPTED)]);
+  it("AC-63 结果消息只展示结果气泡，不出现确认或取消按钮", () => {
+    // 短语确认的结果消息真实载荷是 orders=[]，不能再用订单卡片假装确认态。
+    renderMessages([aiMessage([], ACCEPTED)]);
 
+    expect(screen.getByText(/你的订单 ORD-10001/)).toBeInTheDocument();
     expect(screen.queryByText("尚未提交")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "去订单页确认" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "取消订单" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "取消订单" })).not.toBeInTheDocument();
   });
 
   it("AC-63 多单候选展示多张订单卡片，不替客户选单", () => {
