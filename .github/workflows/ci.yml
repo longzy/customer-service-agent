@@ -61,9 +61,8 @@ jobs:
         run: ./scripts/verify.sh --no-record
 
   mutation:
-    name: mutation（观察期）
+    name: mutation
     runs-on: ubuntu-latest
-    continue-on-error: true # 观察两周后改为 false，并设为 required check
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -75,9 +74,8 @@ jobs:
         run: ./scripts/mutation.sh
 
   audit:
-    name: audit（观察期）
+    name: audit
     runs-on: ubuntu-latest
-    continue-on-error: true # 观察两周后改为 false，并设为 required check
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5

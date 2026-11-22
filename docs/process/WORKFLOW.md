@@ -101,6 +101,7 @@ Frame（目标/非目标/完成标准）
 - 人工走查：按执行卡第 3、4 节逐条演示；
 - lasting decisions 写 ADR；更新 requirements/design/执行卡，不让文档腐烂；
 - 收口顺序：`close_feature.py --apply` → `make gen-tasks` → `make dashboard` → 更新 `STATUS.md` → `make verify` → 提交；
+- 反馈环：门禁→规则/测试、运行/评测→规格，指标与复盘节奏见 [feedback.md](feedback.md)；
 - 发布后清理过期文档与任务状态。
 
 完成标志：**代码评审通过 + 人工走查通过 + `verify.sh` 全绿。**
@@ -134,10 +135,10 @@ docs/adr/                                 # lasting decisions
 
 门禁：
 
-- G0：在 milestone 内，风险级别已定；模板基线已定（requirements/design/tasks）；
-- G1：requirements 的成功度量与 AC 可验证，且每个 AC 被执行卡 frontmatter 引用；
+- G0：在 milestone 内，风险级别已定；模板基线已定（requirements/design/tasks）；`check-spec.py` 检查批准状态与设计必填；
+- G1：requirements 的成功度量与 AC 可验证，且每个 AC 被执行卡 frontmatter 引用；执行卡 DoR/触点/判定表/回滚由 `check-spec.py` 检查；
 - G2：收口时 `verify.sh` 全绿（`make verify` 复用需代码指纹一致）；合并由 PR + CI required checks + CODEOWNERS 把关，见 [合并门](../ops/branch-protection.md)；
-- G3：T3 的安全评审/回滚通过且评审记录含 `## 安全评审` 结论；收口 `close_feature.py` 强制；突变由 CI `mutation` job（观察期）持续覆盖；
+- G3：T3 的安全评审/回滚通过且评审记录含 `## 安全评审` 结论；收口 `close_feature.py` 强制；突变由 CI `mutation` job 阻断；
 - G4：按执行卡第 3、4 节走查通过。
 
 实现者不得为自己的改动签字；代码评审用独立上下文。

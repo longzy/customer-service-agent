@@ -53,6 +53,13 @@ uv run python evals/run.py \
 - `evals/reports/<timestamp>.json`：带时间戳的历史报告，失败也写。
 - `evals/reports/` 已加入 `.gitignore`，报告由命令再生成。
 
+## 质量基线
+
+- **硬基线**：`latest.json` 的 `ok=true`、`failed=0`、`skipped=0`，且 `ac_coverage.covered + pending = total`；任一不满足，`verify.sh` 失败。
+- **Prompt/模型/Tool 变更**：先跑 `./scripts/eval.sh` 并附 `latest.json`/`latest.md` 到执行卡证据，再进入评审；真实模型质量在 M1 只做趋势，不进硬门禁。
+- **漂移**：每月对比 `evals/reports/<timestamp>.json` 的 failed/skipped/AC 覆盖；连续两次下降按 [反馈](../docs/process/feedback.md) 环 B 复盘。
+- **不伪造基线**：没有真实数据就留 `待补`，不用历史报告代替当前结果。
+
 ## 失败条件
 
 以下任一情况 `evals/run.py` 退出 1，并仍写出失败报告：

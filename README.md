@@ -118,7 +118,10 @@ UV_CACHE_DIR=./.uv-cache uv run ruff check .
 UV_CACHE_DIR=./.uv-cache uv run mypy backend
 ./scripts/test-db.sh -q            # 建一次性测试库、跑迁移、再跑 pytest（退出即删）
 make test-reuse ARGS=...           # 复用固定测试库跑 pytest（迭代用）
+make check-spec                    # Spec/计划门禁（批准/DoR/触点/判定表/回滚）
+make metrics                       # 门禁反馈指标（评审/T3 安全/评测）
 python3 scripts/check-docs.py
+python3 scripts/check-spec.py
 python3 scripts/check-status.py    # STATUS.md ↔ tasks.md ↔ 执行卡
 python3 scripts/check-review-prereqs.py  # 组件命名/trace 基线/STATUS 评审声称
 python3 scripts/review_pack.py F-08       # 评审包；自动识别固定点

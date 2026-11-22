@@ -71,6 +71,7 @@ also_copy = [
     "evals",
     "Makefile",
     ".githooks",
+    ".github",
     "apps/chat/app",
     "apps/chat/components",
     "apps/chat/features",

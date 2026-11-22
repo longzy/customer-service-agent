@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 
-.PHONY: help dev dev-stop dev-reset status verify verify-check verify-changed verify-fast review-check review-pack eval lint typecheck test test-reuse gen-contracts gen-tasks dashboard
+.PHONY: help dev dev-stop dev-reset status verify verify-check verify-changed verify-fast review-check review-pack eval lint typecheck test test-reuse check-spec metrics gen-contracts gen-tasks dashboard
 
 help: ## 显示可用命令
 	@echo "make dev          启动 API + Chat + Workspace（自动准备 .env、数据库、依赖）"
@@ -19,6 +19,8 @@ help: ## 显示可用命令
 	@echo "make typecheck    mypy backend"
 	@echo "make test         pytest（独立测试库）"
 	@echo "make test-reuse   复用固定测试库跑 pytest（迭代用；ARGS 透传）"
+	@echo "make check-spec   Spec/计划门禁（批准/DoR/触点/判定表/回滚）"
+	@echo "make metrics      门禁反馈指标（评审/T3 安全/评测）"
 	@echo "make gen-contracts 重新生成契约、前端类型与测试快照"
 	@echo "make gen-tasks    从执行卡 frontmatter 生成 tasks.md"
 	@echo "make dashboard    生成 docs/dashboard.html 与 status.json"
@@ -74,6 +76,12 @@ test: ## pytest（独立测试库）
 
 test-reuse: ## 复用固定测试库跑 pytest（迭代用）
 	TEST_DB_NAME=customer_service_test_dev ./scripts/test-db.sh $(ARGS)
+
+check-spec: ## Spec/计划门禁
+	python3 scripts/check-spec.py
+
+metrics: ## 门禁反馈指标
+	python3 scripts/gate_metrics.py
 
 gen-contracts: ## 重新生成契约、前端类型与测试快照
 	./scripts/gen-contracts.sh

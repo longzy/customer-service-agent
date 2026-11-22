@@ -14,7 +14,7 @@ rulesets / branch protection；当前私有仓库套餐可能不提供 required 
 有权限时，用规则集要求：
 
 - 只能通过 PR 合并，禁止直推与 force push；
-- required checks：`verify`（全量）、`main-guard`；观察期后加 `mutation`；
+- required checks：`verify`（全量）、`main-guard`、`mutation`；`audit` 阻断 high/critical；
 - required review：至少 1 名 CODEOWNERS，且评审者未参与实现；
 - 合并后删除分支、要求线性历史（按团队习惯）。
 
@@ -38,7 +38,8 @@ gh api -X POST repos/OWNER/REPO/rulesets --input - <<'JSON'
       "strict_required_status_checks_policy": true,
       "required_status_checks": [
         {"context": "verify"},
-        {"context": "main-guard"}
+        {"context": "main-guard"},
+        {"context": "mutation"}
       ]
     }},
     {"type": "non_fast_forward"},
