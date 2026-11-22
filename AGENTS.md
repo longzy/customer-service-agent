@@ -9,7 +9,7 @@
 1. 读 `docs/STATUS.md`（一页事实，唯一状态视图）。
 2. 任务状态看 `docs/tasks/<spec>/F-XX.md` 的 frontmatter；`tasks.md`、`dashboard.html`、`status.json` 是生成物，不手改。
 3. 按任务加载，不预读全仓：
-   - 改代码：`docs/process/WORKFLOW.md`。
+   - 改代码：`docs/process/WORKFLOW.md`；先按变更形状查 `docs/architecture/recipes.md` 的触点清单。
    - 改前端：`docs/process/frontend.md`。
    - 硬约束：`docs/architecture/invariants.md`、`docs/process/standards.md`。
    - 当前变更：`docs/specs/<spec>/`。
@@ -30,7 +30,7 @@
 
 ## 命令
 
-以 `README.md` 为准。验证用 `make verify-check`（默认输出最后几行摘要、保留退出码）；收口用 `make verify`。常用：`test-db.sh`、`check-status.py`、`trace.py`、`check-secrets.py`。
+以 `README.md` 为准。实现内环用 `make verify-changed ARGS=F-XX`；送审前 `make verify-check` 跑一次全量；收口 `make verify` 复用代码指纹（只重跑快检查）并写回状态。迭代测试用 `make test-reuse ARGS=...` 复用固定测试库。常用：`test-db.sh`、`check-status.py`、`trace.py`、`check-secrets.py`。
 
 ## 工作流
 

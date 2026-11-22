@@ -5,6 +5,7 @@
 #   ./scripts/mutation.sh                    # 运行并检查全部关键模块
 #   ./scripts/mutation.sh backend.tools     # 只检查某个模块
 #   ./scripts/mutation.sh --report           # 只解析已有结果，不重新运行
+#   ./scripts/mutation.sh --by-function      # 按函数汇总存活/无测试突变
 #   ./scripts/mutation.sh --self-test        # 验证解析与阈值逻辑
 #
 # 突变范围由 pyproject.toml 的 [tool.mutmut] source_paths 决定，本脚本不维护
@@ -63,7 +64,16 @@ if [ "${1:-}" = "--self-test" ]; then
   exit 0
 fi
 
+if [ "${1:-}" = "--by-function" ]; then
+  uv run mutmut results --all true 2>/dev/null \
+    | uv run python scripts/mutation_summary.py "${@:2}"
+  exit $?
+fi
+
 if [ "${1:-}" != "--report" ]; then
+  # 副本缺项时 mutmut 会在 clean tests 抛 FileNotFoundError；先做毫秒级契约检查。
+  echo "== 突变副本前置检查 =="
+  uv run pytest tests/unit/test_mutation_copy_contract.py -q
   echo "== 运行突变检查（范围见 pyproject.toml [tool.mutmut] source_paths）=="
   uv run mutmut run --max-children 4
 fi

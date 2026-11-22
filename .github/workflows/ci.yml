@@ -60,6 +60,20 @@ jobs:
       - name: 全量验证（不写回状态文件）
         run: ./scripts/verify.sh --no-record
 
+  mutation:
+    name: mutation（观察期）
+    runs-on: ubuntu-latest
+    continue-on-error: true # 观察两周后改为 false，并设为 required check
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: 安装依赖（锁定版本）
+        run: uv sync --frozen
+      - name: 关键模块突变（Workflow/Gateway ≥80%，Policy/领域 ≥70%）
+        run: ./scripts/mutation.sh
+
   audit:
     name: audit（观察期）
     runs-on: ubuntu-latest

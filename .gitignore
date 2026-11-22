@@ -29,6 +29,9 @@ mutants/
 # 每任务 mutation 一次性标记
 .mutation-runs/
 
+# 全量验证的代码指纹缓存（本机，不提交）
+.verify/
+
 # 场景评测报告（可再生成）
 evals/reports/
 
