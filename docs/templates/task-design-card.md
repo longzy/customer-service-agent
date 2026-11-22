@@ -71,12 +71,15 @@ updated: YYYY-MM-DD
 ## 3. 验证方式
 
 ```bash
-# 待执行的命令
+# 每个「测试层级」都要有一条命令；未声明的层级删除对应行
+./scripts/test-db.sh tests/integration/test_<spec>_AC_XX.py -q          # integration
+UV_CACHE_DIR=./.uv-cache uv run pytest tests/unit -q                   # unit（声明了才写）
+pnpm -C apps/<app> test                                                 # frontend（声明了才写）
 ```
 
-- 预期输出：
-- 测试层级：<unit / integration / contract / e2e / evals；各覆盖什么>
-- 覆盖的验收场景：
+- 预期输出：命令 exit 0；绑定 AC 的用例通过。
+- 测试层级：<unit / integration / contract / e2e / evals；每层写「覆盖什么」并给命令>
+- 覆盖的验收场景：AC-XX
 
 ### 3.1 送审前检查
 

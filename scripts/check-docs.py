@@ -72,7 +72,8 @@ CURRENT_REQUIRED_FIELDS = [
 
 SPEC_LAYOUTS = ({"brief": "requirements.md", "plan": "design.md", "features": "tasks.md"},)
 
-GATE_OPEN_STATUSES = ("待开工许可", "已确认")
+# 兼容旧中文状态与模板重构后的 frontmatter 状态（todo/doing/review 映射）。
+GATE_OPEN_STATUSES = ("未开始", "进行中", "待评审", "待开工许可", "已确认")
 REVIEW_REQUIRED = ("## 0. 门禁复核", "## 逐 AC", "## 阻断项", "## 结论")
 SPEC_DIR_PATTERN = re.compile(r"^\d{3}-[a-z0-9-]+$")
 CARD_PATTERN = re.compile(r"^[TF]-\d{2}\.md$")
@@ -394,6 +395,33 @@ def resolve_reference(card_path, ref):
     return None
 
 
+VERIFY_LEVEL_COMMANDS = {
+    "integration": ("test-db.sh",),
+    "unit": ("pytest", "test-db.sh tests/unit"),
+    "frontend": ("pnpm -C apps/",),
+}
+
+
+def verify_level_gaps(text):
+    """§3 声明的测试层级是否都有对应命令；只覆盖 integration/unit/frontend。"""
+    if "## 3. 验证方式" not in text:
+        return []
+    section = text.split("## 3. 验证方式", 1)[1].split("\n## ", 1)[0]
+    level_line = next(
+        (line for line in section.splitlines() if line.startswith("- 测试层级：")), ""
+    )
+    if not level_line:
+        return []
+    commands = "\n".join(re.findall(r"```(?:bash|sh)?\n(.*?)```", section, re.S))
+    gaps = []
+    for level, tokens in VERIFY_LEVEL_COMMANDS.items():
+        if level not in level_line:
+            continue
+        if not any(token in commands for token in tokens):
+            gaps.append(level)
+    return gaps
+
+
 def check_design_card_gate():
     if not os.path.isdir(TASKS_ROOT):
         return
@@ -408,6 +436,9 @@ def check_design_card_gate():
                 print(f"跳过执行卡 {rel(card_path)}：状态为 {status or '未声明'}")
                 continue
             checked["cards"] += 1
+            gaps = verify_level_gaps(read(card_path))
+            if gaps:
+                errors.append(f"{rel(card_path)}：§3 声明的测试层级缺少对应命令：{'、'.join(gaps)}")
             binding = re.search(r"- 绑定验收：(.+)", read(card_path))
             if binding and len(re.findall(r"AC-\d{2}", binding.group(1))) > 2:
                 print(f"警告：{rel(card_path)} 绑定超过 2 个 AC，检查是否需要按行为拆分")

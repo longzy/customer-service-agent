@@ -207,3 +207,22 @@ def test_评审结论允许加粗_基座豁免(tmp_path: Path, monkeypatch: Any)
     monkeypatch.setattr(module, "errors", [])
     module.check_review_conclusions()
     assert module.errors == []
+
+
+def test_验证层级缺少命令时报告_基座豁免() -> None:
+    module = load_module()
+    text = (
+        "## 3. 验证方式\n\n```bash\n./scripts/test-db.sh tests/integration/x.py -q\n```\n\n"
+        "- 测试层级：integration（x）、unit（y）\n"
+    )
+    assert module.verify_level_gaps(text) == ["unit"]
+
+
+def test_验证层级命令齐全时通过_基座豁免() -> None:
+    module = load_module()
+    text = (
+        "## 3. 验证方式\n\n```bash\n./scripts/test-db.sh x\n"
+        "UV_CACHE_DIR=./.uv-cache uv run pytest tests/unit -q\npnpm -C apps/chat test\n```\n\n"
+        "- 测试层级：integration、unit、frontend\n"
+    )
+    assert module.verify_level_gaps(text) == []
