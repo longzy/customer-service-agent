@@ -150,3 +150,16 @@ def test_结论首句通过时历史轮次的不通过不阻断_基座豁免(tmp
     result = run(tmp_path)
     assert result.returncode == 0, result.stderr
     assert "评审前置检查通过" in result.stdout
+
+
+def test_计划语句中的评审通过不阻断_基座豁免(tmp_path: Path) -> None:
+    """STATUS 的下一步常写“F-02 评审通过后按 F-03 开工”，这不是评审声称。"""
+    make_repo(tmp_path)
+    (tmp_path / "docs" / "STATUS.md").write_text(
+        "# 当前项目状态\n\n## 进行中\n\n- F-01：评审通过（待收口）\n\n"
+        "## 下一步\n\n1. F-02 评审通过后按 F-03 开工。\n\n## 已完成\n\n## 阻塞\n\n无\n",
+        encoding="utf-8",
+    )
+    result = run(tmp_path)
+    assert result.returncode == 0, result.stderr
+    assert "评审前置检查通过" in result.stdout

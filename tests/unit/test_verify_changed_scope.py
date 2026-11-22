@@ -86,3 +86,18 @@ def test_tests_change_runs_pytest_but_not_mypy(tmp_path: Path) -> None:
     assert "跳过：后端类型检查（mypy）（无相关变更）" in out
     assert "跳过：chat 前端（无相关变更）" in out
     assert "跳过：workspace 前端（无相关变更）" in out
+
+
+def test_空变更清单返回2并提示(tmp_path: Path) -> None:
+    listing = tmp_path / "empty.txt"
+    listing.write_text("", encoding="utf-8")
+    result = subprocess.run(  # noqa: S603 - 固定 /bin/sh 与仓库内脚本
+        ["/bin/sh", str(SCRIPT), f"--paths-file={listing}", "--dry-run"],
+        cwd=ROOT,
+        capture_output=True,
+        check=False,
+    )
+    assert result.returncode == 2
+    stderr = result.stderr.decode("utf-8")
+    assert "没有变更可验证" in stderr
+    assert "--base=<ref>" in stderr
