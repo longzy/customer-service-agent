@@ -110,6 +110,7 @@ tests/                   组件测试
 - **FE-TEST-03** mock 网络层而非业务模块；`vi.mock` 只允许用于路由、时间、随机数等不可控依赖。
 - **FE-TEST-04** React `act()` 警告视为失败，不得忽略。
 - **FE-TEST-05** 前端测试与 AC 的关联暂未接入 `scripts/trace.py`；新测试在文件头写 `// AC-XX`，作为后续扩展追溯的输入。
+- **FE-TEST-06** mock 的 `useRouter`/`useSearchParams` 必须返回模块级稳定引用。依赖 router 的 `useCallback`/`useEffect` 会因每次渲染的新对象反复重跑；在同步渲染下会耗尽堆内存（vitest 报 worker OOM 而非测试失败）。
 
 ## 10. 强制点与缺口
 
@@ -127,6 +128,7 @@ tests/                   组件测试
 | FE-SEC-01/02 | 无 | 待接 `no-restricted-syntax` |
 | FE-AI-01 依赖幻觉 | 无 | 待接 `import/no-extraneous-dependencies` |
 | FE-TEST-01..04 | 无 | 待接测试脚本 |
+| FE-TEST-06 路由 mock 稳定引用 | ESLint `no-restricted-syntax`（`tests/**`；`pnpm lint`，verify + CI） | 已接入 |
 | 未接入项 | 评审清单 Standards 轴 | 人工 |
 
 接入顺序建议：ESLint 与 stylelint 已接入 → 前端快检查进 pre-commit → 测试与追溯。每接一条，把对应行改为“已接入”并给出脚本入口。
@@ -146,3 +148,4 @@ tests/                   组件测试
 - 2026-11-19：接入 stylelint（两个应用各自 devDependency 与 `.stylelintrc.json`），`scripts/lint-styles.sh` 进 verify/CI；强制 tokens 外无颜色字面量、无 `!important`、无 id 选择器。
 - 2026-11-18：两个应用升级 Next.js 16.4（React 19.3；`next lint` 移除后改用 ESLint CLI + flat config）；组件、请求与类型迁入 `features/`，`app/` 只装配；`ChatShell` 拆出 `useChatMessages`，FE-DIR-05 豁免移除；核心 lint 接入 verify 与 CI。两个应用暂时关闭 `react-hooks/set-state-in-effect`（存量 gate 在 effect 内拉数据并 setState），迁到数据获取层后删除该例外。
 - 2026-11-20：按用户决策接入 HeroUI v3（`@heroui/react` + `@heroui/styles` 3.2.7），修订 FE-CSS-05/06：HeroUI 成为唯一允许的 UI 组件库，Tailwind 仍是唯一样式编写方案。`globals.css` 中 `@heroui/styles` 排在 `@import "tailwindcss"` 之后、`tokens.css` 之前，使项目令牌覆盖同名变量、保持视觉基线；其自带样式属外部依赖，不计入 FE-CSS-03 的项目内颜色字面量约束。主题策略：项目令牌仍是单一事实源，不启用 HeroUI 默认主题，只在 `tokens.css` 映射其根变量；HeroUI 组件由 `@apply` 写死的尺寸/圆角/动效在首次落地组件时用 `className` 的 Tailwind utility 约束，不预先建 wrapper、不写全局 BEM 覆盖。
+- 2026-11-22：新增 FE-TEST-06 并接入 ESLint `no-restricted-syntax`：测试中的 `useRouter` mock 必须返回模块级稳定对象。F-30 曾因内联 mock 每次渲染产生新 router，导致依赖 router 的 effect 同步死循环、vitest worker OOM。chat 的 vitest worker 同时限制堆上限，让同类问题更快暴露。
