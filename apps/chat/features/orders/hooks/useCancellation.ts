@@ -9,7 +9,7 @@ import {
   confirmCancellation,
   createCancellation,
   declineCancellation,
-  getCancellation,
+  refreshCancellation,
 } from "../api/cancellations";
 import type { CancellationTask, CustomerOrderSummary } from "../types";
 
@@ -124,7 +124,7 @@ export function useCancellation(onChanged: () => void) {
     }
     const { order, task } = state;
     try {
-      const latest = await getCancellation(task.id);
+      const latest = await refreshCancellation(task.id);
       setState({ kind: "result", order, task: latest });
       onChanged();
     } catch (error) {

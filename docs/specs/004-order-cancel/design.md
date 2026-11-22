@@ -110,6 +110,7 @@
 | `POST /customer/cancellations` | 发起取消，返回任务与确认卡片 | 写请求 UoW；校验归属与资格 |
 | `POST /customer/cancellations/{id}/confirm` | 客户确认；来源 `BUTTON` | 写请求 UoW；校验任务归属/状态/未过期 |
 | `POST /customer/cancellations/{id}/decline` | 客户拒绝 | 写请求 UoW；任务转 `ABANDONED` |
+| `POST /customer/cancellations/{id}/refresh` | 结果刷新：惰性过期、已受理按 OMS 结果推进 | 写请求 UoW；仅本人任务 |
 
 聊天里的固定短语在 `customer_chat` 的取消分支处理：找到该客户最近等待确认任务，调用同一确认服务，来源 `PHRASE`。
 
@@ -224,7 +225,7 @@
 
 > 2026-11-21 澄清（F-30 落地）：列表访问审计复用 `audit_view` 的 5 分钟去重与 `conversation.viewed` 事件，以 `entity_type=order_list`、`entity_id=客户 id` 与会话查看区分；事件名是否细分与 AC-70 的取消审计一并评估，F-30 不新增事件类型。
 >
-> 2026-11-22 澄清（F-31 落地）：`CustomerOrderSummary` 增加可选 `cancellation`（进行中任务的 `state`/`status_text`/`next_step`/`expires_at`/`can_confirm`），列表读取仍只读、不惰性改状态；已取消由 OMS 订单状态表达，拒绝/放弃后按钮恢复可取消。新增 `GET /customer/cancellations/{id}` 作为 D-2 的“结果接口”：读取时惰性过期，并把已受理任务按 OMS 结果推进到已取消/被拒绝。确认过期按 3.4 返回任务 `ABANDONED`（不提交），不在请求内抛 409 以免回滚惰性收尾。
+> 2026-11-22 澄清（F-31 落地）：`CustomerOrderSummary` 增加可选 `cancellation`（进行中任务的 `state`/`status_text`/`next_step`/`expires_at`/`can_confirm`），列表读取仍只读、不惰性改状态；已取消由 OMS 订单状态表达，拒绝/放弃后按钮恢复可取消。新增 `POST /customer/cancellations/{id}/refresh` 作为 D-2 的结果刷新（写请求 UoW）：惰性过期，并把已受理任务按 OMS 结果推进到已取消/被拒绝；不提供会写状态的 GET，避免违反 ADR-0009 的只读 GET 约定。确认过期按 3.4 返回任务 `ABANDONED`（不提交），不在请求内抛 409 以免回滚惰性收尾。
 
 ### 5.3 兼容、迁移与发布/回滚
 

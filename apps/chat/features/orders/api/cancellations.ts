@@ -35,7 +35,9 @@ export async function declineCancellation(taskId: string): Promise<CancellationT
   return readTask(response);
 }
 
-export async function getCancellation(taskId: string): Promise<CancellationTask> {
-  const response = await fetch(`${BASE}/${encodeURIComponent(taskId)}`);
+export async function refreshCancellation(taskId: string): Promise<CancellationTask> {
+  const response = await fetch(`${BASE}/${encodeURIComponent(taskId)}/refresh`, {
+    method: "POST",
+  });
   return readTask(response);
 }

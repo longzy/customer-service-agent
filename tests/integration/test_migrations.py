@@ -150,3 +150,100 @@ def test_0014_取消列与活跃唯一索引可回滚_AC_60() -> None:
     assert "(tenant_id, order_id)" in index_def
     assert "'AWAITING_CONFIRMATION'" in index_def
     assert "'ACCEPTED'" in index_def
+
+
+def test_0014_回填发起人与重复活跃任务收尾_AC_60() -> None:
+    """0014 升级前旧任务按客户发起回填；同订单重复活跃任务只保留最新。"""
+    _require_test_database()
+    config = _config()
+    order_id = "ORD-MIG-0014"
+
+    async def seed(db: object) -> None:
+        from datetime import UTC, datetime
+
+        await db.execute(  # type: ignore[attr-defined]
+            text("delete from cancellation_requests where order_id = :order_id"),
+            {"order_id": order_id},
+        )
+        for task_id, created_at in (
+            ("task-mig-old", datetime(2026, 11, 1, tzinfo=UTC)),
+            ("task-mig-new", datetime(2026, 11, 2, tzinfo=UTC)),
+        ):
+            await db.execute(  # type: ignore[attr-defined]
+                text(
+                    "insert into cancellation_requests "
+                    "(id, tenant_id, user_id, order_id, state, idempotency_key, trace_id, "
+                    " expires_at, created_at, updated_at, version) values "
+                    "(:id, 'tenant-a', 'user-a1', :order_id, 'AWAITING_CONFIRMATION', "
+                    " :idempotency_key, 'trace-mig', :expires, :created, :created, 0)"
+                ),
+                {
+                    "id": task_id,
+                    "order_id": order_id,
+                    "idempotency_key": f"idem-{task_id}",
+                    "expires": datetime(2026, 12, 1, tzinfo=UTC),
+                    "created": created_at,
+                },
+            )
+        await db.commit()  # type: ignore[attr-defined]
+
+    async def read(db: object) -> dict[str, tuple[str, str | None, str | None]]:
+        rows = (
+            await db.execute(  # type: ignore[attr-defined]
+                text(
+                    "select id, state, requested_by_type, requested_by_id "
+                    "from cancellation_requests where order_id = :order_id"
+                ),
+                {"order_id": order_id},
+            )
+        ).all()
+        return {str(row[0]): (str(row[1]), row[2], row[3]) for row in rows}
+
+    def cleanup() -> None:
+        async def run(db: object) -> None:
+            await db.execute(  # type: ignore[attr-defined]
+                text("delete from cancellation_requests where order_id = :order_id"),
+                {"order_id": order_id},
+            )
+            await db.commit()  # type: ignore[attr-defined]
+
+        asyncio.run(with_db(run))
+
+    try:
+        command.downgrade(config, CANCELLATION_PREVIOUS_REVISION)
+        asyncio.run(with_db(seed))
+        command.upgrade(config, "head")
+
+        rows = asyncio.run(with_db(read))
+        assert rows["task-mig-old"][0] == "ABANDONED"
+        assert rows["task-mig-new"][0] == "AWAITING_CONFIRMATION"
+        assert rows["task-mig-old"][1:] == ("CUSTOMER", "user-a1")
+        assert rows["task-mig-new"][1:] == ("CUSTOMER", "user-a1")
+
+        async def duplicate(db: object) -> None:
+            from datetime import UTC, datetime
+
+            await db.execute(  # type: ignore[attr-defined]
+                text(
+                    "insert into cancellation_requests "
+                    "(id, tenant_id, user_id, order_id, state, idempotency_key, "
+                    " expires_at, created_at, updated_at, version) values "
+                    "('task-mig-dup', 'tenant-a', 'user-a1', :order_id, "
+                    " 'AWAITING_CONFIRMATION', 'idem-task-mig-dup', :expires, "
+                    " :created, :created, 0)"
+                ),
+                {
+                    "order_id": order_id,
+                    "expires": datetime(2026, 12, 1, tzinfo=UTC),
+                    "created": datetime(2026, 11, 3, tzinfo=UTC),
+                },
+            )
+            await db.commit()  # type: ignore[attr-defined]
+
+        from sqlalchemy.exc import IntegrityError
+
+        with pytest.raises(IntegrityError):
+            asyncio.run(with_db(duplicate))
+    finally:
+        cleanup()
+        command.upgrade(config, "head")

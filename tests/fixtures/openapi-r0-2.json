@@ -100,14 +100,9 @@
           "status_text": {
             "title": "Status Text",
             "type": "string"
-          },
-          "task_id": {
-            "title": "Task Id",
-            "type": "string"
           }
         },
         "required": [
-          "task_id",
           "state",
           "status_text",
           "next_step",
@@ -1352,69 +1347,6 @@
         ]
       }
     },
-    "/customer/cancellations/{cancellation_id}": {
-      "get": {
-        "description": "结果接口：读取任务并收敛到最新结果（已受理可推进到已取消/被拒绝）。",
-        "operationId": "read_customer_cancellation_customer_cancellations__cancellation_id__get",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "cancellation_id",
-            "required": true,
-            "schema": {
-              "title": "Cancellation Id",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/CancellationTaskPublic"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "description": "Unauthorized"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorEnvelope"
-                }
-              }
-            },
-            "description": "Not Found"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Read Customer Cancellation",
-        "tags": [
-          "customer"
-        ]
-      }
-    },
     "/customer/cancellations/{cancellation_id}/confirm": {
       "post": {
         "description": "客户确认：校验归属与状态后由 Workflow 只提交一次；过期视为未提交。",
@@ -1556,6 +1488,69 @@
           }
         },
         "summary": "Decline Customer Cancellation",
+        "tags": [
+          "customer"
+        ]
+      }
+    },
+    "/customer/cancellations/{cancellation_id}/refresh": {
+      "post": {
+        "description": "结果刷新：惰性过期；已受理可按 OMS 结果推进到已取消/被拒绝。",
+        "operationId": "refresh_customer_cancellation_customer_cancellations__cancellation_id__refresh_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "cancellation_id",
+            "required": true,
+            "schema": {
+              "title": "Cancellation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CancellationTaskPublic"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Refresh Customer Cancellation",
         "tags": [
           "customer"
         ]

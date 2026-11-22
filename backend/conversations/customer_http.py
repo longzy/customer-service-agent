@@ -27,7 +27,7 @@ from backend.conversations.customer_cancellations import (
     confirm_cancellation,
     decline_cancellation,
     list_order_cancellations,
-    read_cancellation,
+    refresh_cancellation,
     request_cancellation,
 )
 from backend.conversations.customer_chat import (
@@ -153,7 +153,6 @@ def _cancellation_view(task: CancellationTask, now: datetime) -> CancellationTas
 def _cancellation_summary(snapshot: CancellationSnapshot, now: datetime) -> CancellationSummary:
     copy = render_result(snapshot.state, snapshot.reason_code)
     return CancellationSummary(
-        task_id=snapshot.id,
         state=snapshot.state.value,
         status_text=copy.state_text,
         next_step=copy.next_step,
@@ -460,20 +459,20 @@ async def decline_customer_cancellation(
     return _cancellation_view(task, now)
 
 
-@router.get(
-    "/cancellations/{cancellation_id}",
+@router.post(
+    "/cancellations/{cancellation_id}/refresh",
     responses={401: ERROR_RESPONSES[401], 404: ERROR_RESPONSES[404]},
 )
-async def read_customer_cancellation(
+async def refresh_customer_cancellation(
     cancellation_id: str,
     request: Request,
     session: CurrentCustomer,
     db: Db,
 ) -> CancellationTaskPublic:
-    """结果接口：读取任务并收敛到最新结果（已受理可推进到已取消/被拒绝）。"""
+    """结果刷新：惰性过期；已受理可按 OMS 结果推进到已取消/被拒绝。"""
     now = customer_sessions.utc_now()
     try:
-        task = await read_cancellation(
+        task = await refresh_cancellation(
             db,
             request.app.state.cancel_gateway,
             session.customer,

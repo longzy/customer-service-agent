@@ -107,7 +107,6 @@ class CancellationSummary(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    task_id: str
     state: CancellationStateName
     status_text: str
     next_step: str
