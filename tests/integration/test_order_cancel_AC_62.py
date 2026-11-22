@@ -97,7 +97,9 @@ def test_过期任务不提交且可重新发起_AC_62() -> None:
         restarted = create_cancellation(api)
 
     assert listed_after_expiry.status_code == 200
-    assert not _order_of(listed_after_expiry).get("cancellation")
+    expired_order = _order_of(listed_after_expiry)
+    assert not expired_order.get("cancellation")
+    assert expired_order["cancelable"] is True
     assert ended.status_code == 200, ended.text
     assert ended.json()["state"] == "ABANDONED"
 
