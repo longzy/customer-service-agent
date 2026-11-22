@@ -24,6 +24,15 @@ updated: YYYY-MM-DD
 
 - 本卡交付的用户可感知行为（只能一个）：
 - 涉及层：后端 / 迁移 / 前端 / 契约（可多选，跨层不作为拆分理由）
+
+### 1.1 触点（文件 → 改什么）
+
+| 文件 | 改动 |
+|---|---|
+| `path/to/file` | 为什么改、改哪一段 |
+
+- 写卡时从 design 的模块边界反查具体路径；评审按此表核对是否漏改。
+- 路径不存在时写 `path`（待创建）；`check-docs` 会跳过存在性校验。
 - 引用尚未创建的文件时写成 `path`（待创建）；`check-docs` 会跳过该路径的存在性校验。
 
 - 本次改变：
@@ -83,7 +92,7 @@ pnpm -C apps/<app> test                                                 # fronte
 
 ### 3.1 送审前检查
 
-- [ ] `make verify-check` exit 0，贴最后 summary
+- [ ] `make verify-check` exit 0，贴最后 summary（送审前全量只跑这一次；收口 `make verify` 复用代码指纹）
 - [ ] 迁移面：旧路径 grep 为 0；pyproject/mutation/verify/docs 已同步
 - [ ] 配置注入：ambient 与 override 各跑一次
 - [ ] 证据只写命令、测试名与结论；具体计数引用 CURRENT 验证块
