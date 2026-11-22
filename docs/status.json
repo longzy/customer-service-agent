@@ -43,48 +43,7 @@
       "status": "todo"
     }
   ],
-  "specs": [
-    {
-      "id": "001",
-      "folder": "001-customer-handoff",
-      "name": "客户转人工闭环",
-      "status": "done",
-      "done": 15,
-      "total": 15
-    },
-    {
-      "id": "002",
-      "folder": "002-ui-redesign",
-      "name": "UI 改版",
-      "status": "done",
-      "done": 9,
-      "total": 9
-    },
-    {
-      "id": "003",
-      "folder": "003-order-query",
-      "name": "订单查询",
-      "status": "done",
-      "done": 5,
-      "total": 5
-    },
-    {
-      "id": "004",
-      "folder": "004-order-cancel",
-      "name": "取消",
-      "status": "doing",
-      "done": 1,
-      "total": 7
-    },
-    {
-      "id": "005",
-      "folder": "",
-      "name": "安全硬化",
-      "status": "todo",
-      "done": 0,
-      "total": 0
-    }
-  ],
+  "specs": [],
   "features": [
     {
       "id": "F-01",

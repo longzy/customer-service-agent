@@ -108,6 +108,9 @@ if changed_matches '^(docs/|tests/)'; then TRACE_CHANGED=1; fi
 # 契约：契约源、生成物与生成脚本。
 CONTRACTS_CHANGED=0
 if changed_matches '^(packages/contracts/|apps/(chat|workspace)/lib/api-types\.ts$|tests/fixtures/|scripts/gen-contracts\.sh$|scripts/gen_test_fixtures\.py$|scripts/check-contracts\.sh$)'; then CONTRACTS_CHANGED=1; fi
+# Spec/计划门禁：规格、执行卡、模板变更时检查批准/DoR/触点/判定表/回滚。
+SPEC_CHANGED=0
+if changed_matches '^(docs/specs/|docs/tasks/|docs/templates/)'; then SPEC_CHANGED=1; fi
 # 评审前置：前端结构基线 / trace 基线 / STATUS 评审声称。
 REVIEW_CHANGED=0
 if changed_matches '^(apps/|docs/|scripts/frontend-structure-baseline\.txt$|scripts/trace-baseline\.txt$)'; then REVIEW_CHANGED=1; fi
@@ -141,6 +144,7 @@ run_quiet() {
 echo "== 变更范围：$(count_changed) 个文件 =="
 plan "$PYTHON_CHANGED" "Python 静态检查（ruff）" || true
 plan "$MYPY_CHANGED" "后端类型检查（mypy）" || true
+plan "$SPEC_CHANGED" "Spec/计划门禁" || true
 plan "$REVIEW_CHANGED" "评审前置检查" || true
 plan "$DOCS_CHANGED" "文档引用" || true
 plan "$STATUS_CHANGED" "状态一致性" || true
@@ -164,6 +168,11 @@ fi
 if [ "$MYPY_CHANGED" -eq 1 ]; then
   echo "== 后端类型检查 =="
   uv run mypy backend
+fi
+
+if [ "$SPEC_CHANGED" -eq 1 ]; then
+  echo "== Spec/计划门禁 =="
+  python3 scripts/check-spec.py
 fi
 
 if [ "$REVIEW_CHANGED" -eq 1 ]; then

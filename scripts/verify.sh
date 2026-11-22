@@ -55,6 +55,7 @@ if [ "$FAST" = "1" ]; then
   run_step "shell 检查" uv run python scripts/check-shell.py
   run_step "命令冒烟" ./scripts/check-commands.sh
   run_step "import 边界" python3 scripts/check-imports.py --strict
+  run_step "Spec/计划门禁" python3 scripts/check-spec.py
   run_step "unit tests（独立测试库）" ./scripts/test-db.sh tests/unit -q
   echo "fast checks passed"
   exit 0
@@ -92,6 +93,7 @@ run_step "评审前置" python3 scripts/check-review-prereqs.py
 run_step "当前状态一致性" python3 scripts/check-status.py
 run_step "docs" python3 scripts/check-docs.py
 cp "$STEP_LOG" "$DOCS_LOG"
+run_step "Spec/计划门禁" python3 scripts/check-spec.py
 run_step "任务索引同步" python3 scripts/gen_tasks.py --check
 run_step "看板同步" python3 scripts/gen_board.py --check
 run_step "设计令牌" ./scripts/check-tokens.sh

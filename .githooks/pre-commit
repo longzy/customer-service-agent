@@ -22,6 +22,7 @@ run_check "ruff check" uv run ruff check . --quiet
 run_check "ruff format" uv run ruff format --check . --quiet
 run_check "密钥扫描" python3 scripts/check-secrets.py --staged
 run_check "文档引用" python3 scripts/check-docs.py
+run_check "Spec/计划门禁" python3 scripts/check-spec.py
 run_check "当前状态" python3 scripts/check-status.py
 run_check "追溯矩阵" python3 scripts/trace.py --strict
 run_check "评审前置" python3 scripts/check-review-prereqs.py

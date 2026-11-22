@@ -9,7 +9,7 @@
 #   ./scripts/mutation.sh --self-test        # 验证解析与阈值逻辑
 #
 # 突变范围由 pyproject.toml 的 [tool.mutmut] source_paths 决定，本脚本不维护
-# 第二份范围清单；阈值与 docs/process/tdd.md 第 5 节一致。
+# 第二份范围清单；阈值与 docs/process/standards.md STD-TEST-05 一致。
 set -euo pipefail
 cd "$(dirname "$0")/.."
 export UV_CACHE_DIR="${UV_CACHE_DIR:-./.uv-cache}"
@@ -75,6 +75,9 @@ if [ "${1:-}" != "--report" ]; then
   echo "== 突变副本前置检查 =="
   uv run pytest tests/unit/test_mutation_copy_contract.py -q
   echo "== 运行突变检查（范围见 pyproject.toml [tool.mutmut] source_paths）=="
+  # 每次全量都重建副本与缓存：复用旧的 mutants/ 会与当前契约/also_copy 漂移，
+  # 表现为 clean tests 失败后被记成大量 "no tests"。
+  rm -rf mutants .mutmut-cache
   uv run mutmut run --max-children 4
 fi
 

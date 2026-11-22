@@ -52,3 +52,16 @@ def test_合并门有main_guard与分支保护文档_基座豁免() -> None:
     doc = BRANCH_DOC.read_text(encoding="utf-8")
     assert "rulesets" in doc
     assert "main-guard" in doc
+
+
+def test_spec门禁接入验证链_基座豁免() -> None:
+    for relative in (".githooks/pre-commit", "scripts/review-check.sh", "scripts/verify.sh"):
+        text = (ROOT / relative).read_text(encoding="utf-8")
+        assert "check-spec.py" in text, relative
+    makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+    assert "check-spec:" in makefile
+
+
+def test_全量突变重建副本_基座豁免() -> None:
+    text = (ROOT / "scripts" / "mutation.sh").read_text(encoding="utf-8")
+    assert "rm -rf mutants .mutmut-cache" in text

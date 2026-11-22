@@ -15,12 +15,14 @@ CONFIG_ENV_VARS = (
 )
 
 
-def test_openapi导出不依赖本地env_基座豁免(tmp_path: Path) -> None:
-    # cwd 放到空目录，Settings 读不到 .env；同时清掉可能生效的环境变量。
+def test_openapi导出不依赖本地env_基座豁免() -> None:
+    # 显式禁用 .env，并清掉可能生效的环境变量；cwd 留在仓库根，
+    # 这样 mutation 副本里的 trampoline 能读到同一份 pyproject 配置。
     env = {key: value for key, value in os.environ.items() if key not in CONFIG_ENV_VARS}
+    env["SETTINGS_ENV_FILE"] = "/dev/null"
     result = subprocess.run(  # noqa: S603 - 固定解释器与仓库内脚本
         [sys.executable, str(ROOT / "scripts" / "export_openapi.py"), "--check"],
-        cwd=tmp_path,
+        cwd=ROOT,
         env=env,
         capture_output=True,
         text=True,
