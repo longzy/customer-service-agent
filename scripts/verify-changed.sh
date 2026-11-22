@@ -1,6 +1,6 @@
 #!/bin/sh
 # 实现内环：按变更范围跑定向检查，不是门禁。
-# 全量 pytest/评测/前端构建仍由评审门禁与收口执行：make verify-check / make verify。
+# 全量 pytest/评测/前端构建由收口 make verify 与 CI 执行。
 # 用法：./scripts/verify-changed.sh [F-08] [--base=<ref>] [--paths-file=<file>] [--dry-run]
 #   --paths-file 用文件中的路径清单代替 git diff（每行一个，便于只验证本次改动或自测）
 #   --dry-run    只打印将运行/跳过的检查，不执行
@@ -219,4 +219,4 @@ if [ "$WORKSPACE_CHANGED" -eq 1 ]; then
   pnpm -C apps/workspace test
 fi
 
-echo "verify-changed 通过：feature=${FEATURE:-未指定}，变更 $(count_changed) 个文件；未跑全量 pytest/评测/构建，门禁请用 make verify-check。"
+echo "verify-changed 通过：feature=${FEATURE:-未指定}，变更 $(count_changed) 个文件；未跑全量 pytest/评测/构建；全量由收口 make verify/CI 执行。"

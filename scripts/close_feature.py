@@ -21,6 +21,9 @@ from pathlib import Path
 from review_conclusion import conclusion_verdict
 
 FRONTMATTER = re.compile(r"^---\n(.*?)\n---\n", re.S)
+SECURITY_HEADING = "安全评审"
+SECURITY_CONCLUSION = re.compile(r"结论[:：]\s*(通过|有条件通过|不通过)")
+
 STATUS_LABEL = {
     "todo": "未开始",
     "doing": "进行中",
@@ -115,11 +118,15 @@ def check(root: Path, feature: str) -> list[str]:
     if not review_path.exists():
         problems.append(f"{review_path}：评审记录不存在")
     else:
-        verdict = conclusion_verdict(read(review_path))
+        review_text = read(review_path)
+        verdict = conclusion_verdict(review_text)
         if verdict == "不通过":
             problems.append(f"{review_path}：结论为不通过")
         elif verdict is None:
             problems.append(f"{review_path}：结论未写明通过")
+        security_issue = _security_issue(review_text, meta)
+        if security_issue is not None:
+            problems.append(f"{review_path}：{security_issue}")
 
     current = current_sections(root / "docs" / "STATUS.md")
     pattern = re.compile(rf"\b{re.escape(feature)}\b")
@@ -128,6 +135,31 @@ def check(root: Path, feature: str) -> list[str]:
     if not (pattern.search(current["进行中"]) or pattern.search(current["下一步"])):
         problems.append("docs/STATUS.md：未出现在「进行中」或「下一步」")
     return problems
+
+
+def _security_section(text: str) -> str:
+    """匹配 `## 安全评审` 及其带后缀（如 `## 安全评审（T3）`）的标题。"""
+    match = re.search(rf"^## {re.escape(SECURITY_HEADING)}[^\n]*$", text, re.M)
+    if match is None:
+        return ""
+    rest = text[match.end() :]
+    end = re.search(r"^## ", rest, re.M)
+    return rest[: end.start()] if end else rest
+
+
+def _security_issue(review_text: str, meta: dict[str, str]) -> str | None:
+    """T3 必须有独立安全评审小节与“通过”结论；其他风险级别不强制。"""
+    if meta.get("risk") != "T3":
+        return None
+    section_text = _security_section(review_text)
+    if not section_text:
+        return "T3 缺少 `## 安全评审` 小节"
+    match = SECURITY_CONCLUSION.search(section_text)
+    if match is None:
+        return "T3 安全评审缺少 `结论：通过/有条件通过/不通过`"
+    if match.group(1) != "通过":
+        return f"T3 安全评审结论为「{match.group(1)}」，收口要求通过"
+    return None
 
 
 def set_status(card: Path, status: str) -> None:

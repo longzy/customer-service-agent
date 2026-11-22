@@ -1,0 +1,29 @@
+name: main-guard
+
+# 分支保护受套餐限制时的补偿观测：直推 main 的提交没有关联已合并 PR 时失败。
+# 它不能阻止推送（只有 rulesets/branch protection 能），但会把 main 标红并通知 owner。
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  guard:
+    name: main-guard
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检查 main 提交是否来自已合并 PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          count=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/pulls" \
+            --jq '[.[] | select(.merged_at != null)] | length')
+          if [ "$count" -eq 0 ]; then
+            echo "::error::直接推送到 main 且无已合并 PR：${GITHUB_SHA}"
+            echo "请改为从分支发 PR，并在 PR 中跑 CI 与独立评审。"
+            exit 1
+          fi
+          echo "main 提交关联已合并 PR：${GITHUB_SHA}"

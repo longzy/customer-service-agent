@@ -35,18 +35,18 @@ git config core.hooksPath .githooks
 ## 提交
 
 - 格式：`type(scope): 中文描述`，类型限 `feat` / `fix` / `docs` / `refactor` / `test` / `chore`。
-- scope 用任务号（`T-08`）或模块名（`api`、`web`）。
+- scope 用任务号（`F-08`）或模块名（`api`、`web`）。
 - 一个提交只做一件事；依赖升级单独提交。
 
 ## 合并
 
-- 必须经过 PR，并通过服务端 required checks。
+- 必须经过 PR，并通过服务端 required checks；禁止直推 `main`（`main-guard` 会把直推标红）。
 - 必须由未参与实现的上下文评审；评审结论与逐 AC 结论写入 `docs/reviews/<spec>/T-XX.md`。
 - 禁止 `--no-verify` 直推；紧急绕过需在 PR 中写明原因，并在 24 小时内补跑完整门禁。
 
 ## 文档
 
-- 规格：`docs/specs/<NNN>-<slug>/`；执行卡：`docs/tasks/<spec>/T-XX.md`。
+- 规格：`docs/specs/<NNN>-<slug>/`；执行卡：`docs/tasks/<spec>/F-XX.md`。
 - 同一事实只写一处；`STATUS.md` 是派生视图，不记录历史过程。
 - 新增或修改规则时同步更新 [工程标准](docs/process/standards.md) 的 STD 编号。
 

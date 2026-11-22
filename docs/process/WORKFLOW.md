@@ -36,7 +36,7 @@ Frame（目标/非目标/完成标准）
 | T0 | 注释、措辞、格式、补丁 | 无 | 自审 |
 | T1 | 单个可观察行为，不动契约/迁移/权限/依赖 | requirements/design 可合并为一段；不单出 tasks | 1 人代码评审 |
 | T2 | 跨层、契约、迁移、新依赖、新模块 | requirements + design + tasks | 代码评审 + 测试 |
-| T3 | 权限、租户、资金、不可逆、模型/Prompt | 上述 + 威胁模型/回滚 | 独立安全评审 + 业务批准 |
+| T3 | 权限、租户、资金、不可逆、模型/Prompt | 上述 + 威胁模型/回滚 | 独立安全评审 + 业务批准（评审记录 `## 安全评审`，收口强制） |
 
 ## 3. 四个阶段
 
@@ -84,8 +84,8 @@ Frame（目标/非目标/完成标准）
 - 一次只做一个任务；先写失败测试，再实现；验证命令与证据写执行卡第 3、4 节；
 - 执行卡状态只改 frontmatter：`todo`、`doing`、`review`、`done`；不再手写 `Passes`；
 - 不得改任务标题/AC 来迁就实现；要改先改 `requirements.md`/`design.md` 并重新评审；
-- 关键路径加端到端/浏览器验证（多身份配方见 [浏览器走查](e2e-walkthrough.md)）；API 契约变更必须跑 `./scripts/check-contracts.sh`（verify 已包含；`check-api-types.sh` 为兼容入口）；全量 `make verify-check` 在送审前跑一次；收口 `make verify` 复用同一代码指纹（只重跑快检查），代码变化才重跑全量；失败则整改后重跑并做增量复审；
-- 实现过程用 `make verify-changed ARGS=F-08`（按路径触发，只跑改动涉及的检查：后端 ruff/mypy/pytest、chat 或 workspace 前端、文档/状态/追溯、契约；互不牵连，`--dry-run` 可先看计划；不跑全量 pytest/评测/构建）；`make verify-check` 只留给收口；
+- 关键路径加端到端/浏览器验证（多身份配方见 [浏览器走查](e2e-walkthrough.md)）；API 契约变更必须跑 `./scripts/check-contracts.sh`（verify 已包含；`check-api-types.sh` 为兼容入口）；送审前用 `make verify-changed ARGS=F-XX` + 绑定 AC 定向测试 + `make review-check`，不跑全量；全量只在收口 `make verify` 跑一次（复用代码指纹，代码变化才重跑）与 CI 执行；失败则整改后重跑并做增量复审；
+- 实现过程用 `make verify-changed ARGS=F-08`（按路径触发，只跑改动涉及的检查：后端 ruff/mypy/pytest、chat 或 workspace 前端、文档/状态/追溯、契约；互不牵连，`--dry-run` 可先看计划；不跑全量 pytest/评测/构建）；`make verify-check` 是手动全量/CI 等价入口，不参与评审流程；
 - 全量并行实测（2026-11-21，819 条）：2 片 2:29、4 片 2:31，串行约 3:10，收益 <25%；瓶颈是单机 DB/IO 而非 CPU，因此不接门禁。全量 >5 分钟或 CI 需要分片时再评估（优先 CI 矩阵与 JUnit 合并，不改本地默认）。
 - 演示数据重置统一用 `make dev-reset`，不手写 `DELETE`/`UPDATE` 修改开发库；
 - 每次状态变化后运行 `make gen-tasks` 与 `make dashboard`，让索引和看板追上执行卡；
@@ -96,7 +96,7 @@ Frame（目标/非目标/完成标准）
 ### 3.4 Review & Ship
 
 - 评审输入：`python3 scripts/review_pack.py F-XX` 生成评审包（固定点、diff、AC 原文、执行卡 §1/§2、design、命令）；实现尚未提交时加 `--include-worktree`，直接比较固定点与工作区；先跑 `make review-check`（机械前置），再跑绑定 AC 的定向测试；全量门禁由收口执行，评审结论以收口全量为准（全量失败则评审作废并增量复审）；
-- 两轴独立评审按 [评审模板](../templates/review.md) 与 [两轴提示词](review-prompts.md) 输出；Standards 与 Spec 报告分开写，先复核门禁，再逐 AC 给证据；
+- 两轴独立评审按 [评审模板](../templates/review.md) 与 [两轴提示词](review-prompts.md) 输出；Standards 与 Spec 报告分开写，先复核门禁，再逐 AC 给证据；T3 另加独立 `## 安全评审（T3）`，结论为通过才可收口；
 - 独立上下文代码评审：看 diff、测试、越权/失败路径；
 - 人工走查：按执行卡第 3、4 节逐条演示；
 - lasting decisions 写 ADR；更新 requirements/design/执行卡，不让文档腐烂；
@@ -136,8 +136,8 @@ docs/adr/                                 # lasting decisions
 
 - G0：在 milestone 内，风险级别已定；模板基线已定（requirements/design/tasks）；
 - G1：requirements 的成功度量与 AC 可验证，且每个 AC 被执行卡 frontmatter 引用；
-- G2：收口时 `verify.sh` 全绿（`make verify` 复用需代码指纹一致）；
-- G3：T3 的安全评审/回滚通过；突变由 CI `mutation` job（观察期）持续覆盖；
+- G2：收口时 `verify.sh` 全绿（`make verify` 复用需代码指纹一致）；合并由 PR + CI required checks + CODEOWNERS 把关，见 [合并门](../ops/branch-protection.md)；
+- G3：T3 的安全评审/回滚通过且评审记录含 `## 安全评审` 结论；收口 `close_feature.py` 强制；突变由 CI `mutation` job（观察期）持续覆盖；
 - G4：按执行卡第 3、4 节走查通过。
 
 实现者不得为自己的改动签字；代码评审用独立上下文。

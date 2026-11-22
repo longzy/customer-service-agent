@@ -7,7 +7,7 @@
 - 当前 spec：003-order-query（5/5 完成）；004-order-cancel（1/7 完成）
 
 <!-- verify:start -->
-- 最近验证：`./scripts/verify.sh` 全部检查通过——pytest 908 passed（独立测试库）、mypy 71 个文件、追溯矩阵通过（43 条 AC）、文档与前端检查通过
+- 最近验证：`./scripts/verify.sh` 全部检查通过——pytest 916 passed（独立测试库）、mypy 71 个文件、追溯矩阵通过（43 条 AC）、文档与前端检查通过
 <!-- verify:end -->
 
 ## 进行中
@@ -16,7 +16,7 @@
 
 ## 阻塞
 
-- 分支保护受 GitHub 私有仓库套餐限制；不影响核心开发。
+- 分支保护受 GitHub 私有仓库套餐限制：`main` 直推未被硬阻断，`main-guard` 只做事后标红；启用 rulesets 的步骤见 `docs/ops/branch-protection.md`。
 
 ## 下一步
 

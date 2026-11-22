@@ -30,7 +30,7 @@
 
 ## 命令
 
-以 `README.md` 为准。实现内环用 `make verify-changed ARGS=F-XX`；送审前 `make verify-check` 跑一次全量；收口 `make verify` 复用代码指纹（只重跑快检查）并写回状态。迭代测试用 `make test-reuse ARGS=...` 复用固定测试库。常用：`test-db.sh`、`check-status.py`、`trace.py`、`check-secrets.py`。
+以 `README.md` 为准。实现内环用 `make verify-changed ARGS=F-XX`；送审前再加定向 AC 与 `make review-check`，不跑全量；收口 `make verify` 跑一次全量（复用代码指纹）并写回状态。迭代测试用 `make test-reuse ARGS=...` 复用固定测试库。常用：`test-db.sh`、`check-status.py`、`trace.py`、`check-secrets.py`。
 
 ## 工作流
 

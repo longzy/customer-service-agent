@@ -28,6 +28,7 @@
 
 ## 自查清单
 
+- [ ] 从分支 PR 合入，未直推 `main`
 - [ ] 提交信息符合 Conventional Commits
 - [ ] 新增行为有测试，测试名含 `_AC_XX`
 - [ ] 涉及契约/迁移/依赖时，已更新 spec/design 或 ADR

@@ -1,6 +1,6 @@
 #!/bin/sh
 # 评审前置快检：机械规则 + 文档/状态/追溯/令牌/契约；不跑 pytest 与前端构建。
-# 这不是全量门禁；门禁仍用 make verify-check（评审 checklist 第 0 节）。
+# 这不是全量门禁；全量由收口 make verify 与 CI 执行。
 set -e
 cd "$(git rev-parse --show-toplevel)"
 export UV_CACHE_DIR="${UV_CACHE_DIR:-./.uv-cache}"
@@ -30,4 +30,4 @@ run_quiet "追溯矩阵" python3 scripts/trace.py --strict
 run_quiet "设计令牌" ./scripts/check-tokens.sh
 run_quiet "契约生成物" ./scripts/check-contracts.sh
 
-echo "review-check 通过：机械前置、文档、状态、追溯、令牌与契约一致；全量门禁请用 make verify-check。"
+echo "review-check 通过：机械前置、文档、状态、追溯、令牌与契约一致；全量由收口 make verify 与 CI 执行。"

@@ -154,7 +154,8 @@ def build(feature: str, base: str, include_worktree: bool = False) -> str:
         "",
         "- 两轴并行、独立上下文：Standards 轴与 Spec 轴；"
         "提示词见 `docs/process/review-prompts.md`。",
-        "- 先跑 `make review-check`（机械前置）；门禁仍是 `make verify-check`（全量）。",
+        "- 先跑 `make review-check`（机械前置）；评审用 `make verify-changed` + 绑定 AC 定向测试；"
+        "全量由收口 `make verify` 与 CI 执行。",
         "- 评审包只提供事实；结论、阻断项与逐 AC 证据由评审者给出。",
         "",
         "## 1. 提交与差异",
@@ -198,9 +199,8 @@ def build(feature: str, base: str, include_worktree: bool = False) -> str:
         "",
         "```bash",
         "make review-check",
-        "make verify-check",
+        f"make verify-changed ARGS={feature}",
         f'TEST_DB_NAME={db_name} ./scripts/test-db.sh tests/integration -k "{ac_filter}" -q',
-        f'TEST_DB_NAME={db_name} ./scripts/test-db.sh -k "{ac_filter}" -q',
         "```",
         "",
         "## 7. Standards 来源（按需读取）",

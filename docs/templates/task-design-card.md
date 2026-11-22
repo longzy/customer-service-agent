@@ -92,7 +92,7 @@ pnpm -C apps/<app> test                                                 # fronte
 
 ### 3.1 送审前检查
 
-- [ ] `make verify-check` exit 0，贴最后 summary（送审前全量只跑这一次；收口 `make verify` 复用代码指纹）
+- [ ] `make verify-changed ARGS=F-XX` exit 0 + 绑定 AC 定向测试通过（全量由收口 `make verify` 执行，CI 为硬门禁）
 - [ ] 迁移面：旧路径 grep 为 0；pyproject/mutation/verify/docs 已同步
 - [ ] 配置注入：ambient 与 override 各跑一次
 - [ ] 证据只写命令、测试名与结论；具体计数引用 CURRENT 验证块
