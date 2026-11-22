@@ -90,7 +90,14 @@ updated: YYYY-MM-DD
 - 红-绿证据（失败输出与通过输出）：
 - 反向验证（故意改坏一条实现/断言，确认测试会红）：
 - 验证命令结果：
-- 计数只引用 `docs/STATUS.md` 验证块（`verify.sh` 生成）；证据不手抄 `passed` 数；diff 用 `git diff --shortstat START END`。
+- 定向测试输出（贴代码块；全量计数引用 `docs/STATUS.md` 验证块，不手抄全量 `passed` 数）：
+
+```text
+$ ./scripts/test-db.sh tests/integration/test_<spec>_AC_XX.py -q
+... passed
+```
+
+- diff 用 `git diff --shortstat START END`。
 - 关键模块突变分数：
 
 ## 5. 评审

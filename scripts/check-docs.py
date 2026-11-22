@@ -337,6 +337,15 @@ def check_test_references():
                         errors.append(f"{rel(path)}：引用的测试不存在 {reference}")
 
 
+def evidence_has_command_output(evidence: str) -> bool:
+    """证据段是否包含可复核的命令输出：代码块且含 passed/FAILED/命令提示。
+
+    与 `docs/templates/task-design-card.md` §4 的写法绑定；模板契约测试
+    `tests/unit/test_task_template_contract.py` 保证两边同步。
+    """
+    return "```" in evidence and any(token in evidence for token in ("passed", "FAILED", "$ "))
+
+
 def check_completed_card_reviews():
     """标记已完成的执行卡必须有评审记录，评审不能只存在于对话里。"""
     if not os.path.isdir(TASKS_ROOT):
@@ -361,9 +370,7 @@ def check_completed_card_reviews():
             content = read(card_path)
             if "## 4. 证据" in content:
                 evidence = content.split("## 4. 证据", 1)[1].split("\n## ", 1)[0]
-                if "```" not in evidence or not any(
-                    token in evidence for token in ("passed", "FAILED", "$ ")
-                ):
+                if not evidence_has_command_output(evidence):
                     errors.append(
                         f"{rel(card_path)}：第 4 节证据缺少真实命令输出（代码块且含 passed/FAILED）"
                     )
