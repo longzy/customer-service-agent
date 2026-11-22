@@ -12,5 +12,20 @@ export default defineConfig([
       "react-hooks/set-state-in-effect": "off",
     },
   },
+  {
+    files: ["tests/**/*.{ts,tsx}"],
+    rules: {
+      // FE-TEST-06：mock 的 router 必须是模块级稳定引用。新对象会让依赖 router
+      // 的 useCallback/useEffect 每次渲染重跑，同步渲染下会耗尽堆内存。
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "Property[key.name='useRouter'] > ArrowFunctionExpression > ObjectExpression",
+          message:
+            "useRouter 的 mock 必须返回模块级稳定对象；改为 const router = { replace: vi.fn(), push: vi.fn() } 后 useRouter: () => router。",
+        },
+      ],
+    },
+  },
   globalIgnores([".next/**", "coverage/**", "next-env.d.ts"]),
 ]);

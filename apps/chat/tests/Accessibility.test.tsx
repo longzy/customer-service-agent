@@ -3,8 +3,13 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ChatShell } from "@/features/chat";
 
+const replace = vi.fn();
+const push = vi.fn();
+// useRouter 必须返回同一对象：依赖 router 的 effect 会因新引用每次渲染重跑。
+const router = { replace, push };
+
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ replace: vi.fn(), push: vi.fn() }),
+  useRouter: () => router,
 }));
 
 const customer = {
