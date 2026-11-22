@@ -133,7 +133,7 @@ def test_无快照恰好一笔时列候选_AC_63() -> None:
     message = _last_ai(response.json())
     assert [order["order_id"] for order in message["payload"]["orders"]] == ["ORD-10005"]
     assert not message["payload"].get("cancellation")
-    assert "不能替你选" in message["content"]
+    assert "最近的一笔订单" in message["content"]
     assert task_rows() == []
 
 
