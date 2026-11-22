@@ -164,30 +164,44 @@ class CustomerOrdersResponse(BaseModel):
 
 
 class MessagePayload(BaseModel):
-    """AI 订单消息的结构化快照；空列表表示查无/失败，前端不渲染卡片。"""
+    """AI 消息的结构化快照；订单摘要与可选取消任务，空列表表示查无/失败。
+
+    `cancellation` 只在取消分支出现（F-32）：确认卡片读 `can_confirm` 与
+    `expires_at`，结果消息读 `state`/`status_text`，不新增列表接口。
+    """
 
     model_config = ConfigDict(extra="forbid")
 
     orders: list[OrderSummaryPublic] = Field(default_factory=list, max_length=5)
+    # 空取消任务不落进 JSON，保持 003 的 `{"orders": []}` 载荷不变。
+    cancellation: CancellationSummary | None = Field(
+        default=None, exclude_if=lambda value: value is None
+    )
 
     @classmethod
     def from_stored(cls, payload: Mapping[str, Any] | None) -> "MessagePayload | None":
-        """读模型只投影 `orders`；坏元素丢弃，旧消息的非订单载荷不会被带到 API。"""
+        """读模型只投影白名单字段；坏元素/未知状态丢弃，不击穿页面。"""
         if not isinstance(payload, Mapping):
             return None
-        raw = payload.get("orders")
-        if not isinstance(raw, list):
-            return cls()
         orders: list[OrderSummaryPublic] = []
-        for item in raw[:5]:
-            if not isinstance(item, dict):
-                continue
+        raw_orders = payload.get("orders")
+        if isinstance(raw_orders, list):
+            for item in raw_orders[:5]:
+                if not isinstance(item, dict):
+                    continue
+                try:
+                    orders.append(OrderSummaryPublic.model_validate(item))
+                except ValidationError:
+                    # 落库快照由服务端构造；坏行只说明历史/手工数据，读模型降级不击穿页面。
+                    continue
+        cancellation: CancellationSummary | None = None
+        raw_cancellation = payload.get("cancellation")
+        if isinstance(raw_cancellation, Mapping):
             try:
-                orders.append(OrderSummaryPublic.model_validate(item))
+                cancellation = CancellationSummary.model_validate(raw_cancellation)
             except ValidationError:
-                # 落库快照由服务端构造；坏行只说明历史/手工数据，读模型降级不击穿页面。
-                continue
-        return cls(orders=orders)
+                cancellation = None
+        return cls(orders=orders, cancellation=cancellation)
 
 
 class MessagePublic(BaseModel):

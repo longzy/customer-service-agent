@@ -143,7 +143,7 @@ def test_闲聊带订单不查询也不转人工_AC_52() -> None:
 
 
 def test_订单意图不能截走取消诉求_AC_52() -> None:
-    """正文含取消/退款等操作词时，即使模型误判订单意图也不查询。"""
+    """正文含取消操作词时，即使模型误判订单意图也不走订单查询，改由取消分支承接。"""
     app = order_app(
         {"取消我的订单": {"intent": "QUERY_RECENT", "confidence": 0.95, "reply": "好的。"}}
     )
@@ -152,14 +152,19 @@ def test_订单意图不能截走取消诉求_AC_52() -> None:
         response = send(api, "取消我的订单")
         assert response.status_code == 200, response.text
         body = response.json()
-        assert body["status"] == "QUEUED"
-        assert [item["author_type"] for item in body["messages"]] == ["customer", "system"]
+
+        # 004 修订 001 AC-32：取消由取消分支承接，不再一律转人工，也不返回订单查询结果。
+        assert body["status"] == "AI_ACTIVE"
+        [message] = ai_messages(body)
+        assert message["content"] != "好的。"
+        assert message["content"].strip()
+        # 无会话快照时列候选，不替客户选单。
+        assert message["payload"]["orders"]
+        assert not message["payload"].get("cancellation")
 
     assert app.state.oms.calls["get_order"] == 0
-    assert app.state.oms.calls["list_recent_orders"] == 0
-    [handoff] = rows_of(ServiceHandoff)
-    assert handoff.reason == "OUT_OF_SCOPE"
-    assert handoff.context["trigger"] == "out_of_scope"
+    assert app.state.oms.calls["list_recent_orders"] == 1
+    assert rows_of(ServiceHandoff) == []
 
 
 def test_模型订单意图不能覆盖快递超范围_AC_52() -> None:

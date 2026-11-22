@@ -549,8 +549,18 @@
       },
       "MessagePayload": {
         "additionalProperties": false,
-        "description": "AI 订单消息的结构化快照；空列表表示查无/失败，前端不渲染卡片。",
+        "description": "AI 消息的结构化快照；订单摘要与可选取消任务，空列表表示查无/失败。\n\n`cancellation` 只在取消分支出现（F-32）：确认卡片读 `can_confirm` 与\n`expires_at`，结果消息读 `state`/`status_text`，不新增列表接口。",
         "properties": {
+          "cancellation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CancellationSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "orders": {
             "items": {
               "$ref": "#/components/schemas/OrderSummaryPublic"
