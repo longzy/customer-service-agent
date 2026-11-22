@@ -72,7 +72,7 @@ tests/                   组件测试
 ## 5. 样式与设计令牌（FE-CSS）
 
 - **FE-CSS-01** 令牌单一来源是 `docs/design-system/tokens.css`；`app/globals.css` 里的 `:root` 颜色副本是历史债，迁移完成前禁止再新增颜色字面量。
-- **FE-CSS-02** 新增样式优先用令牌；尚无令牌时使用 4px 基数的间距（2/4/6/8/12/16/24/32），禁止 5/7/9/10/14 这类非标值。ui-spec 组件契约中的 18/26 等历史值不作为新增依据。
+- **FE-CSS-02** 新增样式优先用令牌；尚无令牌时使用 4px 基数的间距（2/4/6/8/12/16/24/32），禁止 5/7/9/10/14 这类非标值。ui-spec 组件契约中明确写出的固定尺寸（如订单卡片 7px 状态圆点、空态 44px 圆形图标）按契约执行，不受本条间距基数约束；未写入契约的历史值（如 18/26）不作为新增依据。
 - **FE-CSS-03** 颜色只能出现在 `tokens.css` 与 `globals.css` 的 `@theme`；新样式一律用 Tailwind utility（颜色/字号/圆角取 theme 映射），禁止新增全局选择器与新的 `.module.css`。
 - **FE-CSS-04** 状态不得只靠颜色表意，必须同时有文字或图标。
 - **FE-CSS-05** UI 组件库仅允许 HeroUI v3（`@heroui/react` + `@heroui/styles`，样式在 `globals.css` 中于 `@import "tailwindcss"` 之后引入）；图标库仅允许 `lucide-react`，不得引入第二套 UI/CSS 框架、图标库或远程字体；通用图标用 lucide 组件，品牌图形等无对应图标保留内联 SVG，颜色继承 `currentColor`。
@@ -149,3 +149,4 @@ tests/                   组件测试
 - 2026-11-18：两个应用升级 Next.js 16.4（React 19.3；`next lint` 移除后改用 ESLint CLI + flat config）；组件、请求与类型迁入 `features/`，`app/` 只装配；`ChatShell` 拆出 `useChatMessages`，FE-DIR-05 豁免移除；核心 lint 接入 verify 与 CI。两个应用暂时关闭 `react-hooks/set-state-in-effect`（存量 gate 在 effect 内拉数据并 setState），迁到数据获取层后删除该例外。
 - 2026-11-20：按用户决策接入 HeroUI v3（`@heroui/react` + `@heroui/styles` 3.2.7），修订 FE-CSS-05/06：HeroUI 成为唯一允许的 UI 组件库，Tailwind 仍是唯一样式编写方案。`globals.css` 中 `@heroui/styles` 排在 `@import "tailwindcss"` 之后、`tokens.css` 之前，使项目令牌覆盖同名变量、保持视觉基线；其自带样式属外部依赖，不计入 FE-CSS-03 的项目内颜色字面量约束。主题策略：项目令牌仍是单一事实源，不启用 HeroUI 默认主题，只在 `tokens.css` 映射其根变量；HeroUI 组件由 `@apply` 写死的尺寸/圆角/动效在首次落地组件时用 `className` 的 Tailwind utility 约束，不预先建 wrapper、不写全局 BEM 覆盖。
 - 2026-11-22：新增 FE-TEST-06 并接入 ESLint `no-restricted-syntax`：测试中的 `useRouter` mock 必须返回模块级稳定对象。F-30 曾因内联 mock 每次渲染产生新 router，导致依赖 router 的 effect 同步死循环、vitest worker OOM。chat 的 vitest worker 同时限制堆上限，让同类问题更快暴露。
+- 2026-11-22：澄清 FE-CSS-02 的适用范围：4px 基数约束布局间距，ui-spec 组件契约明确写出的固定尺寸（订单卡片 7px 圆点、空态 44px 图标）优先。F-30 评审中 Standards 与 Spec 两轴曾因 7px 圆点给出冲突结论。

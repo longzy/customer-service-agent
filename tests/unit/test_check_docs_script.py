@@ -186,3 +186,24 @@ def test_执行卡评审节引用未创建的评审记录不算死链_基座豁�
     module.check_card_paths()
     assert len(module.errors) == 1
     assert "docs/missing.md" in module.errors[0]
+
+
+def test_评审结论允许加粗_基座豁免(tmp_path: Path, monkeypatch: Any) -> None:
+    module = load_module()
+    tasks = tmp_path / "docs" / "tasks" / "001-demo"
+    reviews = tmp_path / "docs" / "reviews" / "001-demo"
+    tasks.mkdir(parents=True)
+    reviews.mkdir(parents=True)
+    (tasks / "F-01.md").write_text(
+        "---\nid: F-01\nstatus: done\n---\n\n# 任务执行卡\n", encoding="utf-8"
+    )
+    (reviews / "F-01.md").write_text(
+        "## 0. 门禁复核\n\n## 逐 AC\n\n## 阻断项\n\n## 结论\n\n**通过**。2 轮：无阻断。\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(module, "ROOT", str(tmp_path))
+    monkeypatch.setattr(module, "REVIEWS_ROOT", str(reviews.parent))
+    monkeypatch.setattr(module, "TASKS_ROOT", str(tasks.parent))
+    monkeypatch.setattr(module, "errors", [])
+    module.check_review_conclusions()
+    assert module.errors == []
