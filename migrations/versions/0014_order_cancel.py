@@ -54,11 +54,19 @@ def upgrade() -> None:
         "set requested_by_type = 'CUSTOMER', requested_by_id = user_id "
         "where requested_by_type is null"
     )
-    # 旧原型可能残留同订单多个进行中任务；保留最新一条，其余收尾后再建唯一索引。
+    # 旧原型可能残留同订单多个进行中任务；按状态推进程度保留最靠后的一条，
+    # 再按创建时间，其余收尾后再建唯一索引。
     op.execute(
         "with ranked as ("
         "  select id, row_number() over ("
-        "    partition by tenant_id, order_id order by created_at desc, id desc"
+        "    partition by tenant_id, order_id "
+        "    order by case state "
+        "      when 'ACCEPTED' then 5 "
+        "      when 'SUBMIT_UNKNOWN' then 4 "
+        "      when 'SUBMITTING' then 3 "
+        "      when 'AWAITING_CONFIRMATION' then 2 "
+        "      else 1 end desc, "
+        "    created_at desc, id desc"
         "  ) as rn"
         "  from cancellation_requests "
         "  where state IN "

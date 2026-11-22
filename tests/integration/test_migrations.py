@@ -23,7 +23,8 @@ NEW_COLUMNS = {
 def _require_test_database() -> None:
     """只允许在测试库跑 DDL，避免裸跑 pytest 时把开发库的列删掉。"""
     name = settings.database_url.rsplit("/", 1)[-1].split("?")[0]
-    if "_test_" not in name and not name.startswith("customer_service_review"):
+    allowed_prefixes = ("customer_service_review", "customer_service_security")
+    if "_test_" not in name and not name.startswith(allowed_prefixes):
         pytest.skip(f"迁移测试只允许在测试库运行，当前库：{name}")
 
 
@@ -165,22 +166,24 @@ def test_0014_回填发起人与重复活跃任务收尾_AC_60() -> None:
             text("delete from cancellation_requests where order_id = :order_id"),
             {"order_id": order_id},
         )
-        for task_id, created_at in (
-            ("task-mig-old", datetime(2026, 11, 1, tzinfo=UTC)),
-            ("task-mig-new", datetime(2026, 11, 2, tzinfo=UTC)),
+        for task_id, created_at, state in (
+            ("task-mig-accepted", datetime(2026, 10, 31, tzinfo=UTC), "ACCEPTED"),
+            ("task-mig-old", datetime(2026, 11, 1, tzinfo=UTC), "AWAITING_CONFIRMATION"),
+            ("task-mig-new", datetime(2026, 11, 2, tzinfo=UTC), "AWAITING_CONFIRMATION"),
         ):
             await db.execute(  # type: ignore[attr-defined]
                 text(
                     "insert into cancellation_requests "
                     "(id, tenant_id, user_id, order_id, state, idempotency_key, trace_id, "
                     " expires_at, created_at, updated_at, version) values "
-                    "(:id, 'tenant-a', 'user-a1', :order_id, 'AWAITING_CONFIRMATION', "
+                    "(:id, 'tenant-a', 'user-a1', :order_id, :state, "
                     " :idempotency_key, 'trace-mig', :expires, :created, :created, 0)"
                 ),
                 {
                     "id": task_id,
                     "order_id": order_id,
                     "idempotency_key": f"idem-{task_id}",
+                    "state": state,
                     "expires": datetime(2026, 12, 1, tzinfo=UTC),
                     "created": created_at,
                 },
@@ -215,10 +218,11 @@ def test_0014_回填发起人与重复活跃任务收尾_AC_60() -> None:
         command.upgrade(config, "head")
 
         rows = asyncio.run(with_db(read))
+        assert rows["task-mig-accepted"][0] == "ACCEPTED"
         assert rows["task-mig-old"][0] == "ABANDONED"
-        assert rows["task-mig-new"][0] == "AWAITING_CONFIRMATION"
+        assert rows["task-mig-new"][0] == "ABANDONED"
+        assert rows["task-mig-accepted"][1:] == ("CUSTOMER", "user-a1")
         assert rows["task-mig-old"][1:] == ("CUSTOMER", "user-a1")
-        assert rows["task-mig-new"][1:] == ("CUSTOMER", "user-a1")
 
         async def duplicate(db: object) -> None:
             from datetime import UTC, datetime
