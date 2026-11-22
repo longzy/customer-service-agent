@@ -69,20 +69,32 @@ export function CancelDialog({
 }: CancelDialogProps) {
   const titleId = useId();
   const primaryRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const previousFocus = useRef<HTMLElement | null>(null);
+  const isOpen = state.kind !== "closed";
 
   useEffect(() => {
-    if (state.kind === "closed") {
+    if (!isOpen) {
       return;
     }
-    primaryRef.current?.focus();
+    previousFocus.current = document.activeElement as HTMLElement | null;
+    return () => previousFocus.current?.focus();
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+    (primaryRef.current ?? panelRef.current)?.focus();
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
+      // 提交中按 Esc 不能关闭：关闭后再打开会回到旧结果，状态已变化。
+      if (event.key === "Escape" && state.kind !== "submitting") {
         onClose();
       }
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [onClose, state.kind]);
+  }, [isOpen, onClose, state.kind]);
 
   if (state.kind === "closed") {
     return null;
@@ -92,12 +104,14 @@ export function CancelDialog({
     state.kind === "result" ? RESULT_TITLE : state.kind === "error" ? ERROR_TITLE : "确认取消订单";
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 px-4">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-brand-deep/50 px-4">
       <div
         aria-labelledby={titleId}
         aria-modal="true"
-        className="w-full max-w-[420px] rounded-2xl border border-border bg-surface p-6 shadow-panel"
+        className="w-full max-w-[420px] rounded-2xl border border-border bg-surface p-6 shadow-panel focus:outline-none"
+        ref={panelRef}
         role="dialog"
+        tabIndex={-1}
       >
         <h2 className="m-0 text-lg font-semibold tracking-[-0.01em]" id={titleId}>
           {title}

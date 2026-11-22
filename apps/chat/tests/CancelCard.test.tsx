@@ -220,7 +220,6 @@ describe("取消确认卡片", () => {
         {
           ...ORDER,
           cancellation: {
-            task_id: "task-1",
             state: "AWAITING_CONFIRMATION",
             status_text: "等待您确认",
             next_step: "请在确认卡片中选择“确认取消”或“不取消”。",
@@ -230,7 +229,7 @@ describe("取消确认卡片", () => {
         },
       ]),
       "POST /api/customer/cancellations": () => json(ACCEPTED),
-      "GET /api/customer/cancellations/task-1": () => json(CANCELLED),
+      "POST /api/customer/cancellations/task-1/refresh": () => json(CANCELLED),
     });
 
     render(<OrdersPage />);
@@ -261,7 +260,6 @@ describe("取消确认卡片", () => {
     const pending: CustomerOrderSummary = {
       ...ORDER,
       cancellation: {
-        task_id: "task-1",
         state: "AWAITING_CONFIRMATION",
         status_text: "等待您确认",
         next_step: "请在确认卡片中选择“确认取消”或“不取消”。",

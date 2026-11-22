@@ -9,6 +9,7 @@
 
 from dataclasses import dataclass
 from datetime import datetime
+from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -79,6 +80,14 @@ def build_workflow(
     )
 
 
+def _owned_tasks(customer: Customer) -> Any:
+    """客户可见的任务查询：归属过滤只有这一处，列表与复用共用。"""
+    return select(CancellationRow).where(
+        CancellationRow.tenant_id == customer.tenant_id,
+        CancellationRow.user_id == customer.oms_customer_id,
+    )
+
+
 async def _in_progress_task(
     db: AsyncSession, customer: Customer, order_id: str
 ) -> CancellationSnapshot | None:
@@ -87,10 +96,8 @@ async def _in_progress_task(
         return None
     row = (
         await db.execute(
-            select(CancellationRow)
+            _owned_tasks(customer)
             .where(
-                CancellationRow.tenant_id == customer.tenant_id,
-                CancellationRow.user_id == customer.oms_customer_id,
                 CancellationRow.order_id == order_id,
                 CancellationRow.state.in_([state.value for state in IN_PROGRESS_STATES]),
             )
@@ -196,7 +203,7 @@ async def decline_cancellation(
         raise CancellationStateConflict(task_id) from error
 
 
-async def read_cancellation(
+async def refresh_cancellation(
     db: AsyncSession,
     gateway: ToolGateway | None,
     customer: Customer,
@@ -205,7 +212,7 @@ async def read_cancellation(
     now: datetime,
     confirm_timeout_minutes: int,
 ) -> CancellationTask:
-    """读取任务结果：惰性过期，已受理按 OMS 结果继续推进（结果接口）。"""
+    """结果刷新（写）：惰性过期，已受理按 OMS 结果继续推进。"""
     workflow = build_workflow(db, gateway, confirm_timeout_minutes=confirm_timeout_minutes, now=now)
     identity = customer_identity(customer)
     try:
@@ -221,20 +228,16 @@ async def list_order_cancellations(
 ) -> dict[str, CancellationSnapshot]:
     """按订单回显最新取消任务；已释放终态与过期待确认不出现。
 
-    列表读取保持只读（design 3.2）：过期任务只在仓储层过滤，不在这里改状态；
-    下一次确认/重新发起时才惰性收尾。
+    列表读取保持只读（design 3.2）：过期任务只在读取投影里过滤，不写状态；
+    下一次确认/刷新/重新发起时才惰性收尾。
     """
     if not order_ids or not customer.oms_customer_id:
         return {}
     rows = (
         (
             await db.execute(
-                select(CancellationRow)
-                .where(
-                    CancellationRow.tenant_id == customer.tenant_id,
-                    CancellationRow.user_id == customer.oms_customer_id,
-                    CancellationRow.order_id.in_(order_ids),
-                )
+                _owned_tasks(customer)
+                .where(CancellationRow.order_id.in_(order_ids))
                 .order_by(CancellationRow.created_at.desc(), CancellationRow.id.desc())
             )
         )

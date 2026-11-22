@@ -15,7 +15,7 @@ from tests.integration.cancellation_support import (
     confirm_cancellation,
     create_cancellation,
     default_order_app,
-    read_cancellation,
+    refresh_cancellation,
     task_rows,
 )
 from tests.integration.customer_support import cleanup_customer_db, prepare_customer_db
@@ -93,7 +93,7 @@ def test_已受理后推进到已取消_AC_61() -> None:
 
         [row] = task_rows()
         app.state.oms.set_cancel_result(TENANT, row.idempotency_key, "CANCELLED")
-        refreshed = read_cancellation(api, created["id"])
+        refreshed = refresh_cancellation(api, created["id"])
         listed = api.get(ORDERS)
 
     assert refreshed.status_code == 200, refreshed.text
@@ -121,7 +121,7 @@ def test_受理后被拒绝_AC_61() -> None:
         confirm_cancellation(api, created["id"])
         [row] = task_rows()
         app.state.oms.set_cancel_result(TENANT, row.idempotency_key, "REJECTED")
-        refreshed = read_cancellation(api, created["id"])
+        refreshed = refresh_cancellation(api, created["id"])
 
     assert refreshed.status_code == 200, refreshed.text
     task = refreshed.json()

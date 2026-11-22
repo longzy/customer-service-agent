@@ -42,8 +42,8 @@ def decline_cancellation(api: TestClient, task_id: str) -> Any:
     return api.post(f"{CANCELLATIONS}/{task_id}/decline")
 
 
-def read_cancellation(api: TestClient, task_id: str) -> Any:
-    return api.get(f"{CANCELLATIONS}/{task_id}")
+def refresh_cancellation(api: TestClient, task_id: str) -> Any:
+    return api.post(f"{CANCELLATIONS}/{task_id}/refresh")
 
 
 def task_rows() -> list[CancellationRequest]:

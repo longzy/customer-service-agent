@@ -16,7 +16,7 @@ from tests.integration.cancellation_support import (
     create_cancellation,
     decline_cancellation,
     default_order_app,
-    read_cancellation,
+    refresh_cancellation,
     task_rows,
 )
 from tests.integration.customer_support import cleanup_customer_db, prepare_customer_db
@@ -146,7 +146,7 @@ def test_已提交任务不因关聊天被放弃_AC_62() -> None:
             "/customer/session/close",
             headers={"Idempotency-Key": "close-after-submit"},
         )
-        refreshed = read_cancellation(api, created["id"])
+        refreshed = refresh_cancellation(api, created["id"])
 
     assert confirmed.json()["state"] == "ACCEPTED"
     assert refreshed.status_code == 200, refreshed.text

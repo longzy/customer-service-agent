@@ -30,17 +30,6 @@ IN_PROGRESS_STATES = frozenset(
     }
 )
 
-# 这些终态不再占用“进行中”名额，客户可重新发起（资格仍由服务端判定）。
-RELEASED_STATES = frozenset(
-    {
-        CancellationState.ELIGIBILITY_REJECTED,
-        CancellationState.CANCELLED,
-        CancellationState.REJECTED,
-        CancellationState.MANUAL_REVIEW,
-        CancellationState.ABANDONED,
-    }
-)
-
 
 class CancelReason(StrEnum):
     UNFULFILLED = "UNFULFILLED"

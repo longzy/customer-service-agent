@@ -509,7 +509,8 @@
       "status": "todo",
       "category": "functional",
       "ac": [
-        "AC-63"
+        "AC-63",
+        "AC-61"
       ],
       "card": "docs/tasks/004-order-cancel/F-32.md"
     },
