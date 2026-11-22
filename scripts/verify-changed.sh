@@ -66,6 +66,13 @@ else
   CHANGED=$( { git diff --name-only "$BASE"; git ls-files --others --exclude-standard; } | sort -u )
 fi
 
+if [ -z "$CHANGED" ]; then
+  # 用 printf 的 %s 隔离变量与全角括号，避免 shell 把多字节字符当变量名边界。
+  printf '没有变更可验证：默认比较未提交改动（base=%s）。\n' "$BASE" >&2
+  printf '验证已提交改动请用 --base=<ref>；只验证指定路径请用 --paths-file=<file>。\n' >&2
+  exit 2
+fi
+
 changed_matches() {
   [ -n "$CHANGED" ] && printf '%s\n' "$CHANGED" | grep -Eq "$1"
 }

@@ -34,6 +34,7 @@ TRACE_BASELINE = ROOT / "scripts" / "trace-baseline.txt"
 
 FEATURE_ID = re.compile(r"\bF-\d{2}\b")
 TRACE_LINE = re.compile(r"^(AC-\d{2}):\s*(.*)$")
+CLAIM_SENTENCE = re.compile(r"[。；;]")
 
 EXPORT_FUNCTION = re.compile(r"^export function ([A-Z]\w*)\s*[(<]", re.MULTILINE)
 EXPORT_CONST = re.compile(
@@ -206,15 +207,30 @@ def trace_baseline_violations() -> list[str]:
     return errors
 
 
+def review_claims(line: str) -> list[str]:
+    """一行中的评审声称；排除“评审通过后…”这类条件/计划语句。
+
+    STATUS 的“下一步”常写“F-30 评审通过后按 F-31 开工”，这是计划而非事实声称；
+    把“评审通过后”所在的句子排除，避免把后续任务误判为已评审。
+    """
+    claims: list[str] = []
+    for sentence in CLAIM_SENTENCE.split(line):
+        if "评审通过" not in sentence or "评审通过后" in sentence:
+            continue
+        claims.extend(FEATURE_ID.findall(sentence))
+    return claims
+
+
 def current_review_violations() -> list[str]:
     if not CURRENT.exists():
         return []
     features = feature_acs()
     errors: list[str] = []
     for lineno, line in enumerate(CURRENT.read_text(encoding="utf-8").splitlines(), 1):
-        if "评审通过" not in line:
+        claims = sorted(set(review_claims(line)))
+        if not claims:
             continue
-        for feature in sorted(set(FEATURE_ID.findall(line))):
+        for feature in claims:
             found = features.get(feature)
             if found is None:
                 errors.append(f"docs/STATUS.md:{lineno}：{feature} 未在 features 中定义")
