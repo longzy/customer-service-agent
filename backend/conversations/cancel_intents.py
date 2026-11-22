@@ -33,8 +33,22 @@ CANCEL_INTENT_PHRASES = (
 # “取消 + 订单指代”同现（如“取消我的订单”）也算明确取消意图。
 CANCEL_TARGET_TERMS = ("订单", "这单", "该单", "单号", "下单", "购买")
 
-# 疑问/咨询（“怎么取消/取消会怎样/可以取消吗”）交给模型解释，不替客户发起。
-CANCEL_QUESTION_TERMS = ("怎么", "怎样", "如何", "能否", "会不会", "吗")
+# 问的是已完成/过去的取消（“查一下已取消的订单”），不是要发起取消。
+CANCEL_PAST_TERMS = ("已取消", "取消过")
+
+# 疑问/咨询（“怎么取消/取消会怎样/取消订单后多久到账”）交给模型解释，不替客户发起。
+CANCEL_QUESTION_TERMS = (
+    "怎么",
+    "怎样",
+    "如何",
+    "能否",
+    "会不会",
+    "多久",
+    "什么时候",
+    "几天",
+    "到账",
+    "吗",
+)
 
 # 这些词表示客户在问别的操作：命中就不进取消分支，保持 001 的转人工路径。
 # 与订单查询共用一份超范围词表，只把“取消”本身排除。
@@ -51,6 +65,8 @@ def has_cancel_intent(text: str) -> bool:
     """客户是否在明确要求取消订单；退款/退货/咨询问句仍返回 False。"""
     normalized = normalize_text(text)
     if any(normalize_text(term) in normalized for term in CANCEL_EXCLUDE_TERMS):
+        return False
+    if any(term in normalized for term in CANCEL_PAST_TERMS):
         return False
     if any(term in normalized for term in CANCEL_QUESTION_TERMS):
         return False

@@ -7,7 +7,6 @@ import { EchoWaves } from "@/components/ui/EchoWaves";
 
 import type { Message, MessageAuthor } from "../types";
 
-import { ChatCancelCard } from "./ChatCancelCard";
 import { OrderCard } from "./OrderCard";
 
 const AUTHOR_LABELS: Record<MessageAuthor, string> = {
@@ -121,9 +120,8 @@ export function MessageList({
         const author = message.author_type;
         const isCustomer = author === "customer";
         const isSystem = author === "system";
-        // F-32：有取消任务时用确认卡片替代订单卡片；没有待确认任务时仍按订单卡片展示。
+        // F-32：有待确认任务时同一张订单卡片切换为确认态（OrderCard 的 cancellation）。
         const cancellation = message.payload?.cancellation;
-        const order = message.payload?.orders?.[0];
 
         if (isSystem) {
           return (
@@ -165,17 +163,15 @@ export function MessageList({
             >
               <span className="sr-only">{authorLabel(author)}</span>
               <div className={`${BUBBLE_BASE} ${tone}`}>{message.content}</div>
-              {cancellation?.can_confirm && order ? (
-                <ChatCancelCard
-                  order={order}
-                  cancellation={cancellation}
-                  onOpenOrders={onCancelOrder}
-                />
-              ) : message.payload?.orders?.length ? (
+              {message.payload?.orders?.length ? (
                 <ul className="m-0 flex w-full max-w-[560px] list-none flex-col gap-2 p-0">
                   {message.payload.orders.map((order) => (
                     <li key={order.order_id} className="w-full">
-                      <OrderCard order={order} onCancel={onCancelOrder} />
+                      <OrderCard
+                        order={order}
+                        cancellation={cancellation}
+                        onCancel={onCancelOrder}
+                      />
                     </li>
                   ))}
                 </ul>
