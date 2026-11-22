@@ -472,7 +472,9 @@ def check_review_conclusions():
                     continue
             tail = content.split("## 结论", 1)[1]
             first = next((line.strip() for line in tail.splitlines() if line.strip()), "")
-            if not first.startswith(("通过", "有条件通过", "不通过")):
+            # 允许作者把结论写成 **通过**；判定只看文字。
+            normalized = re.sub(r"[*_]", "", first).strip()
+            if not normalized.startswith(("通过", "有条件通过", "不通过")):
                 errors.append(
                     f"{rel(path)}：结论必须为通过/有条件通过/不通过，当前为「{first[:20]}」"
                 )
