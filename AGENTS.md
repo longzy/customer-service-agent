@@ -40,6 +40,7 @@
 
 - Conventional Commits：`type(scope): 中文描述`，scope 用任务号（如 `feat(F-26)`）或模块名；spec 编号不作 scope。
 - 一个提交只做一件事；依赖升级单独提交。
+- 在 feature 分支开发，推送后开 PR 合入，不直推 `main`。
 - 禁止 `--no-verify` 直推；绕过须在 PR 写明并在 24 小时内补跑。
 
 ## 文档编辑

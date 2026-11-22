@@ -34,6 +34,7 @@ git config core.hooksPath .githooks
 
 ## 提交
 
+- 本地流程：`git switch -c <type>/<slug>` → 小步提交 → `git push -u origin <branch>` → `gh pr create`（先 `gh auth login`；`gh` 不可用时用网页创建 PR）。
 - 格式：`type(scope): 中文描述`，类型限 `feat` / `fix` / `docs` / `refactor` / `test` / `chore`。
 - scope 用任务号（`F-08`）或模块名（`api`、`web`）。
 - 一个提交只做一件事；依赖升级单独提交。

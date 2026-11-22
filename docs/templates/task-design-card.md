@@ -109,7 +109,14 @@ $ ./scripts/test-db.sh tests/integration/test_<spec>_AC_XX.py -q
 ... passed
 ```
 
-- diff 用 `git diff --shortstat START END`。
+- diff 粘贴 `git show --shortstat --oneline <sha>` 原样输出（`close_feature.py` 会核对数字）：
+
+```text
+$ git show --shortstat --oneline <sha>
+<sha> <subject>
+  N files changed, X insertions(+), Y deletions(-)
+```
+
 - 关键模块突变分数：
 
 ## 5. 评审

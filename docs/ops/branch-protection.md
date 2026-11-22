@@ -49,6 +49,16 @@ gh api -X POST repos/OWNER/REPO/rulesets --input - <<'JSON'
 JSON
 ```
 
+## 本地流程（2026-11-22 起）
+
+1. `git switch -c <type>/<slug>` 从最新 `main` 开分支；
+2. 小步提交，提交信息按 `type(F-XX): 中文描述`；
+3. `git push -u origin <branch>`；
+4. `gh pr create --fill`（先 `gh auth login`；`gh` 不可用时用网页创建 PR）；
+5. PR 描述贴门禁证据；等 CI 绿与独立评审通过后合并，不直推 `main`。
+
+`.githooks/pre-push` 对 `main` 分支会打印警告，但不阻断；这是套餐限制下的补偿信号，不是硬门禁。
+
 ## 补偿方案：main-guard
 
 套餐不允许 required checks 时：
