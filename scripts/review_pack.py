@@ -113,7 +113,7 @@ def brief_ac_rows(spec: str, acs: list[str]) -> str:
     return "\n".join([*header, *rows]) if header else "\n".join(rows)
 
 
-def build(feature: str, base: str) -> str:
+def build(feature: str, base: str, include_worktree: bool = False) -> str:
     spec, meta = find_feature(feature)
     acs = list(dict.fromkeys(AC_ID.findall(meta.get("ac", ""))))
     ac_filter = " or ".join(ac.replace("-", "_") for ac in acs) if acs else "F_08"
@@ -122,8 +122,19 @@ def build(feature: str, base: str) -> str:
     card = card_path.read_text(encoding="utf-8") if card_path.exists() else ""
     plan = (SPECS / spec / "design.md").read_text(encoding="utf-8")
     commits = git("log", "--oneline", f"{base}..HEAD").strip() or "（无提交差异）"
-    diff_stat = git("diff", "--stat", f"{base}...HEAD").strip() or "（无差异）"
-    changed = git("diff", "--name-only", f"{base}...HEAD").strip() or "（无）"
+    if include_worktree:
+        # 工作区评审：base 到工作区（含已暂存/未暂存），未跟踪文件单列。
+        diff_stat = git("diff", "--stat", base).strip() or "（无差异）"
+        changed = git("diff", "--name-only", base).strip()
+        untracked = git("ls-files", "--others", "--exclude-standard").strip()
+        changed = "\n".join(part for part in (changed, untracked) if part) or "（无）"
+        scope = f"含工作区未提交改动（`{base}` → 工作区）"
+        diff_hint = f"完整 diff 用 `git diff {base}`；未跟踪文件直接读文件。"
+    else:
+        diff_stat = git("diff", "--stat", f"{base}...HEAD").strip() or "（无差异）"
+        changed = git("diff", "--name-only", f"{base}...HEAD").strip() or "（无）"
+        scope = f"已提交改动（`{base}...HEAD`）"
+        diff_hint = f"完整 diff 用 `git diff {base}...HEAD`；本包不重复贴 diff，避免与代码重复。"
     slug = feature.lower().replace("-", "_")
     db_name = f"customer_service_review_{slug}_std"
 
@@ -137,6 +148,7 @@ def build(feature: str, base: str) -> str:
         f"- 固定点：`{base}`",
         f"- HEAD：`{git('rev-parse', '--short', 'HEAD').strip()}`",
         f"- 绑定验收：{'、'.join(acs) or '—'}",
+        f"- 范围：{scope}",
         "",
         "## 0. 评审方式",
         "",
@@ -159,7 +171,7 @@ def build(feature: str, base: str) -> str:
         "",
         changed,
         "",
-        f"完整 diff 用 `git diff {base}...HEAD`；本包不重复贴 diff，避免与代码重复。",
+        diff_hint,
         "",
         f"## 2. 验收原文（{'、'.join(acs) or '—'}）",
         "",
@@ -205,6 +217,11 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="生成两轴评审包")
     parser.add_argument("feature", help="feature 编号，如 F-08")
     parser.add_argument("--base", help="固定点（改动的父提交）；默认按 feat(F-XX) 推导")
+    parser.add_argument(
+        "--include-worktree",
+        action="store_true",
+        help="包含工作区未提交改动（评审尚未提交的实现时使用）",
+    )
     parser.add_argument("--output", type=Path, help="写入文件；默认打印到 stdout")
     args = parser.parse_args(argv)
 
@@ -212,7 +229,7 @@ def main(argv: list[str] | None = None) -> int:
         print(f"feature 编号不合法：{args.feature}", file=sys.stderr)
         return 2
     base = args.base or detect_base(args.feature)
-    pack = build(args.feature, base)
+    pack = build(args.feature, base, include_worktree=args.include_worktree)
     if args.output:
         args.output.write_text(pack + "\n", encoding="utf-8")
         print(f"已生成评审包：{args.output}")

@@ -95,7 +95,7 @@ Frame（目标/非目标/完成标准）
 
 ### 3.4 Review & Ship
 
-- 评审输入：`python3 scripts/review_pack.py F-XX` 生成评审包（固定点、diff、AC 原文、执行卡 §1/§2、design、命令）；先跑 `make review-check`（机械前置），再跑绑定 AC 的定向测试；全量门禁由收口执行，评审结论以收口全量为准（全量失败则评审作废并增量复审）；
+- 评审输入：`python3 scripts/review_pack.py F-XX` 生成评审包（固定点、diff、AC 原文、执行卡 §1/§2、design、命令）；实现尚未提交时加 `--include-worktree`，直接比较固定点与工作区；先跑 `make review-check`（机械前置），再跑绑定 AC 的定向测试；全量门禁由收口执行，评审结论以收口全量为准（全量失败则评审作废并增量复审）；
 - 两轴独立评审按 [评审模板](../templates/review.md) 与 [两轴提示词](review-prompts.md) 输出；Standards 与 Spec 报告分开写，先复核门禁，再逐 AC 给证据；
 - 独立上下文代码评审：看 diff、测试、越权/失败路径；
 - 人工走查：按执行卡第 3、4 节逐条演示；
