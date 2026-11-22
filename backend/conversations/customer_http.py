@@ -461,7 +461,11 @@ async def decline_customer_cancellation(
 
 @router.post(
     "/cancellations/{cancellation_id}/refresh",
-    responses={401: ERROR_RESPONSES[401], 404: ERROR_RESPONSES[404]},
+    responses={
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
+        409: ERROR_RESPONSES[409],
+    },
 )
 async def refresh_customer_cancellation(
     cancellation_id: str,
