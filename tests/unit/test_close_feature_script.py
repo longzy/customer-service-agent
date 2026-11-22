@@ -10,7 +10,9 @@ SCRIPT = ROOT / "scripts" / "close_feature.py"
 GEN_TASKS = ROOT / "scripts" / "gen_tasks.py"
 
 
-def make_repo(root: Path, *, with_review: bool = True, status: str = "review") -> None:
+def make_repo(
+    root: Path, *, with_review: bool = True, status: str = "review", risk: str = "T2"
+) -> None:
     spec = root / "docs" / "specs" / "001-demo"
     task = root / "docs" / "tasks" / "001-demo"
     review = root / "docs" / "reviews" / "001-demo"
@@ -28,6 +30,7 @@ def make_repo(root: Path, *, with_review: bool = True, status: str = "review") -
         "milestone: M1\n"
         f"status: {status}\n"
         "category: functional\n"
+        f"risk: {risk}\n"
         "ac: [AC-30]\n"
         "updated: 2026-11-21\n"
         "---\n\n"
@@ -132,3 +135,33 @@ def test_结论首句通过时历史轮次的不通过不阻断收口_基座豁�
     result = run(tmp_path)
     assert result.returncode == 0, result.stdout + result.stderr
     assert "收口检查通过" in result.stdout
+
+
+def test_T3缺少安全评审时阻断_基座豁免(tmp_path: Path) -> None:
+    make_repo(tmp_path, risk="T3")
+    result = run(tmp_path)
+    assert result.returncode == 1
+    assert "T3 缺少 `## 安全评审`" in result.stderr
+
+
+def test_T3安全评审通过时允许收口_基座豁免(tmp_path: Path) -> None:
+    make_repo(tmp_path, risk="T3")
+    review = tmp_path / "docs" / "reviews" / "001-demo" / "F-01.md"
+    review.write_text(
+        review.read_text(encoding="utf-8") + "\n## 安全评审\n\n- 越权矩阵：通过\n- 结论：通过\n",
+        encoding="utf-8",
+    )
+    result = run(tmp_path)
+    assert result.returncode == 0, result.stdout + result.stderr
+
+
+def test_T3安全评审不通过时阻断_基座豁免(tmp_path: Path) -> None:
+    make_repo(tmp_path, risk="T3")
+    review = tmp_path / "docs" / "reviews" / "001-demo" / "F-01.md"
+    review.write_text(
+        review.read_text(encoding="utf-8") + "\n## 安全评审\n\n- 结论：不通过\n",
+        encoding="utf-8",
+    )
+    result = run(tmp_path)
+    assert result.returncode == 1
+    assert "T3 安全评审结论为「不通过」" in result.stderr

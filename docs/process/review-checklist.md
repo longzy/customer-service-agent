@@ -8,7 +8,7 @@
 - 评审范围固定点：本 feature 开工前 HEAD（首个实现提交的父提交，`git rev-parse <first-commit>^`）；记录 `git diff <fixed>...HEAD` 与 `git log <fixed>..HEAD --oneline`。
 - 评审输入：`python3 scripts/review_pack.py F-XX`（自动识别固定点；含 AC 原文、任务卡摘要、执行卡 §1/§2、design 全文与命令）。
 - 先跑 `make review-check`（机械前置：组件命名、trace 基线归属、CURRENT/评审记录一致、文档/状态/契约）；失败先修机械问题。
-- 主评审跑 `make verify-check`；评审者只跑定向测试与探针，不并行跑全量门禁。
+- 主评审跑 `make verify-changed` + 绑定 AC 定向测试 + `make review-check`；评审者只跑定向测试与探针，不并行跑全量门禁；全量由收口 `make verify` 执行。
 - 独立跑该 feature 的 `Steps` 命令（AC 定向测试），不只看实现者粘贴的数字。
 - 测试库默认一次性（`test-db.sh` 退出即删），并行评审不会互删数据；需要固定库时显式 `TEST_DB_NAME=customer_service_review_<id>`。
 - 契约变更检查 `./scripts/check-contracts.sh`。

@@ -1,8 +1,8 @@
 #!/bin/sh
-# 推送前执行完整验证：提交只做快检查，推送必须全绿。
+# 推送前做一次全量确认；代码指纹未变时复用上次结果（约 6 秒），变了才全量。
 # 紧急情况可用 git push --no-verify 绕过，并应在 PR 说明原因。
 set -e
 cd "$(git rev-parse --show-toplevel)"
 
-echo "== pre-push：执行完整验证 =="
-./scripts/verify.sh
+echo "== pre-push：全量验证（代码未变时复用）=="
+./scripts/verify.sh --reuse

@@ -21,7 +21,8 @@ def test_评审包包含AC原文与评审命令_基座豁免() -> None:
     assert result.returncode == 0, result.stderr
     assert "AC-36" in result.stdout
     assert "make review-check" in result.stdout
-    assert "make verify-check" in result.stdout
+    assert "make verify-changed ARGS=F-08" in result.stdout
+    assert "make verify-check" not in result.stdout
     assert "TEST_DB_NAME=customer_service_review_f_08_std" in result.stdout
     assert "docs/process/review-prompts.md" in result.stdout
 
