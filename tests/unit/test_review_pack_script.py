@@ -45,3 +45,10 @@ def test_固定点可从任务号自动识别_基座豁免() -> None:
     result = run("F-26")
     assert result.returncode == 0, result.stderr
     assert "固定点：" in result.stdout
+
+
+def test_评审包可包含工作区未提交改动_基座豁免() -> None:
+    result = run("F-08", "--base", "HEAD", "--include-worktree")
+    assert result.returncode == 0, result.stderr
+    assert "含工作区未提交改动" in result.stdout
+    assert "完整 diff 用 `git diff HEAD`" in result.stdout
