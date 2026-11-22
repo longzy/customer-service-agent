@@ -162,6 +162,9 @@ export function ChatShell({
               loading={loading}
               status={status}
               onQuick={(text) => void submitMessage(text)}
+              onCancelOrder={(orderId) =>
+                router.push(`/orders?cancel=${encodeURIComponent(orderId)}`)
+              }
             />
             {status === "CLOSED" ? null : (
               <div className="shrink-0 pb-6 pt-4 max-[767px]:sticky max-[767px]:bottom-0 max-[767px]:bg-bg max-[767px]:pb-4">

@@ -4,6 +4,88 @@
  */
 
 export interface paths {
+    "/customer/cancellations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Cancellation
+         * @description 发起取消：创建/复用任务并停在等待确认；资格拒绝不进入可提交状态。
+         *
+         *     不调用 OMS 写接口；客户确认后才由 `CancellationWorkflow` 提交。
+         */
+        post: operations["create_cancellation_customer_cancellations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/customer/cancellations/{cancellation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Customer Cancellation
+         * @description 结果接口：读取任务并收敛到最新结果（已受理可推进到已取消/被拒绝）。
+         */
+        get: operations["read_customer_cancellation_customer_cancellations__cancellation_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/customer/cancellations/{cancellation_id}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm Customer Cancellation
+         * @description 客户确认：校验归属与状态后由 Workflow 只提交一次；过期视为未提交。
+         */
+        post: operations["confirm_customer_cancellation_customer_cancellations__cancellation_id__confirm_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/customer/cancellations/{cancellation_id}/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Decline Customer Cancellation
+         * @description 客户拒绝：任务结束且不写 OMS；重复拒绝幂等返回。
+         */
+        post: operations["decline_customer_cancellation_customer_cancellations__cancellation_id__decline_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/customer/conversations/{conversation_id}": {
         parameters: {
             query?: never;
@@ -319,6 +401,69 @@ export interface components {
             /** Content */
             content: string;
         };
+        /**
+         * CancellationRequestCreate
+         * @description 发起取消：只接受订单号，身份与会话来自服务端。
+         */
+        CancellationRequestCreate: {
+            /** Order Id */
+            order_id: string;
+        };
+        /**
+         * CancellationSummary
+         * @description 列表页的取消任务回显：只含确认所需最小字段，不含 OMS 明细。
+         */
+        CancellationSummary: {
+            /** Can Confirm */
+            can_confirm: boolean;
+            /** Expires At */
+            expires_at: string;
+            /** Next Step */
+            next_step: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "COLLECTING" | "AWAITING_CONFIRMATION" | "ELIGIBILITY_REJECTED" | "SUBMITTING" | "SUBMIT_UNKNOWN" | "ACCEPTED" | "CANCELLED" | "REJECTED" | "MANUAL_REVIEW" | "ABANDONED";
+            /** Status Text */
+            status_text: string;
+            /** Task Id */
+            task_id: string;
+        };
+        /**
+         * CancellationTaskPublic
+         * @description 一次取消任务的对外视图：状态、结果文案与确认有效期。
+         *
+         *     文案来自 `render_result`，本 DTO 不另造表达；`can_confirm` 由状态与
+         *     有效期派生，前端只用它决定按钮，资格仍以服务端为准。
+         */
+        CancellationTaskPublic: {
+            /** Can Confirm */
+            can_confirm: boolean;
+            /** Confirmation Source */
+            confirmation_source?: ("BUTTON" | "PHRASE") | null;
+            /** Confirmed At */
+            confirmed_at?: string | null;
+            /** Expires At */
+            expires_at: string;
+            /** Id */
+            id: string;
+            /** Next Step */
+            next_step: string;
+            /** Order Id */
+            order_id: string;
+            /** Reason Text */
+            reason_text?: string | null;
+            /** Reply */
+            reply: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "COLLECTING" | "AWAITING_CONFIRMATION" | "ELIGIBILITY_REJECTED" | "SUBMITTING" | "SUBMIT_UNKNOWN" | "ACCEPTED" | "CANCELLED" | "REJECTED" | "MANUAL_REVIEW" | "ABANDONED";
+            /** Status Text */
+            status_text: string;
+        };
         /** ConversationPublic */
         ConversationPublic: {
             /** After Id */
@@ -353,13 +498,15 @@ export interface components {
          * CustomerOrderSummary
          * @description 客户订单列表项：003 摘要 + 由订单状态派生的 `cancelable`。
          *
-         *     003 的消息 `payload` 不增加字段，列表页单独复用本 DTO。
+         *     003 的消息 `payload` 不增加字段，列表页单独复用本 DTO；`cancellation`
+         *     只回显进行中的取消任务，页面据此把按钮停在“待确认/已受理”状态。
          */
         CustomerOrderSummary: {
             /** Amount Cents */
             amount_cents: number;
             /** Cancelable */
             cancelable: boolean;
+            cancellation?: components["schemas"]["CancellationSummary"] | null;
             /** Created At */
             created_at: string;
             /** Created At Local */
@@ -676,6 +823,258 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    create_cancellation_customer_cancellations_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CancellationRequestCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CancellationTaskPublic"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Unprocessable Entity */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Bad Gateway */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Service Unavailable */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Gateway Timeout */
+            504: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+        };
+    };
+    read_customer_cancellation_customer_cancellations__cancellation_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cancellation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CancellationTaskPublic"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    confirm_customer_cancellation_customer_cancellations__cancellation_id__confirm_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cancellation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CancellationTaskPublic"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    decline_customer_cancellation_customer_cancellations__cancellation_id__decline_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                cancellation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CancellationTaskPublic"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEnvelope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     read_conversation_customer_conversations__conversation_id__get: {
         parameters: {
             query?: never;

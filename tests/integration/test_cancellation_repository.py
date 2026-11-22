@@ -144,6 +144,7 @@ async def test_启动恢复_SUBMITTING与失败转人工_AC_12() -> None:
         await repo.create(
             task(
                 id="task-fail",
+                order_id="ORD-10002",
                 state=CancellationState.SUBMIT_UNKNOWN,
                 idempotency_key="idem-fail",
             )
@@ -208,6 +209,7 @@ async def test_可恢复查询只返回两种状态并映射字段_AC_10() -> No
         await repo.create(
             task(
                 id="task-rec-2",
+                order_id="ORD-10002",
                 state=CancellationState.SUBMIT_UNKNOWN,
                 idempotency_key="idem-rec-2",
             )
@@ -215,6 +217,7 @@ async def test_可恢复查询只返回两种状态并映射字段_AC_10() -> No
         await repo.create(
             task(
                 id="task-rec-done",
+                order_id="ORD-10003",
                 state=CancellationState.ACCEPTED,
                 idempotency_key="idem-rec-done",
             )

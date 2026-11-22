@@ -36,6 +36,7 @@ type MessageListProps = {
   loading: boolean;
   status: string;
   onQuick: (text: string) => void;
+  onCancelOrder: (orderId: string) => void;
 };
 
 function formatTime(value: string): string {
@@ -55,7 +56,13 @@ const BUBBLE_BASE =
 
 const AVATAR = "grid h-8 w-8 shrink-0 place-items-center rounded-full text-xs font-semibold";
 
-export function MessageList({ messages, loading, status, onQuick }: MessageListProps) {
+export function MessageList({
+  messages,
+  loading,
+  status,
+  onQuick,
+  onCancelOrder,
+}: MessageListProps) {
   const listRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -158,7 +165,7 @@ export function MessageList({ messages, loading, status, onQuick }: MessageListP
                 <ul className="m-0 flex w-full max-w-[560px] list-none flex-col gap-2 p-0">
                   {message.payload.orders.map((order) => (
                     <li key={order.order_id} className="w-full">
-                      <OrderCard order={order} />
+                      <OrderCard order={order} onCancel={onCancelOrder} />
                     </li>
                   ))}
                 </ul>

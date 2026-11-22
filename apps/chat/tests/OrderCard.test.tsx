@@ -37,7 +37,13 @@ function aiMessage(id: number, orders: (typeof ORDER)[] | null): Message {
 
 function renderMessages(messages: Message[]) {
   return render(
-    <MessageList messages={messages} loading={false} status="AI_ACTIVE" onQuick={vi.fn()} />,
+    <MessageList
+      messages={messages}
+      loading={false}
+      status="AI_ACTIVE"
+      onQuick={vi.fn()}
+      onCancelOrder={vi.fn()}
+    />,
   );
 }
 

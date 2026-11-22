@@ -2,13 +2,15 @@
 
 import { useId } from "react";
 
+import { Button } from "@/components/ui/Button";
 import { formatAmount } from "@/lib/format";
-import { orderStatusTone } from "@/lib/orderStatus";
+import { isCancelable, orderStatusTone } from "@/lib/orderStatus";
 
 import type { OrderSummary } from "../types";
 
 type OrderCardProps = {
   order: OrderSummary;
+  onCancel: (orderId: string) => void;
 };
 
 /**
@@ -16,7 +18,7 @@ type OrderCardProps = {
  * article + tabIndex 让键盘/读屏用户可以停在卡片上完整阅读；
  * 页脚标注“查询时状态”，提醒快照可能已变化。
  */
-export function OrderCard({ order }: OrderCardProps) {
+export function OrderCard({ order, onCancel }: OrderCardProps) {
   const headingId = useId();
   const tone = orderStatusTone(order);
 
@@ -51,7 +53,14 @@ export function OrderCard({ order }: OrderCardProps) {
           <dd className="m-0 mt-0.5 tabular-nums text-text">{order.created_at_local}</dd>
         </div>
       </dl>
-      <p className="mb-0 mt-2 text-[11px] leading-none text-text-3">查询时状态</p>
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <p className="mb-0 text-[11px] leading-none text-text-3">查询时状态</p>
+        {isCancelable(order.order_status) ? (
+          <Button variant="secondary" size="sm" onClick={() => onCancel(order.order_id)}>
+            取消订单
+          </Button>
+        ) : null}
+      </div>
     </article>
   );
 }

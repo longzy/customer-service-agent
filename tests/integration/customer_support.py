@@ -10,6 +10,7 @@ from sqlalchemy import delete, text, update
 from backend.conversations.statuses import RETURNED_TO_AI_NOTICE
 from backend.identity.passwords import hash_password
 from backend.platform.models import (
+    CancellationRequest,
     ServiceAiEvent,
     ServiceConversation,
     ServiceCustomer,
@@ -37,6 +38,7 @@ async def reset_customer_state(db: Any) -> None:
     await db.execute(delete(ServiceHandoff))
     await db.execute(delete(ServiceCustomerSession))
     await db.execute(delete(ServiceConversation))
+    await db.execute(delete(CancellationRequest))
     await db.execute(delete(ServiceCustomer))
     await db.execute(delete(ServiceRateLimitBucket))
     await db.commit()
