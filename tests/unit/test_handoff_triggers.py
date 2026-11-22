@@ -18,7 +18,6 @@ def test_低置信阈值固定为0_6_AC_32() -> None:
     [
         ("快递到哪了", "快递"),
         ("我要退款", "退款"),
-        ("取消一下", "取消"),
         ("发票怎么开", "发票"),
         ("我要投诉", "投诉"),
         ("预计明天送达", "送达"),
@@ -33,6 +32,16 @@ def test_订单与超范围文本命中_AC_32(content: str, term: str) -> None:
     assert decision is not None
     assert (decision.reason, decision.trigger) == ("OUT_OF_SCOPE", "out_of_scope")
     assert term in decision.summary_hint
+
+
+@pytest.mark.parametrize("content", ["取消一下", "取消订单", "我想取消"])
+def test_取消词由取消分支承接不再转人工_AC_32(content: str) -> None:
+    """004 修订 001 AC-32：取消意图由 F-32 取消分支承接；退款等仍转人工。"""
+    assert match_out_of_scope_term(content) is None
+    assert (
+        decide_model_handoff(content=content, intent="UNKNOWN", confidence=0.95, reply="您好。")
+        is None
+    )
 
 
 @pytest.mark.parametrize("content", ["我的订单到哪了", "订 单怎么还没到", "订单"])

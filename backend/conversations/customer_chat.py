@@ -20,6 +20,14 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.agent_runtime.model import ChatModel, ModelError
+from backend.conversations.cancel_intents import has_cancel_intent, match_confirm_cancel_phrase
+from backend.conversations.customer_cancellations import (
+    CancellationStateConflict,
+    CancellationTaskNotFound,
+    confirm_cancellation,
+    latest_awaiting_confirmation,
+    request_cancellation,
+)
 from backend.conversations.customer_conversations import latest_message_id
 from backend.conversations.handoffs import (
     HANDOFF_CONFIDENCE_THRESHOLD,
@@ -35,6 +43,7 @@ from backend.conversations.handoffs import (
 )
 from backend.conversations.order_queries import (
     MULTIPLE_ORDERS_REPLY,
+    NOT_FOUND_REPLY,
     ORDER_FAILURE_HANDOFF_NOTICE,
     ORDER_FAILURE_STATUSES,
     ORDER_QUERY_INTENTS,
@@ -43,8 +52,11 @@ from backend.conversations.order_queries import (
     ORDER_QUERY_PARTIAL,
     ORDER_QUERY_SINGLE,
     PARTIAL_ORDER_ID_REPLY,
+    UNAVAILABLE_REPLY,
     OrderQueryAudit,
     OrderQueryOutcome,
+    build_order_reply,
+    build_recent_orders_reply,
     extract_order_ids,
     has_non_query_order_intent,
     order_query_audit,
@@ -59,13 +71,16 @@ from backend.conversations.statuses import (
     QUEUED,
     RETURNED_TO_AI_NOTICE,
 )
+from backend.domain.cancellation import CancellationState, render_result
 from backend.identity.customer_sessions import Customer
+from backend.platform.http import utc_text
 from backend.platform.models import (
     ServiceAiEvent,
     ServiceConversation,
     ServiceMessage,
 )
-from backend.tools.gateway import ToolGateway
+from backend.tools.gateway import GatewayError, ToolGateway
+from backend.workflows.cancel import CancellationTask
 
 QUEUE_NOTICE = "排队中，请稍候"
 # ADR-0011：单次失败给客户出口；连续失败才兑换成人工队列
@@ -80,6 +95,17 @@ HANDOFF_SNAPSHOT_LOOKBACK = 20
 ORDER_QUERY_FAILURE_REASON = "ORDER_QUERY_FAILURE"
 ORDER_QUERY_FAILURE_TRIGGER = "order_query_failure"
 ORDER_QUERY_ERROR_FALLBACK = "ORDER_QUERY_FAILED"
+
+# F-32：取消分支的确定性文案。卡片数据在消息 payload 里，文案只做引导；
+# “尚未提交”是 AC-60/AC-63 的产品承诺，任何改字都要同步前端断言。
+CANCEL_CONFIRM_NOTICE = (
+    "尚未提交。回复「确认取消」提交，或回复「不取消」放弃；也可以到「我的订单」确认。"
+)
+CANCEL_CANDIDATES_REPLY = (
+    "你名下有多个最近订单，我不能替你选。请点要取消的订单卡片上的「取消订单」，或回复订单号。"
+)
+CANCEL_NO_PENDING_REPLY = "当前没有待确认的取消。可以说「取消订单」，或到「我的订单」发起。"
+CANCEL_CONFLICT_REPLY = "取消状态刚刚变化，请稍后在「我的订单」查看。"
 
 
 class ConversationClosedError(Exception):
@@ -362,6 +388,369 @@ async def _recent_orders_result(
         trace_id=trace_id,
         now=now,
         preface=preface,
+    )
+
+
+def _cancellation_payload(task: CancellationTask, now: datetime) -> dict[str, Any]:
+    """聊天确认/结果卡片的最小任务视图；文案仍来自 `render_result` 唯一出口。"""
+    copy = render_result(task.state, task.reason_code)
+    return {
+        "state": task.state.value,
+        "status_text": copy.state_text,
+        "next_step": copy.next_step,
+        "expires_at": utc_text(task.expires_at),
+        "can_confirm": task.state is CancellationState.AWAITING_CONFIRMATION
+        and now < task.expires_at,
+    }
+
+
+async def _cancel_message(
+    db: AsyncSession,
+    conversation: ServiceConversation,
+    customer_message: ServiceMessage,
+    *,
+    content: str,
+    orders: list[dict[str, Any]],
+    cancellation: dict[str, Any] | None,
+    trace_id: str,
+    now: datetime,
+    order_query: OrderQueryAudit | None = None,
+) -> ChatResult:
+    """取消分支统一落一条 AI 消息：正文引导 + payload 订单/任务快照。"""
+    payload: dict[str, Any] = {"orders": orders}
+    if cancellation is not None:
+        payload["cancellation"] = cancellation
+    ai_message = ServiceMessage(
+        conversation_id=conversation.id,
+        author_type="ai",
+        author_id=None,
+        content=content,
+        payload=payload,
+        idempotency_key=None,
+        trace_id=trace_id,
+        created_at=now,
+    )
+    db.add(ai_message)
+    conversation.updated_at = now
+    conversation.last_activity_at = now
+    await db.flush()
+    return ChatResult(
+        conversation_id=conversation.id,
+        status=conversation.status,
+        messages=[view_message(customer_message), view_message(ai_message)],
+        after_id=ai_message.id,
+        customer_message_id=customer_message.id,
+        ai_message_id=ai_message.id,
+        order_query=order_query,
+    )
+
+
+async def _cancel_candidates(
+    db: AsyncSession,
+    conversation: ServiceConversation,
+    customer_message: ServiceMessage,
+    *,
+    orders: list[dict[str, Any]],
+    preface: str,
+    trace_id: str,
+    now: datetime,
+    order_query: OrderQueryAudit | None = None,
+) -> ChatResult:
+    """列候选：正文与卡片都只展示白名单摘要，不替客户选单。"""
+    return await _cancel_message(
+        db,
+        conversation,
+        customer_message,
+        content=f"{preface}\n{build_recent_orders_reply(orders)}",
+        orders=orders,
+        cancellation=None,
+        trace_id=trace_id,
+        now=now,
+        order_query=order_query,
+    )
+
+
+async def _cancel_result(
+    db: AsyncSession,
+    conversation: ServiceConversation,
+    *,
+    customer_message: ServiceMessage,
+    customer: Customer,
+    order_ids: list[str],
+    trace_id: str,
+    now: datetime,
+    order_gateway: ToolGateway | None,
+    cancel_gateway: ToolGateway | None,
+    confirm_timeout_minutes: int,
+) -> ChatResult:
+    """取消分支：确定性定位订单，再发起/复用任务并写确认卡片（AC-63）。
+
+    定位顺序：显式订单号 > 会话内最近一次成功查询恰好一笔 > 最近订单列表。
+    多单只列候选，不替客户选；快照只用于定位，摘要统一以 OMS 最新结果为准。
+    """
+    order_id: str | None = None
+    summary: dict[str, Any] | None = None
+    audit: OrderQueryAudit | None = None
+
+    if len(order_ids) > 1:
+        # 客户自己给了多个订单号：同样不替客户选。
+        outcome = await query_recent_orders(order_gateway, customer, trace_id)
+        if outcome.status in ORDER_FAILURE_STATUSES:
+            return await _order_result(
+                db,
+                conversation,
+                customer_message=customer_message,
+                customer=customer,
+                outcome=outcome,
+                trace_id=trace_id,
+                now=now,
+            )
+        await _record_ai_event(
+            db,
+            conversation,
+            status=outcome.status,
+            confidence=None,
+            trace_id=trace_id,
+            now=now,
+            event_type="order_query",
+            name=outcome.tool,
+        )
+        audit = order_query_audit(outcome)
+        if not outcome.orders:
+            return await _cancel_message(
+                db,
+                conversation,
+                customer_message,
+                content=outcome.reply,
+                orders=[],
+                cancellation=None,
+                trace_id=trace_id,
+                now=now,
+                order_query=audit,
+            )
+        return await _cancel_candidates(
+            db,
+            conversation,
+            customer_message,
+            orders=outcome.orders,
+            preface=MULTIPLE_ORDERS_REPLY,
+            trace_id=trace_id,
+            now=now,
+            order_query=audit,
+        )
+
+    if order_ids:
+        order_id = order_ids[0]
+    else:
+        snapshot = await _latest_order_snapshot(db, conversation)
+        if snapshot is not None and len(snapshot) == 1:
+            order_id = str(snapshot[0].get("order_id", "")) or None
+        elif snapshot is not None:
+            return await _cancel_candidates(
+                db,
+                conversation,
+                customer_message,
+                orders=snapshot,
+                preface=CANCEL_CANDIDATES_REPLY,
+                trace_id=trace_id,
+                now=now,
+            )
+        if order_id is None:
+            outcome = await query_recent_orders(order_gateway, customer, trace_id)
+            if outcome.status in ORDER_FAILURE_STATUSES:
+                return await _order_result(
+                    db,
+                    conversation,
+                    customer_message=customer_message,
+                    customer=customer,
+                    outcome=outcome,
+                    trace_id=trace_id,
+                    now=now,
+                )
+            await _record_ai_event(
+                db,
+                conversation,
+                status=outcome.status,
+                confidence=None,
+                trace_id=trace_id,
+                now=now,
+                event_type="order_query",
+                name=outcome.tool,
+            )
+            audit = order_query_audit(outcome)
+            if not outcome.orders:
+                return await _cancel_message(
+                    db,
+                    conversation,
+                    customer_message,
+                    content=outcome.reply,
+                    orders=[],
+                    cancellation=None,
+                    trace_id=trace_id,
+                    now=now,
+                    order_query=audit,
+                )
+            if len(outcome.orders) > 1:
+                return await _cancel_candidates(
+                    db,
+                    conversation,
+                    customer_message,
+                    orders=outcome.orders,
+                    preface=CANCEL_CANDIDATES_REPLY,
+                    trace_id=trace_id,
+                    now=now,
+                    order_query=audit,
+                )
+            summary = outcome.orders[0]
+            order_id = str(summary["order_id"])
+
+    if summary is None and order_id is not None:
+        outcome = await query_order(order_gateway, customer, order_id, trace_id)
+        if outcome.status in ORDER_FAILURE_STATUSES:
+            return await _order_result(
+                db,
+                conversation,
+                customer_message=customer_message,
+                customer=customer,
+                outcome=outcome,
+                trace_id=trace_id,
+                now=now,
+            )
+        await _record_ai_event(
+            db,
+            conversation,
+            status=outcome.status,
+            confidence=None,
+            trace_id=trace_id,
+            now=now,
+            event_type="order_query",
+            name=outcome.tool,
+        )
+        audit = order_query_audit(outcome)
+        if not outcome.orders:
+            return await _cancel_message(
+                db,
+                conversation,
+                customer_message,
+                content=outcome.reply,
+                orders=[],
+                cancellation=None,
+                trace_id=trace_id,
+                now=now,
+                order_query=audit,
+            )
+        summary = outcome.orders[0]
+
+    if summary is None or order_id is None:
+        # 定位路径已在上方穷尽；保留出口避免把 None 传给网关。
+        return await _cancel_message(
+            db,
+            conversation,
+            customer_message,
+            content=CANCEL_NO_PENDING_REPLY,
+            orders=[],
+            cancellation=None,
+            trace_id=trace_id,
+            now=now,
+        )
+
+    try:
+        task = await request_cancellation(
+            db,
+            cancel_gateway,
+            customer,
+            order_id,
+            trace_id=trace_id,
+            now=now,
+            confirm_timeout_minutes=confirm_timeout_minutes,
+            conversation_id=conversation.id,
+        )
+    except GatewayError as error:
+        content = NOT_FOUND_REPLY if error.status_code == 404 else UNAVAILABLE_REPLY
+        return await _cancel_message(
+            db,
+            conversation,
+            customer_message,
+            content=content,
+            orders=[summary],
+            cancellation=None,
+            trace_id=trace_id,
+            now=now,
+            order_query=audit,
+        )
+
+    if task.state is CancellationState.AWAITING_CONFIRMATION:
+        content = f"{build_order_reply(summary)}\n{CANCEL_CONFIRM_NOTICE}"
+    else:
+        content = render_result(task.state, task.reason_code).reply
+    return await _cancel_message(
+        db,
+        conversation,
+        customer_message,
+        content=content,
+        orders=[summary],
+        cancellation=_cancellation_payload(task, now),
+        trace_id=trace_id,
+        now=now,
+        order_query=audit,
+    )
+
+
+async def _confirm_phrase_result(
+    db: AsyncSession,
+    conversation: ServiceConversation,
+    *,
+    customer_message: ServiceMessage,
+    customer: Customer,
+    trace_id: str,
+    now: datetime,
+    cancel_gateway: ToolGateway | None,
+    confirm_timeout_minutes: int,
+) -> ChatResult:
+    """固定短语确认：命中客户最近等待确认任务后走同一确认服务（PHRASE）。"""
+    snapshot = await latest_awaiting_confirmation(db, customer)
+    if snapshot is None:
+        return await _cancel_message(
+            db,
+            conversation,
+            customer_message,
+            content=CANCEL_NO_PENDING_REPLY,
+            orders=[],
+            cancellation=None,
+            trace_id=trace_id,
+            now=now,
+        )
+    try:
+        task = await confirm_cancellation(
+            db,
+            cancel_gateway,
+            customer,
+            snapshot.id,
+            now=now,
+            confirm_timeout_minutes=confirm_timeout_minutes,
+            confirmation_source="PHRASE",
+        )
+    except (CancellationTaskNotFound, CancellationStateConflict):
+        # 并发下任务可能已被推进或消失：只提示，不猜测新状态、不重复提交。
+        return await _cancel_message(
+            db,
+            conversation,
+            customer_message,
+            content=CANCEL_CONFLICT_REPLY,
+            orders=[],
+            cancellation=None,
+            trace_id=trace_id,
+            now=now,
+        )
+    return await _cancel_message(
+        db,
+        conversation,
+        customer_message,
+        content=render_result(task.state, task.reason_code).reply,
+        orders=[],
+        cancellation=_cancellation_payload(task, now),
+        trace_id=trace_id,
+        now=now,
     )
 
 
@@ -706,6 +1095,8 @@ async def send_customer_message(
     now: datetime,
     customer: Customer,
     order_gateway: ToolGateway | None,
+    cancel_gateway: ToolGateway | None,
+    confirm_timeout_minutes: int,
 ) -> ChatResult:
     replay = await _replay(db, conversation, idempotency_key)
     if replay is not None:
@@ -770,6 +1161,52 @@ async def send_customer_message(
             notice,
             handoff_id,
             order_query=order_query,
+        )
+
+    # F-32：固定短语与取消意图在模型之前确定性分流；退款/退货等仍交回 001 路径。
+    if match_confirm_cancel_phrase(content) is not None:
+        await _record_ai_event(
+            db,
+            conversation,
+            status="matched",
+            confidence=None,
+            trace_id=trace_id,
+            now=now,
+            event_type="intent",
+            name="cancel_phrase",
+        )
+        return await _confirm_phrase_result(
+            db,
+            conversation,
+            customer_message=customer_message,
+            customer=customer,
+            trace_id=trace_id,
+            now=now,
+            cancel_gateway=cancel_gateway,
+            confirm_timeout_minutes=confirm_timeout_minutes,
+        )
+    if has_cancel_intent(content):
+        await _record_ai_event(
+            db,
+            conversation,
+            status="matched",
+            confidence=None,
+            trace_id=trace_id,
+            now=now,
+            event_type="intent",
+            name="cancel_intent",
+        )
+        return await _cancel_result(
+            db,
+            conversation,
+            customer_message=customer_message,
+            customer=customer,
+            order_ids=extract_order_ids(content),
+            trace_id=trace_id,
+            now=now,
+            order_gateway=order_gateway,
+            cancel_gateway=cancel_gateway,
+            confirm_timeout_minutes=confirm_timeout_minutes,
         )
 
     # plan 3.3.4：关键词优先；订单分支先做确定性护栏，再决定是否调模型。

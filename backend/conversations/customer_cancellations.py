@@ -152,6 +152,35 @@ async def request_cancellation(
     )
 
 
+async def latest_awaiting_confirmation(
+    db: AsyncSession, customer: Customer
+) -> CancellationSnapshot | None:
+    """客户最近一个等待确认的任务，按创建时间倒序。
+
+    不过滤过期：过期任务由确认/刷新惰性收尾（design 3.4），聊天短语确认也要
+    走同一路径得到“未提交”的确定性结果。
+    """
+    if not customer.oms_customer_id:
+        return None
+    row = (
+        await db.execute(
+            _owned_tasks(customer)
+            .where(CancellationRow.state == CancellationState.AWAITING_CONFIRMATION.value)
+            .order_by(CancellationRow.created_at.desc(), CancellationRow.id.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none()
+    if row is None:
+        return None
+    return CancellationSnapshot(
+        id=row.id,
+        order_id=row.order_id,
+        state=CancellationState(row.state),
+        reason_code=row.reason_code,
+        expires_at=row.expires_at,
+    )
+
+
 async def confirm_cancellation(
     db: AsyncSession,
     gateway: ToolGateway | None,
@@ -160,15 +189,16 @@ async def confirm_cancellation(
     *,
     now: datetime,
     confirm_timeout_minutes: int,
+    confirmation_source: str = "BUTTON",
 ) -> CancellationTask:
-    """客户确认；来源固定为客户会话的按钮，过期任务结束且不提交。"""
+    """客户确认；来源为按钮或固定短语，过期任务结束且不提交。"""
     workflow = build_workflow(db, gateway, confirm_timeout_minutes=confirm_timeout_minutes, now=now)
     identity = customer_identity(customer)
     try:
         return await workflow.confirm(
             identity,
             task_id,
-            confirmation_source="BUTTON",
+            confirmation_source=confirmation_source,
             confirmed_by_id=customer.id,
         )
     except TaskNotFound as error:

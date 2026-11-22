@@ -3,14 +3,12 @@
 import { useEffect, useId, useRef } from "react";
 
 import { Button } from "@/components/ui/Button";
+import { CANCEL_IMPACT_TEXT } from "@/lib/cancellationCopy";
 import { formatAmount, formatDateTime } from "@/lib/format";
 
 import type { CancelDialogState } from "../hooks/useCancellation";
 import type { CancellationTask, CustomerOrderSummary } from "../types";
 
-// 影响说明是产品承诺，不随订单变化；文案只在这里出现一次。
-const IMPACT_TEXT =
-  "提交后订单进入取消受理。M1 只处理取消，不产生退款；已受理不等于已取消，最终状态以订单系统为准。";
 const RESULT_TITLE = "取消结果";
 const ERROR_TITLE = "操作失败";
 const REFRESH_STATES = new Set(["SUBMITTING", "SUBMIT_UNKNOWN", "ACCEPTED"]);
@@ -126,7 +124,7 @@ export function CancelDialog({
         {state.kind === "confirm" || state.kind === "submitting" ? (
           <div className="mt-4 flex flex-col gap-3">
             <OrderFacts order={state.order} />
-            <p className="m-0 text-sm leading-relaxed text-text-2">{IMPACT_TEXT}</p>
+            <p className="m-0 text-sm leading-relaxed text-text-2">{CANCEL_IMPACT_TEXT}</p>
             <p className="m-0 text-xs text-text-3">
               确认有效期至 {formatDateTime(state.task.expires_at)}
             </p>

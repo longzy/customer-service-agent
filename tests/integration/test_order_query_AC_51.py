@@ -177,8 +177,8 @@ def test_同幂等键重放不重复查询_AC_51() -> None:
     assert len(rows_of(ServiceAiEvent)) == 1
 
 
-def test_带订单号的取消诉求仍转人工_AC_32() -> None:
-    """守护 001 的 out-of-scope 路径：取消/退款不能被查询分支截走。"""
+def test_带订单号的取消诉求由取消分支承接_AC_32() -> None:
+    """004 修订 001 AC-32：带订单号的取消由取消分支承接，不被查询分支截走。"""
     app = order_app(
         {
             "取消 ORD-10001": {
@@ -193,12 +193,18 @@ def test_带订单号的取消诉求仍转人工_AC_32() -> None:
         response = send(api, "取消 ORD-10001")
         assert response.status_code == 200, response.text
         body = response.json()
-        assert body["status"] == "QUEUED"
-        assert [item["author_type"] for item in body["messages"]] == ["customer", "system"]
-        assert ai_messages(body) == []
 
-    assert app.state.oms.calls["get_order"] == 0
-    assert len(rows_of(ServiceHandoff)) == 1
+        assert body["status"] == "AI_ACTIVE"
+        [message] = ai_messages(body)
+        assert message["payload"]["orders"][0]["order_id"] == "ORD-10001"
+        assert message["payload"]["cancellation"]["state"] == "AWAITING_CONFIRMATION"
+        # 模型响应不被使用：取消分支在模型之前确定性分流。
+        assert message["content"] != "好的，我帮你处理。"
+
+    # 一次取最新摘要、一次取消资格判定；没有提交。
+    assert app.state.oms.calls["get_order"] == 2
+    assert app.state.oms.calls["submit_cancel"] == 0
+    assert rows_of(ServiceHandoff) == []
 
 
 def test_oms超时返回暂时不可用且不建单_AC_51() -> None:

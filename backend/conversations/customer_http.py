@@ -548,6 +548,8 @@ async def send_message(
             now=now,
             customer=session.customer,
             order_gateway=request.app.state.query_gateway,
+            cancel_gateway=request.app.state.cancel_gateway,
+            confirm_timeout_minutes=settings_of(request).confirm_timeout_minutes,
         )
     except ConversationClosedError:
         raise ApiError(409, ErrorCode.CONVERSATION_CLOSED) from None
