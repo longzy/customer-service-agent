@@ -137,7 +137,11 @@ class MockOmsAdapter:
         return result[1]
 
     def set_cancel_result(self, tenant_id: str, idempotency_key: str, state: str) -> None:
-        """测试与管理接口使用：把结果推进到 ACCEPTED/CANCELLED/REJECTED/UNKNOWN。"""
+        """测试与管理接口使用：把结果推进到 ACCEPTED/CANCELLED/REJECTED/UNKNOWN。
+
+        Q-7：取消结果推进为已取消时同步订单状态，使列表/再次查单看到“已取消”；
+        仅用于验收，生产以 OMS 为准。
+        """
         if state not in OMS_STATES:
             raise ValueError(f"未知状态：{state}")
         key = (tenant_id, idempotency_key)
@@ -145,3 +149,6 @@ class MockOmsAdapter:
             raise OrderNotFound(idempotency_key)
         order_id, _ = self._cancel_results[key]
         self._cancel_results[key] = (order_id, state)
+        if state == "CANCELLED":
+            self._orders[order_id]["order_status"] = "CANCELLED"
+            self._orders[order_id]["cancelable"] = False

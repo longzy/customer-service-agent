@@ -19,6 +19,29 @@ class CancellationState(StrEnum):
     ABANDONED = "ABANDONED"
 
 
+# 同一订单只允许一个进行中的取消任务；与迁移 0014 的部分唯一索引谓词保持一致。
+IN_PROGRESS_STATES = frozenset(
+    {
+        CancellationState.COLLECTING,
+        CancellationState.AWAITING_CONFIRMATION,
+        CancellationState.SUBMITTING,
+        CancellationState.SUBMIT_UNKNOWN,
+        CancellationState.ACCEPTED,
+    }
+)
+
+# 这些终态不再占用“进行中”名额，客户可重新发起（资格仍由服务端判定）。
+RELEASED_STATES = frozenset(
+    {
+        CancellationState.ELIGIBILITY_REJECTED,
+        CancellationState.CANCELLED,
+        CancellationState.REJECTED,
+        CancellationState.MANUAL_REVIEW,
+        CancellationState.ABANDONED,
+    }
+)
+
+
 class CancelReason(StrEnum):
     UNFULFILLED = "UNFULFILLED"
     FULFILLING = "FULFILLING"

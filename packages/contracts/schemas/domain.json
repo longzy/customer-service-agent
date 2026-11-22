@@ -43,6 +43,7 @@
         "RATE_LIMITED",
         "CONVERSATION_CLOSED",
         "AUDIT_UNAVAILABLE",
+        "CANCELLATION_CONFLICT",
         "CLAIM_CONFLICT",
         "DEPENDENCY_UNAVAILABLE",
         "DEPENDENCY_TIMEOUT",
@@ -563,6 +564,28 @@
           "if": {
             "properties": {
               "code": {
+                "const": "CANCELLATION_CONFLICT"
+              }
+            },
+            "required": [
+              "code"
+            ]
+          },
+          "then": {
+            "properties": {
+              "retryable": {
+                "const": false
+              },
+              "visible": {
+                "const": true
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "code": {
                 "const": "CLAIM_CONFLICT"
               }
             },
@@ -738,6 +761,10 @@
     },
     "AUDIT_UNAVAILABLE": {
       "retryable": true,
+      "visible": true
+    },
+    "CANCELLATION_CONFLICT": {
+      "retryable": false,
       "visible": true
     },
     "CLAIM_CONFLICT": {

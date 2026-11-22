@@ -89,7 +89,8 @@ class Settings(BaseSettings):
             items |= DEV_FRONTEND_ORIGINS
         return items
 
-    confirm_timeout_minutes: int = 30
+    # 客户确认有效期：默认 24 小时（design Q-1）；测试可注入更短值。
+    confirm_timeout_minutes: int = 1440
     # M1 新路由总开关：回滚时置 false，M1-P 旧路由保持可用
     m1_enabled: bool = True
     # M1 单租户部署；登录按该租户解析客户账号

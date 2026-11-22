@@ -289,7 +289,7 @@ def _observe(outcome: OrderQueryOutcome, started: float, trace_id: str) -> None:
         )
 
 
-def _identity(customer: Customer) -> Identity:
+def customer_identity(customer: Customer) -> Identity:
     return Identity(
         account_id=customer.id,
         user_id=customer.oms_customer_id or "",
@@ -360,7 +360,7 @@ async def _query_order_once(
             gateway.invoke,
             "get_order",
             {"order_id": order_id},
-            _identity(customer),
+            customer_identity(customer),
             trace_id,
         )
     except GatewayError as error:
@@ -421,7 +421,7 @@ async def _query_recent_orders_once(
             gateway.invoke,
             "list_recent_orders",
             {"limit": limit},
-            _identity(customer),
+            customer_identity(customer),
             trace_id,
         )
     except GatewayError as error:

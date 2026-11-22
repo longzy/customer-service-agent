@@ -91,3 +91,62 @@ def test_0013_升级回滚再升级_AC_51() -> None:
     assert "UNIQUE" in index_def
     assert "(tenant_id, oms_customer_id)" in index_def
     assert "WHERE (oms_customer_id IS NOT NULL)" in index_def
+
+
+CANCELLATION_PREVIOUS_REVISION = "0013_order_query"
+CANCELLATION_COLUMNS = {
+    "requested_by_type",
+    "requested_by_id",
+    "confirmed_at",
+    "confirmation_source",
+    "confirmed_by_id",
+}
+
+
+def _cancellation_columns() -> set[str]:
+    async def read(db: object) -> set[str]:
+        rows = (
+            await db.execute(  # type: ignore[attr-defined]
+                text(
+                    "select column_name from information_schema.columns "
+                    "where table_name = 'cancellation_requests'"
+                )
+            )
+        ).all()
+        return {str(row[0]) for row in rows}
+
+    return asyncio.run(with_db(read))
+
+
+def _active_index_def() -> str | None:
+    async def read(db: object) -> str | None:
+        row = (
+            await db.execute(  # type: ignore[attr-defined]
+                text(
+                    "select indexdef from pg_indexes where tablename='cancellation_requests' "
+                    "and indexname='uq_cancellation_active_order'"
+                )
+            )
+        ).first()
+        return None if row is None else str(row[0])
+
+    return asyncio.run(with_db(read))
+
+
+def test_0014_取消列与活跃唯一索引可回滚_AC_60() -> None:
+    """0014 只加法：新增发起/确认列与同订单活跃任务部分唯一索引，可回滚。"""
+    _require_test_database()
+    config = _config()
+    try:
+        command.downgrade(config, CANCELLATION_PREVIOUS_REVISION)
+        assert CANCELLATION_COLUMNS.isdisjoint(_cancellation_columns())
+        assert _active_index_def() is None
+    finally:
+        command.upgrade(config, "head")
+    assert _cancellation_columns() >= CANCELLATION_COLUMNS
+    index_def = _active_index_def()
+    assert index_def is not None
+    assert "UNIQUE" in index_def
+    assert "(tenant_id, order_id)" in index_def
+    assert "'AWAITING_CONFIRMATION'" in index_def
+    assert "'ACCEPTED'" in index_def

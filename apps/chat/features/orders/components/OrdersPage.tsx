@@ -1,12 +1,15 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useEffect, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { CircleAlert, Package } from "lucide-react";
 
 import { Button } from "@/components/ui/Button";
 
+import { useCancellation } from "../hooks/useCancellation";
 import { useOrders } from "../hooks/useOrders";
 
+import { CancelDialog } from "./CancelDialog";
 import { OrderListItem } from "./OrderListItem";
 
 const EMPTY_TITLE = "你名下暂时没有订单";
@@ -14,14 +17,40 @@ const EMPTY_HINT = "需要查询或转人工，可以回到聊天。";
 const ERROR_TITLE = "订单加载失败";
 const ERROR_HINT = "暂时无法获取订单，请稍后重试。";
 const LOADING_TEXT = "正在加载订单";
+const NULL_SEARCH = { get: () => null };
 
 /**
- * 客户“我的订单”独立页面：最近 ≤5 笔订单的只读列表。
- * 入口在聊天顶部；页面通过 Return 回聊天，不改变会话状态。
+ * 客户“我的订单”独立页面：最近 ≤5 笔订单。
+ * 取消按钮与确认弹层复用同一任务接口；聊天卡片通过 `?cancel=` 进入同一弹层。
  */
 export function OrdersPage() {
   const router = useRouter();
-  const { state, retry } = useOrders();
+  const searchParams = useSearchParams() ?? NULL_SEARCH;
+  const { state, retry, refresh } = useOrders();
+  const {
+    state: dialog,
+    open,
+    confirm,
+    decline,
+    refresh: refreshResult,
+    close,
+  } = useCancellation(() => void refresh());
+  const handledParam = useRef<string | null>(null);
+  const requested = searchParams.get("cancel");
+
+  useEffect(() => {
+    if (!requested || state.kind !== "ready" || handledParam.current === requested) {
+      return;
+    }
+    handledParam.current = requested;
+    const order = state.orders.find((item) => item.order_id === requested);
+    // 参数只消费一次：刷新页面不再自动发起，避免重复创建任务。
+    router.replace("/orders");
+    if (order && (order.cancelable || order.cancellation?.can_confirm)) {
+      void open(order);
+    }
+  }, [open, requested, router, state]);
+
   const backToChat = () => router.push("/chat");
 
   return (
@@ -81,13 +110,21 @@ export function OrdersPage() {
             <ul className="m-0 flex list-none flex-col gap-3 p-0">
               {state.orders.map((order) => (
                 <li key={order.order_id}>
-                  <OrderListItem order={order} />
+                  <OrderListItem order={order} onCancel={(item) => void open(item)} />
                 </li>
               ))}
             </ul>
           </section>
         )}
       </div>
+
+      <CancelDialog
+        state={dialog}
+        onConfirm={() => void confirm()}
+        onDecline={() => void decline()}
+        onRefresh={() => void refreshResult()}
+        onClose={close}
+      />
     </main>
   );
 }

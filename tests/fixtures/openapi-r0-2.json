@@ -48,6 +48,174 @@
         "title": "CancelResultPayload",
         "type": "object"
       },
+      "CancellationRequestCreate": {
+        "additionalProperties": false,
+        "description": "发起取消：只接受订单号，身份与会话来自服务端。",
+        "properties": {
+          "order_id": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Order Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "order_id"
+        ],
+        "title": "CancellationRequestCreate",
+        "type": "object"
+      },
+      "CancellationSummary": {
+        "additionalProperties": false,
+        "description": "列表页的取消任务回显：只含确认所需最小字段，不含 OMS 明细。",
+        "properties": {
+          "can_confirm": {
+            "title": "Can Confirm",
+            "type": "boolean"
+          },
+          "expires_at": {
+            "title": "Expires At",
+            "type": "string"
+          },
+          "next_step": {
+            "title": "Next Step",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "COLLECTING",
+              "AWAITING_CONFIRMATION",
+              "ELIGIBILITY_REJECTED",
+              "SUBMITTING",
+              "SUBMIT_UNKNOWN",
+              "ACCEPTED",
+              "CANCELLED",
+              "REJECTED",
+              "MANUAL_REVIEW",
+              "ABANDONED"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "status_text": {
+            "title": "Status Text",
+            "type": "string"
+          },
+          "task_id": {
+            "title": "Task Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "task_id",
+          "state",
+          "status_text",
+          "next_step",
+          "expires_at",
+          "can_confirm"
+        ],
+        "title": "CancellationSummary",
+        "type": "object"
+      },
+      "CancellationTaskPublic": {
+        "additionalProperties": false,
+        "description": "一次取消任务的对外视图：状态、结果文案与确认有效期。\n\n文案来自 `render_result`，本 DTO 不另造表达；`can_confirm` 由状态与\n有效期派生，前端只用它决定按钮，资格仍以服务端为准。",
+        "properties": {
+          "can_confirm": {
+            "title": "Can Confirm",
+            "type": "boolean"
+          },
+          "confirmation_source": {
+            "anyOf": [
+              {
+                "enum": [
+                  "BUTTON",
+                  "PHRASE"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmation Source"
+          },
+          "confirmed_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed At"
+          },
+          "expires_at": {
+            "title": "Expires At",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "next_step": {
+            "title": "Next Step",
+            "type": "string"
+          },
+          "order_id": {
+            "title": "Order Id",
+            "type": "string"
+          },
+          "reason_text": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason Text"
+          },
+          "reply": {
+            "title": "Reply",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "COLLECTING",
+              "AWAITING_CONFIRMATION",
+              "ELIGIBILITY_REJECTED",
+              "SUBMITTING",
+              "SUBMIT_UNKNOWN",
+              "ACCEPTED",
+              "CANCELLED",
+              "REJECTED",
+              "MANUAL_REVIEW",
+              "ABANDONED"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "status_text": {
+            "title": "Status Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "order_id",
+          "state",
+          "status_text",
+          "next_step",
+          "reply",
+          "expires_at",
+          "can_confirm"
+        ],
+        "title": "CancellationTaskPublic",
+        "type": "object"
+      },
       "ConversationPublic": {
         "additionalProperties": false,
         "properties": {
@@ -122,7 +290,7 @@
       },
       "CustomerOrderSummary": {
         "additionalProperties": false,
-        "description": "客户订单列表项：003 摘要 + 由订单状态派生的 `cancelable`。\n\n003 的消息 `payload` 不增加字段，列表页单独复用本 DTO。",
+        "description": "客户订单列表项：003 摘要 + 由订单状态派生的 `cancelable`。\n\n003 的消息 `payload` 不增加字段，列表页单独复用本 DTO；`cancellation`\n只回显进行中的取消任务，页面据此把按钮停在“待确认/已受理”状态。",
         "properties": {
           "amount_cents": {
             "minimum": 0.0,
@@ -132,6 +300,16 @@
           "cancelable": {
             "title": "Cancelable",
             "type": "boolean"
+          },
+          "cancellation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/CancellationSummary"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "created_at": {
             "title": "Created At",
@@ -1070,6 +1248,317 @@
           }
         },
         "summary": "Add Fault"
+      }
+    },
+    "/customer/cancellations": {
+      "post": {
+        "description": "发起取消：创建/复用任务并停在等待确认；资格拒绝不进入可提交状态。\n\n不调用 OMS 写接口；客户确认后才由 `CancellationWorkflow` 提交。",
+        "operationId": "create_cancellation_customer_cancellations_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CancellationRequestCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CancellationTaskPublic"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "502": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Bad Gateway"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          },
+          "504": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Gateway Timeout"
+          }
+        },
+        "summary": "Create Cancellation",
+        "tags": [
+          "customer"
+        ]
+      }
+    },
+    "/customer/cancellations/{cancellation_id}": {
+      "get": {
+        "description": "结果接口：读取任务并收敛到最新结果（已受理可推进到已取消/被拒绝）。",
+        "operationId": "read_customer_cancellation_customer_cancellations__cancellation_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "cancellation_id",
+            "required": true,
+            "schema": {
+              "title": "Cancellation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CancellationTaskPublic"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read Customer Cancellation",
+        "tags": [
+          "customer"
+        ]
+      }
+    },
+    "/customer/cancellations/{cancellation_id}/confirm": {
+      "post": {
+        "description": "客户确认：校验归属与状态后由 Workflow 只提交一次；过期视为未提交。",
+        "operationId": "confirm_customer_cancellation_customer_cancellations__cancellation_id__confirm_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "cancellation_id",
+            "required": true,
+            "schema": {
+              "title": "Cancellation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CancellationTaskPublic"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Confirm Customer Cancellation",
+        "tags": [
+          "customer"
+        ]
+      }
+    },
+    "/customer/cancellations/{cancellation_id}/decline": {
+      "post": {
+        "description": "客户拒绝：任务结束且不写 OMS；重复拒绝幂等返回。",
+        "operationId": "decline_customer_cancellation_customer_cancellations__cancellation_id__decline_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "cancellation_id",
+            "required": true,
+            "schema": {
+              "title": "Cancellation Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CancellationTaskPublic"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorEnvelope"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Decline Customer Cancellation",
+        "tags": [
+          "customer"
+        ]
       }
     },
     "/customer/conversations/{conversation_id}": {

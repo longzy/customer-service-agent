@@ -252,6 +252,7 @@
           "RATE_LIMITED",
           "CONVERSATION_CLOSED",
           "AUDIT_UNAVAILABLE",
+          "CANCELLATION_CONFLICT",
           "CLAIM_CONFLICT",
           "DEPENDENCY_UNAVAILABLE",
           "DEPENDENCY_TIMEOUT",
@@ -761,6 +762,28 @@
               "properties": {
                 "retryable": {
                   "const": true
+                },
+                "visible": {
+                  "const": true
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "code": {
+                  "const": "CANCELLATION_CONFLICT"
+                }
+              },
+              "required": [
+                "code"
+              ]
+            },
+            "then": {
+              "properties": {
+                "retryable": {
+                  "const": false
                 },
                 "visible": {
                   "const": true

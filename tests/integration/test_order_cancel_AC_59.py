@@ -43,6 +43,8 @@ ORDER_FIELDS = {
     "created_at",
     "created_at_local",
     "cancelable",
+    # F-31：列表回显进行中的取消任务；字段仍在白名单内。
+    "cancellation",
 }
 
 

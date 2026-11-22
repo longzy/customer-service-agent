@@ -55,6 +55,17 @@ class CancellationRequest(Base):
     __tablename__ = "cancellation_requests"
     __table_args__ = (
         UniqueConstraint("tenant_id", "idempotency_key", name="uq_cancellation_tenant_idempotency"),
+        # 同一订单同时只能有一个进行中的取消任务；谓词与 domain.IN_PROGRESS_STATES 一致。
+        Index(
+            "uq_cancellation_active_order",
+            "tenant_id",
+            "order_id",
+            unique=True,
+            postgresql_where=text(
+                "state IN "
+                "('COLLECTING','AWAITING_CONFIRMATION','SUBMITTING','SUBMIT_UNKNOWN','ACCEPTED')"
+            ),
+        ),
     )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
@@ -70,6 +81,12 @@ class CancellationRequest(Base):
     oms_request_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
     version: Mapped[int] = mapped_column(default=0)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    # F-31：发起人、确认人与确认来源；旧数据回填为 CUSTOMER / user_id。
+    requested_by_type: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    requested_by_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    confirmation_source: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    confirmed_by_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 

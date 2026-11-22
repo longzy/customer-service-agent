@@ -71,6 +71,12 @@ class CancellationTask:
     oms_request_id: str | None = None
     version: int = 0
     metadata: dict[str, str] = field(default_factory=dict)
+    # F-31：发起人（客户/坐席）与客户确认事实；旧任务为空时按客户发起处理。
+    requested_by_type: str | None = None
+    requested_by_id: str | None = None
+    confirmed_at: datetime | None = None
+    confirmation_source: str | None = None
+    confirmed_by_id: str | None = None
 
 
 class CancellationRepository(Protocol):
@@ -86,8 +92,11 @@ class CancellationRepository(Protocol):
 
 
 class SqlCancellationRepository:
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(self, session: AsyncSession, *, commit_on_save: bool = True) -> None:
         self._session = session
+        # 请求级 UoW 下由 get_session 统一提交，仓储只 flush（design 3.2）；
+        # 启动恢复用独立 session，保持自己提交。
+        self._commit_on_save = commit_on_save
 
     async def create(self, task: CancellationTask) -> None:
         self._session.add(
@@ -105,6 +114,11 @@ class SqlCancellationRepository:
                 oms_request_id=task.oms_request_id,
                 version=task.version,
                 expires_at=task.expires_at,
+                requested_by_type=task.requested_by_type,
+                requested_by_id=task.requested_by_id,
+                confirmed_at=task.confirmed_at,
+                confirmation_source=task.confirmation_source,
+                confirmed_by_id=task.confirmed_by_id,
             )
         )
 
@@ -119,21 +133,7 @@ class SqlCancellationRepository:
         row = result.scalar_one_or_none()
         if row is None:
             raise TaskNotFound(task_id)
-        return CancellationTask(
-            id=row.id,
-            tenant_id=row.tenant_id,
-            user_id=row.user_id,
-            order_id=row.order_id,
-            state=CancellationState(row.state),
-            idempotency_key=row.idempotency_key,
-            expires_at=row.expires_at,
-            reason_code=row.reason_code,
-            conversation_id=row.conversation_id,
-            trace_id=row.trace_id,
-            last_error_code=row.last_error_code,
-            oms_request_id=row.oms_request_id,
-            version=row.version,
-        )
+        return self._task(row)
 
     async def list_recoverable(self) -> list[CancellationTask]:
         result = await self._session.execute(
@@ -141,24 +141,7 @@ class SqlCancellationRepository:
                 CancellationRow.state.in_([state.value for state in RECOVERABLE_STATES])
             )
         )
-        return [
-            CancellationTask(
-                id=row.id,
-                tenant_id=row.tenant_id,
-                user_id=row.user_id,
-                order_id=row.order_id,
-                state=CancellationState(row.state),
-                idempotency_key=row.idempotency_key,
-                expires_at=row.expires_at,
-                reason_code=row.reason_code,
-                conversation_id=row.conversation_id,
-                trace_id=row.trace_id,
-                last_error_code=row.last_error_code,
-                oms_request_id=row.oms_request_id,
-                version=row.version,
-            )
-            for row in result.scalars()
-        ]
+        return [self._task(row) for row in result.scalars()]
 
     async def save(self, task: CancellationTask) -> None:
         result = cast(
@@ -174,6 +157,9 @@ class SqlCancellationRepository:
                     reason_code=task.reason_code,
                     last_error_code=task.last_error_code,
                     oms_request_id=task.oms_request_id,
+                    confirmed_at=task.confirmed_at,
+                    confirmation_source=task.confirmation_source,
+                    confirmed_by_id=task.confirmed_by_id,
                     version=task.version + 1,
                 )
             ),
@@ -183,7 +169,33 @@ class SqlCancellationRepository:
         task.version += 1
 
     async def commit(self) -> None:
-        await self._session.commit()
+        if self._commit_on_save:
+            await self._session.commit()
+        else:
+            await self._session.flush()
+
+    @staticmethod
+    def _task(row: CancellationRow) -> CancellationTask:
+        return CancellationTask(
+            id=row.id,
+            tenant_id=row.tenant_id,
+            user_id=row.user_id,
+            order_id=row.order_id,
+            state=CancellationState(row.state),
+            idempotency_key=row.idempotency_key,
+            expires_at=row.expires_at,
+            reason_code=row.reason_code,
+            conversation_id=row.conversation_id,
+            trace_id=row.trace_id,
+            last_error_code=row.last_error_code,
+            oms_request_id=row.oms_request_id,
+            version=row.version,
+            requested_by_type=row.requested_by_type,
+            requested_by_id=row.requested_by_id,
+            confirmed_at=row.confirmed_at,
+            confirmation_source=row.confirmation_source,
+            confirmed_by_id=row.confirmed_by_id,
+        )
 
 
 class CancellationWorkflow:
@@ -268,6 +280,9 @@ class CancellationWorkflow:
         order_id: str,
         trace_id: str,
         conversation_id: str | None = None,
+        *,
+        requested_by_type: str = "CUSTOMER",
+        requested_by_id: str | None = None,
     ) -> CancellationTask:
         eligibility = await self._invoke(
             "get_cancel_eligibility", {"order_id": order_id}, identity, trace_id
@@ -282,6 +297,8 @@ class CancellationWorkflow:
             trace_id=trace_id,
             idempotency_key=str(uuid4()),
             expires_at=self._now() + self._confirm_timeout,
+            requested_by_type=requested_by_type,
+            requested_by_id=requested_by_id,
         )
         await self._repository.create(task)
         if not eligibility["eligible"]:
@@ -296,7 +313,13 @@ class CancellationWorkflow:
         return task
 
     async def confirm(
-        self, identity: Identity, task_id: str, trace_id: str | None = None
+        self,
+        identity: Identity,
+        task_id: str,
+        trace_id: str | None = None,
+        *,
+        confirmation_source: str = "BUTTON",
+        confirmed_by_id: str | None = None,
     ) -> CancellationTask:
         task = await self._repository.get(task_id, identity)
         trace_id = task.trace_id
@@ -320,6 +343,10 @@ class CancellationWorkflow:
         await self._record(
             identity, task, CancellationState.AWAITING_CONFIRMATION, CancellationState.SUBMITTING
         )
+        # 确认事实与状态转换同一次保存；确认人只来自客户会话。
+        task.confirmed_at = self._now()
+        task.confirmation_source = confirmation_source
+        task.confirmed_by_id = confirmed_by_id
         task.state = CancellationState.SUBMITTING
         await self._repository.save(task)
         await self._repository.commit()
@@ -400,7 +427,7 @@ class CancellationWorkflow:
     async def _refresh_accepted(
         self, identity: Identity, task: CancellationTask, trace_id: str
     ) -> CancellationTask:
-        """已受理后只允许推进到 CANCELLED；查询失败保持 ACCEPTED，不降级。"""
+        """已受理后只允许推进到 CANCELLED/REJECTED；查询失败/未知保持 ACCEPTED。"""
         trace_id = task.trace_id
         try:
             body = await self._invoke(
@@ -413,6 +440,8 @@ class CancellationWorkflow:
             return task
         if body.get("state") == OmsCancelState.CANCELLED.value:
             return await self._finish(task, CancellationState.CANCELLED)
+        if body.get("state") == OmsCancelState.REJECTED.value:
+            return await self._finish(task, CancellationState.REJECTED)
         return task
 
     async def _recover(

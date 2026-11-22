@@ -536,3 +536,226 @@ async def test_确认审计失败不推进状态_AC_18() -> None:
     with pytest.raises(AuditWriteError):
         await flow.confirm(OWNER, task.id)
     assert task.state == CancellationState.AWAITING_CONFIRMATION
+
+
+async def test_确认写入确认事实与回调参数_AC_61() -> None:
+    confirmations: list[dict[str, Any]] = []
+
+    async def confirmation(event: dict[str, Any]) -> None:
+        confirmations.append(event)
+
+    flow, _, _ = workflow(confirmation=confirmation)
+    task = await flow.request(OWNER, "ORD-10001", "t-confirm")
+    confirmed = await flow.confirm(OWNER, task.id)
+
+    assert confirmed.state is CancellationState.ACCEPTED
+    assert confirmed.confirmed_at is not None
+    assert confirmed.confirmation_source == "BUTTON"
+    assert confirmed.confirmed_by_id is None
+    [event] = confirmations
+    assert event["identity"] == OWNER
+    assert event["task_id"] == task.id
+    assert event["order_id"] == "ORD-10001"
+    assert event["action"] == "confirm"
+    assert event["result_status"] == "committed"
+    assert event["trace_id"] == task.trace_id
+
+
+async def test_确认来源与确认人可显式指定_AC_61() -> None:
+    flow, _, _ = workflow()
+    task = await flow.request(OWNER, "ORD-10001", "t-source")
+    confirmed = await flow.confirm(
+        OWNER,
+        task.id,
+        confirmation_source="PHRASE",
+        confirmed_by_id="cust-customer_a",
+    )
+    assert confirmed.confirmation_source == "PHRASE"
+    assert confirmed.confirmed_by_id == "cust-customer_a"
+
+
+async def test_重复确认回调幂等_AC_61() -> None:
+    confirmations: list[dict[str, Any]] = []
+
+    async def confirmation(event: dict[str, Any]) -> None:
+        confirmations.append(event)
+
+    flow, _, _ = workflow(confirmation=confirmation)
+    task = await flow.request(OWNER, "ORD-10001", "t-idempotent")
+    await flow.confirm(OWNER, task.id)
+    await flow.confirm(OWNER, task.id)
+
+    [idempotent] = [event for event in confirmations if event["result_status"] == "idempotent"]
+    assert idempotent["identity"] == OWNER
+    assert idempotent["task_id"] == task.id
+    assert idempotent["order_id"] == "ORD-10001"
+    assert idempotent["action"] == "confirm"
+
+
+async def test_确认审计事件身份与状态字段_AC_61() -> None:
+    audits: list[dict[str, Any]] = []
+
+    async def audit(event: dict[str, Any]) -> None:
+        audits.append(event)
+
+    flow, _, _ = workflow(audit=audit)
+    task = await flow.request(OWNER, "ORD-10001", "t-audit-confirm")
+    await flow.confirm(OWNER, task.id)
+
+    [submitting] = [event for event in audits if event["to_state"] == "SUBMITTING"]
+    assert submitting["identity"] == OWNER
+    assert submitting["task_id"] == task.id
+    assert submitting["from_state"] == "AWAITING_CONFIRMATION"
+    assert submitting["result_status"] == "committed"
+
+
+async def test_过期确认不写确认事实_AC_62() -> None:
+    clock = [datetime(2026, 11, 15, tzinfo=UTC)]
+    confirmations: list[dict[str, Any]] = []
+    audits: list[dict[str, Any]] = []
+
+    async def confirmation(event: dict[str, Any]) -> None:
+        confirmations.append(event)
+
+    async def audit(event: dict[str, Any]) -> None:
+        audits.append(event)
+
+    flow, _, _ = workflow(now=lambda: clock[0], confirmation=confirmation, audit=audit)
+    task = await flow.request(OWNER, "ORD-10001", "t-expired")
+    clock[0] += timedelta(minutes=31)
+    expired = await flow.confirm(OWNER, task.id)
+
+    assert expired.state is CancellationState.ABANDONED
+    assert expired.confirmed_at is None
+    assert expired.confirmation_source is None
+    assert expired.confirmed_by_id is None
+    [event] = confirmations
+    assert event["identity"] == OWNER
+    assert event["task_id"] == task.id
+    assert event["action"] == "confirm"
+    assert event["result_status"] == "abandoned"
+    [abandoned] = [item for item in audits if item["to_state"] == "ABANDONED"]
+    assert abandoned["identity"] == OWNER
+    assert abandoned["task_id"] == task.id
+    assert abandoned["from_state"] == "AWAITING_CONFIRMATION"
+
+
+async def test_可恢复状态确认使用任务trace_AC_61() -> None:
+    repo = MemoryRepository()
+    repo.tasks["task-recover-confirm"] = CancellationTask(
+        id="task-recover-confirm",
+        tenant_id="tenant-a",
+        user_id="user-a1",
+        order_id="ORD-10001",
+        state=CancellationState.SUBMIT_UNKNOWN,
+        idempotency_key="idem-recover-confirm",
+        trace_id="trace-origin",
+        expires_at=datetime(2026, 11, 15, 12, 0, tzinfo=UTC),
+    )
+
+    class _Capture(CancellationWorkflow):
+        def __init__(self) -> None:
+            super().__init__(repo, None)  # type: ignore[arg-type]
+            self.calls: list[tuple[Identity, CancellationTask, str]] = []
+
+        async def _recover(
+            self, identity: Identity, task: CancellationTask, trace_id: str
+        ) -> CancellationTask:
+            self.calls.append((identity, task, trace_id))
+            return task
+
+    flow = _Capture()
+    result = await flow.confirm(OWNER, "task-recover-confirm", "ignored")
+    assert result.id == "task-recover-confirm"
+    identity, task, trace_id = flow.calls[0]
+    assert identity == OWNER
+    assert task.id == "task-recover-confirm"
+    assert trace_id == "trace-origin"
+
+
+async def test_已受理后刷新到被拒绝_AC_61() -> None:
+    oms = MockOmsAdapter()
+    flow, _, _ = workflow(oms=oms)
+    task = await flow.request(OWNER, "ORD-10001", "t-refresh")
+    accepted = await flow.confirm(OWNER, task.id)
+    assert accepted.state is CancellationState.ACCEPTED
+
+    oms.set_cancel_result("tenant-a", task.idempotency_key, "REJECTED")
+    refreshed = await flow.get(OWNER, task.id, "t-refresh")
+    assert refreshed.state is CancellationState.REJECTED
+
+
+async def test_发起记录发起人_AC_60() -> None:
+    flow, _, _ = workflow()
+    task = await flow.request(
+        OWNER,
+        "ORD-10001",
+        "t-requester",
+        requested_by_type="CUSTOMER",
+        requested_by_id="cust-customer_a",
+    )
+    assert task.requested_by_type == "CUSTOMER"
+    assert task.requested_by_id == "cust-customer_a"
+
+    default_task = await flow.request(OWNER, "ORD-10002", "t-default")
+    assert default_task.requested_by_type == "CUSTOMER"
+    assert default_task.requested_by_id is None
+
+
+async def test_仓储请求级只flush不提交_AC_60() -> None:
+    class _SessionDouble:
+        def __init__(self) -> None:
+            self.flushes = 0
+            self.commits = 0
+
+        async def flush(self) -> None:
+            self.flushes += 1
+
+        async def commit(self) -> None:
+            self.commits += 1
+
+    request_session = _SessionDouble()
+    request_repo = SqlCancellationRepository(  # type: ignore[arg-type]
+        request_session, commit_on_save=False
+    )
+    await request_repo.commit()
+    assert (request_session.flushes, request_session.commits) == (1, 0)
+
+    recovery_session = _SessionDouble()
+    recovery_repo = SqlCancellationRepository(recovery_session)  # type: ignore[arg-type]
+    await recovery_repo.commit()
+    assert (recovery_session.flushes, recovery_session.commits) == (0, 1)
+
+
+async def test_仓储行映射含发起与确认字段_AC_60() -> None:
+    from types import SimpleNamespace
+
+    row = SimpleNamespace(
+        id="task-row",
+        tenant_id="tenant-a",
+        user_id="user-a1",
+        order_id="ORD-10001",
+        state="AWAITING_CONFIRMATION",
+        idempotency_key="idem-row",
+        expires_at=datetime(2026, 11, 15, 12, 0, tzinfo=UTC),
+        reason_code=None,
+        conversation_id="conv-1",
+        trace_id="trace-row",
+        last_error_code=None,
+        oms_request_id=None,
+        version=2,
+        requested_by_type="CUSTOMER",
+        requested_by_id="cust-customer_a",
+        confirmed_at=datetime(2026, 11, 15, 11, 0, tzinfo=UTC),
+        confirmation_source="BUTTON",
+        confirmed_by_id="cust-customer_a",
+    )
+    task = SqlCancellationRepository._task(row)  # type: ignore[arg-type]
+    assert task.id == "task-row"
+    assert task.state is CancellationState.AWAITING_CONFIRMATION
+    assert task.requested_by_type == "CUSTOMER"
+    assert task.requested_by_id == "cust-customer_a"
+    assert task.confirmed_at == datetime(2026, 11, 15, 11, 0, tzinfo=UTC)
+    assert task.confirmation_source == "BUTTON"
+    assert task.confirmed_by_id == "cust-customer_a"
+    assert task.version == 2

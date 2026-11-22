@@ -6,11 +6,13 @@ import { OrdersPage } from "@/features/orders";
 
 const replace = vi.fn();
 const push = vi.fn();
-// useRouter 必须返回同一对象：hook 的 useCallback 依赖它，新对象会导致 effect 反复触发。
+// useRouter/useSearchParams 必须返回模块级稳定引用：hook 的 useCallback 依赖它们。
 const router = { replace, push };
+const searchParams = { get: () => null };
 
 vi.mock("next/navigation", () => ({
   useRouter: () => router,
+  useSearchParams: () => searchParams,
 }));
 
 const ORDERS = [

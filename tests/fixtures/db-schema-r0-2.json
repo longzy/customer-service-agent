@@ -163,6 +163,36 @@
         "type": "DATETIME"
       },
       {
+        "name": "requested_by_type",
+        "nullable": true,
+        "primary_key": false,
+        "type": "VARCHAR(16)"
+      },
+      {
+        "name": "requested_by_id",
+        "nullable": true,
+        "primary_key": false,
+        "type": "VARCHAR(64)"
+      },
+      {
+        "name": "confirmed_at",
+        "nullable": true,
+        "primary_key": false,
+        "type": "DATETIME"
+      },
+      {
+        "name": "confirmation_source",
+        "nullable": true,
+        "primary_key": false,
+        "type": "VARCHAR(16)"
+      },
+      {
+        "name": "confirmed_by_id",
+        "nullable": true,
+        "primary_key": false,
+        "type": "VARCHAR(64)"
+      },
+      {
         "name": "created_at",
         "nullable": false,
         "primary_key": false,

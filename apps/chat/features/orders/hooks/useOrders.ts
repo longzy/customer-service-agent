@@ -20,24 +20,34 @@ export function useOrders() {
   const router = useRouter();
   const [state, setState] = useState<OrdersState>({ kind: "loading" });
 
-  const load = useCallback(async () => {
-    setState({ kind: "loading" });
-    try {
-      const page = await getOrders();
-      setState({ kind: "ready", orders: page.orders });
-    } catch (cause) {
-      if (cause instanceof ApiError && cause.status === 401) {
-        router.replace("/login");
-        return;
+  const load = useCallback(
+    async (silent = false) => {
+      if (!silent) {
+        setState({ kind: "loading" });
       }
-      // FE-DATA-03：界面只展示兜底文案，不直出后端 message。
-      setState({ kind: "error" });
-    }
-  }, [router]);
+      try {
+        const page = await getOrders();
+        setState({ kind: "ready", orders: page.orders });
+      } catch (cause) {
+        if (cause instanceof ApiError && cause.status === 401) {
+          router.replace("/login");
+          return;
+        }
+        // FE-DATA-03：界面只展示兜底文案，不直出后端 message。
+        setState({ kind: "error" });
+      }
+    },
+    [router],
+  );
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  return { state, retry: load };
+  return {
+    state,
+    retry: useCallback(() => load(), [load]),
+    // 取消后刷新列表但不闪加载态，弹层保持打开直到用户关闭。
+    refresh: useCallback(() => load(true), [load]),
+  };
 }

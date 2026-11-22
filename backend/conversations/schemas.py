@@ -13,6 +13,20 @@ ConversationStatus = Literal[
     "CLOSED",
 ]
 MessageAuthor = Literal["customer", "ai", "agent", "system"]
+# 契约层保持独立字面量；取值与 `domain.cancellation.CancellationState` 一致。
+CancellationStateName = Literal[
+    "COLLECTING",
+    "AWAITING_CONFIRMATION",
+    "ELIGIBILITY_REJECTED",
+    "SUBMITTING",
+    "SUBMIT_UNKNOWN",
+    "ACCEPTED",
+    "CANCELLED",
+    "REJECTED",
+    "MANUAL_REVIEW",
+    "ABANDONED",
+]
+ConfirmationSource = Literal["BUTTON", "PHRASE"]
 
 
 class CustomerLoginRequest(BaseModel):
@@ -88,13 +102,58 @@ class OrderSummaryPublic(BaseModel):
     created_at_local: str
 
 
+class CancellationSummary(BaseModel):
+    """列表页的取消任务回显：只含确认所需最小字段，不含 OMS 明细。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    task_id: str
+    state: CancellationStateName
+    status_text: str
+    next_step: str
+    expires_at: str
+    can_confirm: bool
+
+
 class CustomerOrderSummary(OrderSummaryPublic):
     """客户订单列表项：003 摘要 + 由订单状态派生的 `cancelable`。
 
-    003 的消息 `payload` 不增加字段，列表页单独复用本 DTO。
+    003 的消息 `payload` 不增加字段，列表页单独复用本 DTO；`cancellation`
+    只回显进行中的取消任务，页面据此把按钮停在“待确认/已受理”状态。
     """
 
     cancelable: bool
+    cancellation: CancellationSummary | None = None
+
+
+class CancellationRequestCreate(BaseModel):
+    """发起取消：只接受订单号，身份与会话来自服务端。"""
+
+    model_config = ConfigDict(extra="forbid")
+
+    order_id: str = Field(min_length=1, max_length=64)
+
+
+class CancellationTaskPublic(BaseModel):
+    """一次取消任务的对外视图：状态、结果文案与确认有效期。
+
+    文案来自 `render_result`，本 DTO 不另造表达；`can_confirm` 由状态与
+    有效期派生，前端只用它决定按钮，资格仍以服务端为准。
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    order_id: str
+    state: CancellationStateName
+    status_text: str
+    reason_text: str | None = None
+    next_step: str
+    reply: str
+    expires_at: str
+    confirmed_at: str | None = None
+    confirmation_source: ConfirmationSource | None = None
+    can_confirm: bool
 
 
 class CustomerOrdersResponse(BaseModel):

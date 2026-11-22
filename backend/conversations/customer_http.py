@@ -1,7 +1,7 @@
 """会话域 HTTP 入口：客户登录、会话读取、消息与关闭。"""
 
 from datetime import datetime, timedelta
-from typing import Annotated, Any
+from typing import Annotated, Any, NoReturn
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
@@ -18,6 +18,17 @@ from backend.audit import (
     MESSAGE_SENT,
     ORDER_QUERIED,
     AuditRecord,
+)
+from backend.conversations.customer_cancellations import (
+    CancellationSnapshot,
+    CancellationStateConflict,
+    CancellationTaskNotFound,
+    can_confirm,
+    confirm_cancellation,
+    decline_cancellation,
+    list_order_cancellations,
+    read_cancellation,
+    request_cancellation,
 )
 from backend.conversations.customer_chat import (
     ChatResult,
@@ -39,6 +50,9 @@ from backend.conversations.order_queries import (
     query_recent_orders,
 )
 from backend.conversations.schemas import (
+    CancellationRequestCreate,
+    CancellationSummary,
+    CancellationTaskPublic,
     ConversationPublic,
     CustomerLoginRequest,
     CustomerMessageRequest,
@@ -50,6 +64,7 @@ from backend.conversations.schemas import (
     MessagePayload,
     MessagePublic,
 )
+from backend.domain.cancellation import CancellationState, render_result
 from backend.domain.errors import ErrorCode
 from backend.identity import customer_sessions
 from backend.identity.cookies import set_session_cookie
@@ -59,6 +74,8 @@ from backend.identity.rate_limit import consume_fixed_window
 from backend.platform.db import get_read_session, get_session
 from backend.platform.http import client_ip, settings_of, utc_text
 from backend.platform.schemas import ErrorEnvelope
+from backend.tools.gateway import GatewayError
+from backend.workflows.cancel import CancellationTask, TaskConflict
 
 router = APIRouter(prefix="/customer", tags=["customer"])
 
@@ -114,6 +131,50 @@ def _chat_payload(result: ChatResult) -> MessagePageResponse:
         after_id=result.after_id,
         messages=[_message_json(message) for message in result.messages],
     )
+
+
+def _cancellation_view(task: CancellationTask, now: datetime) -> CancellationTaskPublic:
+    copy = render_result(task.state, task.reason_code)
+    return CancellationTaskPublic(
+        id=task.id,
+        order_id=task.order_id,
+        state=task.state.value,
+        status_text=copy.state_text,
+        reason_text=copy.reason_text,
+        next_step=copy.next_step,
+        reply=copy.reply,
+        expires_at=utc_text(task.expires_at),
+        confirmed_at=utc_text(task.confirmed_at) if task.confirmed_at else None,
+        confirmation_source=task.confirmation_source,  # type: ignore[arg-type]
+        can_confirm=task.state is CancellationState.AWAITING_CONFIRMATION and now < task.expires_at,
+    )
+
+
+def _cancellation_summary(snapshot: CancellationSnapshot, now: datetime) -> CancellationSummary:
+    copy = render_result(snapshot.state, snapshot.reason_code)
+    return CancellationSummary(
+        task_id=snapshot.id,
+        state=snapshot.state.value,
+        status_text=copy.state_text,
+        next_step=copy.next_step,
+        expires_at=utc_text(snapshot.expires_at),
+        can_confirm=can_confirm(snapshot, now),
+    )
+
+
+def _raise_gateway_error(error: GatewayError) -> NoReturn:
+    """取消网关失败按错误码归一；不把下游细节透给客户。"""
+    if error.status_code == 404:
+        raise ApiError(404, ErrorCode.NOT_FOUND_OR_UNAUTHORIZED)
+    if error.status_code == 409:
+        raise ApiError(409, ErrorCode.OMS_REJECTED)
+    if error.status_code == 504:
+        raise ApiError(504, ErrorCode.DEPENDENCY_TIMEOUT)
+    if error.status_code == 503:
+        raise ApiError(503, ErrorCode.DEPENDENCY_UNAVAILABLE)
+    if error.status_code == 502:
+        raise ApiError(502, ErrorCode.INVALID_RESPONSE)
+    raise ApiError(500, ErrorCode.INTERNAL_ERROR)
 
 
 @router.post(
@@ -273,11 +334,158 @@ async def list_orders(
         journey_id=conversation.journey_id if conversation else None,
         source="customer",
     )
-    orders = [
-        CustomerOrderSummary.model_validate(customer_order_summary(order))
-        for order in outcome.orders
-    ]
+    now = customer_sessions.utc_now()
+    summaries = [customer_order_summary(order) for order in outcome.orders]
+    snapshots = await list_order_cancellations(
+        db,
+        session.customer,
+        [str(summary["order_id"]) for summary in summaries],
+        now=now,
+    )
+    orders = []
+    for summary in summaries:
+        snapshot = snapshots.get(str(summary["order_id"]))
+        summary["cancellation"] = (
+            _cancellation_summary(snapshot, now) if snapshot is not None else None
+        )
+        orders.append(CustomerOrderSummary.model_validate(summary))
     return CustomerOrdersResponse(orders=orders)
+
+
+@router.post(
+    "/cancellations",
+    responses={
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
+        409: ERROR_RESPONSES[409],
+        422: ERROR_RESPONSES[422],
+        502: {"model": ErrorEnvelope},
+        503: {"model": ErrorEnvelope},
+        504: {"model": ErrorEnvelope},
+    },
+)
+async def create_cancellation(
+    payload: CancellationRequestCreate,
+    request: Request,
+    session: CurrentCustomer,
+    db: Db,
+) -> CancellationTaskPublic:
+    """发起取消：创建/复用任务并停在等待确认；资格拒绝不进入可提交状态。
+
+    不调用 OMS 写接口；客户确认后才由 `CancellationWorkflow` 提交。
+    """
+    now = customer_sessions.utc_now()
+    conversation = await get_current_conversation(
+        db, session.customer.tenant_id, session.customer.id
+    )
+    try:
+        task = await request_cancellation(
+            db,
+            request.app.state.cancel_gateway,
+            session.customer,
+            payload.order_id,
+            trace_id=trace_of(request),
+            now=now,
+            confirm_timeout_minutes=settings_of(request).confirm_timeout_minutes,
+            conversation_id=conversation.id if conversation else None,
+        )
+    except GatewayError as error:
+        _raise_gateway_error(error)
+    except (CancellationStateConflict, TaskConflict) as error:
+        raise ApiError(409, ErrorCode.CANCELLATION_CONFLICT) from error
+    return _cancellation_view(task, now)
+
+
+@router.post(
+    "/cancellations/{cancellation_id}/confirm",
+    responses={
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
+        409: ERROR_RESPONSES[409],
+    },
+)
+async def confirm_customer_cancellation(
+    cancellation_id: str,
+    request: Request,
+    session: CurrentCustomer,
+    db: Db,
+) -> CancellationTaskPublic:
+    """客户确认：校验归属与状态后由 Workflow 只提交一次；过期视为未提交。"""
+    now = customer_sessions.utc_now()
+    try:
+        task = await confirm_cancellation(
+            db,
+            request.app.state.cancel_gateway,
+            session.customer,
+            cancellation_id,
+            now=now,
+            confirm_timeout_minutes=settings_of(request).confirm_timeout_minutes,
+        )
+    except CancellationTaskNotFound as error:
+        raise ApiError(404, ErrorCode.NOT_FOUND_OR_UNAUTHORIZED) from error
+    except CancellationStateConflict as error:
+        raise ApiError(409, ErrorCode.CANCELLATION_CONFLICT) from error
+    return _cancellation_view(task, now)
+
+
+@router.post(
+    "/cancellations/{cancellation_id}/decline",
+    responses={
+        401: ERROR_RESPONSES[401],
+        404: ERROR_RESPONSES[404],
+        409: ERROR_RESPONSES[409],
+    },
+)
+async def decline_customer_cancellation(
+    cancellation_id: str,
+    request: Request,
+    session: CurrentCustomer,
+    db: Db,
+) -> CancellationTaskPublic:
+    """客户拒绝：任务结束且不写 OMS；重复拒绝幂等返回。"""
+    now = customer_sessions.utc_now()
+    try:
+        task = await decline_cancellation(
+            db,
+            request.app.state.cancel_gateway,
+            session.customer,
+            cancellation_id,
+            now=now,
+            confirm_timeout_minutes=settings_of(request).confirm_timeout_minutes,
+        )
+    except CancellationTaskNotFound as error:
+        raise ApiError(404, ErrorCode.NOT_FOUND_OR_UNAUTHORIZED) from error
+    except CancellationStateConflict as error:
+        raise ApiError(409, ErrorCode.CANCELLATION_CONFLICT) from error
+    return _cancellation_view(task, now)
+
+
+@router.get(
+    "/cancellations/{cancellation_id}",
+    responses={401: ERROR_RESPONSES[401], 404: ERROR_RESPONSES[404]},
+)
+async def read_customer_cancellation(
+    cancellation_id: str,
+    request: Request,
+    session: CurrentCustomer,
+    db: Db,
+) -> CancellationTaskPublic:
+    """结果接口：读取任务并收敛到最新结果（已受理可推进到已取消/被拒绝）。"""
+    now = customer_sessions.utc_now()
+    try:
+        task = await read_cancellation(
+            db,
+            request.app.state.cancel_gateway,
+            session.customer,
+            cancellation_id,
+            now=now,
+            confirm_timeout_minutes=settings_of(request).confirm_timeout_minutes,
+        )
+    except CancellationTaskNotFound as error:
+        raise ApiError(404, ErrorCode.NOT_FOUND_OR_UNAUTHORIZED) from error
+    except CancellationStateConflict as error:
+        raise ApiError(409, ErrorCode.CANCELLATION_CONFLICT) from error
+    return _cancellation_view(task, now)
 
 
 @router.post(

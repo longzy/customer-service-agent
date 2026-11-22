@@ -2,6 +2,7 @@
 
 import { useId } from "react";
 
+import { Button } from "@/components/ui/Button";
 import { formatAmount } from "@/lib/format";
 import { orderStatusTone } from "@/lib/orderStatus";
 
@@ -9,15 +10,18 @@ import type { CustomerOrderSummary } from "../types";
 
 type OrderListItemProps = {
   order: CustomerOrderSummary;
+  onCancel: (order: CustomerOrderSummary) => void;
 };
 
 /**
  * “我的订单”列表项：只展示 OMS 白名单字段。
- * 取消按钮由 F-31 接入，本卡保持只读；article + tabIndex 让键盘/读屏可阅读。
+ * 取消按钮只做入口，资格与提交都由服务端重新判定；有进行中任务时停在
+ * “待确认/已受理”状态，避免重复发起（design 3.3）。
  */
-export function OrderListItem({ order }: OrderListItemProps) {
+export function OrderListItem({ order, onCancel }: OrderListItemProps) {
   const headingId = useId();
   const tone = orderStatusTone(order);
+  const cancellation = order.cancellation;
 
   return (
     <article
@@ -51,6 +55,22 @@ export function OrderListItem({ order }: OrderListItemProps) {
           <dd className="m-0 mt-0.5 tabular-nums text-text">{order.created_at_local}</dd>
         </div>
       </dl>
+      {cancellation ? (
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
+          <p className="m-0 text-xs text-text-2">{cancellation.status_text}</p>
+          {cancellation.can_confirm ? (
+            <Button variant="soft" size="sm" onClick={() => onCancel(order)}>
+              去确认
+            </Button>
+          ) : null}
+        </div>
+      ) : order.cancelable ? (
+        <div className="mt-3 flex justify-end border-t border-border pt-3">
+          <Button variant="secondary" size="sm" onClick={() => onCancel(order)}>
+            取消订单
+          </Button>
+        </div>
+      ) : null}
     </article>
   );
 }

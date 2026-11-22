@@ -223,6 +223,8 @@
 | AC-72 | 岗位走查与评测 | `evals/` + 走查记录 |
 
 > 2026-11-21 澄清（F-30 落地）：列表访问审计复用 `audit_view` 的 5 分钟去重与 `conversation.viewed` 事件，以 `entity_type=order_list`、`entity_id=客户 id` 与会话查看区分；事件名是否细分与 AC-70 的取消审计一并评估，F-30 不新增事件类型。
+>
+> 2026-11-22 澄清（F-31 落地）：`CustomerOrderSummary` 增加可选 `cancellation`（进行中任务的 `state`/`status_text`/`next_step`/`expires_at`/`can_confirm`），列表读取仍只读、不惰性改状态；已取消由 OMS 订单状态表达，拒绝/放弃后按钮恢复可取消。新增 `GET /customer/cancellations/{id}` 作为 D-2 的“结果接口”：读取时惰性过期，并把已受理任务按 OMS 结果推进到已取消/被拒绝。确认过期按 3.4 返回任务 `ABANDONED`（不提交），不在请求内抛 409 以免回滚惰性收尾。
 
 ### 5.3 兼容、迁移与发布/回滚
 
