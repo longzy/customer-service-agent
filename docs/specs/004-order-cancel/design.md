@@ -86,7 +86,7 @@
 
 - `user_id` 仍表示订单归属客户；坐席发起时 `user_id=客户`、`requested_by_type=AGENT`。
 - 索引：保留 `(tenant_id, idempotency_key)` 唯一；新增部分唯一索引 `uq_cancellation_active_order`（见 3.3）。
-- 列表 DTO `CustomerOrderSummary` 不落库：`order_id`、`item_summary`、`order_status`、`status_label`、`amount_cents`、`currency`、`created_at`、`created_at_local`、`cancelable`。`cancelable` 由 OMS 状态派生；003 的消息 `payload` 不变，聊天卡片按 `order_status` 渲染按钮。
+- 列表 DTO `CustomerOrderSummary` 不落库：`order_id`、`item_summary`、`order_status`、`status_label`、`amount_cents`、`currency`、`created_at`、`created_at_local`、`cancelable`。`cancelable` 由 OMS 状态派生；003 的订单摘要字段不变，消息 `payload` 只增可选 `cancellation`（F-32，见 5.2），聊天卡片按 `order_status` 渲染按钮。
 - 迁移前若旧数据存在同订单多个活跃任务，先收尾；回滚删新增列与索引。
 
 **一致性与事务边界**
@@ -226,12 +226,14 @@
 > 2026-11-21 澄清（F-30 落地）：列表访问审计复用 `audit_view` 的 5 分钟去重与 `conversation.viewed` 事件，以 `entity_type=order_list`、`entity_id=客户 id` 与会话查看区分；事件名是否细分与 AC-70 的取消审计一并评估，F-30 不新增事件类型。
 >
 > 2026-11-22 澄清（F-31 落地）：`CustomerOrderSummary` 增加可选 `cancellation`（进行中任务的 `state`/`status_text`/`next_step`/`expires_at`/`can_confirm`），列表读取仍只读、不惰性改状态；已取消由 OMS 订单状态表达，拒绝/放弃后按钮恢复可取消。新增 `POST /customer/cancellations/{id}/refresh` 作为 D-2 的结果刷新（写请求 UoW）：惰性过期，并把已受理任务按 OMS 结果推进到已取消/被拒绝；不提供会写状态的 GET，避免违反 ADR-0009 的只读 GET 约定。确认过期按 3.4 返回任务 `ABANDONED`（不提交），不在请求内抛 409 以免回滚惰性收尾。
+>
+> 2026-11-22 澄清（F-32 落地）：聊天消息 `payload` 新增可选 `cancellation`（同 `CancellationSummary`），只在取消分支出现；为空时序列化省略，003 的 `{"orders": []}` 载荷保持不变。聊天确认卡片读 `can_confirm`/`expires_at`，结果消息读 `state`/`status_text`；确认按钮仍在订单页弹层，聊天内只提供固定短语确认与“去订单页确认”跳转（D-3）。聊天定位顺序为显式订单号 > 会话内最近一次成功查询恰好一笔 > 最近订单候选；除快照恰好一笔外都列候选，不替客户选。
 
 ### 5.3 兼容、迁移与发布/回滚
 
 - 发布：`M1_ENABLED` 控制新页面/新路由；旧取消 API 不再暴露。
 - 迁移：`0014_order_cancel.py` 只加法；回滚删列/索引。
-- 兼容性：003 的消息 `payload` 不变；列表 DTO 新增字段只影响新页面；旧任务 `requested_by_*` 为空时按客户发起处理。
+- 兼容性：003 的订单摘要字段不变，消息 `payload` 只增可选 `cancellation`（为空省略，见 5.2）；列表 DTO 新增字段只影响新页面；旧任务 `requested_by_*` 为空时按客户发起处理。
 - 回滚行为：隐藏“我的订单”入口、取消意图恢复转人工；保留任务表与历史记录。
 - 监控：`cancel_total{state}`、`cancel_submit_latency_ms`、`cancel_unknown_total`；异常时看 `trace_id`。
 
