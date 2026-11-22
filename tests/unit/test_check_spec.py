@@ -47,6 +47,8 @@ def write_repo(root: Path, *, status: str = "已批准", t3: bool = True, dor: b
         f"- {checkbox} 依赖已完成\n- {checkbox} 规格已批准\n- {checkbox} seam 可用\n"
         f"- {checkbox} 无待决问题\n- {checkbox} 迁移就绪\n\n"
         "### 2.5 判定表与失败矩阵\n\n| AC | 主路径 |\n|---|---|\n| AC-99 | demo |\n\n"
+        "## 4. 证据\n\n```text\n$ git show --shortstat --oneline abcdef0\n"
+        "abcdef0 demo\n 1 file changed, 1 insertion(+) \n```\n\n"
         "## 7. 发布与回滚（T2/T3 必填，T1 可省）\n\n- 回滚：降级\n",
         encoding="utf-8",
     )
@@ -84,3 +86,14 @@ def test_旧模型无risk卡跳过_基座豁免(tmp_path: Path, capsys) -> None:
     card.write_text(card.read_text(encoding="utf-8").replace("risk: T3\n", ""), encoding="utf-8")
     assert load_module().main(["--root", str(tmp_path)]) == 0
     assert "Spec/计划门禁通过" in capsys.readouterr().out
+
+
+def test_证据缺少diff命令时阻断_基座豁免(tmp_path: Path, capsys) -> None:
+    write_repo(tmp_path)
+    card = tmp_path / "docs" / "tasks" / "009-demo" / "F-99.md"
+    card.write_text(
+        card.read_text(encoding="utf-8").replace("$ git show --shortstat --oneline abcdef0\n", ""),
+        encoding="utf-8",
+    )
+    assert load_module().main(["--root", str(tmp_path)]) == 1
+    assert "git show --shortstat" in capsys.readouterr().err

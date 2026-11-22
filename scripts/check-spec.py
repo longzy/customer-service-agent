@@ -107,6 +107,11 @@ def check_card(path: Path) -> None:
         release = section(text, "7. 发布与回滚（T2/T3 必填，T1 可省）")
         if not release.strip():
             errors.append(f"{path}：T2/T3 缺少 §7 发布与回滚")
+    evidence = section(text, "4. 证据")
+    if "git show --shortstat" not in evidence:
+        errors.append(
+            f"{path}：§4 证据缺少 `git show --shortstat --oneline <sha>`（数字需可机械核对）"
+        )
 
 
 def main(argv: list[str] | None = None) -> int:

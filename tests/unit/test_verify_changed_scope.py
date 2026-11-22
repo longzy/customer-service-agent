@@ -7,11 +7,15 @@ ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = ROOT / "scripts" / "verify-changed.sh"
 
 
-def _plan(tmp_path: Path, paths: list[str]) -> str:
+def _plan(tmp_path: Path, paths: list[str], feature: str | None = None) -> str:
     listing = tmp_path / "paths.txt"
     listing.write_text("\n".join(paths) + "\n", encoding="utf-8")
+    args = ["/bin/sh", str(SCRIPT)]
+    if feature:
+        args.append(feature)
+    args.extend([f"--paths-file={listing}", "--dry-run"])
     result = subprocess.run(  # noqa: S603 - 固定 /bin/sh 与仓库内脚本，输入来自 tmp_path
-        ["/bin/sh", str(SCRIPT), f"--paths-file={listing}", "--dry-run"],
+        args,
         cwd=ROOT,
         capture_output=True,
         text=True,
@@ -101,3 +105,27 @@ def test_空变更清单返回2并提示(tmp_path: Path) -> None:
     stderr = result.stderr.decode("utf-8")
     assert "没有变更可验证" in stderr
     assert "--base=<ref>" in stderr
+
+
+def test_feature_acs_come_from_card_frontmatter(tmp_path: Path) -> None:
+    """AC 定向必须来自执行卡 frontmatter，且 dry-run 要显示实际过滤条件。"""
+    out = _plan(tmp_path, ["backend/api/main.py"], "F-33")
+
+    assert "后端测试（AC 定向：AC-64 or AC-65 or AC-66）" in out
+
+
+def test_unknown_feature_fails_loud(tmp_path: Path) -> None:
+    """找不到执行卡时显式失败，不再静默回退到单元测试。"""
+    listing = tmp_path / "paths.txt"
+    listing.write_text("backend/api/main.py\n", encoding="utf-8")
+    result = subprocess.run(  # noqa: S603 - 固定 /bin/sh 与仓库内脚本，输入来自 tmp_path
+        ["/bin/sh", str(SCRIPT), "F-99", f"--paths-file={listing}", "--dry-run"],
+        cwd=ROOT,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=False,
+    )
+
+    assert result.returncode != 0
+    assert "无法从执行卡解析" in result.stderr
