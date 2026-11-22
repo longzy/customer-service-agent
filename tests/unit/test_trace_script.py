@@ -46,3 +46,17 @@ def test_ac_from_features读取frontmatter_基座豁免(tmp_path: Path, monkeypa
     assert module.ac_from_features() == {
         "AC-35": [("F-06", True), ("F-07", False)],
     }
+
+
+def test_ac_from_tests读取前端文件头_基座豁免(tmp_path: Path, monkeypatch: Any) -> None:
+    module = load_module()
+    chat = tmp_path / "apps" / "chat" / "tests"
+    chat.mkdir(parents=True)
+    (tmp_path / "tests").mkdir()
+    (chat / "Demo.test.tsx").write_text(
+        '// AC-59\nimport { describe, expect, it } from "vitest";\n\n'
+        'describe("demo", () => {\n  it("renders", () => {});\n});\n',
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(module, "ROOT", tmp_path)
+    assert module.ac_from_tests().get("AC-59") == ["apps/chat/tests/Demo.test.tsx"]

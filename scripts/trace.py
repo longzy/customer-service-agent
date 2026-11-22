@@ -33,14 +33,25 @@ def ac_from_requirements(path: Path) -> list[str]:
     return sorted(set(ids))
 
 
+def frontend_header_acs(path: Path) -> set[str]:
+    """前端测试文件头 `// AC-XX` 约定（FE-TEST-05）；只看前 5 行，避免正文误匹配。"""
+    if path.suffix not in {".ts", ".tsx"}:
+        return set()
+    head = path.read_text(encoding="utf-8", errors="ignore").splitlines()[:5]
+    return {f"AC-{ac}" for line in head for ac in AC_ID.findall(line)}
+
+
 def ac_from_tests() -> dict[str, list[str]]:
-    """只统计测试用例名里的 AC，避免把注释/文档字符串当成覆盖证据。"""
+    """测试用例名里的 AC + 前端测试文件头的 `// AC-XX`；同一文件去重。"""
     found: dict[str, set[str]] = {}
     roots = [ROOT / "tests"] + sorted((ROOT / "apps").glob("*/tests"))
     for root in roots:
         for path in root.rglob("*"):
             if path.suffix not in {".py", ".ts", ".tsx"} or "node_modules" in path.parts:
                 continue
+            relative = str(path.relative_to(ROOT))
+            for ac in frontend_header_acs(path):
+                found.setdefault(ac, set()).add(relative)
             for line in path.read_text(encoding="utf-8", errors="ignore").splitlines():
                 stripped = line.lstrip()
                 is_test_case = stripped.startswith(("def test_", "async def test_"))
@@ -50,7 +61,7 @@ def ac_from_tests() -> dict[str, list[str]]:
                 if not is_test_case:
                     continue
                 for ac in AC_ID.findall(line):
-                    found.setdefault(f"AC-{ac}", set()).add(str(path.relative_to(ROOT)))
+                    found.setdefault(f"AC-{ac}", set()).add(relative)
     return {ac: sorted(files) for ac, files in found.items()}
 
 

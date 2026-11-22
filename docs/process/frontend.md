@@ -109,7 +109,7 @@ tests/                   组件测试
 - **FE-TEST-02** 禁止大型快照；只对稳定的小结构做快照。
 - **FE-TEST-03** mock 网络层而非业务模块；`vi.mock` 只允许用于路由、时间、随机数等不可控依赖。
 - **FE-TEST-04** React `act()` 警告视为失败，不得忽略。
-- **FE-TEST-05** 前端测试与 AC 的关联暂未接入 `scripts/trace.py`；新测试在文件头写 `// AC-XX`，作为后续扩展追溯的输入。
+- **FE-TEST-05** 前端测试的 AC 追溯已接入 `scripts/trace.py`：测试文件头写 `// AC-XX`（或用例名含 `AC-XX`）；按文件计入覆盖，不区分用例数。
 - **FE-TEST-06** mock 的 `useRouter`/`useSearchParams` 必须返回模块级稳定引用。依赖 router 的 `useCallback`/`useEffect` 会因每次渲染的新对象反复重跑；在同步渲染下会耗尽堆内存（vitest 报 worker OOM 而非测试失败）。
 
 ## 10. 强制点与缺口
@@ -128,6 +128,7 @@ tests/                   组件测试
 | FE-SEC-01/02 | 无 | 待接 `no-restricted-syntax` |
 | FE-AI-01 依赖幻觉 | 无 | 待接 `import/no-extraneous-dependencies` |
 | FE-TEST-01..04 | 无 | 待接测试脚本 |
+| FE-TEST-05 前端 AC 追溯 | `scripts/trace.py` 读取 `apps/*/tests` 文件头 `// AC-XX`（pre-commit/verify） | 已接入 |
 | FE-TEST-06 路由 mock 稳定引用 | ESLint `no-restricted-syntax`（`tests/**`；`pnpm lint`，verify + CI） | 已接入 |
 | 未接入项 | 评审清单 Standards 轴 | 人工 |
 
@@ -150,3 +151,4 @@ tests/                   组件测试
 - 2026-11-20：按用户决策接入 HeroUI v3（`@heroui/react` + `@heroui/styles` 3.2.7），修订 FE-CSS-05/06：HeroUI 成为唯一允许的 UI 组件库，Tailwind 仍是唯一样式编写方案。`globals.css` 中 `@heroui/styles` 排在 `@import "tailwindcss"` 之后、`tokens.css` 之前，使项目令牌覆盖同名变量、保持视觉基线；其自带样式属外部依赖，不计入 FE-CSS-03 的项目内颜色字面量约束。主题策略：项目令牌仍是单一事实源，不启用 HeroUI 默认主题，只在 `tokens.css` 映射其根变量；HeroUI 组件由 `@apply` 写死的尺寸/圆角/动效在首次落地组件时用 `className` 的 Tailwind utility 约束，不预先建 wrapper、不写全局 BEM 覆盖。
 - 2026-11-22：新增 FE-TEST-06 并接入 ESLint `no-restricted-syntax`：测试中的 `useRouter` mock 必须返回模块级稳定对象。F-30 曾因内联 mock 每次渲染产生新 router，导致依赖 router 的 effect 同步死循环、vitest worker OOM。chat 的 vitest worker 同时限制堆上限，让同类问题更快暴露。
 - 2026-11-22：澄清 FE-CSS-02 的适用范围：4px 基数约束布局间距，ui-spec 组件契约明确写出的固定尺寸（订单卡片 7px 圆点、空态 44px 图标）优先。F-30 评审中 Standards 与 Spec 两轴曾因 7px 圆点给出冲突结论。
+- 2026-11-22：FE-TEST-05 落地：`trace.py` 在前端测试文件头读取 `// AC-XX`（前 5 行），与用例名扫描合并去重；P2 起前端行为类 AC 不再只靠后端测试计数。
