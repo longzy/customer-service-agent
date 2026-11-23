@@ -11,6 +11,7 @@ from backend.adapters.oms.port import OmsAccess
 from backend.domain.cancellation import CancellationState
 from backend.errors import OrderNotFound
 from backend.identity import Identity
+from backend.platform import metrics
 from backend.tools.cancel import build_cancel_gateway
 from backend.workflows.cancel import (
     CancellationRepository,
@@ -838,3 +839,150 @@ async def test_放弃与过期都写放弃事件_AC_70() -> None:
     assert [item["metadata"]["trigger"] for item in abandoned] == ["customer", "expired"]
     assert [item["actor_type"] for item in abandoned] == ["customer", "system"]
     assert not [item for item in events if item["event"] == "cancellation.submitted"]
+
+
+def _collector() -> tuple[list[dict[str, Any]], Any]:
+    events: list[dict[str, Any]] = []
+
+    async def on_event(event: dict[str, Any]) -> None:
+        events.append(event)
+
+    return events, on_event
+
+
+def _delta(name: str, before: dict[str, int]) -> int:
+    return metrics.snapshot().get(name, 0) - before.get(name, 0)
+
+
+async def test_发起事件载荷逐字段_AC_70() -> None:
+    """事件载荷是审计与追溯的唯一来源：字段缺失或改名都会让链路断点。"""
+    events, on_event = _collector()
+    flow, _, _ = workflow(on_event=on_event)
+    task = await flow.request(
+        OWNER,
+        "ORD-10001",
+        "t-payload",
+        conversation_id="conv-7",
+        requested_by_type="AGENT",
+        requested_by_id="emp-9",
+    )
+
+    assert events == [
+        {
+            "event": "cancellation.requested",
+            "trace_id": "t-payload",
+            "tenant_id": "tenant-a",
+            "actor_type": "employee",
+            "actor_id": "emp-9",
+            "result_status": "committed",
+            "metadata": {
+                "task_id": task.id,
+                "order_id": "ORD-10001",
+                "conversation_id": "conv-7",
+                "requested_by_type": "AGENT",
+                "requested_by_id": "emp-9",
+                "confirmed_by_id": None,
+                "confirmation_source": None,
+                "state": "AWAITING_CONFIRMATION",
+                "reason_code": None,
+            },
+        }
+    ]
+
+
+async def test_发起人类型决定事件身份_AC_70() -> None:
+    """发起类型大小写、缺省发起人、客户缺省三种口径不能串。"""
+    events, on_event = _collector()
+    flow, _, _ = workflow(on_event=on_event)
+
+    await flow.request(
+        OWNER, "ORD-10001", "t-lower", requested_by_type="agent", requested_by_id="emp-9"
+    )
+    assert (events[-1]["actor_type"], events[-1]["actor_id"]) == ("employee", "emp-9")
+
+    await flow.request(OWNER, "ORD-10001", "t-no-id", requested_by_type="AGENT")
+    assert (events[-1]["actor_type"], events[-1]["actor_id"]) == ("employee", OWNER.account_id)
+
+    await flow.request(OWNER, "ORD-10001", "t-customer")
+    assert (events[-1]["actor_type"], events[-1]["actor_id"]) == ("customer", OWNER.account_id)
+    assert events[-1]["metadata"]["requested_by_type"] == "CUSTOMER"
+
+
+async def test_提交被拒写提交与结果事件_AC_70() -> None:
+    """下游拒绝也要留提交事件与结果事件，并计入对应状态计数。"""
+    events, on_event = _collector()
+    oms = MockOmsAdapter()
+    flow, _, _ = workflow(oms=oms, on_event=on_event)
+    task = await flow.request(OWNER, "ORD-10001", "t-rejected")
+    oms.submit_cancel(access(), "ORD-10001", "another-key-123")
+    before = metrics.snapshot()
+
+    confirmed = await flow.confirm(OWNER, task.id)
+
+    assert confirmed.state is CancellationState.REJECTED
+    submitted = [item for item in events if item["event"] == "cancellation.submitted"]
+    assert len(submitted) == 1
+    assert submitted[0]["actor_type"] == "system"
+    assert submitted[0]["result_status"] == "rejected"
+    assert submitted[0]["metadata"]["result"] == "rejected"
+    assert submitted[0]["metadata"]["error_code"] == "OMS_REJECTED"
+    result = [item for item in events if item["event"] == "cancellation.result"][-1]
+    assert result["metadata"]["from_status"] == "SUBMITTING"
+    assert result["metadata"]["to_status"] == "REJECTED"
+    assert result["metadata"]["result"] == "rejected"
+    assert result["result_status"] == "committed"
+    assert _delta('cancel_total{state="REJECTED"}', before) == 1
+
+
+async def test_提交超时写未知事件与指标_AC_70() -> None:
+    """提交结果未知：记一次未知提交、未知状态计数与转人工结果。"""
+    events, on_event = _collector()
+    oms = MockOmsAdapter()
+    oms.faults.add(FaultRule(kind="delay", tool="submit_cancel", delay_ms=2000))
+    oms.faults.add(FaultRule(kind="unavailable", tool="get_cancel_result", times=10))
+    flow, _, _ = workflow(oms=oms, timeout=0.05, on_event=on_event)
+    task = await flow.request(OWNER, "ORD-10001", "t-unknown")
+    before = metrics.snapshot()
+
+    confirmed = await flow.confirm(OWNER, task.id)
+
+    assert confirmed.state is CancellationState.MANUAL_REVIEW
+    submitted = [item for item in events if item["event"] == "cancellation.submitted"]
+    assert [item["metadata"]["result"] for item in submitted] == ["unknown"]
+    assert submitted[0]["result_status"] == "unknown"
+    assert submitted[0]["metadata"]["error_code"] == "DEPENDENCY_TIMEOUT"
+    result = [item for item in events if item["event"] == "cancellation.result"][-1]
+    assert result["metadata"]["from_status"] == "SUBMIT_UNKNOWN"
+    assert result["metadata"]["to_status"] == "MANUAL_REVIEW"
+    assert _delta("cancel_unknown_total", before) == 1
+    assert _delta('cancel_total{state="SUBMIT_UNKNOWN"}', before) == 1
+    assert _delta('cancel_total{state="MANUAL_REVIEW"}', before) == 1
+
+
+async def test_放弃事件载荷逐字段_AC_70() -> None:
+    """客户放弃记客户；过期由系统收尾，两者都不写提交事件。"""
+    events, on_event = _collector()
+    clock = [datetime(2026, 11, 15, tzinfo=UTC)]
+    flow, _, _ = workflow(now=lambda: clock[0], on_event=on_event)
+    task = await flow.request(OWNER, "ORD-10001", "t-abandon-payload")
+
+    await flow.abandon(OWNER, task.id)
+
+    abandoned = events[-1]
+    assert abandoned["event"] == "cancellation.abandoned"
+    assert abandoned["actor_type"] == "customer"
+    assert abandoned["actor_id"] == OWNER.account_id
+    assert abandoned["result_status"] == "committed"
+    assert abandoned["metadata"]["trigger"] == "customer"
+    assert abandoned["metadata"]["from_status"] == "AWAITING_CONFIRMATION"
+    assert abandoned["metadata"]["to_status"] == "ABANDONED"
+    assert abandoned["metadata"]["state"] == "ABANDONED"
+
+    expired = await flow.request(OWNER, "ORD-10001", "t-expired-payload")
+    clock[0] += timedelta(minutes=31)
+    await flow.get(OWNER, expired.id)
+
+    system = events[-1]
+    assert (system["actor_type"], system["actor_id"]) == ("system", "system")
+    assert system["metadata"]["trigger"] == "expired"
+    assert system["metadata"]["from_status"] == "AWAITING_CONFIRMATION"
