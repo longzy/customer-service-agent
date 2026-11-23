@@ -85,6 +85,9 @@ jobs:
       DATABASE_URL: postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/customer_service_test
     steps:
       - uses: actions/checkout@v4
+        with:
+          # 准备测试库会跑 tests/unit，其中 review_pack 测试需要完整历史。
+          fetch-depth: 0
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
