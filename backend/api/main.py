@@ -16,9 +16,9 @@ from backend.adapters.oms.factory import build_oms
 from backend.adapters.oms.mock import MockOmsAdapter
 from backend.agent_runtime.model import build_model_client
 from backend.api.admin_routes import router as admin_router
-from backend.api.audit import audit_transition
 from backend.api.csrf import verify_origin
 from backend.api.errors import ApiError, api_error_handler
+from backend.api.recovery import recover_cancellations
 from backend.api.request_id import attach_request_id
 from backend.api.service_audit import audit_api_error
 from backend.audit import SqlAuditWriter
@@ -39,7 +39,6 @@ from backend.platform.settings import Settings, settings
 from backend.tools.cancel import build_cancel_gateway
 from backend.tools.gateway import error_envelope
 from backend.tools.query import build_query_gateway
-from backend.workflows.cancel import CancellationWorkflow, SqlCancellationRepository
 
 logger = logging.getLogger(__name__)
 
@@ -77,31 +76,13 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     async def recover() -> None:
         try:
             async with session_factory() as session:
-
-                async def audit(event: dict[str, object]) -> None:
-                    await audit_transition(
-                        session,
-                        trace_id=str(event["trace_id"]),
-                        identity=event["identity"],  # type: ignore[arg-type]
-                        task_id=str(event["task_id"]),
-                        order_id=str(event["order_id"]),
-                        from_state=str(event["from_state"]),
-                        to_state=str(event["to_state"]),
-                        reason_code=event["reason_code"],  # type: ignore[arg-type]
-                        result_status=str(event["result_status"]),
-                        idempotency_key=event.get("idempotency_key"),  # type: ignore[arg-type]
-                    )
-
-                workflow = CancellationWorkflow(
-                    SqlCancellationRepository(session),
-                    _app.state.cancel_gateway,
-                    confirm_timeout_minutes=active.confirm_timeout_minutes,
-                    max_retries=active.max_retries,
-                    retry_backoff_seconds=active.retry_backoff_seconds,
-                    audit=audit,
-                )
                 with use_trace_sink(trace_sink):
-                    await workflow.recover_pending()
+                    await recover_cancellations(
+                        session,
+                        gateway=_app.state.cancel_gateway,
+                        audit_writer=_app.state.audit_writer,
+                        active=active,
+                    )
         except Exception:  # noqa: BLE001 - 恢复失败不应阻止服务启动
             logger.exception("启动恢复失败")
 

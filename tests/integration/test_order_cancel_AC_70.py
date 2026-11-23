@@ -15,7 +15,10 @@ import pytest
 from sqlalchemy import delete, text
 from sqlalchemy.exc import SQLAlchemyError
 
-from backend.audit import AuditUnavailableError
+from backend.adapters.oms.port import OmsAccess
+from backend.api.recovery import recover_cancellations
+from backend.audit import AuditUnavailableError, SqlAuditWriter
+from backend.platform.db import session_factory
 from backend.platform.models import ServiceAuditEvent, ToolExecution
 from tests.integration.cancellation_support import (
     api_client,
@@ -257,3 +260,48 @@ def test_取消审计禁止修改与删除_AC_70() -> None:
     with pytest.raises(SQLAlchemyError):
         asyncio.run(with_db(remove))
     assert events_of("cancellation.requested")
+
+
+async def _force_state(db: Any, task_id: str, state: str) -> None:
+    """模拟进程在提交中途重启：任务停在 SUBMITTING，没有进程内状态。"""
+    await db.execute(
+        text("UPDATE cancellation_requests SET state = :state WHERE id = :id"),
+        {"state": state, "id": task_id},
+    )
+    await db.commit()
+
+
+def test_启动恢复收敛也写结果事件_AC_70() -> None:
+    """重启后收敛悬挂任务同样要写结果事件，否则终态来源不可审计。"""
+    app = cancellation_app(max_retries=1, retry_backoff_seconds=0)
+    with api_client(app) as api:
+        login(api)
+        created = create_cancellation(api).json()
+
+    [row] = task_rows()
+    # 模拟“提交已到达 OMS、进程随后重启”：先落一次真实提交，再让任务停在 SUBMITTING。
+    app.state.oms.submit_cancel(
+        OmsAccess(tenant_id=TENANT, user_id="user-a1"), "ORD-10001", row.idempotency_key
+    )
+    app.state.oms.set_cancel_result(TENANT, row.idempotency_key, "CANCELLED")
+    asyncio.run(with_db(lambda db: _force_state(db, created["id"], "SUBMITTING")))
+    submits_before = app.state.oms.calls["submit_cancel"]
+
+    async def recover(db: Any) -> int:
+        return await recover_cancellations(
+            db,
+            gateway=app.state.cancel_gateway,
+            audit_writer=SqlAuditWriter(session_factory),
+            active=app.state.settings,
+        )
+
+    assert asyncio.run(with_db(recover)) == 1
+
+    results = events_of("cancellation.result")
+    assert [event.metadata_redacted["state"] for event in results] == ["CANCELLED"]
+    assert results[0].entity_id == created["id"]
+    assert results[0].trace_id == row.trace_id
+    assert results[0].metadata_redacted["from_status"] == "SUBMITTING"
+    assert results[0].actor_type == "system"
+    # 恢复只按幂等键查询，不重复提交。
+    assert app.state.oms.calls["submit_cancel"] == submits_before

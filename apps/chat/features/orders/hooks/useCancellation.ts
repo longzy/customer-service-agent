@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { ApiError } from "@/lib/api-client";
@@ -141,8 +141,14 @@ export function useCancellation(onChanged: () => void) {
    * 列表项的“刷新结果”：任务已提交但未收敛时按 id 拉一次最新状态。
    * 成功后通知页面重读列表；失败沿用弹层的错误文案，不静默丢弃。
    */
+  // 同一任务只允许一个刷新在途：列表按钮可连点，重复 POST 只会白跑一次 OMS 查询。
+  const refreshing = useRef<Set<string>>(new Set());
   const refreshTask = useCallback(
     async (taskId: string) => {
+      if (refreshing.current.has(taskId)) {
+        return null;
+      }
+      refreshing.current.add(taskId);
       try {
         const latest = await refreshCancellation(taskId);
         onChanged();
@@ -153,6 +159,8 @@ export function useCancellation(onChanged: () => void) {
         }
         setState({ kind: "error", order: null, message: messageOf(error) });
         return null;
+      } finally {
+        refreshing.current.delete(taskId);
       }
     },
     [handleAuth, onChanged],
