@@ -12,8 +12,13 @@ from datetime import datetime
 from typing import Any
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from backend.conversations.cancellation_access import (
+    customer_cancellation_scope,
+    ensure_confirmation_allowed,
+)
 from backend.conversations.order_queries import customer_identity
 from backend.domain.cancellation import (
     IN_PROGRESS_STATES,
@@ -48,6 +53,19 @@ class CancellationTaskNotFound(Exception):
 
 class CancellationStateConflict(Exception):
     """任务状态不允许本次操作（并发或非法转换）。"""
+
+
+# 迁移 0014 的部分唯一索引名；并发插入由数据库兜底时据此区分冲突来源。
+ACTIVE_ORDER_INDEX = "uq_cancellation_active_order"
+
+
+def _is_active_order_conflict(error: IntegrityError) -> bool:
+    """只把“同订单活跃任务”唯一冲突当并发处理，其他完整性错误照常抛出。"""
+    diag = getattr(error.orig, "diag", None)
+    name = getattr(diag, "constraint_name", None)
+    if isinstance(name, str):
+        return name == ACTIVE_ORDER_INDEX
+    return ACTIVE_ORDER_INDEX in str(error.orig)
 
 
 @dataclass(frozen=True)
@@ -142,14 +160,26 @@ async def request_cancellation(
             await db.flush()
         else:
             return await workflow.get(identity, existing.id)
-    return await workflow.request(
-        identity,
-        order_id,
-        trace_id,
-        conversation_id,
-        requested_by_type="CUSTOMER",
-        requested_by_id=customer.id,
-    )
+    try:
+        # 并发插入由数据库唯一索引兜底；savepoint 让冲突只回滚本次插入，
+        # 不污染请求级事务（design 3.3 / D-2）。
+        async with db.begin_nested():
+            return await workflow.request(
+                identity,
+                order_id,
+                trace_id,
+                conversation_id,
+                requested_by_type="CUSTOMER",
+                requested_by_id=customer.id,
+            )
+    except IntegrityError as error:
+        if not _is_active_order_conflict(error):
+            raise
+        winner = await _in_progress_task(db, customer, order_id)
+        if winner is None:
+            # 并发方已回滚或任务已离开进行中状态：按冲突返回，不新建。
+            raise CancellationStateConflict(order_id) from error
+        return await workflow.get(identity, winner.id)
 
 
 async def latest_awaiting_confirmation(
@@ -192,6 +222,8 @@ async def confirm_cancellation(
     confirmation_source: str = "BUTTON",
 ) -> CancellationTask:
     """客户确认；来源为按钮或固定短语，过期任务结束且不提交。"""
+    # 确认只属于客户本人；坐席 actor 在此被拒绝（403），不进入状态机。
+    ensure_confirmation_allowed(customer_cancellation_scope(customer))
     workflow = build_workflow(db, gateway, confirm_timeout_minutes=confirm_timeout_minutes, now=now)
     identity = customer_identity(customer)
     try:
@@ -223,6 +255,8 @@ async def decline_cancellation(
     confirm_timeout_minutes: int,
 ) -> CancellationTask:
     """客户拒绝；重复拒绝幂等，不写 OMS。"""
+    # 拒绝同样属于客户本人；坐席无确认/拒绝权限。
+    ensure_confirmation_allowed(customer_cancellation_scope(customer))
     workflow = build_workflow(db, gateway, confirm_timeout_minutes=confirm_timeout_minutes, now=now)
     identity = customer_identity(customer)
     try:

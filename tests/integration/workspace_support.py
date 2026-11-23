@@ -10,6 +10,7 @@ from sqlalchemy import delete, text, update
 
 from backend.identity.passwords import hash_password
 from backend.platform.models import (
+    CancellationRequest,
     ServiceAiEvent,
     ServiceConversation,
     ServiceCustomer,
@@ -45,6 +46,7 @@ async def reset_workspace_state(db: Any) -> None:
     await db.execute(delete(ServiceCustomerSession))
     await db.execute(delete(ServiceEmployeeSession))
     await db.execute(delete(ServiceConversation))
+    await db.execute(delete(CancellationRequest))
     await db.execute(delete(ServiceCustomer))
     await db.execute(delete(ServiceEmployee))
     await db.execute(delete(ServiceRateLimitBucket))
