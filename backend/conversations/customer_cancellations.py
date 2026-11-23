@@ -15,10 +15,6 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.conversations.cancellation_access import (
-    customer_cancellation_scope,
-    ensure_confirmation_allowed,
-)
 from backend.conversations.order_queries import customer_identity
 from backend.domain.cancellation import (
     IN_PROGRESS_STATES,
@@ -221,9 +217,11 @@ async def confirm_cancellation(
     confirm_timeout_minutes: int,
     confirmation_source: str = "BUTTON",
 ) -> CancellationTask:
-    """客户确认；来源为按钮或固定短语，过期任务结束且不提交。"""
-    # 确认只属于客户本人；坐席 actor 在此被拒绝（403），不进入状态机。
-    ensure_confirmation_allowed(customer_cancellation_scope(customer))
+    """客户确认；来源为按钮或固定短语，过期任务结束且不提交。
+
+    确认身份由客户会话与任务归属（tenant + OMS 客户）共同确定；坐席没有确认
+    入口，代确认 403 属于工作台路由层（F-36/AC-69），不在本函数内判定。
+    """
     workflow = build_workflow(db, gateway, confirm_timeout_minutes=confirm_timeout_minutes, now=now)
     identity = customer_identity(customer)
     try:
@@ -254,9 +252,7 @@ async def decline_cancellation(
     now: datetime,
     confirm_timeout_minutes: int,
 ) -> CancellationTask:
-    """客户拒绝；重复拒绝幂等，不写 OMS。"""
-    # 拒绝同样属于客户本人；坐席无确认/拒绝权限。
-    ensure_confirmation_allowed(customer_cancellation_scope(customer))
+    """客户拒绝；重复拒绝幂等，不写 OMS。拒绝同样只存在客户入口（见确认函数）。"""
     workflow = build_workflow(db, gateway, confirm_timeout_minutes=confirm_timeout_minutes, now=now)
     identity = customer_identity(customer)
     try:
