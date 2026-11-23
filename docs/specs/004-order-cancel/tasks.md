@@ -21,7 +21,7 @@
 | F-31 | 列表取消按钮与客户确认 | AC-60、AC-61、AC-62 | 已完成 | [打开](../../tasks/004-order-cancel/F-31.md) |
 | F-32 | 聊天入口与订单号兜底 | AC-63、AC-61 | 已完成 | [打开](../../tasks/004-order-cancel/F-32.md) |
 | F-33 | 资格、越权与幂等 | AC-64、AC-65、AC-66 | 已完成 | [打开](../../tasks/004-order-cancel/F-33.md) |
-| F-34 | 提交恢复与可观测 | AC-67、AC-70 | 待评审 | [打开](../../tasks/004-order-cancel/F-34.md) |
+| F-34 | 提交恢复与可观测 | AC-67、AC-70 | 已完成 | [打开](../../tasks/004-order-cancel/F-34.md) |
 | F-35 | 异常转人工与交接单 | AC-68 | 未开始 | [打开](../../tasks/004-order-cancel/F-35.md) |
 | F-36 | 坐席发起、工作台取消区与评测收口 | AC-69、AC-71、AC-72 | 未开始 | [打开](../../tasks/004-order-cancel/F-36.md) |
 <!-- gen:end -->
