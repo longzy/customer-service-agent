@@ -188,3 +188,16 @@ def test_一个测试名可聚合多条AC_基座豁免(tmp_path: Path) -> None:
     assert code == 0
     assert next(row for row in report["acs"] if row["id"] == first)["tests"] == 2
     assert next(row for row in report["acs"] if row["id"] == second)["tests"] == 2
+
+
+def test_草案spec的AC不计入评测覆盖_基座豁免(tmp_path: Path) -> None:
+    """草案 spec 还没拆分任务：其 AC 不要求场景用例。"""
+    module = load_run()
+    spec = tmp_path / "009-demo"
+    spec.mkdir()
+    (spec / "requirements.md").write_text(
+        "- 状态：草案\n\n| AC | 角色 | 场景 | 期望 |\n|---|---|---|---|\n"
+        "| AC-99 | 客户 | demo | demo |\n",
+        encoding="utf-8",
+    )
+    assert module.discover_ac_ids(tmp_path) == []
