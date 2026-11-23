@@ -166,6 +166,51 @@ describe("OrdersPage", () => {
     });
   });
 
+  it("AC-67 连点刷新只发一次请求", async () => {
+    const acceptedOrder = {
+      ...ORDERS[1],
+      cancellation: {
+        id: "task-1",
+        state: "ACCEPTED",
+        status_text: "已受理，等待最终取消结果",
+        next_step: "如需帮助，可转人工。",
+        expires_at: "2026-11-24T10:00:00Z",
+        can_confirm: false,
+      },
+    };
+    const fetchMock = vi
+      .spyOn(global, "fetch")
+      .mockResolvedValueOnce(json({ orders: [acceptedOrder] }))
+      .mockResolvedValueOnce(
+        json({
+          id: "task-1",
+          order_id: "ORD-10001",
+          state: "CANCELLED",
+          status_text: "已取消",
+          reason_text: null,
+          next_step: "如需帮助，可转人工。",
+          reply: "已取消。如需帮助，可转人工。",
+          expires_at: "2026-11-24T10:00:00Z",
+          confirmed_at: "2026-11-23T10:00:00Z",
+          confirmation_source: "BUTTON",
+          can_confirm: false,
+        }),
+      )
+      .mockResolvedValueOnce(json({ orders: [] }));
+
+    render(<OrdersPage />);
+
+    const button = await screen.findByRole("button", { name: "刷新结果" });
+    fireEvent.click(button);
+    fireEvent.click(button);
+
+    await waitFor(() =>
+      expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith("/refresh"))).toHaveLength(
+        1,
+      ),
+    );
+  });
+
   it("AC-59 未登录时跳转登录页", async () => {
     vi.spyOn(global, "fetch").mockResolvedValueOnce(
       json({ code: "SESSION_INVALID", message: "登录已失效，请重新登录" }, 401),

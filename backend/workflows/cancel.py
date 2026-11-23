@@ -477,6 +477,8 @@ class CancellationWorkflow:
                 await self._finish(task, CancellationState.ACCEPTED)
                 return await self._refresh_accepted(identity, task, trace_id)
             await self._emit_submitted(task, result="unknown", result_status="unknown")
+            # 回执缺失也算一次“结果未知”；任务状态仍是 SUBMITTING，故不记状态计数。
+            metrics.increment("cancel_unknown_total")
             return await self._recover(identity, task, trace_id)
         except GatewayError as error:
             metrics.increment("cancel_submit_latency_ms_total", _elapsed_ms(started))
@@ -496,12 +498,13 @@ class CancellationWorkflow:
             task.last_error_code = str(code)
             await self._repository.save(task)
             await self._repository.commit()
+            await self._emit_submitted(
+                task, result="unknown", result_status="unknown", error_code=str(code)
+            )
+            # 审计失败会回滚到 SUBMITTING，计数与事件顺序保持一致。
             metrics.increment("cancel_unknown_total")
             metrics.increment_labeled(
                 "cancel_total", {"state": CancellationState.SUBMIT_UNKNOWN.value}
-            )
-            await self._emit_submitted(
-                task, result="unknown", result_status="unknown", error_code=str(code)
             )
             return await self._recover(identity, task, trace_id)
 
@@ -623,7 +626,6 @@ class CancellationWorkflow:
         await self._repository.save(task)
         await self._repository.commit()
         if previous is not state:
-            metrics.increment_labeled("cancel_total", {"state": state.value})
             await self._emit(
                 "cancellation.result",
                 task,
@@ -637,6 +639,8 @@ class CancellationWorkflow:
                     "error_code": task.last_error_code,
                 },
             )
+            # 审计写失败会回滚业务；计数放在事件之后，避免统计出未落库的状态。
+            metrics.increment_labeled("cancel_total", {"state": state.value})
         return task
 
     def _expired(self, task: CancellationTask) -> bool:
