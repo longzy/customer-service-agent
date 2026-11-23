@@ -42,6 +42,9 @@ jobs:
           --health-retries 5
     steps:
       - uses: actions/checkout@v4
+        with:
+          # review_pack 测试按提交 subject 识别固定点，需要完整历史。
+          fetch-depth: 0
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
@@ -63,6 +66,23 @@ jobs:
   mutation:
     name: mutation
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: customer_service_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      # mutmut 的 clean tests 在副本目录启动应用，必须连已迁移的测试库。
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@127.0.0.1:5432/customer_service_test
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
@@ -70,6 +90,8 @@ jobs:
           enable-cache: true
       - name: 安装依赖（锁定版本）
         run: uv sync --frozen
+      - name: 准备测试库
+        run: TEST_DB_NAME=customer_service_test ./scripts/test-db.sh tests/unit -q
       - name: 关键模块突变（Workflow/Gateway ≥80%，Policy/领域 ≥70%）
         run: ./scripts/mutation.sh
 
