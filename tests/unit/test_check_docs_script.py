@@ -228,6 +228,40 @@ def test_验证层级命令齐全时通过_基座豁免() -> None:
     assert module.verify_level_gaps(text) == []
 
 
+def test_草案规格允许只有requirements_基座豁免(tmp_path: Path, monkeypatch: Any) -> None:
+    """草案 spec 还在 Frame：不要求 design.md/tasks.md，也不做 AC 覆盖。"""
+    module = load_module()
+    spec = tmp_path / "docs" / "specs" / "009-demo"
+    spec.mkdir(parents=True)
+    requirements = spec / "requirements.md"
+    requirements.write_text("- 状态：草案\n\n| AC-99 | 客户 | demo | demo |\n", encoding="utf-8")
+    monkeypatch.setattr(module, "errors", [])
+    monkeypatch.setattr(module, "checked", {"specs": 0, "drafts": 0, "acs": 0})
+
+    module.check_spec_structure([("009-demo", str(spec))])
+    module.check_ac_coverage([("009-demo", str(spec))])
+
+    assert module.errors == []
+    assert module.checked["drafts"] == 1
+    assert module.checked["specs"] == 0
+    assert module.checked["acs"] == 0
+
+
+def test_非草案规格缺文件仍阻断_基座豁免(tmp_path: Path, monkeypatch: Any) -> None:
+    module = load_module()
+    spec = tmp_path / "docs" / "specs" / "009-demo"
+    spec.mkdir(parents=True)
+    (spec / "requirements.md").write_text("- 状态：已批准\n", encoding="utf-8")
+    monkeypatch.setattr(module, "errors", [])
+    monkeypatch.setattr(module, "checked", {"specs": 0, "drafts": 0, "acs": 0})
+
+    module.check_spec_structure([("009-demo", str(spec))])
+
+    assert len(module.errors) == 1
+    assert "缺少 design.md, tasks.md" in module.errors[0]
+    assert module.checked["drafts"] == 0
+
+
 def test_执行卡引用测试文件名短名也通过_基座豁免(tmp_path: Path, monkeypatch: Any) -> None:
     module = load_module()
     tasks = tmp_path / "docs" / "tasks" / "001-demo"

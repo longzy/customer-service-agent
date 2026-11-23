@@ -60,3 +60,15 @@ def test_ac_from_tests读取前端文件头_基座豁免(tmp_path: Path, monkeyp
     )
     monkeypatch.setattr(module, "ROOT", tmp_path)
     assert module.ac_from_tests().get("AC-59") == ["apps/chat/tests/Demo.test.tsx"]
+
+
+def test_草案requirements判定_基座豁免(tmp_path: Path) -> None:
+    """草案 spec 的 AC 不进入追溯矩阵；状态行缺失或读不到按非草案。"""
+    module = load_module()
+    requirements = tmp_path / "requirements.md"
+    requirements.write_text("- 状态：草案\n", encoding="utf-8")
+    assert module.is_draft(requirements) is True
+
+    requirements.write_text("- 状态：已批准\n", encoding="utf-8")
+    assert module.is_draft(requirements) is False
+    assert module.is_draft(tmp_path / "missing.md") is False

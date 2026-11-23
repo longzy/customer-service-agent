@@ -55,6 +55,8 @@ Frame（目标/非目标/完成标准）
 
 完成标志：**用户能复述“为谁、做什么、不做什么、怎么算完成”**；AC 可判定、可追溯；有垂直切片时覆盖全部 AC。
 
+草案期：`requirements.md` 标注 `- 状态：草案` 时，`check-docs`/`check-spec`/`trace.py` 只保留命名与编号校验，跳过三件套、AC 覆盖与追溯（`scripts/spec_status.py` 统一判定）；批准（改为「已批准」）后自动进入完整门禁。
+
 ### 3.2 Plan
 
 产物：`design.md`（T2 1–3 页，T3 按需扩展，附录不计；模板 [design](../templates/design.md)）。
