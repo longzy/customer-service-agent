@@ -68,6 +68,7 @@ def workflow(
     backoff: float = 0.01,
     audit: Any = None,
     confirmation: Any = None,
+    on_event: Any = None,
 ) -> tuple[CancellationWorkflow, MemoryRepository, MockOmsAdapter]:
     repository = repo or MemoryRepository()
     service = oms or MockOmsAdapter()
@@ -78,6 +79,7 @@ def workflow(
         now=now,
         audit=audit,
         confirmation=confirmation,
+        on_event=on_event,
     )
     return flow, repository, service
 
@@ -759,3 +761,80 @@ async def test_仓储行映射含发起与确认字段_AC_60() -> None:
     assert task.confirmation_source == "BUTTON"
     assert task.confirmed_by_id == "cust-customer_a"
     assert task.version == 2
+
+
+async def test_五类取消事件顺序与字段_AC_70() -> None:
+    """请求→确认→提交→结果：事件顺序稳定，发起人与确认人可追溯。"""
+    events: list[dict[str, Any]] = []
+
+    async def on_event(event: dict[str, Any]) -> None:
+        events.append(event)
+
+    flow, _, _ = workflow(on_event=on_event)
+    task = await flow.request(
+        OWNER,
+        "ORD-10001",
+        "t-events",
+        requested_by_type="CUSTOMER",
+        requested_by_id="cust-customer_a",
+    )
+    await flow.confirm(
+        OWNER,
+        task.id,
+        confirmation_source="PHRASE",
+        confirmed_by_id="cust-customer_a",
+    )
+
+    assert [item["event"] for item in events] == [
+        "cancellation.requested",
+        "cancellation.confirmed",
+        "cancellation.submitted",
+        "cancellation.result",
+    ]
+    assert [item["trace_id"] for item in events] == [task.trace_id] * 4
+    requested, confirmed, submitted, result = events
+    assert requested["actor_type"] == "customer"
+    assert requested["actor_id"] == "cust-customer_a"
+    assert requested["metadata"]["state"] == "AWAITING_CONFIRMATION"
+    assert confirmed["actor_id"] == "cust-customer_a"
+    assert confirmed["metadata"]["confirmation_source"] == "PHRASE"
+    assert submitted["actor_type"] == "system"
+    assert submitted["metadata"]["result"] == "accepted"
+    assert result["metadata"]["to_status"] == "ACCEPTED"
+
+
+async def test_重复确认不重复写事件_AC_70() -> None:
+    """终态后重复确认幂等：不重复写确认/提交/结果事件。"""
+    events: list[dict[str, Any]] = []
+
+    async def on_event(event: dict[str, Any]) -> None:
+        events.append(event)
+
+    flow, _, _ = workflow(on_event=on_event)
+    task = await flow.request(OWNER, "ORD-10001", "t-idem-events")
+    await flow.confirm(OWNER, task.id)
+    before = len(events)
+    await flow.confirm(OWNER, task.id)
+    assert len(events) == before
+
+
+async def test_放弃与过期都写放弃事件_AC_70() -> None:
+    """客户放弃触发 customer，确认过期触发 expired；都不写提交事件。"""
+    events: list[dict[str, Any]] = []
+    clock = [datetime(2026, 11, 15, tzinfo=UTC)]
+
+    async def on_event(event: dict[str, Any]) -> None:
+        events.append(event)
+
+    flow, _, _ = workflow(now=lambda: clock[0], on_event=on_event)
+    task = await flow.request(OWNER, "ORD-10001", "t-abandon-events")
+    await flow.abandon(OWNER, task.id)
+    # 终态释放唯一索引，同一订单可重新发起；本用例只验证过期放弃的事件口径。
+    expired_task = await flow.request(OWNER, "ORD-10001", "t-expire-events")
+    clock[0] += timedelta(minutes=31)
+    await flow.confirm(OWNER, expired_task.id)
+
+    abandoned = [item for item in events if item["event"] == "cancellation.abandoned"]
+    assert [item["metadata"]["trigger"] for item in abandoned] == ["customer", "expired"]
+    assert [item["actor_type"] for item in abandoned] == ["customer", "system"]
+    assert not [item for item in events if item["event"] == "cancellation.submitted"]

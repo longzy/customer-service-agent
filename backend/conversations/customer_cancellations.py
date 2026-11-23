@@ -7,6 +7,7 @@
 - 同一订单只允许一个进行中任务；过期任务在读取/重新发起时惰性收尾，不写 OMS。
 """
 
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -75,11 +76,28 @@ class CancellationSnapshot:
     expires_at: datetime
 
 
+AuditSink = Callable[[dict[str, Any]], Awaitable[None]]
+
+
+@dataclass(frozen=True)
+class CancellationRuntime:
+    """请求内取消运行参数：确认有效期、恢复退避与审计出口。
+
+    确认有效期由产品配置决定；重试与退避沿用 001 的 Workflow 参数，测试用配置
+    注入 0 退避即可验证“最多 3 次”而不等待真实时长（F-34 D-1）。
+    """
+
+    confirm_timeout_minutes: int
+    max_retries: int = 3
+    retry_backoff_seconds: float = 1.0
+    audit: AuditSink | None = None
+
+
 def build_workflow(
     db: AsyncSession,
     gateway: ToolGateway | None,
     *,
-    confirm_timeout_minutes: int,
+    runtime: CancellationRuntime,
     now: datetime,
 ) -> CancellationWorkflow:
     """请求内工作流：仓储只 flush，提交交给请求级 UoW。"""
@@ -89,8 +107,11 @@ def build_workflow(
     return CancellationWorkflow(
         SqlCancellationRepository(db, commit_on_save=False),
         gateway,
-        confirm_timeout_minutes=confirm_timeout_minutes,
+        confirm_timeout_minutes=runtime.confirm_timeout_minutes,
+        max_retries=runtime.max_retries,
+        retry_backoff_seconds=runtime.retry_backoff_seconds,
         now=lambda: now,
+        on_event=runtime.audit,
     )
 
 
@@ -138,7 +159,7 @@ async def request_cancellation(
     *,
     trace_id: str,
     now: datetime,
-    confirm_timeout_minutes: int,
+    runtime: CancellationRuntime,
     conversation_id: str | None = None,
 ) -> CancellationTask:
     """发起取消；已有进行中任务时复用，过期的等待确认任务先收尾。
@@ -146,13 +167,13 @@ async def request_cancellation(
     归属/资格由 `get_cancel_eligibility` 网关判定：他人/不存在抛 `GatewayError` 404，
     资格不通过时任务落在 `ELIGIBILITY_REJECTED`，不进入可提交状态。
     """
-    workflow = build_workflow(db, gateway, confirm_timeout_minutes=confirm_timeout_minutes, now=now)
+    workflow = build_workflow(db, gateway, runtime=runtime, now=now)
     identity = customer_identity(customer)
     existing = await _in_progress_task(db, customer, order_id)
     if existing is not None:
         if existing.state is CancellationState.AWAITING_CONFIRMATION and existing.expires_at <= now:
             # 先 flush 收尾旧任务，再插入新任务，避免部分唯一索引在同一 flush 内冲突。
-            await workflow.abandon(identity, existing.id)
+            await workflow.abandon(identity, existing.id, trigger="expired")
             await db.flush()
         else:
             return await workflow.get(identity, existing.id)
@@ -214,7 +235,7 @@ async def confirm_cancellation(
     task_id: str,
     *,
     now: datetime,
-    confirm_timeout_minutes: int,
+    runtime: CancellationRuntime,
     confirmation_source: str = "BUTTON",
 ) -> CancellationTask:
     """客户确认；来源为按钮或固定短语，过期任务结束且不提交。
@@ -222,7 +243,7 @@ async def confirm_cancellation(
     确认身份由客户会话与任务归属（tenant + OMS 客户）共同确定；坐席没有确认
     入口，代确认 403 属于工作台路由层（F-36/AC-69），不在本函数内判定。
     """
-    workflow = build_workflow(db, gateway, confirm_timeout_minutes=confirm_timeout_minutes, now=now)
+    workflow = build_workflow(db, gateway, runtime=runtime, now=now)
     identity = customer_identity(customer)
     try:
         return await workflow.confirm(
@@ -250,10 +271,10 @@ async def decline_cancellation(
     task_id: str,
     *,
     now: datetime,
-    confirm_timeout_minutes: int,
+    runtime: CancellationRuntime,
 ) -> CancellationTask:
     """客户拒绝；重复拒绝幂等，不写 OMS。拒绝同样只存在客户入口（见确认函数）。"""
-    workflow = build_workflow(db, gateway, confirm_timeout_minutes=confirm_timeout_minutes, now=now)
+    workflow = build_workflow(db, gateway, runtime=runtime, now=now)
     identity = customer_identity(customer)
     try:
         return await workflow.abandon(identity, task_id)
@@ -270,10 +291,10 @@ async def refresh_cancellation(
     task_id: str,
     *,
     now: datetime,
-    confirm_timeout_minutes: int,
+    runtime: CancellationRuntime,
 ) -> CancellationTask:
     """结果刷新（写）：惰性过期，已受理按 OMS 结果继续推进。"""
-    workflow = build_workflow(db, gateway, confirm_timeout_minutes=confirm_timeout_minutes, now=now)
+    workflow = build_workflow(db, gateway, runtime=runtime, now=now)
     identity = customer_identity(customer)
     try:
         return await workflow.get(identity, task_id)

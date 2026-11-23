@@ -6,22 +6,27 @@ import { Button } from "@/components/ui/Button";
 import { formatAmount } from "@/lib/format";
 import { orderStatusTone } from "@/lib/orderStatus";
 
+import { canRefreshCancellation } from "../refreshStates";
 import type { CustomerOrderSummary } from "../types";
 
 type OrderListItemProps = {
   order: CustomerOrderSummary;
   onCancel: (order: CustomerOrderSummary) => void;
+  onRefresh: (taskId: string) => void;
 };
 
 /**
  * “我的订单”列表项：只展示 OMS 白名单字段。
  * 取消按钮只做入口，资格与提交都由服务端重新判定；有进行中任务时停在
  * “待确认/已受理”状态，避免重复发起（design 3.3）。
+ * 已受理/提交中的任务在结果卡关闭后仍可从列表刷新到最终结果（AC-67）。
  */
-export function OrderListItem({ order, onCancel }: OrderListItemProps) {
+export function OrderListItem({ order, onCancel, onRefresh }: OrderListItemProps) {
   const headingId = useId();
   const tone = orderStatusTone(order);
   const cancellation = order.cancellation;
+  const refreshTaskId =
+    cancellation && canRefreshCancellation(cancellation) ? cancellation.id : null;
 
   return (
     <article
@@ -61,6 +66,10 @@ export function OrderListItem({ order, onCancel }: OrderListItemProps) {
           {cancellation.can_confirm ? (
             <Button variant="soft" size="sm" onClick={() => onCancel(order)}>
               去确认
+            </Button>
+          ) : refreshTaskId ? (
+            <Button variant="secondary" size="sm" onClick={() => onRefresh(refreshTaskId)}>
+              刷新结果
             </Button>
           ) : null}
         </div>

@@ -112,6 +112,8 @@ class CancellationSummary(BaseModel):
     next_step: str
     expires_at: str
     can_confirm: bool
+    # F-34：列表/聊天卡片的刷新入口需要任务 id；旧消息载荷没有该字段时为空。
+    id: str | None = None
 
 
 class CustomerOrderSummary(OrderSummaryPublic):
