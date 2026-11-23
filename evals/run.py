@@ -24,6 +24,11 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parent.parent
+_SCRIPTS_DIR = ROOT / "scripts"
+if str(_SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS_DIR))
+from spec_status import is_draft  # noqa: E402  草案 spec 不计入评测覆盖
+
 SPECS_DIR = ROOT / "docs" / "specs"
 BASELINE_PATH = ROOT / "scripts" / "trace-baseline.txt"
 # M1-P 原型的验收编号只保留为历史测试标签，不再进入当前门禁。
@@ -48,6 +53,9 @@ def discover_ac_ids(specs_dir: Path = SPECS_DIR) -> list[str]:
     """当前 spec 的 AC 集合；与 `scripts/trace.py` 同源（requirements.md 的 AC 表）。"""
     found: set[str] = set()
     for path in sorted(specs_dir.glob("*/requirements.md")):
+        if is_draft(path):
+            # 草案 spec 还没拆分任务，其 AC 不要求场景用例。
+            continue
         found.update(AC_ROW.findall(path.read_text(encoding="utf-8")))
     return sorted(ac for ac in found if ac not in LEGACY_AC and ac not in FRONTEND_ONLY_AC)
 
