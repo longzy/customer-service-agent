@@ -23,7 +23,12 @@ NEW_COLUMNS = {
 def _require_test_database() -> None:
     """只允许在测试库跑 DDL，避免裸跑 pytest 时把开发库的列删掉。"""
     name = settings.database_url.rsplit("/", 1)[-1].split("?")[0]
-    allowed_prefixes = ("customer_service_review", "customer_service_security")
+    # 评审/安全评审用固定库；CI 的 verify/mutation 用 customer_service_test。
+    allowed_prefixes = (
+        "customer_service_review",
+        "customer_service_security",
+        "customer_service_test",
+    )
     if "_test_" not in name and not name.startswith(allowed_prefixes):
         pytest.skip(f"迁移测试只允许在测试库运行，当前库：{name}")
 
