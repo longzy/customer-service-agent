@@ -5,6 +5,7 @@ import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
+from time import monotonic
 from typing import Any, Protocol, cast
 from uuid import uuid4
 
@@ -14,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.domain.cancellation import CancellationState, OmsCancelState
 from backend.identity import Identity
+from backend.platform import metrics
 from backend.platform.models import CancellationRequest as CancellationRow
 from backend.tools.gateway import GatewayError, ToolGateway
 
@@ -77,6 +79,17 @@ class CancellationTask:
     confirmed_at: datetime | None = None
     confirmation_source: str | None = None
     confirmed_by_id: str | None = None
+
+
+def _requester_actor(task: CancellationTask, identity: Identity) -> tuple[str, str]:
+    """发起人只按任务登记的发起类型取；旧任务为空时按客户发起处理（design 5.3）。"""
+    if (task.requested_by_type or "CUSTOMER").upper() == "AGENT":
+        return "employee", task.requested_by_id or identity.account_id
+    return "customer", task.requested_by_id or identity.account_id
+
+
+def _elapsed_ms(started: float) -> int:
+    return int((monotonic() - started) * 1000)
 
 
 class CancellationRepository(Protocol):
@@ -209,6 +222,7 @@ class CancellationWorkflow:
         now: Callable[[], datetime] | None = None,
         audit: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
         confirmation: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
+        on_event: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
     ) -> None:
         self._repository = repository
         self._gateway = gateway
@@ -218,6 +232,7 @@ class CancellationWorkflow:
         self._now = now or (lambda: datetime.now(UTC))
         self._audit = audit
         self._confirmation = confirmation
+        self._on_event = on_event
 
     async def _record(
         self,
@@ -266,6 +281,84 @@ class CancellationWorkflow:
             }
         )
 
+    async def _emit(
+        self,
+        event: str,
+        task: CancellationTask,
+        *,
+        actor_type: str,
+        actor_id: str,
+        result_status: str = "committed",
+        metadata: dict[str, Any] | None = None,
+    ) -> None:
+        """写 004 的五类取消事件（design 5.1 / AC-70）。
+
+        回调缺失时不写；回调抛错必须向上传播，由调用方回滚业务并返回 503。
+        metadata 只放标识与判定结果，幂等键既不进 metadata 也不进列。
+        """
+        if self._on_event is None:
+            return
+        await self._on_event(
+            {
+                "event": event,
+                "trace_id": task.trace_id,
+                "tenant_id": task.tenant_id,
+                "actor_type": actor_type,
+                "actor_id": actor_id,
+                "result_status": result_status,
+                "metadata": {
+                    "task_id": task.id,
+                    "order_id": task.order_id,
+                    "conversation_id": task.conversation_id,
+                    "requested_by_type": task.requested_by_type or "CUSTOMER",
+                    "requested_by_id": task.requested_by_id,
+                    "confirmed_by_id": task.confirmed_by_id,
+                    "confirmation_source": task.confirmation_source,
+                    "state": task.state.value,
+                    **(metadata or {}),
+                },
+            }
+        )
+
+    async def _emit_submitted(
+        self,
+        task: CancellationTask,
+        *,
+        result: str,
+        result_status: str = "ok",
+        error_code: str | None = None,
+    ) -> None:
+        """提交事件记录“发起过一次提交”与下游回执；不写幂等键原文。"""
+        await self._emit(
+            "cancellation.submitted",
+            task,
+            actor_type="system",
+            actor_id="system",
+            result_status=result_status,
+            metadata={"result": result, "error_code": error_code},
+        )
+
+    async def _emit_abandoned(
+        self,
+        task: CancellationTask,
+        identity: Identity,
+        *,
+        trigger: str,
+        previous: CancellationState,
+    ) -> None:
+        """放弃事件：客户主动放弃记客户，过期/系统收尾记 system。"""
+        if trigger == "customer":
+            actor_type, actor_id = "customer", identity.account_id
+        else:
+            actor_type, actor_id = "system", "system"
+        await self._emit(
+            "cancellation.abandoned",
+            task,
+            actor_type=actor_type,
+            actor_id=actor_id,
+            metadata={"trigger": trigger, "from_status": previous.value, "to_status": "ABANDONED"},
+        )
+
     async def _invoke(
         self, name: str, payload: dict[str, Any], identity: Identity, trace_id: str
     ) -> Any:
@@ -310,6 +403,15 @@ class CancellationWorkflow:
         task.state = target
         await self._repository.save(task)
         await self._repository.commit()
+        actor_type, actor_id = _requester_actor(task, identity)
+        await self._emit(
+            "cancellation.requested",
+            task,
+            actor_type=actor_type,
+            actor_id=actor_id,
+            metadata={"state": target.value, "reason_code": task.reason_code},
+        )
+        metrics.increment_labeled("cancel_total", {"state": target.value})
         return task
 
     async def confirm(
@@ -337,6 +439,9 @@ class CancellationWorkflow:
             task.state = CancellationState.ABANDONED
             await self._repository.save(task)
             await self._repository.commit()
+            await self._emit_abandoned(
+                task, identity, trigger="expired", previous=CancellationState.AWAITING_CONFIRMATION
+            )
             return task
 
         await self._confirm(identity, task, "confirm", "committed")
@@ -350,7 +455,15 @@ class CancellationWorkflow:
         task.state = CancellationState.SUBMITTING
         await self._repository.save(task)
         await self._repository.commit()
+        await self._emit(
+            "cancellation.confirmed",
+            task,
+            actor_type="customer",
+            actor_id=confirmed_by_id or identity.account_id,
+            metadata={"from_status": "AWAITING_CONFIRMATION", "to_status": "SUBMITTING"},
+        )
 
+        started = monotonic()
         try:
             body = await self._invoke(
                 "submit_cancel",
@@ -358,21 +471,38 @@ class CancellationWorkflow:
                 identity,
                 trace_id,
             )
+            metrics.increment("cancel_submit_latency_ms_total", _elapsed_ms(started))
             if body.get("state") == OmsCancelState.ACCEPTED.value:
+                await self._emit_submitted(task, result="accepted")
                 await self._finish(task, CancellationState.ACCEPTED)
                 return await self._refresh_accepted(identity, task, trace_id)
+            await self._emit_submitted(task, result="unknown", result_status="unknown")
             return await self._recover(identity, task, trace_id)
         except GatewayError as error:
+            metrics.increment("cancel_submit_latency_ms_total", _elapsed_ms(started))
             code = error.payload.get("code")
             if code == "OMS_REJECTED":
+                await self._emit_submitted(
+                    task, result="rejected", result_status="rejected", error_code=str(code)
+                )
                 return await self._finish(task, CancellationState.REJECTED)
             if code == "NOT_FOUND_OR_UNAUTHORIZED":
+                await self._emit_submitted(
+                    task, result="rejected", result_status="rejected", error_code=str(code)
+                )
                 return await self._finish(task, CancellationState.REJECTED)
             await self._record(identity, task, task.state, CancellationState.SUBMIT_UNKNOWN)
             task.state = CancellationState.SUBMIT_UNKNOWN
             task.last_error_code = str(code)
             await self._repository.save(task)
             await self._repository.commit()
+            metrics.increment("cancel_unknown_total")
+            metrics.increment_labeled(
+                "cancel_total", {"state": CancellationState.SUBMIT_UNKNOWN.value}
+            )
+            await self._emit_submitted(
+                task, result="unknown", result_status="unknown", error_code=str(code)
+            )
             return await self._recover(identity, task, trace_id)
 
     async def recover_pending(self, trace_id: str | None = None) -> int:
@@ -396,14 +526,18 @@ class CancellationWorkflow:
             recovered += 1
         return recovered
 
-    async def abandon(self, identity: Identity, task_id: str) -> CancellationTask:
+    async def abandon(
+        self, identity: Identity, task_id: str, *, trigger: str = "customer"
+    ) -> CancellationTask:
         task = await self._repository.get(task_id, identity)
         if task.state in ACTIVE_STATES:
+            previous = task.state
             await self._confirm(identity, task, "abandon", "abandoned")
             await self._record(identity, task, task.state, CancellationState.ABANDONED)
             task.state = CancellationState.ABANDONED
             await self._repository.save(task)
             await self._repository.commit()
+            await self._emit_abandoned(task, identity, trigger=trigger, previous=previous)
         else:
             await self._confirm(identity, task, "abandon", "idempotent")
         return task
@@ -414,10 +548,12 @@ class CancellationWorkflow:
         task = await self._repository.get(task_id, identity)
         trace_id = task.trace_id
         if task.state in ACTIVE_STATES and self._expired(task):
+            previous = task.state
             await self._record(identity, task, task.state, CancellationState.ABANDONED)
             task.state = CancellationState.ABANDONED
             await self._repository.save(task)
             await self._repository.commit()
+            await self._emit_abandoned(task, identity, trigger="expired", previous=previous)
         elif task.state in RECOVERABLE_STATES:
             task = await self._recover(identity, task, trace_id)
         elif task.state == CancellationState.ACCEPTED:
@@ -486,6 +622,21 @@ class CancellationWorkflow:
         task.state = state
         await self._repository.save(task)
         await self._repository.commit()
+        if previous is not state:
+            metrics.increment_labeled("cancel_total", {"state": state.value})
+            await self._emit(
+                "cancellation.result",
+                task,
+                actor_type="system",
+                actor_id="system",
+                metadata={
+                    "from_status": previous.value,
+                    "to_status": state.value,
+                    "result": state.value.lower(),
+                    "reason_code": task.reason_code,
+                    "error_code": task.last_error_code,
+                },
+            )
         return task
 
     def _expired(self, task: CancellationTask) -> bool:

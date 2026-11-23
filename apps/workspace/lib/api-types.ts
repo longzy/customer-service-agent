@@ -418,6 +418,8 @@ export interface components {
             can_confirm: boolean;
             /** Expires At */
             expires_at: string;
+            /** Id */
+            id?: string | null;
             /** Next Step */
             next_step: string;
             /**

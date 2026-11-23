@@ -22,6 +22,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.agent_runtime.model import ChatModel, ModelError
 from backend.conversations.cancel_intents import has_cancel_intent, match_confirm_cancel_phrase
 from backend.conversations.customer_cancellations import (
+    CancellationRuntime,
     CancellationStateConflict,
     CancellationTaskNotFound,
     confirm_cancellation,
@@ -396,6 +397,7 @@ def _cancellation_payload(task: CancellationTask, now: datetime) -> dict[str, An
     """聊天确认/结果卡片的最小任务视图；文案仍来自 `render_result` 唯一出口。"""
     copy = render_result(task.state, task.reason_code)
     return {
+        "id": task.id,
         "state": task.state.value,
         "status_text": copy.state_text,
         "next_step": copy.next_step,
@@ -547,7 +549,7 @@ async def _cancel_result(
     now: datetime,
     order_gateway: ToolGateway | None,
     cancel_gateway: ToolGateway | None,
-    confirm_timeout_minutes: int,
+    runtime: CancellationRuntime,
 ) -> ChatResult:
     """取消分支：确定性定位订单，再发起/复用任务并写确认卡片（AC-63）。
 
@@ -664,7 +666,7 @@ async def _cancel_result(
             order_id,
             trace_id=trace_id,
             now=now,
-            confirm_timeout_minutes=confirm_timeout_minutes,
+            runtime=runtime,
             conversation_id=conversation.id,
         )
     except GatewayError as error:
@@ -707,7 +709,7 @@ async def _confirm_phrase_result(
     trace_id: str,
     now: datetime,
     cancel_gateway: ToolGateway | None,
-    confirm_timeout_minutes: int,
+    runtime: CancellationRuntime,
 ) -> ChatResult:
     """固定短语确认：命中客户最近等待确认任务后走同一确认服务（PHRASE）。"""
     snapshot = await latest_awaiting_confirmation(db, customer)
@@ -729,7 +731,7 @@ async def _confirm_phrase_result(
             customer,
             snapshot.id,
             now=now,
-            confirm_timeout_minutes=confirm_timeout_minutes,
+            runtime=runtime,
             confirmation_source="PHRASE",
         )
     except (CancellationTaskNotFound, CancellationStateConflict):
@@ -1098,7 +1100,7 @@ async def send_customer_message(
     customer: Customer,
     order_gateway: ToolGateway | None,
     cancel_gateway: ToolGateway | None,
-    confirm_timeout_minutes: int,
+    runtime: CancellationRuntime,
 ) -> ChatResult:
     replay = await _replay(db, conversation, idempotency_key)
     if replay is not None:
@@ -1185,7 +1187,7 @@ async def send_customer_message(
             trace_id=trace_id,
             now=now,
             cancel_gateway=cancel_gateway,
-            confirm_timeout_minutes=confirm_timeout_minutes,
+            runtime=runtime,
         )
     if has_cancel_intent(content):
         await _record_ai_event(
@@ -1208,7 +1210,7 @@ async def send_customer_message(
             now=now,
             order_gateway=order_gateway,
             cancel_gateway=cancel_gateway,
-            confirm_timeout_minutes=confirm_timeout_minutes,
+            runtime=runtime,
         )
 
     # plan 3.3.4：关键词优先；订单分支先做确定性护栏，再决定是否调模型。

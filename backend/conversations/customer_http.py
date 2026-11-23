@@ -19,7 +19,9 @@ from backend.audit import (
     ORDER_QUERIED,
     AuditRecord,
 )
+from backend.conversations.cancellation_audit import cancellation_record
 from backend.conversations.customer_cancellations import (
+    CancellationRuntime,
     CancellationSnapshot,
     CancellationStateConflict,
     CancellationTaskNotFound,
@@ -153,11 +155,30 @@ def _cancellation_view(task: CancellationTask, now: datetime) -> CancellationTas
 def _cancellation_summary(snapshot: CancellationSnapshot, now: datetime) -> CancellationSummary:
     copy = render_result(snapshot.state, snapshot.reason_code)
     return CancellationSummary(
+        id=snapshot.id,
         state=snapshot.state.value,
         status_text=copy.state_text,
         next_step=copy.next_step,
         expires_at=utc_text(snapshot.expires_at),
         can_confirm=can_confirm(snapshot, now),
+    )
+
+
+def _cancellation_runtime(request: Request, db: AsyncSession) -> CancellationRuntime:
+    """请求内取消参数：产品配置 + 审计出口。
+
+    审计与业务同事务：写失败由 `audit_or_503` 回滚并返回 503（AC-70）。
+    """
+    active = settings_of(request)
+
+    async def emit(event: dict[str, Any]) -> None:
+        await audit_or_503(request, db, cancellation_record(event))
+
+    return CancellationRuntime(
+        confirm_timeout_minutes=active.confirm_timeout_minutes,
+        max_retries=active.max_retries,
+        retry_backoff_seconds=active.retry_backoff_seconds,
+        audit=emit,
     )
 
 
@@ -385,7 +406,7 @@ async def create_cancellation(
             payload.order_id,
             trace_id=trace_of(request),
             now=now,
-            confirm_timeout_minutes=settings_of(request).confirm_timeout_minutes,
+            runtime=_cancellation_runtime(request, db),
             conversation_id=conversation.id if conversation else None,
         )
     except GatewayError as error:
@@ -418,7 +439,7 @@ async def confirm_customer_cancellation(
             session.customer,
             cancellation_id,
             now=now,
-            confirm_timeout_minutes=settings_of(request).confirm_timeout_minutes,
+            runtime=_cancellation_runtime(request, db),
         )
     except CancellationTaskNotFound as error:
         raise ApiError(404, ErrorCode.NOT_FOUND_OR_UNAUTHORIZED) from error
@@ -450,7 +471,7 @@ async def decline_customer_cancellation(
             session.customer,
             cancellation_id,
             now=now,
-            confirm_timeout_minutes=settings_of(request).confirm_timeout_minutes,
+            runtime=_cancellation_runtime(request, db),
         )
     except CancellationTaskNotFound as error:
         raise ApiError(404, ErrorCode.NOT_FOUND_OR_UNAUTHORIZED) from error
@@ -482,7 +503,7 @@ async def refresh_customer_cancellation(
             session.customer,
             cancellation_id,
             now=now,
-            confirm_timeout_minutes=settings_of(request).confirm_timeout_minutes,
+            runtime=_cancellation_runtime(request, db),
         )
     except CancellationTaskNotFound as error:
         raise ApiError(404, ErrorCode.NOT_FOUND_OR_UNAUTHORIZED) from error
@@ -549,7 +570,7 @@ async def send_message(
             customer=session.customer,
             order_gateway=request.app.state.query_gateway,
             cancel_gateway=request.app.state.cancel_gateway,
-            confirm_timeout_minutes=settings_of(request).confirm_timeout_minutes,
+            runtime=_cancellation_runtime(request, db),
         )
     except ConversationClosedError:
         raise ApiError(409, ErrorCode.CONVERSATION_CLOSED) from None

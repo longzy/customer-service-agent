@@ -47,6 +47,17 @@
             "title": "Expires At",
             "type": "string"
           },
+          "id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Id"
+          },
           "next_step": {
             "title": "Next Step",
             "type": "string"

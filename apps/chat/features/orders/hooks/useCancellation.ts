@@ -137,5 +137,26 @@ export function useCancellation(onChanged: () => void) {
 
   const close = useCallback(() => setState({ kind: "closed" }), []);
 
-  return { state, open, confirm, decline, refresh, close };
+  /**
+   * 列表项的“刷新结果”：任务已提交但未收敛时按 id 拉一次最新状态。
+   * 成功后通知页面重读列表；失败沿用弹层的错误文案，不静默丢弃。
+   */
+  const refreshTask = useCallback(
+    async (taskId: string) => {
+      try {
+        const latest = await refreshCancellation(taskId);
+        onChanged();
+        return latest;
+      } catch (error) {
+        if (handleAuth(error)) {
+          return null;
+        }
+        setState({ kind: "error", order: null, message: messageOf(error) });
+        return null;
+      }
+    },
+    [handleAuth, onChanged],
+  );
+
+  return { state, open, confirm, decline, refresh, refreshTask, close };
 }

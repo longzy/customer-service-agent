@@ -7,11 +7,11 @@ import { CANCEL_IMPACT_TEXT } from "@/lib/cancellationCopy";
 import { formatAmount, formatDateTime } from "@/lib/format";
 
 import type { CancelDialogState } from "../hooks/useCancellation";
+import { canRefreshCancellation } from "../refreshStates";
 import type { CancellationTask, CustomerOrderSummary } from "../types";
 
 const RESULT_TITLE = "取消结果";
 const ERROR_TITLE = "操作失败";
-const REFRESH_STATES = new Set(["SUBMITTING", "SUBMIT_UNKNOWN", "ACCEPTED"]);
 
 type CancelDialogProps = {
   state: CancelDialogState;
@@ -157,7 +157,7 @@ export function CancelDialog({
           <div className="mt-4 flex flex-col gap-4">
             <ResultBody task={state.task} />
             <div className="flex justify-end gap-2">
-              {REFRESH_STATES.has(state.task.state) ? (
+              {canRefreshCancellation(state.task) ? (
                 <Button variant="secondary" size="sm" onClick={onRefresh}>
                   刷新结果
                 </Button>

@@ -164,7 +164,13 @@ def use_trace_sink(sink: TraceSink) -> Iterator[None]:
 # 有副作用的工具，以及订单查询：即使采样率很低也必须留痕。
 # 订单查询是隐私敏感的读操作，AC-57 要求每次查询都能在 tool_executions 里追溯。
 ALWAYS_SAMPLE_TOOLS = frozenset(
-    {"submit_cancel", "get_cancel_result", "get_order", "list_recent_orders"}
+    {
+        "submit_cancel",
+        "get_cancel_result",
+        "get_cancel_eligibility",
+        "get_order",
+        "list_recent_orders",
+    }
 )
 MAX_PENDING_TRACES = 1000
 

@@ -229,6 +229,8 @@
 >
 > 2026-11-22 澄清（F-32 落地）：聊天消息 `payload` 新增可选 `cancellation`（同 `CancellationSummary`），只在取消分支出现；为空时序列化省略，003 的 `{"orders": []}` 载荷保持不变。聊天确认卡片读 `can_confirm`/`expires_at`，结果消息读 `state`/`status_text`；确认按钮仍在订单页弹层，聊天内只提供固定短语确认与“去订单页确认”跳转（D-3）。聊天定位顺序为显式订单号 > 会话内最近一次成功查询恰好一笔 > 最近订单候选；除快照恰好一笔外都列候选，不替客户选。
 >
+> 2026-11-23 澄清（F-34 落地）：请求内的恢复参数改从配置注入——`confirm_timeout_minutes`、`max_retries`、`retry_backoff_seconds` 收进 `CancellationRuntime`，路由一次装配，客户 HTTP 与聊天短语确认共用；启动恢复仍用独立 session 与全局配置。五类事件落在 `service_audit_events`：`cancellation.requested/confirmed/abandoned/submitted/result`，实体统一 `cancellation_request`、实体 id 为任务 id、`trace_id` 取任务链路（与工具记录同一条），metadata 复用 `from_status`/`to_status`/`reason_code`/`error_code`/`trigger` 并新增 `task_id`、`requested_by_type`、`requested_by_id`、`confirmed_by_id`、`confirmation_source`、`state`；原幂等键与 PII 既不进列也不进 metadata。放弃事件区分 `trigger=customer|expired`，过期由系统写、客户主动由客户写。提交事件记一次提交的回执（ok/rejected/unknown + 错误码），结果事件在每个收敛状态各写一条（已受理与最终已取消/被拒绝分开）。`get_cancel_eligibility` 纳入始终采样的工具集合，资格/提交/结果三类调用都能在 `tool_executions` 追到；`CancellationSummary` 增可选 `id`（旧消息载荷为空），列表对 `SUBMITTING`/`SUBMIT_UNKNOWN`/`ACCEPTED` 提供“刷新结果”，使结果卡关闭后仍能推进到最终状态。
+>
 > 2026-11-23 澄清（F-33 落地）：归属闸门收敛到 `backend/conversations/cancellation_access.py`——客户 actor 只表达“本人”，订单归属仍由 Tool Gateway 按 OMS 客户身份判定；坐席 actor 要求同租户、会话本人接管且 `HUMAN_ACTIVE`、交接单 `ACTIVE`、订单在交接单 `context["orders"]` 的已核验清单内，任一不满足返回查无（对外 404，不可区分），确认/拒绝只接受客户 actor（坐席代确认 403）。依据本卡 §2.3 的 S-2 seam，F-33 直接驱动闸门验收，工作台发起路由与 UI 由 F-36 接入；坐席代确认 403 同样由 F-36 的工作台路由把 `CancellationForbidden` 映射为 403（F-33 内没有坐席确认入口，客户确认入口按客户会话 + 任务归属鉴权）。并发发起由 `uq_cancellation_active_order` 兜底：插入放在 savepoint 内，冲突回滚本次插入后回读已有任务，读不到才 409，不污染请求级 UoW。
 
 ### 5.3 兼容、迁移与发布/回滚

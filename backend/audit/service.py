@@ -36,6 +36,12 @@ CONVERSATION_CLOSED = "conversation.closed"
 CONVERSATION_RETURNED_TO_AI = "conversation.returned_to_ai"
 CONVERSATION_VIEWED = "conversation.viewed"
 ORDER_QUERIED = "order.queried"
+# 004 取消五类事件（design 5.1）：请求、确认、放弃、提交、结果各一条。
+CANCELLATION_REQUESTED = "cancellation.requested"
+CANCELLATION_CONFIRMED = "cancellation.confirmed"
+CANCELLATION_ABANDONED = "cancellation.abandoned"
+CANCELLATION_SUBMITTED = "cancellation.submitted"
+CANCELLATION_RESULT = "cancellation.result"
 AUTH_FAILED = "auth.failed"
 RATE_LIMITED = "rate_limited"
 FORBIDDEN = "forbidden"
@@ -48,6 +54,14 @@ AUDIT_METADATA_KEYS = frozenset(
         "message_id",
         "order_id",
         "order_count",
+        # 取消任务链路：任务、发起人/确认人、状态与判定结果；不含幂等键原文。
+        "task_id",
+        "requested_by_type",
+        "requested_by_id",
+        "confirmed_by_id",
+        "confirmation_source",
+        "state",
+        "reason_code",
         "result",
         "tool",
         "from_status",

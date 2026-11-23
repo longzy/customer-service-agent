@@ -116,6 +116,56 @@ describe("OrdersPage", () => {
     expect(await screen.findByText("ORD-10002")).toBeInTheDocument();
   });
 
+  it("AC-67 已受理任务可在列表刷新到最终结果", async () => {
+    const acceptedOrder = {
+      ...ORDERS[1],
+      cancellation: {
+        id: "task-1",
+        state: "ACCEPTED",
+        status_text: "已受理，等待最终取消结果",
+        next_step: "如需帮助，可转人工。",
+        expires_at: "2026-11-24T10:00:00Z",
+        can_confirm: false,
+      },
+    };
+    const cancelledOrder = {
+      ...ORDERS[1],
+      order_status: "CANCELLED",
+      status_label: "已取消",
+      cancelable: false,
+    };
+    const fetchMock = vi
+      .spyOn(global, "fetch")
+      .mockResolvedValueOnce(json({ orders: [acceptedOrder] }))
+      .mockResolvedValueOnce(
+        json({
+          id: "task-1",
+          order_id: "ORD-10001",
+          state: "CANCELLED",
+          status_text: "已取消",
+          reason_text: null,
+          next_step: "如需帮助，可转人工。",
+          reply: "已取消。如需帮助，可转人工。",
+          expires_at: "2026-11-24T10:00:00Z",
+          confirmed_at: "2026-11-23T10:00:00Z",
+          confirmation_source: "BUTTON",
+          can_confirm: false,
+        }),
+      )
+      .mockResolvedValueOnce(json({ orders: [cancelledOrder] }));
+
+    render(<OrdersPage />);
+
+    expect(await screen.findByText("已受理，等待最终取消结果")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "刷新结果" }));
+
+    expect(await screen.findByText("已取消")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "刷新结果" })).not.toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith("/api/customer/cancellations/task-1/refresh", {
+      method: "POST",
+    });
+  });
+
   it("AC-59 未登录时跳转登录页", async () => {
     vi.spyOn(global, "fetch").mockResolvedValueOnce(
       json({ code: "SESSION_INVALID", message: "登录已失效，请重新登录" }, 401),

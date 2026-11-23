@@ -33,6 +33,7 @@ export function OrdersPage() {
     confirm,
     decline,
     refresh: refreshResult,
+    refreshTask,
     close,
   } = useCancellation(() => void refresh());
   const handledParam = useRef<string | null>(null);
@@ -110,7 +111,11 @@ export function OrdersPage() {
             <ul className="m-0 flex list-none flex-col gap-3 p-0">
               {state.orders.map((order) => (
                 <li key={order.order_id}>
-                  <OrderListItem order={order} onCancel={(item) => void open(item)} />
+                  <OrderListItem
+                    order={order}
+                    onCancel={(item) => void open(item)}
+                    onRefresh={(taskId) => void refreshTask(taskId)}
+                  />
                 </li>
               ))}
             </ul>
