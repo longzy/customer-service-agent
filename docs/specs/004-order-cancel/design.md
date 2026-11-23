@@ -228,6 +228,8 @@
 > 2026-11-22 澄清（F-31 落地）：`CustomerOrderSummary` 增加可选 `cancellation`（进行中任务的 `state`/`status_text`/`next_step`/`expires_at`/`can_confirm`），列表读取仍只读、不惰性改状态；已取消由 OMS 订单状态表达，拒绝/放弃后按钮恢复可取消。新增 `POST /customer/cancellations/{id}/refresh` 作为 D-2 的结果刷新（写请求 UoW）：惰性过期，并把已受理任务按 OMS 结果推进到已取消/被拒绝；不提供会写状态的 GET，避免违反 ADR-0009 的只读 GET 约定。确认过期按 3.4 返回任务 `ABANDONED`（不提交），不在请求内抛 409 以免回滚惰性收尾。
 >
 > 2026-11-22 澄清（F-32 落地）：聊天消息 `payload` 新增可选 `cancellation`（同 `CancellationSummary`），只在取消分支出现；为空时序列化省略，003 的 `{"orders": []}` 载荷保持不变。聊天确认卡片读 `can_confirm`/`expires_at`，结果消息读 `state`/`status_text`；确认按钮仍在订单页弹层，聊天内只提供固定短语确认与“去订单页确认”跳转（D-3）。聊天定位顺序为显式订单号 > 会话内最近一次成功查询恰好一笔 > 最近订单候选；除快照恰好一笔外都列候选，不替客户选。
+>
+> 2026-11-23 澄清（F-33 落地）：归属闸门收敛到 `backend/conversations/cancellation_access.py`——客户 actor 只表达“本人”，订单归属仍由 Tool Gateway 按 OMS 客户身份判定；坐席 actor 要求同租户、会话本人接管且 `HUMAN_ACTIVE`、交接单 `ACTIVE`、订单在交接单 `context["orders"]` 的已核验清单内，任一不满足返回查无（对外 404，不可区分），确认/拒绝只接受客户 actor（坐席代确认 403）。依据本卡 §2.3 的 S-2 seam，F-33 直接驱动闸门验收，工作台发起路由与 UI 由 F-36 接入。并发发起由 `uq_cancellation_active_order` 兜底：插入放在 savepoint 内，冲突回滚本次插入后回读已有任务，读不到才 409，不污染请求级 UoW。
 
 ### 5.3 兼容、迁移与发布/回滚
 
