@@ -5,8 +5,9 @@
 - 坐席：必须同时满足同租户、会话由本人接管且处于 `HUMAN_ACTIVE`、交接单 `ACTIVE`、
   订单在交接单 `context["orders"]` 的已核验清单内。任一不满足返回 None，对外 404，
   不区分“不存在”与“无权”，避免泄露订单/任务存在性。
-- 确认只接受客户 actor；坐席代客户确认抛 `CancellationForbidden`（对外 403），
-  与 design 5.1 的越权矩阵一致。
+- 确认只接受客户 actor：`ensure_confirmation_allowed` 对非客户 actor 抛
+  `CancellationForbidden`。F-33 没有坐席确认入口，HTTP 403 由 F-36 的工作台
+  路由映射（AC-69）；客户确认入口本身按客户会话 + 任务归属鉴权。
 - F-36 的工作台发起路由接入本模块；F-33 按执行卡 §2.3 的 S-2 seam 直接驱动。
 """
 
@@ -29,7 +30,7 @@ class CancellationActorKind(StrEnum):
 
 
 class CancellationForbidden(Exception):
-    """角色不具备该取消动作权限；API 层映射 403。"""
+    """角色不具备该取消动作权限；由 F-36 工作台路由映射 403。"""
 
 
 @dataclass(frozen=True)
@@ -112,6 +113,10 @@ async def agent_cancellation_scope(
 
 
 def ensure_confirmation_allowed(scope: CancellationScope) -> None:
-    """确认/拒绝只属于客户本人；坐席没有确认权限（403）。"""
+    """确认/拒绝只属于客户本人；调用方必须传入真实 actor 的 scope。
+
+    客户确认入口的调用方只有客户会话，scope 恒为 CUSTOMER；坐席没有确认入口，
+    代确认 403 由 F-36 的工作台路由在调用本函数后映射（AC-69）。
+    """
     if scope.actor_kind is not CancellationActorKind.CUSTOMER:
         raise CancellationForbidden("确认只接受客户本人")
