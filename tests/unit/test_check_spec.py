@@ -61,9 +61,17 @@ def test_完整规格与执行卡通过_基座豁免(tmp_path: Path, capsys) -> 
 
 
 def test_未批准规格阻断_基座豁免(tmp_path: Path, capsys) -> None:
-    write_repo(tmp_path, status="草案")
+    write_repo(tmp_path, status="评审中")
     assert load_module().main(["--root", str(tmp_path)]) == 1
     assert "必须为「已批准」" in capsys.readouterr().err
+
+
+def test_草案规格跳过批准与设计检查_基座豁免(tmp_path: Path, capsys) -> None:
+    """草案 spec 还在 Frame：允许只有 requirements.md，且不要求批准状态。"""
+    write_repo(tmp_path, status="草案")
+    (tmp_path / "docs" / "specs" / "009-demo" / "design.md").unlink()
+    assert load_module().main(["--root", str(tmp_path)]) == 0
+    assert "跳过 1 个草案 spec" in capsys.readouterr().out
 
 
 def test_T3设计缺威胁模型阻断_基座豁免(tmp_path: Path, capsys) -> None:

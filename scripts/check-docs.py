@@ -11,6 +11,12 @@
 import os
 import re
 import sys
+from pathlib import Path
+
+_SCRIPTS_DIR = os.path.dirname(os.path.abspath(__file__))
+if _SCRIPTS_DIR not in sys.path:
+    sys.path.insert(0, _SCRIPTS_DIR)
+from spec_status import is_draft  # noqa: E402  同目录脚本共用草案判定
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SPECS_ROOT = os.path.join(ROOT, "docs", "specs")
@@ -92,6 +98,7 @@ checked = {
     "acs": 0,
     "cards": 0,
     "specs": 0,
+    "drafts": 0,
     "skipped": 0,
     "reviews": 0,
     "test_refs": 0,
@@ -204,6 +211,10 @@ def spec_layout(path):
 
 def check_spec_structure(specs):
     for name, path in specs:
+        if is_draft(Path(path) / "requirements.md"):
+            # 草案 spec 还在 Frame：允许只有 requirements.md，批准后再查三件套。
+            checked["drafts"] += 1
+            continue
         checked["specs"] += 1
         layout, missing = spec_layout(path)
         if layout is None:
@@ -214,6 +225,8 @@ def check_spec_structure(specs):
 
 def check_ac_coverage(specs):
     for name, path in specs:
+        if is_draft(Path(path) / "requirements.md"):
+            continue
         layout, missing = spec_layout(path)
         if layout is None or missing:
             continue
@@ -597,7 +610,8 @@ def main():
 
     print(
         f"文档检查通过：{checked['files']} 个文件、{checked['links']} 条链接、"
-        f"{checked['specs']} 个规格目录、{checked['acs']} 条 AC、"
+        f"{checked['specs']} 个规格目录、{checked['drafts']} 个草案跳过、"
+        f"{checked['acs']} 条 AC、"
         f"{checked['cards']} 张执行卡已检查、{checked['skipped']} 张跳过、"
         f"{checked['reviews']} 份评审记录已核对、{checked['test_refs']} 条测试引用已校验。"
     )

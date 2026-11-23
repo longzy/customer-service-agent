@@ -16,6 +16,11 @@ import re
 import sys
 from pathlib import Path
 
+_SCRIPTS_DIR = Path(__file__).resolve().parent
+if str(_SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS_DIR))
+from spec_status import is_draft  # noqa: E402  同目录脚本共用草案判定
+
 ROOT = Path(__file__).resolve().parent.parent
 SPECS = ROOT / "docs" / "specs"
 CARDS = ROOT / "docs" / "tasks"
@@ -142,8 +147,15 @@ def main() -> int:
     errors: list[str] = []
     rows: list[tuple[str, int, str, str, list[str]]] = []
     partial_count = 0
+    drafts = 0
+    draft_acs: set[str] = set()
 
     for path in sorted(requirements):
+        if is_draft(path):
+            # 草案 spec 还没拆分任务：其 AC 不进追溯矩阵，也不要求测试引用。
+            drafts += 1
+            draft_acs.update(ac_from_requirements(path))
+            continue
         acs = ac_from_requirements(path)
         for ac in acs:
             count = len(tests.get(ac, []))
@@ -164,7 +176,7 @@ def main() -> int:
             elif ac in baseline:
                 errors.append(f"{ac}：已有完整测试，基线豁免必须删除")
 
-    known = {row[0] for row in rows}
+    known = {row[0] for row in rows} | draft_acs
     for ac in sorted(set(tests) - known):
         errors.append(f"{ac}：测试引用了需求中不存在的验收编号")
 
@@ -181,6 +193,9 @@ def main() -> int:
         print("\n已登记基线（缺口/部分覆盖，待承接）：")
         for ac, reason in baseline.items():
             print(f"  {ac}: {reason}")
+
+    if drafts:
+        print(f"\n跳过 {drafts} 个草案 spec：{len(draft_acs)} 条 AC 暂不计入追溯。")
 
     if errors:
         print(f"\n追溯检查失败，{len(errors)} 个问题：")

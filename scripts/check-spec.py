@@ -15,6 +15,11 @@ import re
 import sys
 from pathlib import Path
 
+_SCRIPTS_DIR = Path(__file__).resolve().parent
+if str(_SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS_DIR))
+from spec_status import is_draft  # noqa: E402  同目录脚本共用草案判定
+
 ROOT = Path(__file__).resolve().parent.parent
 AC_ROW = re.compile(r"^\|\s*(AC-\d{2})\s*\|", re.MULTILINE)
 STATUS_LINE = re.compile(r"^- 状态：(.+)$", re.MULTILINE)
@@ -128,8 +133,13 @@ def main(argv: list[str] | None = None) -> int:
         if meta.get("risk"):
             risk_by_spec.setdefault(card.parent.name, set()).add(meta["risk"])
 
+    drafts = 0
     for requirements in specs:
         spec = requirements.parent.name
+        if is_draft(requirements):
+            # 草案 spec 还在 Frame：不要求批准状态与 design/tasks，批准后再进本门禁。
+            drafts += 1
+            continue
         check_requirements(requirements)
         design = requirements.parent / "design.md"
         if not design.exists():
@@ -146,7 +156,8 @@ def main(argv: list[str] | None = None) -> int:
         for error in errors:
             print(f"  - {error}", file=sys.stderr)
         return 1
-    print(f"Spec/计划门禁通过：{len(specs)} 个 spec、{len(cards)} 张执行卡。")
+    suffix = f"跳过 {drafts} 个草案 spec。" if drafts else ""
+    print(f"Spec/计划门禁通过：{len(specs) - drafts} 个 spec、{len(cards)} 张执行卡。{suffix}")
     return 0
 
 
